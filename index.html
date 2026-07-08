@@ -542,11 +542,26 @@
     <p class="prompt-sub" style="text-align:center;margin-bottom:18px;">Every booking, change request, and cancellation across all clients.</p>
     <div id="adminStatsRow" style="display:flex;gap:8px;margin-bottom:18px;"></div>
 
-    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Grant Therapist Access</p>
-    <input type="email" id="adminTherapistEmail" placeholder="their email address" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;">
-    <div style="display:flex;gap:6px;margin-bottom:10px;">
-      <select id="adminTherapistExpertSelect" style="flex:1;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;"></select>
-      <button id="adminGrantTherapistBtn" style="font-size:11px;font-weight:700;color:#fff;background:#6690D6;border:none;border-radius:10px;padding:10px 14px;cursor:pointer;white-space:nowrap;">Grant</button>
+    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Add New Expert &amp; Invite</p>
+    <input type="text" id="newExpertName" placeholder="Full name" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;">
+    <input type="text" id="newExpertRole" placeholder="Role (e.g. Clinical Psychologist)" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;">
+    <select id="newExpertCategory" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;">
+      <option value="Therapist">Therapist</option>
+      <option value="Psychiatrist">Psychiatrist</option>
+      <option value="General Physician">General Physician</option>
+      <option value="Peer Caregiver">Peer Caregiver</option>
+    </select>
+    <div style="display:flex;gap:6px;margin-bottom:6px;">
+      <input type="text" id="newExpertCredential" placeholder="Credential (e.g. MPhil)" style="flex:1;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;box-sizing:border-box;">
+      <input type="text" id="newExpertYears" placeholder="Experience (e.g. 3+ Years)" style="flex:1;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;box-sizing:border-box;">
+    </div>
+    <input type="url" id="newExpertPhoto" placeholder="Photo URL (optional)" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;">
+    <input type="email" id="newExpertEmail" placeholder="Their email (for invite)" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:8px;box-sizing:border-box;">
+    <button id="adminCreateExpertBtn" style="width:100%;padding:11px;border-radius:10px;border:none;background:#6690D6;color:#fff;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:8px;">Create Profile &amp; Generate Invite</button>
+    <div id="adminInviteMessageBox" style="display:none;background:#EAF4EE;border-radius:10px;padding:12px;margin-bottom:10px;">
+      <p style="font-size:10.5px;color:#3B8F63;font-weight:700;margin:0 0 6px;">Profile created! Send this to them:</p>
+      <p id="adminInviteMessageText" style="font-size:11px;color:#2A2013;line-height:1.5;margin:0 0 8px;white-space:pre-wrap;"></p>
+      <button id="adminCopyInviteBtn" style="width:100%;padding:8px;border-radius:8px;border:1px solid #3B8F63;background:none;color:#3B8F63;font-size:10.5px;font-weight:700;cursor:pointer;">Copy Message</button>
     </div>
     <div id="adminTherapistInvitesList" style="margin-bottom:22px;"></div>
 
@@ -586,6 +601,14 @@
       <button id="therapistAddSlotBtn" style="font-size:11px;font-weight:700;color:#fff;background:#3B8F63;border:none;border-radius:10px;padding:10px 14px;cursor:pointer;white-space:nowrap;">Add Slot</button>
     </div>
     <div id="therapistSlotsList"></div>
+
+    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:22px 0 10px;">My Profile</p>
+    <p style="font-size:11px;color:#B0AA98;margin:0 0 10px;">This is what clients see about you on the Experts page.</p>
+    <textarea id="therapistBioInput" placeholder="A short bio, in your own words..." rows="3" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;resize:vertical;"></textarea>
+    <input type="text" id="therapistApproachesInput" placeholder="Approaches you use (e.g. CBT, DBT)" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;">
+    <input type="text" id="therapistSpecializationsInput" placeholder="Specializations (e.g. Anxiety, Relationships)" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;">
+    <input type="text" id="therapistLanguagesInput" placeholder="Languages (e.g. English, Hindi)" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:10px;box-sizing:border-box;">
+    <button id="therapistSaveProfileBtn" style="width:100%;padding:12px;border-radius:10px;border:none;background:#3B8F63;color:#fff;font-size:12.5px;font-weight:700;cursor:pointer;">Save My Profile</button>
   </div>
 
   <div id="paymentModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.45);z-index:60;"></div>
@@ -1571,7 +1594,7 @@ document.getElementById('authSubmitBtn').onclick = function(){
 
 function onAuthSuccess(user){
   currentUser = user;
-  loadUserDataFromSupabase().then(function(){
+  Promise.all([loadUserDataFromSupabase(), loadExpertsFromSupabase()]).then(function(){
     var overlay = document.getElementById('authOverlay');
     overlay.style.display = 'none';
     void overlay.offsetHeight; // force immediate reflow so the change paints right away
@@ -3939,18 +3962,21 @@ document.addEventListener('click', function(e){
     document.querySelectorAll('.mascot-figure').forEach(function(f){ f.classList.remove('zoomed'); });
   }
 });
-var TEAM_MEMBERS = [
-  { name:'Akash Ramchandani', role:'Founder & Psychologist', roleCategory:'Therapist', credential:'MSc Clinical Psychology', years:'6+ Years', bookingLink:'https://calendar.app.google/w8aY6vB6XtrHxZBG6', photo:'https://homeofbeautifulsouls.com/wp-content/uploads/2026/03/ChatGPT-Image-Mar-24-2026-10_08_01-PM.jpg' },
-  { name:'Dr. Dhruv Parmar', role:'Psychiatrist', roleCategory:'Psychiatrist', credential:'MD', years:'10+ Years', bookingLink:'', photo:'https://homeofbeautifulsouls.com/wp-content/uploads/2024/03/Dr-Dhruv.jpg' },
-  { name:'Dr. Vaishal Choksi', role:'Psychiatrist', roleCategory:'Psychiatrist', credential:'MD', years:'10+ Years', bookingLink:'', photo:'https://homeofbeautifulsouls.com/wp-content/uploads/2026/03/Dr-Vaishal-Choksi.jpeg' },
-  { name:'Ruhi Pai', role:'Clinical Psychologist', roleCategory:'Therapist', credential:'MPhil', years:'6+ Years', bookingLink:'', photo:'https://homeofbeautifulsouls.com/wp-content/uploads/2026/03/1000138254-scaled.jpg' },
-  { name:'Nidhi Nahata', role:'Clinical Psychologist', roleCategory:'Therapist', credential:'MPhil', years:'6+ Years', bookingLink:'', photo:'https://homeofbeautifulsouls.com/wp-content/uploads/2026/03/Nidhi-Nahata.jpeg' },
-  { name:'Rupal Kaura', role:'Clinical Psychologist', roleCategory:'Therapist', credential:'MPhil', years:'6+ Years', bookingLink:'', photo:'https://homeofbeautifulsouls.com/wp-content/uploads/2021/01/rupal-kaur.jpeg' },
-  { name:'Phalguni Soin', role:'Clinical Psychologist', roleCategory:'Therapist', credential:'MPhil', years:'2+ Years', bookingLink:'', photo:'https://homeofbeautifulsouls.com/wp-content/uploads/2026/03/Phalguni-Soin.jpeg' },
-  { name:'Dr. Vanshika Badesara', role:'General Physician', roleCategory:'General Physician', credential:'MBBS', years:'2+ Years', bookingLink:'', photo:'https://homeofbeautifulsouls.com/wp-content/uploads/2026/03/WhatsApp-Image-2025-10-28-at-22.16.12_2deb58cf.jpg' },
-  { name:'Simran', role:'Peer Caregiver', roleCategory:'Peer Caregiver', credential:'BA Psychology', years:'2 Years', bookingLink:'', photo:'https://homeofbeautifulsouls.com/wp-content/uploads/2026/04/Simran.jpeg' },
-  { name:'Prarthana', role:'Peer Caregiver', roleCategory:'Peer Caregiver', credential:'MA Psychology', years:'6 Months', bookingLink:'', photo:'https://homeofbeautifulsouls.com/wp-content/uploads/2026/05/prarthna-photo.jpeg' }
-];
+var TEAM_MEMBERS = []; // populated live from Supabase via loadExpertsFromSupabase()
+
+function loadExpertsFromSupabase(){
+  return sb.from('experts').select('*').order('display_order', {ascending:true}).then(function(result){
+    if(result.error){ console.error('Could not load experts:', result.error); return; }
+    TEAM_MEMBERS = (result.data || []).map(function(e){
+      return {
+        id: e.id, name: e.name, role: e.role, roleCategory: e.role_category,
+        credential: e.credential || '', years: e.years || '', bookingLink: e.booking_link || '',
+        photo: e.photo_url || '', bio: e.bio || '', approaches: e.approaches || '',
+        specializations: e.specializations || '', languages: e.languages || ''
+      };
+    });
+  });
+}
 function getActiveBookingForCategory(category){
   return (appState.expertBookings || []).find(function(b){ return b.role_category === category && b.status === 'active'; }) || null;
 }
@@ -4078,11 +4104,6 @@ function requestExpertChange(m, currentExpertName){
 }
 
 function populateAdminTherapistSelect(){
-  var sel = document.getElementById('adminTherapistExpertSelect');
-  if(!sel.dataset.populated){
-    sel.innerHTML = TEAM_MEMBERS.map(function(m){ return '<option value="'+m.name+'">'+m.name+'</option>'; }).join('');
-    sel.dataset.populated = '1';
-  }
   renderAdminTherapistInvites();
 }
 
@@ -4107,19 +4128,54 @@ function renderAdminTherapistInvites(){
     }).join('');
   });
 }
-document.getElementById('adminGrantTherapistBtn').onclick = function(){
-  var emailInput = document.getElementById('adminTherapistEmail');
-  var email = emailInput.value.trim().toLowerCase();
-  var expertName = document.getElementById('adminTherapistExpertSelect').value;
-  if(!email) return;
-  sb.from('therapist_invites').insert({ email: email, expert_name: expertName, claimed: false }).then(function(result){
-    if(result.error){
-      showToast(result.error.message.indexOf('duplicate') !== -1 ? 'That email already has access granted.' : 'Could not grant access.');
+
+document.getElementById('adminCreateExpertBtn').onclick = function(){
+  var name = document.getElementById('newExpertName').value.trim();
+  var role = document.getElementById('newExpertRole').value.trim();
+  var roleCategory = document.getElementById('newExpertCategory').value;
+  var credential = document.getElementById('newExpertCredential').value.trim();
+  var years = document.getElementById('newExpertYears').value.trim();
+  var photo = document.getElementById('newExpertPhoto').value.trim();
+  var email = document.getElementById('newExpertEmail').value.trim().toLowerCase();
+
+  if(!name || !role || !email){
+    showToast('Name, role, and email are required.');
+    return;
+  }
+
+  var btn = document.getElementById('adminCreateExpertBtn');
+  btn.textContent = 'Creating...'; btn.disabled = true;
+
+  sb.from('experts').insert({
+    name: name, role: role, role_category: roleCategory, credential: credential,
+    years: years, photo_url: photo || null, display_order: 99
+  }).select().single().then(function(expertResult){
+    if(expertResult.error){
+      btn.textContent = 'Create Profile & Generate Invite'; btn.disabled = false;
+      showToast('Could not create profile: ' + expertResult.error.message);
       return;
     }
-    emailInput.value = '';
-    showToast('Access granted — they\'ll get it the moment they sign in.');
-    renderAdminTherapistInvites();
+    sb.from('therapist_invites').insert({ email: email, expert_name: name, claimed: false }).then(function(inviteResult){
+      btn.textContent = 'Create Profile & Generate Invite'; btn.disabled = false;
+      if(inviteResult.error){
+        showToast(inviteResult.error.message.indexOf('duplicate') !== -1 ? 'That email already has an invite.' : 'Profile created, but invite failed.');
+        return;
+      }
+      var message = "Hi " + name.split(' ')[0] + "! You've been added to HOBS Companion as a " + role + ". "+
+        "Download the app and sign up (or sign in with Google) using this exact email: " + email + " — "+
+        "your therapist dashboard will unlock automatically the moment you sign in.";
+      document.getElementById('adminInviteMessageText').textContent = message;
+      document.getElementById('adminInviteMessageBox').style.display = 'block';
+      document.getElementById('adminCopyInviteBtn').onclick = function(){
+        navigator.clipboard.writeText(message).then(function(){ showToast('Copied — paste it into WhatsApp or email.'); });
+      };
+      ['newExpertName','newExpertRole','newExpertCredential','newExpertYears','newExpertPhoto','newExpertEmail'].forEach(function(id){
+        document.getElementById(id).value = '';
+      });
+      loadExpertsFromSupabase();
+      renderAdminTherapistInvites();
+      showToast('Profile created and invite ready to send.');
+    });
   });
 };
 
@@ -4306,9 +4362,31 @@ function openTherapistDashboard(){
   document.getElementById('therapistDashboardSubtitle').textContent = 'Your sessions and availability, as ' + appState.therapistExpertName + '.';
   renderTherapistUpcoming();
   renderTherapistSlots();
+  var myProfile = TEAM_MEMBERS.find(function(m){ return m.name === appState.therapistExpertName; });
+  document.getElementById('therapistBioInput').value = myProfile ? myProfile.bio : '';
+  document.getElementById('therapistApproachesInput').value = myProfile ? myProfile.approaches : '';
+  document.getElementById('therapistSpecializationsInput').value = myProfile ? myProfile.specializations : '';
+  document.getElementById('therapistLanguagesInput').value = myProfile ? myProfile.languages : '';
 }
 document.getElementById('therapistDashboardBtn').onclick = openTherapistDashboard;
 document.getElementById('therapistDashboardBackBtn').onclick = function(){ showOnly('panel-profile'); };
+
+document.getElementById('therapistSaveProfileBtn').onclick = function(){
+  var bio = document.getElementById('therapistBioInput').value.trim();
+  var approaches = document.getElementById('therapistApproachesInput').value.trim();
+  var specializations = document.getElementById('therapistSpecializationsInput').value.trim();
+  var languages = document.getElementById('therapistLanguagesInput').value.trim();
+  var btn = document.getElementById('therapistSaveProfileBtn');
+  btn.textContent = 'Saving...'; btn.disabled = true;
+  sb.from('experts').update({
+    bio: bio, approaches: approaches, specializations: specializations, languages: languages
+  }).eq('name', appState.therapistExpertName).then(function(result){
+    btn.textContent = 'Save My Profile'; btn.disabled = false;
+    if(result.error){ showToast('Could not save — please try again.'); return; }
+    showToast('Profile updated — clients will see this right away.');
+    loadExpertsFromSupabase();
+  });
+};
 
 function renderTherapistUpcoming(){
   var wrap = document.getElementById('therapistUpcomingList');
@@ -4548,15 +4626,27 @@ function openExpertDetail(idx){
 
     '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:16px;padding:16px;margin-bottom:16px;">'+
       '<p style="font-size:10px;font-weight:700;color:#9AABCE;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 8px;">Holds Expertise In</p>'+
-      '<p style="font-size:12.5px;color:#2A2013;margin:0;">General mental health support</p>'+
+      '<p style="font-size:12.5px;color:#2A2013;margin:0;">'+(m.specializations || 'General mental health support')+'</p>'+
     '</div>'+
     '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:16px;padding:16px;margin-bottom:16px;">'+
       '<p style="font-size:10px;font-weight:700;color:#9AABCE;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 8px;">Languages</p>'+
-      '<p style="font-size:12.5px;color:#2A2013;margin:0;">English</p>'+
+      '<p style="font-size:12.5px;color:#2A2013;margin:0;">'+(m.languages || 'English')+'</p>'+
     '</div>'+
-    '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:16px;padding:18px;margin-bottom:16px;text-align:center;">'+
-      '<p style="font-size:12.5px;color:#9AABCE;margin:0;">A fuller introduction from '+m.name.split(' ')[0]+' — their approach, what brought them to this work, and more — is on its way.</p>'+
-    '</div>'+
+    (m.bio ?
+      '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:16px;padding:16px;margin-bottom:16px;">'+
+        '<p style="font-size:10px;font-weight:700;color:#9AABCE;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 8px;">About '+m.name.split(' ')[0]+'</p>'+
+        '<p style="font-size:12.5px;color:#2A2013;line-height:1.6;margin:0;">'+m.bio+'</p>'+
+      '</div>' :
+      '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:16px;padding:18px;margin-bottom:16px;text-align:center;">'+
+        '<p style="font-size:12.5px;color:#9AABCE;margin:0;">A fuller introduction from '+m.name.split(' ')[0]+' — their approach, what brought them to this work, and more — is on its way.</p>'+
+      '</div>'
+    )+
+    (m.approaches ?
+      '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:16px;padding:16px;margin-bottom:16px;">'+
+        '<p style="font-size:10px;font-weight:700;color:#9AABCE;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 8px;">Approaches Used</p>'+
+        '<p style="font-size:12.5px;color:#2A2013;margin:0;">'+m.approaches+'</p>'+
+      '</div>' : ''
+    )+
 
     (isDoctor ?
       '<div style="background:#FEF3D8;border:1px solid #EEE0C4;border-radius:14px;padding:14px;margin-bottom:16px;text-align:center;">'+
