@@ -543,7 +543,7 @@
     <p style="font-size:11px;color:#9AABCE;margin:0 0 14px;">UPI ID: 9426212083@ptyes</p>
     <p id="paymentQrFallback" style="display:none;font-size:12px;color:#C77B7B;margin:0 0 14px;">QR code not available yet — message us directly to arrange payment.</p>
     <p style="font-size:11.5px;color:#9AABCE;line-height:1.6;margin:0 0 20px;">Scan with any UPI app (Paytm, GPay, PhonePe) to pay. Once you've paid, let us know and we'll confirm your booking.</p>
-    <button id="paymentConfirmBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;">I've Paid — Notify Us</button>
+    <button id="paymentConfirmBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;">I've Paid</button>
     <button id="paymentCloseBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:13px;font-weight:700;cursor:pointer;">Close</button>
   </div>
 
@@ -2840,6 +2840,14 @@ function renderCalendar(){
   renderCalendarPendingTasks();
 }
 
+function buildGoogleCalendarLink(title, dateObj, details){
+  var start = dateObj.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  var endObj = new Date(dateObj.getTime() + 50*60000); // default 50-min session
+  var end = endObj.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  return 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent(title) +
+    '&dates=' + start + '/' + end + '&details=' + encodeURIComponent(details || '');
+}
+
 function renderCalendarUpcomingSessions(){
   var wrap = document.getElementById('calendarUpcomingSessions');
   if(!currentUser){ wrap.innerHTML = ''; return; }
@@ -2866,9 +2874,13 @@ function renderCalendarUpcomingSessions(){
     items.sort(function(a, b){ return a.date - b.date; });
     wrap.innerHTML = items.map(function(item){
       var dateLabel = item.date.toLocaleDateString('en-US', { month:'short', day:'numeric' }) + ' · ' + item.date.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
-      return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:#EAF0FB;border:1px solid #D5E2F7;border-radius:12px;padding:12px 14px;margin-bottom:8px;">'+
-        '<div><p style="font-size:12.5px;color:#2A2013;font-weight:700;margin:0 0 2px;">'+item.label+'</p><p style="font-size:10.5px;color:#9AABCE;margin:0;">'+item.sublabel+'</p></div>'+
-        '<span style="font-size:10.5px;color:#6690D6;font-weight:700;flex-shrink:0;">'+dateLabel+'</span>'+
+      var calLink = buildGoogleCalendarLink(item.label, item.date, item.sublabel + ' — via HOBS Companion');
+      return '<div style="background:#EAF0FB;border:1px solid #D5E2F7;border-radius:12px;padding:12px 14px;margin-bottom:8px;">'+
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;">'+
+          '<div><p style="font-size:12.5px;color:#2A2013;font-weight:700;margin:0 0 2px;">'+item.label+'</p><p style="font-size:10.5px;color:#9AABCE;margin:0;">'+item.sublabel+'</p></div>'+
+          '<span style="font-size:10.5px;color:#6690D6;font-weight:700;flex-shrink:0;">'+dateLabel+'</span>'+
+        '</div>'+
+        '<a href="'+calLink+'" target="_blank" rel="noopener" style="display:block;text-align:center;font-size:10.5px;font-weight:700;color:#6690D6;background:#FFFFFF;border:1px solid #D5E2F7;border-radius:8px;padding:7px;text-decoration:none;">+ Add to Calendar</a>'+
       '</div>';
     }).join('');
   }).catch(function(){
@@ -3794,7 +3806,7 @@ function getActiveBookingForCategory(category){
   return (appState.expertBookings || []).find(function(b){ return b.role_category === category && b.status === 'active'; }) || null;
 }
 
-function showPaymentModal(purposeText, notifyMessage){
+function showPaymentModal(purposeText, notifyMessage, onConfirmed){
   document.getElementById('paymentModalPurpose').textContent = purposeText;
   var qrImg = document.getElementById('paymentQrImage');
   var qrFallback = document.getElementById('paymentQrFallback');
@@ -3813,7 +3825,8 @@ function showPaymentModal(purposeText, notifyMessage){
   };
   document.getElementById('paymentConfirmBtn').onclick = function(){
     closeModal();
-    window.open('https://wa.me/918320470976?text=' + encodeURIComponent(notifyMessage), '_blank');
+    showToast("Thanks! We'll verify your payment and confirm shortly.");
+    if(typeof onConfirmed === 'function') onConfirmed();
   };
   document.getElementById('paymentCloseBtn').onclick = closeModal;
   document.getElementById('paymentModalBackdrop').onclick = closeModal;
@@ -3836,12 +3849,6 @@ function bookExpert(m){
     var newBooking = { id: 'temp_' + uidGen(), expert_name: m.name, role_category: m.roleCategory, status: 'active', cancellation_count: 0, payment_confirmed: false };
     appState.expertBookings.push(newBooking);
     renderTeamList();
-    if(m.bookingLink){
-      window.open(m.bookingLink, '_blank');
-    } else {
-      var waMessage = encodeURIComponent("Hi! I'd like to book a session with " + m.name + " at HOBS.");
-      window.open('https://wa.me/918320470976?text=' + waMessage, '_blank');
-    }
     sb.from('expert_bookings').insert({
       user_id: currentUser.id, expert_name: m.name, role_category: m.roleCategory, status: 'active', cancellation_count: 0, payment_confirmed: false
     }).select().single().then(function(result){
@@ -3849,13 +3856,20 @@ function bookExpert(m){
     });
     showPaymentModal(
       "Session with " + m.name,
-      "Hi! I've paid for my session with " + m.name + " and wanted to let you know."
+      "Hi! I've paid for my session with " + m.name + " and wanted to let you know.",
+      function(){
+        if(m.bookingLink){
+          showToast("Payment noted. Now pick your time with " + m.name.split(' ')[0] + ".");
+          window.open(m.bookingLink, '_blank');
+        } else {
+          showToast("Payment noted — we'll reach out to schedule your time with " + m.name.split(' ')[0] + ".");
+        }
+      }
     );
   });
 }
 
 function requestExpertChange(m, currentExpertName){
-  var waMessage = encodeURIComponent("Hi! I'm currently connected with " + currentExpertName + " (" + m.roleCategory + ") and would like to request a change. Could we talk through options?");
   var booking = getActiveBookingForCategory(m.roleCategory);
   if(booking){
     booking.status = 'change_requested';
@@ -3863,7 +3877,7 @@ function requestExpertChange(m, currentExpertName){
       sb.from('expert_bookings').update({ status: 'change_requested' }).eq('id', booking.id).then(function(){});
     }
   }
-  window.open('https://wa.me/918320470976?text=' + waMessage, '_blank');
+  showToast("Change request sent — our team will reach out to help you find the right fit.");
   renderTeamList();
 }
 
