@@ -522,6 +522,15 @@
     <p class="prompt-title" style="text-align:center;">Booking Dashboard</p>
     <p class="prompt-sub" style="text-align:center;margin-bottom:18px;">Every booking, change request, and cancellation across all clients.</p>
     <div id="adminStatsRow" style="display:flex;gap:8px;margin-bottom:18px;"></div>
+
+    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Support Group Sessions</p>
+    <div style="display:flex;gap:6px;margin-bottom:10px;">
+      <input type="datetime-local" id="adminNewGroupSessionDate" style="flex:1;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;">
+      <button id="adminAddGroupSessionBtn" style="font-size:11px;font-weight:700;color:#fff;background:#6690D6;border:none;border-radius:10px;padding:10px 14px;cursor:pointer;white-space:nowrap;">Add</button>
+    </div>
+    <div id="adminGroupSessionsList" style="margin-bottom:22px;"></div>
+
+    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">All Bookings</p>
     <div id="adminBookingsList"></div>
   </div>
 
@@ -928,6 +937,9 @@
     <p class="prompt-sub">Every day you check in gets a place here — tap any day to see your mood and your tasks together.</p>
     <div class="weekday-row"><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div>
     <div class="day-grid" id="dayGrid"></div>
+
+    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:24px 0 10px;">Upcoming Sessions</p>
+    <div id="calendarUpcomingSessions"></div>
 
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:24px 0 10px;">Pending Tasks</p>
     <div id="calendarPendingTasks"></div>
@@ -2823,7 +2835,44 @@ function renderCalendar(){
       grid.appendChild(cell);
     })(day);
   }
+  renderCalendarUpcomingSessions();
   renderCalendarPendingTasks();
+}
+
+function renderCalendarUpcomingSessions(){
+  var wrap = document.getElementById('calendarUpcomingSessions');
+  if(!currentUser){ wrap.innerHTML = ''; return; }
+  wrap.innerHTML = '<p style="text-align:center;font-size:12px;color:#B0AA98;padding:6px 0;">Loading...</p>';
+  var nowIso = new Date().toISOString();
+
+  Promise.all([
+    sb.from('expert_bookings').select('*').eq('user_id', currentUser.id).eq('status', 'active').not('session_date', 'is', null).gte('session_date', nowIso).order('session_date', {ascending:true}),
+    appState.userHasSupportGroup ? sb.from('support_group_sessions').select('*').gte('session_date', nowIso).order('session_date', {ascending:true}).limit(1) : Promise.resolve({data:[], error:null})
+  ]).then(function(results){
+    var expertRes = results[0], groupRes = results[1];
+    var items = [];
+    (expertRes.data || []).forEach(function(b){
+      items.push({ label: 'Session with ' + b.expert_name, sublabel: b.role_category, date: new Date(b.session_date) });
+    });
+    (groupRes.data || []).forEach(function(g){
+      items.push({ label: 'Support Group Session', sublabel: g.notes || 'Group session', date: new Date(g.session_date) });
+    });
+
+    if(items.length === 0){
+      wrap.innerHTML = '<p style="text-align:center;font-size:12px;color:#B0AA98;padding:10px 0;">No upcoming sessions scheduled yet.</p>';
+      return;
+    }
+    items.sort(function(a, b){ return a.date - b.date; });
+    wrap.innerHTML = items.map(function(item){
+      var dateLabel = item.date.toLocaleDateString('en-US', { month:'short', day:'numeric' }) + ' · ' + item.date.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
+      return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:#EAF0FB;border:1px solid #D5E2F7;border-radius:12px;padding:12px 14px;margin-bottom:8px;">'+
+        '<div><p style="font-size:12.5px;color:#2A2013;font-weight:700;margin:0 0 2px;">'+item.label+'</p><p style="font-size:10.5px;color:#9AABCE;margin:0;">'+item.sublabel+'</p></div>'+
+        '<span style="font-size:10.5px;color:#6690D6;font-weight:700;flex-shrink:0;">'+dateLabel+'</span>'+
+      '</div>';
+    }).join('');
+  }).catch(function(){
+    wrap.innerHTML = '<p style="text-align:center;font-size:12px;color:#B0AA98;padding:10px 0;">Couldn\'t load sessions right now.</p>';
+  });
 }
 
 function renderCalendarPendingTasks(){
@@ -3817,9 +3866,45 @@ function requestExpertChange(m, currentExpertName){
   renderTeamList();
 }
 
+function renderAdminGroupSessions(){
+  var wrap = document.getElementById('adminGroupSessionsList');
+  wrap.innerHTML = '<p style="font-size:11px;color:#B0AA98;">Loading...</p>';
+  sb.from('support_group_sessions').select('*').gte('session_date', new Date().toISOString()).order('session_date', {ascending:true}).then(function(result){
+    if(result.error){ wrap.innerHTML = ''; return; }
+    var sessions = result.data || [];
+    if(sessions.length === 0){
+      wrap.innerHTML = '<p style="font-size:11px;color:#B0AA98;">No upcoming group sessions scheduled.</p>';
+      return;
+    }
+    wrap.innerHTML = sessions.map(function(s){
+      var dateLabel = new Date(s.session_date).toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+      return '<div style="display:flex;justify-content:space-between;align-items:center;background:#EAF0FB;border-radius:10px;padding:9px 12px;margin-bottom:6px;">'+
+        '<span style="font-size:11.5px;color:#2A2013;font-weight:600;">'+dateLabel+'</span>'+
+        '<button class="admin-remove-group-session-btn" data-id="'+s.id+'" style="font-size:10px;color:#C77B7B;background:none;border:none;cursor:pointer;font-weight:700;">Remove</button>'+
+      '</div>';
+    }).join('');
+    document.querySelectorAll('.admin-remove-group-session-btn').forEach(function(btn){
+      btn.onclick = function(){
+        sb.from('support_group_sessions').delete().eq('id', btn.dataset.id).then(function(){ renderAdminGroupSessions(); });
+      };
+    });
+  });
+}
+document.getElementById('adminAddGroupSessionBtn').onclick = function(){
+  var input = document.getElementById('adminNewGroupSessionDate');
+  if(!input.value) return;
+  sb.from('support_group_sessions').insert({ session_date: new Date(input.value).toISOString() }).then(function(result){
+    if(!result.error){
+      input.value = '';
+      renderAdminGroupSessions();
+    }
+  });
+};
+
 function openAdminDashboard(){
   showOnly('panel-admin');
   document.getElementById('adminBookingsList').innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">Loading...</p>';
+  renderAdminGroupSessions();
   Promise.all([
     sb.from('expert_bookings').select('*').order('created_at', {ascending:false}),
     sb.from('profiles').select('user_id,name')
@@ -3850,12 +3935,19 @@ function openAdminDashboard(){
       var clientName = nameByUserId[b.user_id] || 'Unknown client';
       var statusColor = b.status === 'active' ? '#3B8F63' : '#7B4F00';
       var statusBg = b.status === 'active' ? '#EAF4EE' : '#FEF3D8';
+      var currentSessionVal = b.session_date ? new Date(b.session_date).toISOString().slice(0,16) : '';
       return '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:14px;padding:14px;margin-bottom:10px;">'+
         '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">'+
           '<p style="font-size:13px;font-weight:700;color:#2A2013;margin:0;">'+clientName+' → '+b.expert_name+'</p>'+
           '<span style="font-size:9px;font-weight:700;color:'+statusColor+';background:'+statusBg+';padding:3px 7px;border-radius:8px;white-space:nowrap;">'+b.status.replace('_',' ')+'</span>'+
         '</div>'+
         '<p style="font-size:11px;color:#9AABCE;margin:0 0 6px;">'+b.role_category+' · Cancelled '+(b.cancellation_count||0)+' time(s)</p>'+
+        (b.status === 'active' ?
+          '<div style="display:flex;gap:6px;align-items:center;margin-top:8px;">'+
+            '<input type="datetime-local" class="admin-session-date-input" data-id="'+b.id+'" value="'+currentSessionVal+'" style="flex:1;padding:8px;border-radius:8px;border:1px solid #EEE0C4;font-size:11px;font-family:inherit;">'+
+            '<button class="admin-set-session-btn" data-id="'+b.id+'" style="font-size:10px;font-weight:700;color:#6690D6;background:none;border:1px solid #6690D6;border-radius:8px;padding:8px 10px;cursor:pointer;white-space:nowrap;">Set</button>'+
+          '</div>' : ''
+        )+
         (b.cancellation_charge_owed ?
           '<div style="display:flex;align-items:center;justify-content:space-between;background:#FBE8E8;border-radius:10px;padding:8px 10px;margin-top:6px;">'+
             '<span style="font-size:11px;color:#C77B7B;font-weight:700;">50% charge owed</span>'+
@@ -3864,6 +3956,18 @@ function openAdminDashboard(){
         )+
       '</div>';
     }).join('');
+
+    document.querySelectorAll('.admin-set-session-btn').forEach(function(btn){
+      btn.onclick = function(){
+        var id = btn.dataset.id;
+        var input = document.querySelector('.admin-session-date-input[data-id="'+id+'"]');
+        if(!input.value) return;
+        var isoValue = new Date(input.value).toISOString();
+        sb.from('expert_bookings').update({ session_date: isoValue }).eq('id', id).then(function(result){
+          if(!result.error) showToast('Session date set.');
+        });
+      };
+    });
 
     document.querySelectorAll('.admin-resolve-charge-btn').forEach(function(btn){
       btn.onclick = function(){
