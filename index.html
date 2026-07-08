@@ -514,6 +514,17 @@
     <div id="expertDetailContent"></div>
   </div>
 
+  <div class="content" id="panel-admin" style="display:none;">
+    <button id="adminBackBtn" style="background:none;border:none;cursor:pointer;padding:0;margin-bottom:14px;color:#5C6B94;display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      Profile
+    </button>
+    <p class="prompt-title" style="text-align:center;">Booking Dashboard</p>
+    <p class="prompt-sub" style="text-align:center;margin-bottom:18px;">Every booking, change request, and cancellation across all clients.</p>
+    <div id="adminStatsRow" style="display:flex;gap:8px;margin-bottom:18px;"></div>
+    <div id="adminBookingsList"></div>
+  </div>
+
   <div id="policyModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.45);z-index:60;"></div>
   <div id="policyModal" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;background:#FFFFFF;border-radius:24px 24px 0 0;padding:24px 22px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;z-index:61;box-shadow:0 -10px 30px rgba(0,0,0,0.15);max-height:80vh;overflow-y:auto;">
     <p class="prompt-title" style="margin-bottom:14px;">Booking &amp; Cancellation Policy</p>
@@ -826,6 +837,10 @@
     <div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:16px;padding:16px;">
       <p style="font-size:12px;color:#9AABCE;margin:0 0 6px;font-weight:700;">Preferences</p>
       <div id="profilePrefsArea"></div>
+    </div>
+    <div id="adminEntryCard" style="display:none;background:#FFFFFF;border:1px solid #EEE0C4;border-radius:16px;padding:16px;margin-top:14px;">
+      <p style="font-size:12px;color:#9AABCE;margin:0 0 8px;font-weight:700;">Admin</p>
+      <button id="adminDashboardBtn" style="width:100%;padding:12px;border-radius:12px;border:1px solid #EEE0C4;background:transparent;color:#6690D6;font-size:13px;font-weight:700;cursor:pointer;">Booking &amp; Cancellation Dashboard</button>
     </div>
     <div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:16px;padding:16px;margin-top:14px;">
       <p style="font-size:12px;color:#9AABCE;margin:0 0 8px;font-weight:700;">Account</p>
@@ -1648,6 +1663,7 @@ function loadUserDataFromSupabase(){
       appState.dateOfBirth = profileRes.data.date_of_birth || '';
       appState.onboardingComplete = profileRes.data.onboarding_complete || false;
       appState.hasSeenIntro = profileRes.data.has_seen_intro || false;
+      appState.isAdmin = profileRes.data.is_admin || false;
     }
 
     appState.entries = (entriesRes.data || []).map(function(row){
@@ -2188,7 +2204,7 @@ document.getElementById('intakeDoneBtn').onclick = function(){
 };
 
 // ---- Bottom nav: Home / Journal / You ----
-var allPanels = ['panel-bubbles','panel-journal','panel-quick-journal','panel-saved','panel-support','panel-therapist-select','panel-intake','panel-booking','panel-history','panel-profile','panel-mood-tracker','panel-who5','panel-who5-results','panel-calendar','panel-day','panel-celebration','panel-bodydouble','panel-tips','panel-calmroom','panel-progress','panel-achievements','panel-rewards','panel-search','panel-team','panel-expert-detail','panel-tests','panel-test-detail','panel-test-results','panel-grounding','panel-grounding-detail','panel-worksheets','panel-worksheet-category','panel-worksheet-detail'];
+var allPanels = ['panel-bubbles','panel-journal','panel-quick-journal','panel-saved','panel-support','panel-therapist-select','panel-intake','panel-booking','panel-history','panel-profile','panel-mood-tracker','panel-who5','panel-who5-results','panel-calendar','panel-day','panel-celebration','panel-bodydouble','panel-tips','panel-calmroom','panel-progress','panel-achievements','panel-rewards','panel-search','panel-team','panel-expert-detail','panel-admin','panel-tests','panel-test-detail','panel-test-results','panel-grounding','panel-grounding-detail','panel-worksheets','panel-worksheet-category','panel-worksheet-detail'];
 function showOnly(panelId){
   allPanels.forEach(function(id){ document.getElementById(id).style.display = (id === panelId) ? 'block' : 'none'; });
 }
@@ -2364,6 +2380,7 @@ function renderHistory(){
 
 function renderProfile(){
   document.getElementById('profileAccountEmail').textContent = currentUser ? ('Signed in as ' + currentUser.email) : '';
+  document.getElementById('adminEntryCard').style.display = appState.isAdmin ? 'block' : 'none';
   var tArea = document.getElementById('profileTherapistArea');
   tArea.innerHTML = '';
   if(appState.userHasTherapist){
@@ -3729,6 +3746,67 @@ function requestExpertChange(m, currentExpertName){
   renderTeamList();
 }
 
+function openAdminDashboard(){
+  showOnly('panel-admin');
+  document.getElementById('adminBookingsList').innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">Loading...</p>';
+  Promise.all([
+    sb.from('expert_bookings').select('*').order('created_at', {ascending:false}),
+    sb.from('profiles').select('user_id,name')
+  ]).then(function(results){
+    var bookingsRes = results[0], profilesRes = results[1];
+    if(bookingsRes.error){
+      document.getElementById('adminBookingsList').innerHTML = '<p style="text-align:center;color:#C77B7B;font-size:12.5px;">Could not load bookings: ' + bookingsRes.error.message + '</p>';
+      return;
+    }
+    var nameByUserId = {};
+    (profilesRes.data || []).forEach(function(p){ nameByUserId[p.user_id] = p.name; });
+    var bookings = bookingsRes.data || [];
+
+    var activeCount = bookings.filter(function(b){ return b.status === 'active'; }).length;
+    var changeReqCount = bookings.filter(function(b){ return b.status === 'change_requested'; }).length;
+    var chargeOwedCount = bookings.filter(function(b){ return b.cancellation_charge_owed; }).length;
+    document.getElementById('adminStatsRow').innerHTML =
+      '<div style="flex:1;background:#EAF4EE;border-radius:12px;padding:10px;text-align:center;"><p style="font-size:18px;font-weight:800;color:#3B8F63;margin:0;">'+activeCount+'</p><p style="font-size:9.5px;color:#5C6B94;margin:0;">Active</p></div>'+
+      '<div style="flex:1;background:#FEF3D8;border-radius:12px;padding:10px;text-align:center;"><p style="font-size:18px;font-weight:800;color:#7B4F00;margin:0;">'+changeReqCount+'</p><p style="font-size:9.5px;color:#5C6B94;margin:0;">Change Requests</p></div>'+
+      '<div style="flex:1;background:#FBE8E8;border-radius:12px;padding:10px;text-align:center;"><p style="font-size:18px;font-weight:800;color:#C77B7B;margin:0;">'+chargeOwedCount+'</p><p style="font-size:9.5px;color:#5C6B94;margin:0;">Charges Owed</p></div>';
+
+    if(bookings.length === 0){
+      document.getElementById('adminBookingsList').innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">No bookings yet.</p>';
+      return;
+    }
+
+    document.getElementById('adminBookingsList').innerHTML = bookings.map(function(b){
+      var clientName = nameByUserId[b.user_id] || 'Unknown client';
+      var statusColor = b.status === 'active' ? '#3B8F63' : '#7B4F00';
+      var statusBg = b.status === 'active' ? '#EAF4EE' : '#FEF3D8';
+      return '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:14px;padding:14px;margin-bottom:10px;">'+
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">'+
+          '<p style="font-size:13px;font-weight:700;color:#2A2013;margin:0;">'+clientName+' → '+b.expert_name+'</p>'+
+          '<span style="font-size:9px;font-weight:700;color:'+statusColor+';background:'+statusBg+';padding:3px 7px;border-radius:8px;white-space:nowrap;">'+b.status.replace('_',' ')+'</span>'+
+        '</div>'+
+        '<p style="font-size:11px;color:#9AABCE;margin:0 0 6px;">'+b.role_category+' · Cancelled '+(b.cancellation_count||0)+' time(s)</p>'+
+        (b.cancellation_charge_owed ?
+          '<div style="display:flex;align-items:center;justify-content:space-between;background:#FBE8E8;border-radius:10px;padding:8px 10px;margin-top:6px;">'+
+            '<span style="font-size:11px;color:#C77B7B;font-weight:700;">50% charge owed</span>'+
+            '<button class="admin-resolve-charge-btn" data-id="'+b.id+'" style="font-size:10px;font-weight:700;color:#3B8F63;background:none;border:1px solid #3B8F63;border-radius:8px;padding:4px 8px;cursor:pointer;">Mark Collected</button>'+
+          '</div>' : ''
+        )+
+      '</div>';
+    }).join('');
+
+    document.querySelectorAll('.admin-resolve-charge-btn').forEach(function(btn){
+      btn.onclick = function(){
+        var id = btn.dataset.id;
+        sb.from('expert_bookings').update({ cancellation_charge_owed: false }).eq('id', id).then(function(result){
+          if(!result.error) openAdminDashboard();
+        });
+      };
+    });
+  });
+}
+document.getElementById('adminDashboardBtn').onclick = openAdminDashboard;
+document.getElementById('adminBackBtn').onclick = function(){ showOnly('panel-profile'); };
+
 function cancelSession(m){
   var booking = getActiveBookingForCategory(m.roleCategory);
   if(!booking) return;
@@ -3736,6 +3814,11 @@ function cancelSession(m){
 
   if(count >= 1){
     // Second+ cancellation attempt — not self-service, must go through admin.
+    // This is exactly when the 50% charge applies, so record it for admin tracking.
+    booking.cancellation_charge_owed = true;
+    if(String(booking.id).indexOf('temp_') !== 0){
+      sb.from('expert_bookings').update({ cancellation_charge_owed: true }).eq('id', booking.id).then(function(){});
+    }
     var waMessage = encodeURIComponent("Hi! I need to cancel my session with " + m.name + " again (this would be my 2nd+ cancellation for this booking). I understand this needs to go through you directly, including the 50% cancellation charge that applies.");
     window.open('https://wa.me/918320470976?text=' + waMessage, '_blank');
     showToast("This is a repeat cancellation — it can't be self-service. We've opened a message to our team for you.");
