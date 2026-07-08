@@ -524,6 +524,14 @@
     <p class="prompt-sub" style="text-align:center;margin-bottom:18px;">Every booking, change request, and cancellation across all clients.</p>
     <div id="adminStatsRow" style="display:flex;gap:8px;margin-bottom:18px;"></div>
 
+    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Expert Availability</p>
+    <select id="adminAvailabilityExpertSelect" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:8px;"></select>
+    <div style="display:flex;gap:6px;margin-bottom:10px;">
+      <input type="datetime-local" id="adminNewSlotDate" style="flex:1;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;">
+      <button id="adminAddSlotBtn" style="font-size:11px;font-weight:700;color:#fff;background:#6690D6;border:none;border-radius:10px;padding:10px 14px;cursor:pointer;white-space:nowrap;">Add Slot</button>
+    </div>
+    <div id="adminSlotsList" style="margin-bottom:22px;"></div>
+
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Support Group Sessions</p>
     <div style="display:flex;gap:6px;margin-bottom:10px;">
       <input type="datetime-local" id="adminNewGroupSessionDate" style="flex:1;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;">
@@ -545,6 +553,14 @@
     <p style="font-size:11.5px;color:#9AABCE;line-height:1.6;margin:0 0 20px;">Scan with any UPI app (Paytm, GPay, PhonePe) to pay. Once you've paid, let us know and we'll confirm your booking.</p>
     <button id="paymentConfirmBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;">I've Paid</button>
     <button id="paymentCloseBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:13px;font-weight:700;cursor:pointer;">Close</button>
+  </div>
+
+  <div id="slotPickerModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.45);z-index:60;"></div>
+  <div id="slotPickerModal" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;background:#FFFFFF;border-radius:24px 24px 0 0;padding:24px 22px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;z-index:61;box-shadow:0 -10px 30px rgba(0,0,0,0.15);max-height:80vh;overflow-y:auto;">
+    <p class="prompt-title" style="margin-bottom:4px;text-align:center;">Pick a Time</p>
+    <p id="slotPickerSubtitle" style="font-size:12.5px;color:#5C6B94;margin:0 0 18px;text-align:center;"></p>
+    <div id="slotPickerList"></div>
+    <button id="slotPickerCloseBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:13px;font-weight:700;cursor:pointer;margin-top:10px;">Cancel</button>
   </div>
 
   <div id="policyModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.45);z-index:60;"></div>
@@ -3844,28 +3860,75 @@ function showPolicyModal(onContinue){
   document.getElementById('policyModalBackdrop').onclick = closeModal;
 }
 
-function bookExpert(m){
-  showPolicyModal(function(){
-    var newBooking = { id: 'temp_' + uidGen(), expert_name: m.name, role_category: m.roleCategory, status: 'active', cancellation_count: 0, payment_confirmed: false };
-    appState.expertBookings.push(newBooking);
-    renderTeamList();
-    sb.from('expert_bookings').insert({
-      user_id: currentUser.id, expert_name: m.name, role_category: m.roleCategory, status: 'active', cancellation_count: 0, payment_confirmed: false
-    }).select().single().then(function(result){
-      if(!result.error) newBooking.id = result.data.id;
+function showSlotPicker(m, onSlotChosen, onNoSlots){
+  sb.from('expert_availability_slots').select('*').eq('expert_name', m.name).eq('is_booked', false).gte('slot_date', new Date().toISOString()).order('slot_date', {ascending:true}).then(function(result){
+    var slots = (result.error ? [] : result.data) || [];
+    if(slots.length === 0){
+      onNoSlots();
+      return;
+    }
+    document.getElementById('slotPickerSubtitle').textContent = 'Available times with ' + m.name;
+    document.getElementById('slotPickerList').innerHTML = slots.map(function(s){
+      var dateLabel = new Date(s.slot_date).toLocaleString('en-US', { weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+      return '<button class="slot-picker-option" data-id="'+s.id+'" data-date="'+s.slot_date+'" style="display:block;width:100%;text-align:left;padding:13px 14px;border-radius:12px;border:1px solid #EEE0C4;background:#FFFFFF;color:#2A2013;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:8px;">'+dateLabel+'</button>';
+    }).join('');
+    document.getElementById('slotPickerModalBackdrop').style.display = 'block';
+    document.getElementById('slotPickerModal').style.display = 'block';
+    var closeModal = function(){
+      document.getElementById('slotPickerModalBackdrop').style.display = 'none';
+      document.getElementById('slotPickerModal').style.display = 'none';
+    };
+    document.querySelectorAll('.slot-picker-option').forEach(function(btn){
+      btn.onclick = function(){
+        closeModal();
+        onSlotChosen({ id: btn.dataset.id, slot_date: btn.dataset.date });
+      };
     });
-    showPaymentModal(
-      "Session with " + m.name,
-      "Hi! I've paid for my session with " + m.name + " and wanted to let you know.",
-      function(){
-        if(m.bookingLink){
-          showToast("Payment noted. Now pick your time with " + m.name.split(' ')[0] + ".");
-          window.open(m.bookingLink, '_blank');
-        } else {
+    document.getElementById('slotPickerCloseBtn').onclick = closeModal;
+    document.getElementById('slotPickerModalBackdrop').onclick = closeModal;
+  });
+}
+
+function bookExpert(m){
+  showSlotPicker(m, function(chosenSlot){
+    // A real slot was picked — book it, mark it taken, and set the session date immediately.
+    showPolicyModal(function(){
+      var newBooking = { id: 'temp_' + uidGen(), expert_name: m.name, role_category: m.roleCategory, status: 'active', cancellation_count: 0, payment_confirmed: false, session_date: chosenSlot.slot_date };
+      appState.expertBookings.push(newBooking);
+      renderTeamList();
+      sb.from('expert_bookings').insert({
+        user_id: currentUser.id, expert_name: m.name, role_category: m.roleCategory, status: 'active', cancellation_count: 0, payment_confirmed: false, session_date: chosenSlot.slot_date
+      }).select().single().then(function(result){
+        if(!result.error) newBooking.id = result.data.id;
+      });
+      sb.from('expert_availability_slots').update({ is_booked: true, booked_by: currentUser.id }).eq('id', chosenSlot.id).then(function(){});
+      showPaymentModal(
+        "Session with " + m.name,
+        "Hi! I've paid for my session with " + m.name + " and wanted to let you know.",
+        function(){
+          showToast("Your time is booked. We'll confirm once payment is verified.");
+        }
+      );
+    });
+  }, function(){
+    // No real slots configured yet for this expert — fall back to the old flow.
+    showPolicyModal(function(){
+      var newBooking = { id: 'temp_' + uidGen(), expert_name: m.name, role_category: m.roleCategory, status: 'active', cancellation_count: 0, payment_confirmed: false };
+      appState.expertBookings.push(newBooking);
+      renderTeamList();
+      sb.from('expert_bookings').insert({
+        user_id: currentUser.id, expert_name: m.name, role_category: m.roleCategory, status: 'active', cancellation_count: 0, payment_confirmed: false
+      }).select().single().then(function(result){
+        if(!result.error) newBooking.id = result.data.id;
+      });
+      showPaymentModal(
+        "Session with " + m.name,
+        "Hi! I've paid for my session with " + m.name + " and wanted to let you know.",
+        function(){
           showToast("Payment noted — we'll reach out to schedule your time with " + m.name.split(' ')[0] + ".");
         }
-      }
-    );
+      );
+    });
   });
 }
 
@@ -3880,6 +3943,53 @@ function requestExpertChange(m, currentExpertName){
   showToast("Change request sent — our team will reach out to help you find the right fit.");
   renderTeamList();
 }
+
+function populateAdminAvailabilitySelect(){
+  var sel = document.getElementById('adminAvailabilityExpertSelect');
+  if(sel.dataset.populated) { renderAdminSlots(); return; }
+  sel.innerHTML = TEAM_MEMBERS.map(function(m){ return '<option value="'+m.name+'">'+m.name+' ('+m.roleCategory+')</option>'; }).join('');
+  sel.dataset.populated = '1';
+  sel.onchange = renderAdminSlots;
+  renderAdminSlots();
+}
+
+function renderAdminSlots(){
+  var expertName = document.getElementById('adminAvailabilityExpertSelect').value;
+  var wrap = document.getElementById('adminSlotsList');
+  wrap.innerHTML = '<p style="font-size:11px;color:#B0AA98;">Loading...</p>';
+  sb.from('expert_availability_slots').select('*').eq('expert_name', expertName).gte('slot_date', new Date().toISOString()).order('slot_date', {ascending:true}).then(function(result){
+    if(result.error){ wrap.innerHTML = ''; return; }
+    var slots = result.data || [];
+    if(slots.length === 0){
+      wrap.innerHTML = '<p style="font-size:11px;color:#B0AA98;">No upcoming slots added for '+expertName+' yet.</p>';
+      return;
+    }
+    wrap.innerHTML = slots.map(function(s){
+      var dateLabel = new Date(s.slot_date).toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+      var statusLabel = s.is_booked ? '<span style="font-size:9px;font-weight:700;color:#C77B7B;background:#FBE8E8;padding:2px 6px;border-radius:6px;margin-left:6px;">Booked</span>' : '';
+      return '<div style="display:flex;justify-content:space-between;align-items:center;background:#EAF0FB;border-radius:10px;padding:9px 12px;margin-bottom:6px;">'+
+        '<span style="font-size:11.5px;color:#2A2013;font-weight:600;">'+dateLabel+statusLabel+'</span>'+
+        (s.is_booked ? '' : '<button class="admin-remove-slot-btn" data-id="'+s.id+'" style="font-size:10px;color:#C77B7B;background:none;border:none;cursor:pointer;font-weight:700;">Remove</button>')+
+      '</div>';
+    }).join('');
+    document.querySelectorAll('.admin-remove-slot-btn').forEach(function(btn){
+      btn.onclick = function(){
+        sb.from('expert_availability_slots').delete().eq('id', btn.dataset.id).then(function(){ renderAdminSlots(); });
+      };
+    });
+  });
+}
+document.getElementById('adminAddSlotBtn').onclick = function(){
+  var input = document.getElementById('adminNewSlotDate');
+  var expertName = document.getElementById('adminAvailabilityExpertSelect').value;
+  if(!input.value) return;
+  sb.from('expert_availability_slots').insert({ expert_name: expertName, slot_date: new Date(input.value).toISOString(), is_booked: false }).then(function(result){
+    if(!result.error){
+      input.value = '';
+      renderAdminSlots();
+    }
+  });
+};
 
 function renderAdminGroupSessions(){
   var wrap = document.getElementById('adminGroupSessionsList');
@@ -3920,6 +4030,7 @@ function openAdminDashboard(){
   showOnly('panel-admin');
   document.getElementById('adminBookingsList').innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">Loading...</p>';
   renderAdminGroupSessions();
+  populateAdminAvailabilitySelect();
   Promise.all([
     sb.from('expert_bookings').select('*').order('created_at', {ascending:false}),
     sb.from('profiles').select('user_id,name')
