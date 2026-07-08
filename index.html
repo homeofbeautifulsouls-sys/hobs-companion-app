@@ -525,6 +525,17 @@
     <div id="adminBookingsList"></div>
   </div>
 
+  <div id="paymentModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.45);z-index:60;"></div>
+  <div id="paymentModal" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;background:#FFFFFF;border-radius:24px 24px 0 0;padding:24px 22px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;z-index:61;box-shadow:0 -10px 30px rgba(0,0,0,0.15);max-height:85vh;overflow-y:auto;text-align:center;">
+    <p class="prompt-title" style="margin-bottom:4px;">Complete Payment</p>
+    <p id="paymentModalPurpose" style="font-size:12.5px;color:#5C6B94;margin:0 0 18px;"></p>
+    <img id="paymentQrImage" src="paytm-qr.png" alt="Paytm QR Code" style="width:200px;height:200px;object-fit:contain;margin:0 auto 14px;border:1px solid #EEE0C4;border-radius:16px;padding:10px;" onerror="this.style.display='none'; document.getElementById('paymentQrFallback').style.display='block';">
+    <p id="paymentQrFallback" style="display:none;font-size:12px;color:#C77B7B;margin:0 0 14px;">QR code not available yet — message us directly to arrange payment.</p>
+    <p style="font-size:11.5px;color:#9AABCE;line-height:1.6;margin:0 0 20px;">Scan with any UPI app (Paytm, GPay, PhonePe) to pay. Once you've paid, let us know and we'll confirm your booking.</p>
+    <button id="paymentConfirmBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;">I've Paid — Notify Us</button>
+    <button id="paymentCloseBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:13px;font-weight:700;cursor:pointer;">Close</button>
+  </div>
+
   <div id="policyModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.45);z-index:60;"></div>
   <div id="policyModal" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;background:#FFFFFF;border-radius:24px 24px 0 0;padding:24px 22px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;z-index:61;box-shadow:0 -10px 30px rgba(0,0,0,0.15);max-height:80vh;overflow-y:auto;">
     <p class="prompt-title" style="margin-bottom:14px;">Booking &amp; Cancellation Policy</p>
@@ -3702,6 +3713,31 @@ function getActiveBookingForCategory(category){
   return (appState.expertBookings || []).find(function(b){ return b.role_category === category && b.status === 'active'; }) || null;
 }
 
+function showPaymentModal(purposeText, notifyMessage){
+  document.getElementById('paymentModalPurpose').textContent = purposeText;
+  var qrImg = document.getElementById('paymentQrImage');
+  var qrFallback = document.getElementById('paymentQrFallback');
+  if(qrImg.complete && qrImg.naturalWidth === 0){
+    qrImg.style.display = 'none';
+    qrFallback.style.display = 'block';
+  } else {
+    qrImg.style.display = 'block';
+    qrFallback.style.display = 'none';
+  }
+  document.getElementById('paymentModalBackdrop').style.display = 'block';
+  document.getElementById('paymentModal').style.display = 'block';
+  var closeModal = function(){
+    document.getElementById('paymentModalBackdrop').style.display = 'none';
+    document.getElementById('paymentModal').style.display = 'none';
+  };
+  document.getElementById('paymentConfirmBtn').onclick = function(){
+    closeModal();
+    window.open('https://wa.me/918320470976?text=' + encodeURIComponent(notifyMessage), '_blank');
+  };
+  document.getElementById('paymentCloseBtn').onclick = closeModal;
+  document.getElementById('paymentModalBackdrop').onclick = closeModal;
+}
+
 function showPolicyModal(onContinue){
   document.getElementById('policyModalBackdrop').style.display = 'block';
   document.getElementById('policyModal').style.display = 'block';
@@ -3730,6 +3766,10 @@ function bookExpert(m){
     }).select().single().then(function(result){
       if(!result.error) newBooking.id = result.data.id;
     });
+    showPaymentModal(
+      "Session with " + m.name,
+      "Hi! I've paid for my session with " + m.name + " and wanted to let you know."
+    );
   });
 }
 
@@ -3819,9 +3859,11 @@ function cancelSession(m){
     if(String(booking.id).indexOf('temp_') !== 0){
       sb.from('expert_bookings').update({ cancellation_charge_owed: true }).eq('id', booking.id).then(function(){});
     }
-    var waMessage = encodeURIComponent("Hi! I need to cancel my session with " + m.name + " again (this would be my 2nd+ cancellation for this booking). I understand this needs to go through you directly, including the 50% cancellation charge that applies.");
-    window.open('https://wa.me/918320470976?text=' + waMessage, '_blank');
-    showToast("This is a repeat cancellation — it can't be self-service. We've opened a message to our team for you.");
+    showToast("This is a repeat cancellation — it can't be self-service. A 50% charge applies.");
+    showPaymentModal(
+      "50% cancellation charge — " + m.name,
+      "Hi! I need to cancel my session with " + m.name + " again (2nd+ cancellation). I've paid the 50% cancellation charge and wanted to let you know."
+    );
     return;
   }
 
