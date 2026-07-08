@@ -524,6 +524,14 @@
     <p class="prompt-sub" style="text-align:center;margin-bottom:18px;">Every booking, change request, and cancellation across all clients.</p>
     <div id="adminStatsRow" style="display:flex;gap:8px;margin-bottom:18px;"></div>
 
+    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Grant Therapist Access</p>
+    <input type="email" id="adminTherapistEmail" placeholder="their email address" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;">
+    <div style="display:flex;gap:6px;margin-bottom:10px;">
+      <select id="adminTherapistExpertSelect" style="flex:1;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;"></select>
+      <button id="adminGrantTherapistBtn" style="font-size:11px;font-weight:700;color:#fff;background:#6690D6;border:none;border-radius:10px;padding:10px 14px;cursor:pointer;white-space:nowrap;">Grant</button>
+    </div>
+    <div id="adminTherapistInvitesList" style="margin-bottom:22px;"></div>
+
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Expert Availability</p>
     <select id="adminAvailabilityExpertSelect" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:8px;"></select>
     <div style="display:flex;gap:6px;margin-bottom:10px;">
@@ -541,6 +549,25 @@
 
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">All Bookings</p>
     <div id="adminBookingsList"></div>
+  </div>
+
+  <div class="content" id="panel-therapist-dashboard" style="display:none;">
+    <button id="therapistDashboardBackBtn" style="background:none;border:none;cursor:pointer;padding:0;margin-bottom:14px;color:#5C6B94;display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      Profile
+    </button>
+    <p class="prompt-title" style="text-align:center;">My Client Schedule</p>
+    <p class="prompt-sub" style="text-align:center;margin-bottom:18px;" id="therapistDashboardSubtitle"></p>
+
+    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Upcoming Sessions</p>
+    <div id="therapistUpcomingList" style="margin-bottom:22px;"></div>
+
+    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">My Availability</p>
+    <div style="display:flex;gap:6px;margin-bottom:10px;">
+      <input type="datetime-local" id="therapistNewSlotDate" style="flex:1;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;">
+      <button id="therapistAddSlotBtn" style="font-size:11px;font-weight:700;color:#fff;background:#3B8F63;border:none;border-radius:10px;padding:10px 14px;cursor:pointer;white-space:nowrap;">Add Slot</button>
+    </div>
+    <div id="therapistSlotsList"></div>
   </div>
 
   <div id="paymentModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.45);z-index:60;"></div>
@@ -875,6 +902,10 @@
     <div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:16px;padding:16px;">
       <p style="font-size:12px;color:#9AABCE;margin:0 0 6px;font-weight:700;">Preferences</p>
       <div id="profilePrefsArea"></div>
+    </div>
+    <div id="therapistEntryCard" style="display:none;background:#FFFFFF;border:1px solid #EEE0C4;border-radius:16px;padding:16px;margin-top:14px;">
+      <p style="font-size:12px;color:#9AABCE;margin:0 0 8px;font-weight:700;">Therapist</p>
+      <button id="therapistDashboardBtn" style="width:100%;padding:12px;border-radius:12px;border:1px solid #EEE0C4;background:transparent;color:#3B8F63;font-size:13px;font-weight:700;cursor:pointer;">My Client Schedule</button>
     </div>
     <div id="adminEntryCard" style="display:none;background:#FFFFFF;border:1px solid #EEE0C4;border-radius:16px;padding:16px;margin-top:14px;">
       <p style="font-size:12px;color:#9AABCE;margin:0 0 8px;font-weight:700;">Admin</p>
@@ -1468,6 +1499,7 @@ function onAuthSuccess(user){
     var overlay = document.getElementById('authOverlay');
     overlay.style.display = 'none';
     void overlay.offsetHeight; // force immediate reflow so the change paints right away
+    claimTherapistInviteIfAny();
     if(!appState.onboardingComplete){
       showOnboarding();
     } else if(!appState.hasSeenIntro){
@@ -1475,6 +1507,23 @@ function onAuthSuccess(user){
     } else {
       renderHomeGreeting();
     }
+  });
+}
+
+// Checks whether an admin has granted this exact email therapist access ahead of time.
+// If so, claims it — unlocking the Therapist Dashboard on their Profile immediately.
+function claimTherapistInviteIfAny(){
+  if(appState.isTherapist) return; // already a therapist, nothing to claim
+  sb.from('therapist_invites').select('*').eq('email', currentUser.email).eq('claimed', false).then(function(result){
+    if(result.error || !result.data || result.data.length === 0) return;
+    var invite = result.data[0];
+    sb.from('profiles').update({ is_therapist: true, therapist_expert_name: invite.expert_name }).eq('user_id', currentUser.id).then(function(updateResult){
+      if(updateResult.error) return;
+      sb.from('therapist_invites').update({ claimed: true }).eq('id', invite.id).then(function(){});
+      appState.isTherapist = true;
+      appState.therapistExpertName = invite.expert_name;
+      showToast("You now have therapist access for " + invite.expert_name + ".");
+    });
   });
 }
 
@@ -1707,6 +1756,8 @@ function loadUserDataFromSupabase(){
       appState.onboardingComplete = profileRes.data.onboarding_complete || false;
       appState.hasSeenIntro = profileRes.data.has_seen_intro || false;
       appState.isAdmin = profileRes.data.is_admin || false;
+      appState.isTherapist = profileRes.data.is_therapist || false;
+      appState.therapistExpertName = profileRes.data.therapist_expert_name || '';
     }
 
     appState.entries = (entriesRes.data || []).map(function(row){
@@ -2247,7 +2298,7 @@ document.getElementById('intakeDoneBtn').onclick = function(){
 };
 
 // ---- Bottom nav: Home / Journal / You ----
-var allPanels = ['panel-bubbles','panel-journal','panel-quick-journal','panel-saved','panel-support','panel-therapist-select','panel-intake','panel-booking','panel-history','panel-profile','panel-mood-tracker','panel-who5','panel-who5-results','panel-calendar','panel-day','panel-celebration','panel-bodydouble','panel-tips','panel-calmroom','panel-progress','panel-achievements','panel-rewards','panel-search','panel-team','panel-expert-detail','panel-admin','panel-tests','panel-test-detail','panel-test-results','panel-grounding','panel-grounding-detail','panel-worksheets','panel-worksheet-category','panel-worksheet-detail'];
+var allPanels = ['panel-bubbles','panel-journal','panel-quick-journal','panel-saved','panel-support','panel-therapist-select','panel-intake','panel-booking','panel-history','panel-profile','panel-mood-tracker','panel-who5','panel-who5-results','panel-calendar','panel-day','panel-celebration','panel-bodydouble','panel-tips','panel-calmroom','panel-progress','panel-achievements','panel-rewards','panel-search','panel-team','panel-expert-detail','panel-admin','panel-therapist-dashboard','panel-tests','panel-test-detail','panel-test-results','panel-grounding','panel-grounding-detail','panel-worksheets','panel-worksheet-category','panel-worksheet-detail'];
 function showOnly(panelId){
   allPanels.forEach(function(id){ document.getElementById(id).style.display = (id === panelId) ? 'block' : 'none'; });
 }
@@ -2424,6 +2475,7 @@ function renderHistory(){
 function renderProfile(){
   document.getElementById('profileAccountEmail').textContent = currentUser ? ('Signed in as ' + currentUser.email) : '';
   document.getElementById('adminEntryCard').style.display = appState.isAdmin ? 'block' : 'none';
+  document.getElementById('therapistEntryCard').style.display = appState.isTherapist ? 'block' : 'none';
   var tArea = document.getElementById('profileTherapistArea');
   tArea.innerHTML = '';
   if(appState.userHasTherapist){
@@ -3944,6 +3996,52 @@ function requestExpertChange(m, currentExpertName){
   renderTeamList();
 }
 
+function populateAdminTherapistSelect(){
+  var sel = document.getElementById('adminTherapistExpertSelect');
+  if(!sel.dataset.populated){
+    sel.innerHTML = TEAM_MEMBERS.map(function(m){ return '<option value="'+m.name+'">'+m.name+'</option>'; }).join('');
+    sel.dataset.populated = '1';
+  }
+  renderAdminTherapistInvites();
+}
+
+function renderAdminTherapistInvites(){
+  var wrap = document.getElementById('adminTherapistInvitesList');
+  wrap.innerHTML = '<p style="font-size:11px;color:#B0AA98;">Loading...</p>';
+  sb.from('therapist_invites').select('*').order('created_at', {ascending:false}).then(function(result){
+    if(result.error){ wrap.innerHTML = ''; return; }
+    var invites = result.data || [];
+    if(invites.length === 0){
+      wrap.innerHTML = '<p style="font-size:11px;color:#B0AA98;">No therapist accounts granted yet.</p>';
+      return;
+    }
+    wrap.innerHTML = invites.map(function(inv){
+      var statusLabel = inv.claimed
+        ? '<span style="font-size:9px;font-weight:700;color:#3B8F63;background:#EAF4EE;padding:2px 6px;border-radius:6px;">Active</span>'
+        : '<span style="font-size:9px;font-weight:700;color:#7B4F00;background:#FEF3D8;padding:2px 6px;border-radius:6px;">Pending sign-in</span>';
+      return '<div style="display:flex;justify-content:space-between;align-items:center;background:#EAF0FB;border-radius:10px;padding:9px 12px;margin-bottom:6px;">'+
+        '<div><p style="font-size:11.5px;color:#2A2013;font-weight:600;margin:0 0 2px;">'+inv.email+'</p><p style="font-size:10px;color:#9AABCE;margin:0;">'+inv.expert_name+'</p></div>'+
+        statusLabel+
+      '</div>';
+    }).join('');
+  });
+}
+document.getElementById('adminGrantTherapistBtn').onclick = function(){
+  var emailInput = document.getElementById('adminTherapistEmail');
+  var email = emailInput.value.trim().toLowerCase();
+  var expertName = document.getElementById('adminTherapistExpertSelect').value;
+  if(!email) return;
+  sb.from('therapist_invites').insert({ email: email, expert_name: expertName, claimed: false }).then(function(result){
+    if(result.error){
+      showToast(result.error.message.indexOf('duplicate') !== -1 ? 'That email already has access granted.' : 'Could not grant access.');
+      return;
+    }
+    emailInput.value = '';
+    showToast('Access granted — they\'ll get it the moment they sign in.');
+    renderAdminTherapistInvites();
+  });
+};
+
 function populateAdminAvailabilitySelect(){
   var sel = document.getElementById('adminAvailabilityExpertSelect');
   if(sel.dataset.populated) { renderAdminSlots(); return; }
@@ -4031,6 +4129,7 @@ function openAdminDashboard(){
   document.getElementById('adminBookingsList').innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">Loading...</p>';
   renderAdminGroupSessions();
   populateAdminAvailabilitySelect();
+  populateAdminTherapistSelect();
   Promise.all([
     sb.from('expert_bookings').select('*').order('created_at', {ascending:false}),
     sb.from('profiles').select('user_id,name')
@@ -4120,6 +4219,84 @@ function openAdminDashboard(){
 }
 document.getElementById('adminDashboardBtn').onclick = openAdminDashboard;
 document.getElementById('adminBackBtn').onclick = function(){ showOnly('panel-profile'); };
+
+function openTherapistDashboard(){
+  showOnly('panel-therapist-dashboard');
+  document.getElementById('therapistDashboardSubtitle').textContent = 'Your sessions and availability, as ' + appState.therapistExpertName + '.';
+  renderTherapistUpcoming();
+  renderTherapistSlots();
+}
+document.getElementById('therapistDashboardBtn').onclick = openTherapistDashboard;
+document.getElementById('therapistDashboardBackBtn').onclick = function(){ showOnly('panel-profile'); };
+
+function renderTherapistUpcoming(){
+  var wrap = document.getElementById('therapistUpcomingList');
+  wrap.innerHTML = '<p style="font-size:11px;color:#B0AA98;">Loading...</p>';
+  Promise.all([
+    sb.from('expert_bookings').select('*').eq('status', 'active').not('session_date', 'is', null).gte('session_date', new Date().toISOString()).order('session_date', {ascending:true}),
+    sb.from('profiles').select('user_id,name')
+  ]).then(function(results){
+    var bookingsRes = results[0], profilesRes = results[1];
+    if(bookingsRes.error){ wrap.innerHTML = '<p style="font-size:11px;color:#C77B7B;">Could not load sessions.</p>'; return; }
+    var nameByUserId = {};
+    (profilesRes.data || []).forEach(function(p){ nameByUserId[p.user_id] = p.name; });
+    var sessions = bookingsRes.data || [];
+    if(sessions.length === 0){
+      wrap.innerHTML = '<p style="font-size:11px;color:#B0AA98;">No upcoming sessions scheduled.</p>';
+      return;
+    }
+    wrap.innerHTML = sessions.map(function(s){
+      var clientName = nameByUserId[s.user_id] || 'A client';
+      var dateLabel = new Date(s.session_date).toLocaleString('en-US', { weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+      var confirmedBadge = s.payment_confirmed
+        ? '<span style="font-size:9px;font-weight:700;color:#3B8F63;background:#EAF4EE;padding:2px 6px;border-radius:6px;">Confirmed</span>'
+        : '<span style="font-size:9px;font-weight:700;color:#7B4F00;background:#FEF3D8;padding:2px 6px;border-radius:6px;">Pending</span>';
+      return '<div style="background:#EAF0FB;border:1px solid #D5E2F7;border-radius:12px;padding:12px 14px;margin-bottom:8px;">'+
+        '<div style="display:flex;justify-content:space-between;align-items:center;">'+
+          '<p style="font-size:12.5px;color:#2A2013;font-weight:700;margin:0;">'+clientName+'</p>'+
+          confirmedBadge+
+        '</div>'+
+        '<p style="font-size:10.5px;color:#6690D6;font-weight:700;margin:4px 0 0;">'+dateLabel+'</p>'+
+      '</div>';
+    }).join('');
+  });
+}
+
+function renderTherapistSlots(){
+  var wrap = document.getElementById('therapistSlotsList');
+  wrap.innerHTML = '<p style="font-size:11px;color:#B0AA98;">Loading...</p>';
+  sb.from('expert_availability_slots').select('*').gte('slot_date', new Date().toISOString()).order('slot_date', {ascending:true}).then(function(result){
+    if(result.error){ wrap.innerHTML = ''; return; }
+    var slots = result.data || [];
+    if(slots.length === 0){
+      wrap.innerHTML = '<p style="font-size:11px;color:#B0AA98;">No upcoming slots added yet.</p>';
+      return;
+    }
+    wrap.innerHTML = slots.map(function(s){
+      var dateLabel = new Date(s.slot_date).toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+      var statusLabel = s.is_booked ? '<span style="font-size:9px;font-weight:700;color:#C77B7B;background:#FBE8E8;padding:2px 6px;border-radius:6px;margin-left:6px;">Booked</span>' : '';
+      return '<div style="display:flex;justify-content:space-between;align-items:center;background:#EAF4EE;border-radius:10px;padding:9px 12px;margin-bottom:6px;">'+
+        '<span style="font-size:11.5px;color:#2A2013;font-weight:600;">'+dateLabel+statusLabel+'</span>'+
+        (s.is_booked ? '' : '<button class="therapist-remove-slot-btn" data-id="'+s.id+'" style="font-size:10px;color:#C77B7B;background:none;border:none;cursor:pointer;font-weight:700;">Remove</button>')+
+      '</div>';
+    }).join('');
+    document.querySelectorAll('.therapist-remove-slot-btn').forEach(function(btn){
+      btn.onclick = function(){
+        sb.from('expert_availability_slots').delete().eq('id', btn.dataset.id).then(function(){ renderTherapistSlots(); });
+      };
+    });
+  });
+}
+document.getElementById('therapistAddSlotBtn').onclick = function(){
+  var input = document.getElementById('therapistNewSlotDate');
+  if(!input.value) return;
+  sb.from('expert_availability_slots').insert({ expert_name: appState.therapistExpertName, slot_date: new Date(input.value).toISOString(), is_booked: false }).then(function(result){
+    if(!result.error){
+      input.value = '';
+      renderTherapistSlots();
+    }
+  });
+};
 
 function cancelSession(m){
   var booking = getActiveBookingForCategory(m.roleCategory);
