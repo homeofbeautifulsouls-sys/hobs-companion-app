@@ -592,8 +592,12 @@
     <p class="prompt-title" style="text-align:center;">My Client Schedule</p>
     <p class="prompt-sub" style="text-align:center;margin-bottom:18px;" id="therapistDashboardSubtitle"></p>
 
-    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Upcoming Sessions</p>
-    <div id="therapistUpcomingList" style="margin-bottom:22px;"></div>
+    <button id="therapistSummaryTile" style="display:block;width:100%;text-align:left;background:linear-gradient(165deg,#8FB0EA 0%,#6690D6 60%,#5372B8 100%);border:none;border-radius:16px;padding:18px;margin-bottom:16px;cursor:pointer;">
+      <p id="therapistSummaryCount" style="font-size:20px;font-weight:800;color:#fff;margin:0 0 2px;">0 sessions this month</p>
+      <p id="therapistSummaryIncome" style="font-size:13px;color:rgba(255,255,255,0.9);margin:0;">₹0 confirmed income</p>
+      <p style="font-size:10.5px;color:rgba(255,255,255,0.75);margin:6px 0 0;">Tap to see the detail ↓</p>
+    </button>
+    <div id="therapistSessionDetailList" style="display:none;margin-bottom:22px;"></div>
 
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">My Availability</p>
     <div style="display:flex;gap:6px;margin-bottom:10px;">
@@ -695,6 +699,7 @@
       <input id="testEmailAddress" type="email" placeholder="Your email" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid #EEE0C4;font-family:inherit;font-size:12.5px;box-sizing:border-box;margin-bottom:10px;">
       <button id="testEmailSubmitBtn" style="width:100%;padding:11px;border-radius:10px;border:none;background:#6690D6;color:#FFF8F0;font-size:12.5px;font-weight:700;cursor:pointer;">Request a follow-up</button>
     </div>
+    <button id="shareTestResultBtn" style="display:none;width:100%;padding:14px;border-radius:14px;border:1px solid #6690D6;background:transparent;color:#6690D6;font-size:13.5px;font-weight:700;cursor:pointer;margin-bottom:10px;">Share this result with your therapist</button>
     <button id="testResultDoneBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#2A2013;font-size:15px;font-weight:700;cursor:pointer;">Back to tests</button>
   </div>
 
@@ -4305,10 +4310,16 @@ function openAdminDashboard(){
         '</div>'+
         '<p style="font-size:11px;color:#9AABCE;margin:0 0 6px;">'+b.role_category+' · Cancelled '+(b.cancellation_count||0)+' time(s)</p>'+
         (b.status === 'active' && !b.payment_confirmed ?
-          '<div style="display:flex;align-items:center;justify-content:space-between;background:#FEF3D8;border-radius:10px;padding:8px 10px;margin-bottom:8px;">'+
-            '<span style="font-size:11px;color:#7B4F00;font-weight:700;">⏳ Payment not yet confirmed</span>'+
-            '<button class="admin-confirm-payment-btn" data-id="'+b.id+'" style="font-size:10px;font-weight:700;color:#fff;background:#6690D6;border:none;border-radius:8px;padding:6px 10px;cursor:pointer;">Confirm Payment</button>'+
-          '</div>' : ''
+          '<div style="background:#FEF3D8;border-radius:10px;padding:10px;margin-bottom:8px;">'+
+            '<p style="font-size:11px;color:#7B4F00;font-weight:700;margin:0 0 6px;">⏳ Payment not yet confirmed</p>'+
+            '<div style="display:flex;gap:6px;">'+
+              '<input type="number" class="admin-payout-input" data-id="'+b.id+'" placeholder="Therapist gets ₹" style="flex:1;padding:8px;border-radius:8px;border:1px solid #EEE0C4;font-size:11px;font-family:inherit;">'+
+              '<button class="admin-confirm-payment-btn" data-id="'+b.id+'" style="font-size:10px;font-weight:700;color:#fff;background:#6690D6;border:none;border-radius:8px;padding:8px 10px;cursor:pointer;white-space:nowrap;">Confirm</button>'+
+            '</div>'+
+          '</div>' :
+          (b.payment_confirmed && b.therapist_payout_amount ?
+            '<p style="font-size:10.5px;color:#3B8F63;margin:0 0 8px;">Therapist receives ₹'+b.therapist_payout_amount+'</p>' : ''
+          )
         )+
         (b.status === 'active' ?
           '<div style="display:flex;gap:6px;align-items:center;margin-top:8px;">'+
@@ -4322,13 +4333,34 @@ function openAdminDashboard(){
             '<button class="admin-resolve-charge-btn" data-id="'+b.id+'" style="font-size:10px;font-weight:700;color:#3B8F63;background:none;border:1px solid #3B8F63;border-radius:8px;padding:4px 8px;cursor:pointer;">Mark Collected</button>'+
           '</div>' : ''
         )+
+        (b.payment_locked ?
+          '<div style="background:#EAF4EE;border-radius:10px;padding:8px 10px;margin-top:6px;">'+
+            '<p style="font-size:9.5px;color:#3B8F63;font-weight:700;margin:0 0 4px;">✓ Session notes on file</p>'+
+            '<p style="font-size:10.5px;color:#2A2013;margin:0;">'+(b.session_notes||'')+'</p>'+
+            (b.session_note_file_url ? '<a href="#" class="admin-view-session-file-btn" data-path="'+b.session_note_file_url+'" style="font-size:10px;color:#6690D6;font-weight:700;">View attached file</a>' : '')+
+          '</div>' : ''
+        )+
       '</div>';
     }).join('');
 
     document.querySelectorAll('.admin-confirm-payment-btn').forEach(function(btn){
       btn.onclick = function(){
-        sb.from('expert_bookings').update({ payment_confirmed: true }).eq('id', btn.dataset.id).then(function(result){
+        var payoutInput = document.querySelector('.admin-payout-input[data-id="'+btn.dataset.id+'"]');
+        var payout = payoutInput ? parseFloat(payoutInput.value) : null;
+        if(!payout || payout <= 0){
+          showToast('Enter the amount the therapist will receive first.');
+          return;
+        }
+        sb.from('expert_bookings').update({ payment_confirmed: true, therapist_payout_amount: payout }).eq('id', btn.dataset.id).then(function(result){
           if(!result.error){ showToast('Payment confirmed.'); openAdminDashboard(); }
+        });
+      };
+    });
+    document.querySelectorAll('.admin-view-session-file-btn').forEach(function(btn){
+      btn.onclick = function(e){
+        e.preventDefault();
+        sb.storage.from('session-attachments').createSignedUrl(btn.dataset.path, 300).then(function(result){
+          if(result.data) window.open(result.data.signedUrl, '_blank');
         });
       };
     });
@@ -4360,7 +4392,9 @@ document.getElementById('adminBackBtn').onclick = function(){ showOnly('panel-pr
 function openTherapistDashboard(){
   showOnly('panel-therapist-dashboard');
   document.getElementById('therapistDashboardSubtitle').textContent = 'Your sessions and availability, as ' + appState.therapistExpertName + '.';
-  renderTherapistUpcoming();
+  therapistDetailExpanded = false;
+  document.getElementById('therapistSessionDetailList').style.display = 'none';
+  renderTherapistSummaryAndDetail();
   renderTherapistSlots();
   var myProfile = TEAM_MEMBERS.find(function(m){ return m.name === appState.therapistExpertName; });
   document.getElementById('therapistBioInput').value = myProfile ? myProfile.bio : '';
@@ -4388,41 +4422,126 @@ document.getElementById('therapistSaveProfileBtn').onclick = function(){
   });
 };
 
-function renderTherapistUpcoming(){
-  var wrap = document.getElementById('therapistUpcomingList');
-  wrap.innerHTML = '<p style="font-size:11px;color:#B0AA98;">Loading...</p>';
+var therapistDetailExpanded = false;
+function renderTherapistSummaryAndDetail(){
+  var now = new Date();
+  var monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  var monthEnd = new Date(now.getFullYear(), now.getMonth()+1, 1);
+
   Promise.all([
-    sb.from('expert_bookings').select('*').eq('status', 'active').not('session_date', 'is', null).gte('session_date', new Date().toISOString()).order('session_date', {ascending:true}),
+    sb.from('expert_bookings').select('*').eq('status', 'active').not('session_date', 'is', null).order('session_date', {ascending:false}),
     sb.from('profiles').select('user_id,name')
   ]).then(function(results){
     var bookingsRes = results[0], profilesRes = results[1];
-    if(bookingsRes.error){ wrap.innerHTML = '<p style="font-size:11px;color:#C77B7B;">Could not load sessions.</p>'; return; }
+    if(bookingsRes.error){ return; }
     var nameByUserId = {};
     (profilesRes.data || []).forEach(function(p){ nameByUserId[p.user_id] = p.name; });
-    var sessions = bookingsRes.data || [];
-    if(sessions.length === 0){
-      wrap.innerHTML = '<p style="font-size:11px;color:#B0AA98;">No upcoming sessions scheduled.</p>';
+    var allSessions = bookingsRes.data || [];
+
+    var thisMonthSessions = allSessions.filter(function(s){
+      var d = new Date(s.session_date);
+      return d >= monthStart && d < monthEnd;
+    });
+    var confirmedIncome = thisMonthSessions
+      .filter(function(s){ return s.payment_locked && s.therapist_payout_amount; })
+      .reduce(function(sum, s){ return sum + parseFloat(s.therapist_payout_amount); }, 0);
+
+    document.getElementById('therapistSummaryCount').textContent = thisMonthSessions.length + ' session' + (thisMonthSessions.length === 1 ? '' : 's') + ' this month';
+    document.getElementById('therapistSummaryIncome').textContent = '₹' + confirmedIncome + ' confirmed income';
+
+    var detailWrap = document.getElementById('therapistSessionDetailList');
+    if(thisMonthSessions.length === 0){
+      detailWrap.innerHTML = '<p style="font-size:11px;color:#B0AA98;text-align:center;">No sessions this month yet.</p>';
       return;
     }
-    wrap.innerHTML = sessions.map(function(s){
+    detailWrap.innerHTML = thisMonthSessions.map(function(s){
       var clientName = nameByUserId[s.user_id] || 'A client';
       var dateLabel = new Date(s.session_date).toLocaleString('en-US', { weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
-      var confirmedBadge = s.payment_confirmed
-        ? '<span style="font-size:9px;font-weight:700;color:#3B8F63;background:#EAF4EE;padding:2px 6px;border-radius:6px;">Confirmed</span>'
-        : '<span style="font-size:9px;font-weight:700;color:#7B4F00;background:#FEF3D8;padding:2px 6px;border-radius:6px;">Pending</span>';
-      return '<div style="background:#EAF0FB;border:1px solid #D5E2F7;border-radius:12px;padding:12px 14px;margin-bottom:8px;">'+
-        '<div style="display:flex;justify-content:space-between;align-items:center;">'+
-          '<p style="font-size:12.5px;color:#2A2013;font-weight:700;margin:0;">'+clientName+'</p>'+
-          confirmedBadge+
+      var payoutLabel = s.therapist_payout_amount ? '₹' + s.therapist_payout_amount : 'Not set yet';
+      var lockedBadge = s.payment_locked
+        ? '<span style="font-size:9px;font-weight:700;color:#3B8F63;background:#EAF4EE;padding:2px 6px;border-radius:6px;">Payment Locked</span>'
+        : '<span style="font-size:9px;font-weight:700;color:#B0AA98;background:#F5F3EE;padding:2px 6px;border-radius:6px;">Notes Needed to Lock</span>';
+      return '<div style="background:#FFFFFF;border:1px solid '+(s.payment_locked?'#D5E2F7':'#EEE0C4')+';border-radius:14px;padding:14px;margin-bottom:10px;'+(s.payment_locked?'':'opacity:0.85;')+'">'+
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">'+
+          '<p style="font-size:13px;color:#2A2013;font-weight:700;margin:0;">'+clientName+'</p>'+
+          lockedBadge+
         '</div>'+
-        '<p style="font-size:10.5px;color:#6690D6;font-weight:700;margin:4px 0 8px;">'+dateLabel+'</p>'+
-        '<button class="therapist-cancel-session-btn" data-id="'+s.id+'" style="width:100%;padding:8px;border-radius:8px;border:1px solid #EEE0C4;background:transparent;color:#C77B7B;font-size:10.5px;font-weight:700;cursor:pointer;">Cancel / Reschedule</button>'+
+        '<p style="font-size:10.5px;color:#6690D6;font-weight:700;margin:0 0 4px;">'+dateLabel+'</p>'+
+        '<p style="font-size:11px;color:#5C6B94;margin:0 0 10px;">You receive: '+payoutLabel+'</p>'+
+        (s.payment_locked ?
+          '<p style="font-size:11px;color:#2A2013;background:#F5F3EE;border-radius:8px;padding:8px;margin:0 0 8px;">'+(s.session_notes||'')+'</p>'+
+          (s.session_note_file_url ? '<a href="#" class="therapist-view-file-btn" data-path="'+s.session_note_file_url+'" style="font-size:10.5px;color:#6690D6;font-weight:700;">View attached file</a>' : '')
+          :
+          '<textarea class="therapist-session-notes-input" data-id="'+s.id+'" placeholder="Session notes... (required to lock payment)" rows="2" style="width:100%;padding:8px;border-radius:8px;border:1px solid #EEE0C4;font-size:11px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;resize:vertical;">'+(s.session_notes||'')+'</textarea>'+
+          '<input type="file" class="therapist-session-file-input" data-id="'+s.id+'" accept="image/*,.pdf,.doc,.docx" style="width:100%;font-size:10px;margin-bottom:8px;">'+
+          '<button class="therapist-lock-payment-btn" data-id="'+s.id+'" style="width:100%;padding:9px;border-radius:8px;border:none;background:#3B8F63;color:#fff;font-size:11px;font-weight:700;cursor:pointer;margin-bottom:6px;">Save Notes &amp; Lock Payment</button>'+
+          '<button class="therapist-cancel-session-btn" data-id="'+s.id+'" style="width:100%;padding:8px;border-radius:8px;border:1px solid #EEE0C4;background:transparent;color:#C77B7B;font-size:10.5px;font-weight:700;cursor:pointer;">Cancel / Reschedule</button>'
+        )+
       '</div>';
     }).join('');
+
     document.querySelectorAll('.therapist-cancel-session-btn').forEach(function(btn){
       btn.onclick = function(){ therapistCancelBooking(btn.dataset.id); };
     });
+    document.querySelectorAll('.therapist-view-file-btn').forEach(function(btn){
+      btn.onclick = function(e){
+        e.preventDefault();
+        sb.storage.from('session-attachments').createSignedUrl(btn.dataset.path, 300).then(function(result){
+          if(result.data) window.open(result.data.signedUrl, '_blank');
+        });
+      };
+    });
+    document.querySelectorAll('.therapist-lock-payment-btn').forEach(function(btn){
+      btn.onclick = function(){ therapistLockPayment(btn.dataset.id); };
+    });
   });
+}
+document.getElementById('therapistSummaryTile').onclick = function(){
+  therapistDetailExpanded = !therapistDetailExpanded;
+  document.getElementById('therapistSessionDetailList').style.display = therapistDetailExpanded ? 'block' : 'none';
+};
+
+function therapistLockPayment(bookingId){
+  var notesInput = document.querySelector('.therapist-session-notes-input[data-id="'+bookingId+'"]');
+  var fileInput = document.querySelector('.therapist-session-file-input[data-id="'+bookingId+'"]');
+  var notes = notesInput ? notesInput.value.trim() : '';
+
+  if(!notes){
+    showToast('Session notes are required to lock payment.');
+    return;
+  }
+
+  var btn = document.querySelector('.therapist-lock-payment-btn[data-id="'+bookingId+'"]');
+  btn.textContent = 'Saving...'; btn.disabled = true;
+
+  var doSave = function(fileUrl){
+    var updateData = { session_notes: notes, payment_locked: true };
+    if(fileUrl) updateData.session_note_file_url = fileUrl;
+    sb.from('expert_bookings').update(updateData).eq('id', bookingId).then(function(result){
+      if(result.error){
+        showToast('Could not save — please try again.');
+        btn.textContent = 'Save Notes & Lock Payment'; btn.disabled = false;
+        return;
+      }
+      showToast('Notes saved and payment locked.');
+      renderTherapistSummaryAndDetail();
+    });
+  };
+
+  if(fileInput && fileInput.files && fileInput.files[0]){
+    var file = fileInput.files[0];
+    var path = bookingId + '/' + Date.now() + '_' + file.name;
+    sb.storage.from('session-attachments').upload(path, file).then(function(uploadResult){
+      if(uploadResult.error){
+        showToast('Notes will save, but the file upload failed.');
+        doSave(null);
+        return;
+      }
+      doSave(path);
+    });
+  } else {
+    doSave(null);
+  }
 }
 
 function therapistCancelBooking(bookingId){
@@ -5250,6 +5369,11 @@ function startTest(key){
     });
   });
   testIdx = 0; testAnswers = [];
+  lastTestResultId = null;
+  var shareBtn = document.getElementById('shareTestResultBtn');
+  shareBtn.style.display = 'none';
+  shareBtn.disabled = false;
+  shareBtn.textContent = 'Share this result with your therapist';
   renderTestItem();
   showOnly('panel-test-detail');
 }
@@ -5440,6 +5564,7 @@ function renderCustomResult(t, result){
   showOnly('panel-test-results');
 }
 
+var lastTestResultId = null;
 function saveTestResultToSupabase(testKey, answers, elevated, selfHarmFlagged){
   if(!currentUser) return;
   sb.from('test_results').insert({
@@ -5448,10 +5573,21 @@ function saveTestResultToSupabase(testKey, answers, elevated, selfHarmFlagged){
     answers: answers,
     elevated: elevated,
     self_harm_flagged: selfHarmFlagged
-  }).then(function(result){
-    if(result.error) console.error('Could not save test result:', result.error);
+  }).select().single().then(function(result){
+    if(result.error){ console.error('Could not save test result:', result.error); return; }
+    lastTestResultId = result.data.id;
+    document.getElementById('shareTestResultBtn').style.display = getActiveBookingForCategory('Therapist') ? 'block' : 'none';
   });
 }
+document.getElementById('shareTestResultBtn').onclick = function(){
+  if(!lastTestResultId) return;
+  sb.from('test_results').update({ shared_with_therapist: true }).eq('id', lastTestResultId).then(function(result){
+    if(result.error){ showToast('Could not share — please try again.'); return; }
+    showToast('Shared with your therapist.');
+    document.getElementById('shareTestResultBtn').textContent = '✓ Shared with your therapist';
+    document.getElementById('shareTestResultBtn').disabled = true;
+  });
+};
 document.getElementById('testResultDoneBtn').onclick = function(){ renderTestsList(); renderProfessionalAssessmentList(); showOnly('panel-tests'); };
 
 document.getElementById('downloadReportBtn').onclick = function(){
