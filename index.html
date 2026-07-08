@@ -303,10 +303,28 @@
     <p id="authError" style="display:none;color:#C77B7B;font-size:12px;text-align:center;margin:0 0 12px;"></p>
 
     <button id="authSubmitBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:14px;">Sign In</button>
-    <button id="authToggleModeBtn" style="display:block;width:100%;padding:0;border:none;background:none;color:#6690D6;font-size:12.5px;font-weight:700;cursor:pointer;">Don't have an account? Sign up</button>
+    <button id="authToggleModeBtn" style="display:block;width:100%;padding:0;border:none;background:none;color:#6690D6;font-size:12.5px;font-weight:700;cursor:pointer;margin-bottom:10px;">Don't have an account? Sign up</button>
+    <button id="forgotPasswordBtn" style="display:block;width:100%;padding:0;border:none;background:none;color:#9AABCE;font-size:11.5px;font-weight:600;cursor:pointer;">Forgot password?</button>
 
     <p style="text-align:center;font-size:10px;color:#B0AA98;margin-top:20px;">By continuing you agree this is a HOBS beta test build.</p>
     </div>
+  </div>
+
+  <div id="forgotPasswordOverlay" style="position:absolute;inset:0;z-index:101;background:#FFF8F0;display:none;flex-direction:column;justify-content:center;padding:32px 24px;box-sizing:border-box;">
+    <p style="text-align:center;font-size:19px;font-weight:800;color:#2E5090;margin:0 0 6px;">Reset your password</p>
+    <p style="text-align:center;font-size:12.5px;color:#5C6B94;margin:0 0 24px;">We'll send you a link to set a new one.</p>
+    <input id="forgotPasswordEmail" type="email" placeholder="Your email" style="width:100%;padding:14px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:14px;box-sizing:border-box;margin-bottom:16px;">
+    <p id="forgotPasswordMsg" style="display:none;font-size:12px;text-align:center;margin:0 0 12px;"></p>
+    <button id="forgotPasswordSendBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;">Send Reset Link</button>
+    <button id="forgotPasswordBackBtn" style="display:block;width:100%;padding:0;border:none;background:none;color:#9AABCE;font-size:12.5px;font-weight:600;cursor:pointer;">Back to sign in</button>
+  </div>
+
+  <div id="setNewPasswordOverlay" style="position:absolute;inset:0;z-index:101;background:#FFF8F0;display:none;flex-direction:column;justify-content:center;padding:32px 24px;box-sizing:border-box;">
+    <p style="text-align:center;font-size:19px;font-weight:800;color:#2E5090;margin:0 0 6px;">Set a new password</p>
+    <p style="text-align:center;font-size:12.5px;color:#5C6B94;margin:0 0 24px;">Almost there — pick something you'll remember.</p>
+    <input id="setNewPasswordInput" type="password" placeholder="New password (min 6 characters)" style="width:100%;padding:14px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:14px;box-sizing:border-box;margin-bottom:16px;">
+    <p id="setNewPasswordMsg" style="display:none;font-size:12px;text-align:center;margin:0 0 12px;"></p>
+    <button id="setNewPasswordBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:15px;font-weight:700;cursor:pointer;">Save New Password</button>
   </div>
 
   <div id="onboardingOverlay" style="position:absolute;inset:0;z-index:100;background:#FFF8F0;display:none;flex-direction:column;padding:32px 24px;box-sizing:border-box;overflow-y:auto;">
@@ -1457,6 +1475,64 @@ document.getElementById('authToggleModeBtn').onclick = function(){
   document.getElementById('authSubtitle').textContent = authMode === 'signin' ? 'Sign in to sync your data across devices.' : 'Create an account so your data is never lost.';
   hideAuthError();
 };
+
+document.getElementById('forgotPasswordBtn').onclick = function(){
+  document.getElementById('authFormContent').style.display = 'none';
+  document.getElementById('forgotPasswordEmail').value = document.getElementById('authEmail').value || '';
+  document.getElementById('forgotPasswordMsg').style.display = 'none';
+  document.getElementById('forgotPasswordOverlay').style.display = 'flex';
+};
+document.getElementById('forgotPasswordBackBtn').onclick = function(){
+  document.getElementById('forgotPasswordOverlay').style.display = 'none';
+  document.getElementById('authFormContent').style.display = 'block';
+};
+document.getElementById('forgotPasswordSendBtn').onclick = function(){
+  var email = document.getElementById('forgotPasswordEmail').value.trim();
+  var msgEl = document.getElementById('forgotPasswordMsg');
+  if(!email){ return; }
+  var btn = document.getElementById('forgotPasswordSendBtn');
+  btn.textContent = 'Sending...'; btn.disabled = true;
+  sb.auth.resetPasswordForEmail(email, { redirectTo: WEB_APP_URL }).then(function(result){
+    btn.textContent = 'Send Reset Link'; btn.disabled = false;
+    msgEl.style.display = 'block';
+    if(result.error){
+      msgEl.style.color = '#C77B7B';
+      msgEl.textContent = 'Something went wrong — please try again.';
+    } else {
+      msgEl.style.color = '#3B8F63';
+      msgEl.textContent = 'Check your email for a reset link.';
+    }
+  });
+};
+document.getElementById('setNewPasswordBtn').onclick = function(){
+  var newPass = document.getElementById('setNewPasswordInput').value;
+  var msgEl = document.getElementById('setNewPasswordMsg');
+  if(!newPass || newPass.length < 6){
+    msgEl.style.display = 'block'; msgEl.style.color = '#C77B7B';
+    msgEl.textContent = 'Password needs to be at least 6 characters.';
+    return;
+  }
+  var btn = document.getElementById('setNewPasswordBtn');
+  btn.textContent = 'Saving...'; btn.disabled = true;
+  sb.auth.updateUser({ password: newPass }).then(function(result){
+    btn.textContent = 'Save New Password'; btn.disabled = false;
+    msgEl.style.display = 'block';
+    if(result.error){
+      msgEl.style.color = '#C77B7B';
+      msgEl.textContent = 'Could not update password — try requesting a new reset link.';
+      return;
+    }
+    document.getElementById('setNewPasswordOverlay').style.display = 'none';
+    if(result.data && result.data.user) onAuthSuccess(result.data.user);
+  });
+};
+
+// Detect a password-recovery link click (Supabase appends type=recovery to the URL)
+if(window.location.hash.indexOf('type=recovery') !== -1){
+  document.getElementById('authLoadingState').style.display = 'none';
+  document.getElementById('setNewPasswordOverlay').style.display = 'flex';
+}
+
 
 document.getElementById('authSubmitBtn').onclick = function(){
   hideAuthError();
@@ -2812,6 +2888,11 @@ function finishWho5(){
   var score = raw * 4; // WHO-5 standard conversion: raw 0-25 -> 0-100
   appState.who5Entries.unshift({date: new Date().toISOString(), score: score});
   saveState();
+  if(currentUser){
+    sb.from('who5_entries').insert({ user_id: currentUser.id, score: score }).then(function(result){
+      if(result.error) console.error('Could not save WHO-5 entry:', result.error);
+    });
+  }
 
   var arc = document.getElementById('who5Arc');
   var totalLen = 157; // approx length of the semicircle path
@@ -4256,9 +4337,33 @@ function renderTherapistUpcoming(){
           '<p style="font-size:12.5px;color:#2A2013;font-weight:700;margin:0;">'+clientName+'</p>'+
           confirmedBadge+
         '</div>'+
-        '<p style="font-size:10.5px;color:#6690D6;font-weight:700;margin:4px 0 0;">'+dateLabel+'</p>'+
+        '<p style="font-size:10.5px;color:#6690D6;font-weight:700;margin:4px 0 8px;">'+dateLabel+'</p>'+
+        '<button class="therapist-cancel-session-btn" data-id="'+s.id+'" style="width:100%;padding:8px;border-radius:8px;border:1px solid #EEE0C4;background:transparent;color:#C77B7B;font-size:10.5px;font-weight:700;cursor:pointer;">Cancel / Reschedule</button>'+
       '</div>';
     }).join('');
+    document.querySelectorAll('.therapist-cancel-session-btn').forEach(function(btn){
+      btn.onclick = function(){ therapistCancelBooking(btn.dataset.id); };
+    });
+  });
+}
+
+function therapistCancelBooking(bookingId){
+  var startOfMonth = new Date();
+  startOfMonth.setDate(1);
+  startOfMonth.setHours(0,0,0,0);
+  sb.from('therapist_cancellation_log').select('id').eq('therapist_expert_name', appState.therapistExpertName).gte('cancelled_at', startOfMonth.toISOString()).then(function(result){
+    if(result.error) return;
+    var usedThisMonth = (result.data || []).length;
+    if(usedThisMonth >= 1){
+      showToast("You've already used your one cancellation for this month — please message our team directly for this one.");
+      return;
+    }
+    sb.from('expert_bookings').update({ status: 'change_requested' }).eq('id', bookingId).then(function(updateResult){
+      if(updateResult.error){ showToast('Could not cancel — please try again.'); return; }
+      sb.from('therapist_cancellation_log').insert({ therapist_expert_name: appState.therapistExpertName, booking_id: bookingId }).then(function(){});
+      showToast('Session cancelled. This was your one cancellation for this month.');
+      renderTherapistUpcoming();
+    });
   });
 }
 
@@ -5192,6 +5297,7 @@ function finishTest(){
   } else {
     document.getElementById('testResultMascotTip').innerHTML = '';
   }
+  saveTestResultToSupabase(currentTestKey, testAnswers, anyElevated, selfHarmFlag);
 
   document.getElementById('testEmailName').value = '';
   document.getElementById('testEmailAddress').value = '';
@@ -5238,9 +5344,23 @@ function renderCustomResult(t, result){
   } else {
     document.getElementById('testResultMascotTip').innerHTML = '';
   }
+  saveTestResultToSupabase(currentTestKey, testAnswers, !!result.elevated, false);
   document.getElementById('testEmailName').value = '';
   document.getElementById('testEmailAddress').value = '';
   showOnly('panel-test-results');
+}
+
+function saveTestResultToSupabase(testKey, answers, elevated, selfHarmFlagged){
+  if(!currentUser) return;
+  sb.from('test_results').insert({
+    user_id: currentUser.id,
+    test_key: testKey,
+    answers: answers,
+    elevated: elevated,
+    self_harm_flagged: selfHarmFlagged
+  }).then(function(result){
+    if(result.error) console.error('Could not save test result:', result.error);
+  });
 }
 document.getElementById('testResultDoneBtn').onclick = function(){ renderTestsList(); renderProfessionalAssessmentList(); showOnly('panel-tests'); };
 
