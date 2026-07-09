@@ -180,11 +180,10 @@
   .reward-placeholder { background:#F3F6FC; border:1px dashed #C7D2E8; border-radius:16px; padding:16px; text-align:center; }
 
   /* ---- home: illustrated hero + carousel ---- */
-  .home-hero { position:relative; margin:-26px -18px 0; padding:28px 20px 50px; background:linear-gradient(165deg,#8FB0EA 0%,#6690D6 55%,#5372B8 100%); border-radius:0 0 36px 36px; overflow:hidden; }
-  .home-greeting { font-size:21px; font-weight:700; color:#FFFFFF; margin:12px 0 3px; position:relative; z-index:2; max-width:70%; }
-  .home-greeting-sub { font-size:12.5px; color:rgba(255,255,255,0.85); margin:0 0 20px; line-height:1.5; position:relative; z-index:2; max-width:70%; }
-  .home-hero-photo { position:absolute; right:14px; bottom:-8px; width:104px; height:104px; border-radius:50%; object-fit:cover; border:3px solid rgba(255,255,255,0.5); z-index:1; filter:drop-shadow(0 8px 14px rgba(30,50,100,0.25)); }
-  .home-affirmation-card { position:relative; z-index:2; background:rgba(255,255,255,0.16); backdrop-filter:blur(2px); border-radius:16px; padding:14px 16px; max-width:76%; }
+  .home-hero { position:relative; margin:-26px -18px 0; padding:28px 20px 50px; background:linear-gradient(165deg,rgba(30,50,100,0.35) 0%,rgba(30,50,100,0.55) 60%,rgba(20,35,75,0.75) 100%), url('hero-image.jpg') center/cover no-repeat; border-radius:0 0 36px 36px; overflow:hidden; }
+  .home-greeting { font-size:21px; font-weight:700; color:#FFFFFF; margin:12px 0 3px; position:relative; z-index:2; max-width:85%; text-shadow:0 1px 6px rgba(0,0,0,0.3); }
+  .home-greeting-sub { font-size:12.5px; color:rgba(255,255,255,0.9); margin:0 0 20px; line-height:1.5; position:relative; z-index:2; max-width:85%; text-shadow:0 1px 4px rgba(0,0,0,0.25); }
+  .home-affirmation-card { position:relative; z-index:2; background:rgba(255,255,255,0.16); backdrop-filter:blur(2px); border-radius:16px; padding:14px 16px; max-width:90%; }
   .home-affirmation-text { font-size:13px; font-weight:600; color:#FFFFFF; margin:0; line-height:1.5; }
 
   .home-section-title { font-size:14.5px; font-weight:700; color:#2E3A5A; margin:24px 0 4px; text-align:center; }
@@ -378,7 +377,6 @@
       <span style="font-size:12.5px;font-weight:600;">Starting a new journal entry — pick how you're feeling below to begin.</span>
     </div>
     <div class="home-hero">
-      <img src="hero-image.jpg" alt="" class="home-hero-photo" onerror="this.style.display='none'">
       <p class="home-greeting" id="homeGreeting">Welcome home</p>
       <p class="home-greeting-sub" id="homeGreetingSub">Home of Beautiful Souls Foundation is here with you.</p>
       <div class="home-affirmation-card">
@@ -600,11 +598,24 @@
     <div id="therapistSessionDetailList" style="display:none;margin-bottom:22px;"></div>
 
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">My Availability</p>
-    <div style="display:flex;gap:6px;margin-bottom:10px;">
-      <input type="datetime-local" id="therapistNewSlotDate" style="flex:1;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;">
-      <button id="therapistAddSlotBtn" style="font-size:11px;font-weight:700;color:#fff;background:#3B8F63;border:none;border-radius:10px;padding:10px 14px;cursor:pointer;white-space:nowrap;">Add Slot</button>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <button id="therapistCalPrevBtn" style="background:none;border:none;cursor:pointer;color:#6690D6;font-size:16px;padding:4px 10px;">‹</button>
+      <p id="therapistCalMonthTitle" style="font-size:13px;font-weight:700;color:#2A2013;margin:0;"></p>
+      <button id="therapistCalNextBtn" style="background:none;border:none;cursor:pointer;color:#6690D6;font-size:16px;padding:4px 10px;">›</button>
     </div>
-    <div id="therapistSlotsList"></div>
+    <div class="weekday-row"><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div>
+    <div class="day-grid" id="therapistAvailabilityGrid" style="margin-bottom:22px;"></div>
+
+    <div id="therapistDayEditorBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.45);z-index:60;"></div>
+    <div id="therapistDayEditor" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;background:#FFFFFF;border-radius:24px 24px 0 0;padding:24px 22px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;z-index:61;box-shadow:0 -10px 30px rgba(0,0,0,0.15);max-height:75vh;overflow-y:auto;">
+      <p id="therapistDayEditorTitle" style="font-size:16px;font-weight:800;color:#2E5090;margin:0 0 14px;text-align:center;"></p>
+      <div id="therapistDaySlotsList" style="margin-bottom:14px;"></div>
+      <div style="display:flex;gap:6px;margin-bottom:14px;">
+        <input type="time" id="therapistDayNewTime" style="flex:1;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:13px;font-family:inherit;">
+        <button id="therapistDayAddTimeBtn" style="font-size:12px;font-weight:700;color:#fff;background:#3B8F63;border:none;border-radius:10px;padding:10px 14px;cursor:pointer;white-space:nowrap;">Add Time</button>
+      </div>
+      <button id="therapistDayEditorCloseBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:13px;font-weight:700;cursor:pointer;">Done</button>
+    </div>
 
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:22px 0 10px;">My Profile</p>
     <p style="font-size:11px;color:#B0AA98;margin:0 0 10px;">This is what clients see about you on the Experts page.</p>
@@ -4564,40 +4575,116 @@ function therapistCancelBooking(bookingId){
   });
 }
 
+var therapistCalMonth = new Date().getMonth();
+var therapistCalYear = new Date().getFullYear();
+var therapistCalSlotsByDay = {}; // 'YYYY-MM-DD' -> [{id, time, is_booked}]
+var therapistCalActiveDayKey = null;
+
 function renderTherapistSlots(){
-  var wrap = document.getElementById('therapistSlotsList');
-  wrap.innerHTML = '<p style="font-size:11px;color:#B0AA98;">Loading...</p>';
-  sb.from('expert_availability_slots').select('*').gte('slot_date', new Date().toISOString()).order('slot_date', {ascending:true}).then(function(result){
-    if(result.error){ wrap.innerHTML = ''; return; }
-    var slots = result.data || [];
-    if(slots.length === 0){
-      wrap.innerHTML = '<p style="font-size:11px;color:#B0AA98;">No upcoming slots added yet.</p>';
-      return;
-    }
-    wrap.innerHTML = slots.map(function(s){
-      var dateLabel = new Date(s.slot_date).toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
-      var statusLabel = s.is_booked ? '<span style="font-size:9px;font-weight:700;color:#C77B7B;background:#FBE8E8;padding:2px 6px;border-radius:6px;margin-left:6px;">Booked</span>' : '';
-      return '<div style="display:flex;justify-content:space-between;align-items:center;background:#EAF4EE;border-radius:10px;padding:9px 12px;margin-bottom:6px;">'+
-        '<span style="font-size:11.5px;color:#2A2013;font-weight:600;">'+dateLabel+statusLabel+'</span>'+
-        (s.is_booked ? '' : '<button class="therapist-remove-slot-btn" data-id="'+s.id+'" style="font-size:10px;color:#C77B7B;background:none;border:none;cursor:pointer;font-weight:700;">Remove</button>')+
-      '</div>';
-    }).join('');
-    document.querySelectorAll('.therapist-remove-slot-btn').forEach(function(btn){
-      btn.onclick = function(){
-        sb.from('expert_availability_slots').delete().eq('id', btn.dataset.id).then(function(){ renderTherapistSlots(); });
-      };
+  renderTherapistAvailabilityGrid();
+}
+
+function renderTherapistAvailabilityGrid(){
+  document.getElementById('therapistCalMonthTitle').textContent = MONTH_NAMES[therapistCalMonth] + ' ' + therapistCalYear;
+  sb.from('expert_availability_slots').select('*').eq('expert_name', appState.therapistExpertName).order('slot_date', {ascending:true}).then(function(result){
+    therapistCalSlotsByDay = {};
+    (result.error ? [] : result.data || []).forEach(function(s){
+      var d = new Date(s.slot_date);
+      var key = d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
+      if(!therapistCalSlotsByDay[key]) therapistCalSlotsByDay[key] = [];
+      therapistCalSlotsByDay[key].push({ id: s.id, time: d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}), rawDate: s.slot_date, is_booked: s.is_booked });
     });
+
+    var grid = document.getElementById('therapistAvailabilityGrid');
+    grid.innerHTML = '';
+    var firstDay = new Date(therapistCalYear, therapistCalMonth, 1).getDay();
+    var daysInMonth = new Date(therapistCalYear, therapistCalMonth+1, 0).getDate();
+    for(var i=0; i<firstDay; i++){
+      var empty = document.createElement('div'); empty.className = 'day-cell empty'; grid.appendChild(empty);
+    }
+    var todayObj = new Date();
+    for(var day=1; day<=daysInMonth; day++){
+      (function(day){
+        var key = therapistCalYear+'-'+pad2(therapistCalMonth+1)+'-'+pad2(day);
+        var isToday = todayObj.getFullYear()===therapistCalYear && todayObj.getMonth()===therapistCalMonth && todayObj.getDate()===day;
+        var cell = document.createElement('div');
+        cell.className = 'day-cell' + (isToday ? ' today' : '');
+        var count = (therapistCalSlotsByDay[key] || []).length;
+        cell.innerHTML = '<span style="font-size:12px;font-weight:600;">'+day+'</span>' +
+          (count > 0 ? '<span style="width:5px;height:5px;border-radius:50%;background:#3B8F63;"></span>' : '');
+        cell.onclick = function(){ openTherapistDayEditor(key); };
+        grid.appendChild(cell);
+      })(day);
+    }
   });
 }
-document.getElementById('therapistAddSlotBtn').onclick = function(){
-  var input = document.getElementById('therapistNewSlotDate');
-  if(!input.value) return;
-  sb.from('expert_availability_slots').insert({ expert_name: appState.therapistExpertName, slot_date: new Date(input.value).toISOString(), is_booked: false }).then(function(result){
-    if(!result.error){
-      input.value = '';
-      renderTherapistSlots();
-    }
+document.getElementById('therapistCalPrevBtn').onclick = function(){
+  therapistCalMonth--; if(therapistCalMonth < 0){ therapistCalMonth = 11; therapistCalYear--; }
+  renderTherapistAvailabilityGrid();
+};
+document.getElementById('therapistCalNextBtn').onclick = function(){
+  therapistCalMonth++; if(therapistCalMonth > 11){ therapistCalMonth = 0; therapistCalYear++; }
+  renderTherapistAvailabilityGrid();
+};
+
+function openTherapistDayEditor(dateKey){
+  therapistCalActiveDayKey = dateKey;
+  var parts = dateKey.split('-').map(Number);
+  var dObj = new Date(parts[0], parts[1]-1, parts[2]);
+  document.getElementById('therapistDayEditorTitle').textContent = dObj.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
+  renderTherapistDaySlotsList();
+  document.getElementById('therapistDayEditorBackdrop').style.display = 'block';
+  document.getElementById('therapistDayEditor').style.display = 'block';
+}
+function renderTherapistDaySlotsList(){
+  var slots = therapistCalSlotsByDay[therapistCalActiveDayKey] || [];
+  var wrap = document.getElementById('therapistDaySlotsList');
+  if(slots.length === 0){
+    wrap.innerHTML = '<p style="font-size:12px;color:#B0AA98;text-align:center;">No times added for this day yet.</p>';
+    return;
+  }
+  wrap.innerHTML = slots.map(function(s){
+    var statusLabel = s.is_booked ? '<span style="font-size:9px;font-weight:700;color:#C77B7B;background:#FBE8E8;padding:2px 6px;border-radius:6px;margin-left:6px;">Booked</span>' : '';
+    return '<div style="display:flex;justify-content:space-between;align-items:center;background:#EAF4EE;border-radius:10px;padding:10px 12px;margin-bottom:6px;">'+
+      '<span style="font-size:13px;color:#2A2013;font-weight:600;">'+s.time+statusLabel+'</span>'+
+      (s.is_booked ? '' : '<button class="therapist-remove-daytime-btn" data-id="'+s.id+'" style="font-size:11px;color:#C77B7B;background:none;border:none;cursor:pointer;font-weight:700;">Remove</button>')+
+    '</div>';
+  }).join('');
+  document.querySelectorAll('.therapist-remove-daytime-btn').forEach(function(btn){
+    btn.onclick = function(){
+      sb.from('expert_availability_slots').delete().eq('id', btn.dataset.id).then(function(){
+        renderTherapistAvailabilityGrid();
+        setTimeout(function(){
+          var parts = therapistCalActiveDayKey.split('-').map(Number);
+          therapistCalSlotsByDay[therapistCalActiveDayKey] = (therapistCalSlotsByDay[therapistCalActiveDayKey]||[]).filter(function(s){ return s.id !== btn.dataset.id; });
+          renderTherapistDaySlotsList();
+        }, 400);
+      });
+    };
   });
+}
+document.getElementById('therapistDayAddTimeBtn').onclick = function(){
+  var timeInput = document.getElementById('therapistDayNewTime');
+  if(!timeInput.value) return;
+  var parts = therapistCalActiveDayKey.split('-').map(Number);
+  var timeParts = timeInput.value.split(':').map(Number);
+  var fullDate = new Date(parts[0], parts[1]-1, parts[2], timeParts[0], timeParts[1]);
+  sb.from('expert_availability_slots').insert({ expert_name: appState.therapistExpertName, slot_date: fullDate.toISOString(), is_booked: false }).select().single().then(function(result){
+    if(result.error) return;
+    timeInput.value = '';
+    if(!therapistCalSlotsByDay[therapistCalActiveDayKey]) therapistCalSlotsByDay[therapistCalActiveDayKey] = [];
+    therapistCalSlotsByDay[therapistCalActiveDayKey].push({ id: result.data.id, time: fullDate.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}), is_booked: false });
+    renderTherapistDaySlotsList();
+    renderTherapistAvailabilityGrid();
+  });
+};
+document.getElementById('therapistDayEditorCloseBtn').onclick = function(){
+  document.getElementById('therapistDayEditorBackdrop').style.display = 'none';
+  document.getElementById('therapistDayEditor').style.display = 'none';
+};
+document.getElementById('therapistDayEditorBackdrop').onclick = function(){
+  document.getElementById('therapistDayEditorBackdrop').style.display = 'none';
+  document.getElementById('therapistDayEditor').style.display = 'none';
 };
 
 function cancelSession(m){
