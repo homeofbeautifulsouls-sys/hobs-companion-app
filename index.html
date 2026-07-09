@@ -520,6 +520,7 @@
     </button>
     <p class="prompt-title" style="text-align:center;">Our Experts</p>
     <p class="prompt-sub" style="text-align:center;margin-bottom:18px;">The people behind HOBS. Tap anyone to learn more.</p>
+    <div id="teamLanguageFilterRow" style="display:flex;gap:6px;overflow-x:auto;margin-bottom:14px;padding-bottom:2px;"></div>
     <div id="teamList"></div>
   </div>
 
@@ -559,6 +560,8 @@
       <input type="text" id="newExpertYears" placeholder="Experience (e.g. 3+ Years)" style="flex:1;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;box-sizing:border-box;">
     </div>
     <input type="url" id="newExpertPhoto" placeholder="Photo URL (optional)" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;">
+    <p style="font-size:10.5px;color:#9AABCE;font-weight:700;margin:0 0 6px;">Languages (optional — they can refine this themselves)</p>
+    <div id="newExpertLanguagesCheckboxes" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;"></div>
     <input type="email" id="newExpertEmail" placeholder="Their email (for invite)" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:8px;box-sizing:border-box;">
     <button id="adminCreateExpertBtn" style="width:100%;padding:11px;border-radius:10px;border:none;background:#6690D6;color:#fff;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:8px;">Create Profile &amp; Generate Invite</button>
     <div id="adminInviteMessageBox" style="display:none;background:#EAF4EE;border-radius:10px;padding:12px;margin-bottom:10px;">
@@ -625,9 +628,13 @@
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:22px 0 10px;">My Profile</p>
     <p style="font-size:11px;color:#B0AA98;margin:0 0 10px;">This is what clients see about you on the Experts page.</p>
     <textarea id="therapistBioInput" placeholder="A short bio, in your own words..." rows="3" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;resize:vertical;"></textarea>
-    <input type="text" id="therapistApproachesInput" placeholder="Approaches you use (e.g. CBT, DBT)" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;">
-    <input type="text" id="therapistSpecializationsInput" placeholder="Specializations (e.g. Anxiety, Relationships)" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;">
-    <input type="text" id="therapistLanguagesInput" placeholder="Languages (e.g. English, Hindi)" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:10px;box-sizing:border-box;">
+    <input type="text" id="therapistSpecializationsInput" placeholder="Specializations, comma separated (e.g. Anxiety, Relationships)" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;">
+    <textarea id="therapistSuperpowersInput" placeholder="Your superpowers — a few things you're especially good at with clients..." rows="2" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;resize:vertical;"></textarea>
+    <textarea id="therapistApproachesInput" placeholder="What approaches do you use? (e.g. CBT, DBT)" rows="2" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;resize:vertical;"></textarea>
+    <textarea id="therapistWhyInput" placeholder="Why did you choose to become a therapist?" rows="2" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;resize:vertical;"></textarea>
+    <textarea id="therapistQualificationsInput" placeholder="What are your qualifications, in more detail?" rows="2" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:8px;box-sizing:border-box;resize:vertical;"></textarea>
+    <p style="font-size:11px;color:#9AABCE;font-weight:700;margin:0 0 6px;">Languages you can work in</p>
+    <div id="therapistLanguagesCheckboxes" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;"></div>
     <button id="therapistSaveProfileBtn" style="width:100%;padding:12px;border-radius:10px;border:none;background:#3B8F63;color:#fff;font-size:12.5px;font-weight:700;cursor:pointer;">Save My Profile</button>
   </div>
 
@@ -4003,7 +4010,8 @@ function loadExpertsFromSupabase(){
         id: e.id, name: e.name, role: e.role, roleCategory: e.role_category,
         credential: e.credential || '', years: e.years || '', bookingLink: e.booking_link || '',
         photo: e.photo_url || '', bio: e.bio || '', approaches: e.approaches || '',
-        specializations: e.specializations || '', languages: e.languages || ''
+        specializations: e.specializations || '', languages: e.languages || '',
+        superpowers: e.superpowers || '', whyTherapist: e.why_therapist || '', qualificationsDetail: e.qualifications_detail || ''
       };
     });
   });
@@ -4190,6 +4198,7 @@ document.getElementById('adminCreateExpertBtn').onclick = function(){
   var credential = document.getElementById('newExpertCredential').value.trim();
   var years = document.getElementById('newExpertYears').value.trim();
   var photo = document.getElementById('newExpertPhoto').value.trim();
+  var languages = getSelectedLanguagesFromCheckboxes('newExpertLanguagesCheckboxes');
   var email = document.getElementById('newExpertEmail').value.trim().toLowerCase();
 
   if(!name || !role || !email){
@@ -4202,7 +4211,7 @@ document.getElementById('adminCreateExpertBtn').onclick = function(){
 
   sb.from('experts').insert({
     name: name, role: role, role_category: roleCategory, credential: credential,
-    years: years, photo_url: photo || null, display_order: 99
+    years: years, photo_url: photo || null, languages: languages || null, display_order: 99
   }).select().single().then(function(expertResult){
     if(expertResult.error){
       btn.textContent = 'Create Profile & Generate Invite'; btn.disabled = false;
@@ -4321,6 +4330,7 @@ function openAdminDashboard(){
   renderAdminGroupSessions();
   populateAdminAvailabilitySelect();
   populateAdminTherapistSelect();
+  renderLanguageCheckboxes('newExpertLanguagesCheckboxes', '');
   Promise.all([
     sb.from('expert_bookings').select('*').order('created_at', {ascending:false}),
     sb.from('profiles').select('user_id,name,email,phone_number')
@@ -4469,6 +4479,29 @@ function openAdminDashboard(){
 document.getElementById('adminDashboardBtn').onclick = openAdminDashboard;
 document.getElementById('adminBackBtn').onclick = function(){ showOnly('panel-profile'); };
 
+var LANGUAGE_OPTIONS = ['Hindi','English','Bengali','Telugu','Marathi','Tamil','Odia','Kannada','Urdu','Gujarati'];
+
+function renderLanguageCheckboxes(containerId, selectedCsv){
+  var selected = (selectedCsv || '').split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+  var wrap = document.getElementById(containerId);
+  wrap.innerHTML = LANGUAGE_OPTIONS.map(function(lang){
+    var isChecked = selected.indexOf(lang) !== -1;
+    return '<label style="display:flex;align-items:center;gap:5px;background:'+(isChecked?'#EAF4EE':'#FFFFFF')+';border:1px solid '+(isChecked?'#3B8F63':'#EEE0C4')+';border-radius:20px;padding:6px 12px;font-size:11px;color:#2A2013;cursor:pointer;">'+
+      '<input type="checkbox" class="lang-checkbox" value="'+lang+'" '+(isChecked?'checked':'')+' style="accent-color:#3B8F63;">'+lang+
+    '</label>';
+  }).join('');
+  wrap.querySelectorAll('.lang-checkbox').forEach(function(cb){
+    cb.onchange = function(){
+      cb.closest('label').style.background = cb.checked ? '#EAF4EE' : '#FFFFFF';
+      cb.closest('label').style.borderColor = cb.checked ? '#3B8F63' : '#EEE0C4';
+    };
+  });
+}
+function getSelectedLanguagesFromCheckboxes(containerId){
+  var checked = document.querySelectorAll('#'+containerId+' .lang-checkbox:checked');
+  return Array.from(checked).map(function(cb){ return cb.value; }).join(', ');
+}
+
 function openTherapistDashboard(){
   showOnly('panel-therapist-dashboard');
   document.getElementById('therapistDashboardSubtitle').textContent = 'Your sessions and availability, as ' + appState.therapistExpertName + '.';
@@ -4477,10 +4510,13 @@ function openTherapistDashboard(){
   renderTherapistSummaryAndDetail();
   renderTherapistSlots();
   var myProfile = TEAM_MEMBERS.find(function(m){ return m.name === appState.therapistExpertName; });
-  document.getElementById('therapistBioInput').value = myProfile ? myProfile.bio : '';
-  document.getElementById('therapistApproachesInput').value = myProfile ? myProfile.approaches : '';
-  document.getElementById('therapistSpecializationsInput').value = myProfile ? myProfile.specializations : '';
-  document.getElementById('therapistLanguagesInput').value = myProfile ? myProfile.languages : '';
+  document.getElementById('therapistBioInput').value = myProfile ? (myProfile.bio||'') : '';
+  document.getElementById('therapistApproachesInput').value = myProfile ? (myProfile.approaches||'') : '';
+  document.getElementById('therapistSpecializationsInput').value = myProfile ? (myProfile.specializations||'') : '';
+  document.getElementById('therapistSuperpowersInput').value = myProfile ? (myProfile.superpowers||'') : '';
+  document.getElementById('therapistWhyInput').value = myProfile ? (myProfile.whyTherapist||'') : '';
+  document.getElementById('therapistQualificationsInput').value = myProfile ? (myProfile.qualificationsDetail||'') : '';
+  renderLanguageCheckboxes('therapistLanguagesCheckboxes', myProfile ? myProfile.languages : '');
 }
 document.getElementById('therapistDashboardBtn').onclick = openTherapistDashboard;
 document.getElementById('therapistDashboardBackBtn').onclick = function(){ showOnly('panel-profile'); };
@@ -4489,11 +4525,15 @@ document.getElementById('therapistSaveProfileBtn').onclick = function(){
   var bio = document.getElementById('therapistBioInput').value.trim();
   var approaches = document.getElementById('therapistApproachesInput').value.trim();
   var specializations = document.getElementById('therapistSpecializationsInput').value.trim();
-  var languages = document.getElementById('therapistLanguagesInput').value.trim();
+  var superpowers = document.getElementById('therapistSuperpowersInput').value.trim();
+  var whyTherapist = document.getElementById('therapistWhyInput').value.trim();
+  var qualificationsDetail = document.getElementById('therapistQualificationsInput').value.trim();
+  var languages = getSelectedLanguagesFromCheckboxes('therapistLanguagesCheckboxes');
   var btn = document.getElementById('therapistSaveProfileBtn');
   btn.textContent = 'Saving...'; btn.disabled = true;
   sb.from('experts').update({
-    bio: bio, approaches: approaches, specializations: specializations, languages: languages
+    bio: bio, approaches: approaches, specializations: specializations, languages: languages,
+    superpowers: superpowers, why_therapist: whyTherapist, qualifications_detail: qualificationsDetail
   }).eq('name', appState.therapistExpertName).then(function(result){
     btn.textContent = 'Save My Profile'; btn.disabled = false;
     if(result.error){ showToast('Could not save — please try again.'); return; }
@@ -4788,9 +4828,43 @@ function cancelSession(m){
   renderTeamList();
 }
 
+var teamActiveLanguageFilter = null;
 function renderTeamList(){
+  // Derive real, currently-available languages from actual expert data — not a fixed list.
+  var availableLanguages = [];
+  TEAM_MEMBERS.forEach(function(m){
+    (m.languages || '').split(',').forEach(function(l){
+      var trimmed = l.trim();
+      if(trimmed && availableLanguages.indexOf(trimmed) === -1) availableLanguages.push(trimmed);
+    });
+  });
+  var filterWrap = document.getElementById('teamLanguageFilterRow');
+  if(availableLanguages.length === 0){
+    filterWrap.innerHTML = '';
+  } else {
+    filterWrap.innerHTML = availableLanguages.map(function(lang){
+      var isActive = teamActiveLanguageFilter === lang;
+      return '<button class="team-lang-filter-chip" data-lang="'+lang+'" style="flex-shrink:0;padding:7px 14px;border-radius:20px;border:1.5px solid '+(isActive?'#6690D6':'#EEE0C4')+';background:'+(isActive?'#6690D6':'#FFFFFF')+';color:'+(isActive?'#fff':'#2A2013')+';font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;">'+lang+'</button>';
+    }).join('');
+    filterWrap.querySelectorAll('.team-lang-filter-chip').forEach(function(chip){
+      chip.onclick = function(){
+        teamActiveLanguageFilter = (teamActiveLanguageFilter === chip.dataset.lang) ? null : chip.dataset.lang;
+        renderTeamList();
+      };
+    });
+  }
+
+  var filteredMembers = teamActiveLanguageFilter
+    ? TEAM_MEMBERS.filter(function(m){ return (m.languages || '').indexOf(teamActiveLanguageFilter) !== -1; })
+    : TEAM_MEMBERS;
+
   var wrap = document.getElementById('teamList');
-  wrap.innerHTML = TEAM_MEMBERS.map(function(m, idx){
+  if(filteredMembers.length === 0){
+    wrap.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;padding:20px 0;">No experts match that language yet.</p>';
+    return;
+  }
+  wrap.innerHTML = filteredMembers.map(function(m){
+    var idx = TEAM_MEMBERS.indexOf(m);
     var initials = m.name.split(' ').filter(function(w){ return w!=='Dr.'; }).map(function(w){ return w[0]; }).slice(0,2).join('');
     var photoInner = m.photo
       ? '<img src="'+m.photo+'" alt="'+m.name+'" id="teamPhoto'+idx+'" style="width:100%;height:100%;object-fit:cover;" onerror="teamPhotoFallback(this, \''+initials+'\')">'
@@ -4854,6 +4928,20 @@ function renderTeamList(){
   });
 }
 
+function renderExpertAccordionItem(question, answer){
+  if(!answer) return '';
+  var id = 'acc_' + Math.random().toString(36).slice(2,8);
+  return '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:16px;padding:14px 16px;margin-bottom:10px;">'+
+    '<button class="expert-accordion-toggle" data-target="'+id+'" style="display:flex;align-items:center;justify-content:space-between;width:100%;background:none;border:none;padding:0;cursor:pointer;text-align:left;">'+
+      '<span style="font-size:13px;font-weight:700;color:#2A2013;">'+question+'</span>'+
+      '<span class="expert-accordion-arrow" style="color:#9AABCE;font-size:12px;transition:transform 0.2s;">▾</span>'+
+    '</button>'+
+    '<div id="'+id+'" style="display:none;margin-top:10px;">'+
+      '<p style="font-size:12px;color:#5C6B94;line-height:1.6;margin:0;">'+answer+'</p>'+
+    '</div>'+
+  '</div>';
+}
+
 function openExpertDetail(idx){
   var m = TEAM_MEMBERS[idx];
   var initials = m.name.split(' ').filter(function(w){ return w!=='Dr.'; }).map(function(w){ return w[0]; }).slice(0,2).join('');
@@ -4902,15 +4990,29 @@ function openExpertDetail(idx){
     '</div>'+
 
     '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:16px;padding:16px;margin-bottom:16px;">'+
-      '<p style="font-size:10px;font-weight:700;color:#9AABCE;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 8px;">Holds Expertise In</p>'+
-      '<p style="font-size:12.5px;color:#2A2013;margin:0;">'+(m.specializations || 'General mental health support')+'</p>'+
+      '<p style="font-size:10px;font-weight:700;color:#9AABCE;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 10px;">Holds Expertise In</p>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:6px;">'+
+        (m.specializations ? m.specializations.split(',').map(function(s){
+          return '<span style="background:#EAF0FB;color:#2E5090;font-size:11px;font-weight:600;padding:6px 12px;border-radius:16px;">'+s.trim()+'</span>';
+        }).join('') : '<span style="background:#EAF0FB;color:#2E5090;font-size:11px;font-weight:600;padding:6px 12px;border-radius:16px;">General mental health support</span>')+
+      '</div>'+
     '</div>'+
     '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:16px;padding:16px;margin-bottom:16px;">'+
-      '<p style="font-size:10px;font-weight:700;color:#9AABCE;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 8px;">Languages</p>'+
-      '<p style="font-size:12.5px;color:#2A2013;margin:0;">'+(m.languages || 'English')+'</p>'+
+      '<p style="font-size:10px;font-weight:700;color:#9AABCE;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 10px;">Languages</p>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:6px;">'+
+        (m.languages ? m.languages.split(',').map(function(s){
+          return '<span style="background:#F5F3EE;color:#5C6B94;font-size:11px;font-weight:600;padding:6px 12px;border-radius:16px;">'+s.trim()+'</span>';
+        }).join('') : '<span style="background:#F5F3EE;color:#5C6B94;font-size:11px;font-weight:600;padding:6px 12px;border-radius:16px;">English</span>')+
+      '</div>'+
     '</div>'+
+    (m.superpowers ?
+      '<div style="background:#FFF8F0;border:1px solid #F0D48A;border-radius:16px;padding:16px;margin-bottom:16px;">'+
+        '<p style="font-size:13px;font-weight:800;color:#7B4F00;margin:0 0 10px;">'+m.name.split(' ')[0]+'\'s superpowers</p>'+
+        '<p style="font-size:12px;color:#2A2013;line-height:1.7;margin:0;">⚡ '+m.superpowers+'</p>'+
+      '</div>' : ''
+    )+
     (m.bio ?
-      '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:16px;padding:16px;margin-bottom:16px;">'+
+      '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:16px;padding:16px;margin-bottom:12px;">'+
         '<p style="font-size:10px;font-weight:700;color:#9AABCE;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 8px;">About '+m.name.split(' ')[0]+'</p>'+
         '<p style="font-size:12.5px;color:#2A2013;line-height:1.6;margin:0;">'+m.bio+'</p>'+
       '</div>' :
@@ -4918,12 +5020,9 @@ function openExpertDetail(idx){
         '<p style="font-size:12.5px;color:#9AABCE;margin:0;">A fuller introduction from '+m.name.split(' ')[0]+' — their approach, what brought them to this work, and more — is on its way.</p>'+
       '</div>'
     )+
-    (m.approaches ?
-      '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:16px;padding:16px;margin-bottom:16px;">'+
-        '<p style="font-size:10px;font-weight:700;color:#9AABCE;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 8px;">Approaches Used</p>'+
-        '<p style="font-size:12.5px;color:#2A2013;margin:0;">'+m.approaches+'</p>'+
-      '</div>' : ''
-    )+
+    renderExpertAccordionItem('What approaches do I use?', m.approaches)+
+    renderExpertAccordionItem('Why did I choose to become a therapist?', m.whyTherapist)+
+    renderExpertAccordionItem('What are my qualifications?', m.qualificationsDetail || (m.credential + ' · ' + m.years))+
 
     (isDoctor ?
       '<div style="background:#FEF3D8;border:1px solid #EEE0C4;border-radius:14px;padding:14px;margin-bottom:16px;text-align:center;">'+
@@ -4931,6 +5030,16 @@ function openExpertDetail(idx){
       '</div>' : ''
     )+
     actionHtml;
+
+  document.querySelectorAll('.expert-accordion-toggle').forEach(function(btn){
+    btn.onclick = function(){
+      var target = document.getElementById(btn.dataset.target);
+      var arrow = btn.querySelector('.expert-accordion-arrow');
+      var isOpen = target.style.display === 'block';
+      target.style.display = isOpen ? 'none' : 'block';
+      arrow.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+    };
+  });
 
   if(!isThisPersonBooked && !isSomeoneElseBooked){
     document.getElementById('expertDetailBookBtn').onclick = function(){ bookExpert(m); };
@@ -6613,4 +6722,3 @@ renderMascotTip('supportMascotTip', 'support_kunnu', 'kunnu', "Hey. Nobody shoul
 </script>
 </body>
 </html>
-<!-- rebuild trigger 2 -->
