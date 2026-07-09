@@ -540,6 +540,11 @@
     <p class="prompt-sub" style="text-align:center;margin-bottom:18px;">Every booking, change request, and cancellation across all clients.</p>
     <div id="adminStatsRow" style="display:flex;gap:8px;margin-bottom:18px;"></div>
 
+    <div id="adminChangeRequestsSection" style="display:none;margin-bottom:22px;">
+      <p style="font-size:12px;font-weight:700;color:#C77B7B;margin:0 0 10px;">⚠ Pending Change Requests</p>
+      <div id="adminChangeRequestsList"></div>
+    </div>
+
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Add New Expert &amp; Invite</p>
     <input type="text" id="newExpertName" placeholder="Full name" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;">
     <input type="text" id="newExpertRole" placeholder="Role (e.g. Clinical Psychologist)" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;">
@@ -644,6 +649,16 @@
     <p id="slotPickerSubtitle" style="font-size:12.5px;color:#5C6B94;margin:0 0 18px;text-align:center;"></p>
     <div id="slotPickerList"></div>
     <button id="slotPickerCloseBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:13px;font-weight:700;cursor:pointer;margin-top:10px;">Cancel</button>
+  </div>
+
+  <div id="changeReasonModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.45);z-index:60;"></div>
+  <div id="changeReasonModal" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;background:#FFFFFF;border-radius:24px 24px 0 0;padding:24px 22px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;z-index:61;box-shadow:0 -10px 30px rgba(0,0,0,0.15);">
+    <p class="prompt-title" style="margin-bottom:6px;">Tell us why</p>
+    <p style="font-size:12.5px;color:#5C6B94;margin:0 0 16px;">This helps our team find you the right fit — and nothing happens until we've reviewed it.</p>
+    <textarea id="changeReasonInput" placeholder="What's not working, or what are you looking for instead?" rows="3" style="width:100%;padding:12px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:13px;box-sizing:border-box;margin-bottom:8px;resize:vertical;"></textarea>
+    <p id="changeReasonError" style="display:none;color:#C77B7B;font-size:11.5px;margin:0 0 10px;">Please share a brief reason so we can help properly.</p>
+    <button id="changeReasonSubmitBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;">Send Request</button>
+    <button id="changeReasonCancelBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:13px;font-weight:700;cursor:pointer;">Cancel</button>
   </div>
 
   <div id="policyModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.45);z-index:60;"></div>
@@ -1694,7 +1709,7 @@ document.getElementById('obSaveBtn').onclick = function(){
   btn.textContent = 'Saving...'; btn.disabled = true;
 
   sb.from('profiles').update({
-    name: name, pronouns: pronouns, phone_number: phone, date_of_birth: dob, onboarding_complete: true
+    name: name, pronouns: pronouns, phone_number: phone, date_of_birth: dob, onboarding_complete: true, email: currentUser.email
   }).eq('user_id', currentUser.id).then(function(result){
     btn.textContent = 'Continue'; btn.disabled = false;
     if(result.error){
@@ -3994,7 +4009,9 @@ function loadExpertsFromSupabase(){
   });
 }
 function getActiveBookingForCategory(category){
-  return (appState.expertBookings || []).find(function(b){ return b.role_category === category && b.status === 'active'; }) || null;
+  return (appState.expertBookings || []).find(function(b){
+    return b.role_category === category && (b.status === 'active' || (b.status === 'change_requested' && !b.change_approved));
+  }) || null;
 }
 
 function showPaymentModal(purposeText, notifyMessage, onConfirmed){
@@ -4108,15 +4125,36 @@ function bookExpert(m){
 }
 
 function requestExpertChange(m, currentExpertName){
-  var booking = getActiveBookingForCategory(m.roleCategory);
-  if(booking){
-    booking.status = 'change_requested';
-    if(String(booking.id).indexOf('temp_') !== 0){
-      sb.from('expert_bookings').update({ status: 'change_requested' }).eq('id', booking.id).then(function(){});
+  document.getElementById('changeReasonInput').value = '';
+  document.getElementById('changeReasonError').style.display = 'none';
+  document.getElementById('changeReasonModalBackdrop').style.display = 'block';
+  document.getElementById('changeReasonModal').style.display = 'block';
+
+  var closeModal = function(){
+    document.getElementById('changeReasonModalBackdrop').style.display = 'none';
+    document.getElementById('changeReasonModal').style.display = 'none';
+  };
+  document.getElementById('changeReasonCancelBtn').onclick = closeModal;
+  document.getElementById('changeReasonModalBackdrop').onclick = closeModal;
+  document.getElementById('changeReasonSubmitBtn').onclick = function(){
+    var reason = document.getElementById('changeReasonInput').value.trim();
+    if(!reason){
+      document.getElementById('changeReasonError').style.display = 'block';
+      return;
     }
-  }
-  showToast("Change request sent — our team will reach out to help you find the right fit.");
-  renderTeamList();
+    var booking = getActiveBookingForCategory(m.roleCategory);
+    if(booking){
+      booking.status = 'change_requested';
+      booking.change_reason = reason;
+      booking.change_approved = false;
+      if(String(booking.id).indexOf('temp_') !== 0){
+        sb.from('expert_bookings').update({ status: 'change_requested', change_reason: reason, change_approved: false }).eq('id', booking.id).then(function(){});
+      }
+    }
+    closeModal();
+    showToast("Request sent — we'll review it and reach out. You'll stay connected with " + currentExpertName + " until then.");
+    renderTeamList();
+  };
 }
 
 function populateAdminTherapistSelect(){
@@ -4285,16 +4323,47 @@ function openAdminDashboard(){
   populateAdminTherapistSelect();
   Promise.all([
     sb.from('expert_bookings').select('*').order('created_at', {ascending:false}),
-    sb.from('profiles').select('user_id,name')
+    sb.from('profiles').select('user_id,name,email,phone_number')
   ]).then(function(results){
     var bookingsRes = results[0], profilesRes = results[1];
     if(bookingsRes.error){
       document.getElementById('adminBookingsList').innerHTML = '<p style="text-align:center;color:#C77B7B;font-size:12.5px;">Could not load bookings: ' + bookingsRes.error.message + '</p>';
       return;
     }
+    var profileByUserId = {};
+    (profilesRes.data || []).forEach(function(p){ profileByUserId[p.user_id] = p; });
     var nameByUserId = {};
     (profilesRes.data || []).forEach(function(p){ nameByUserId[p.user_id] = p.name; });
     var bookings = bookingsRes.data || [];
+
+    var pendingChanges = bookings.filter(function(b){ return b.status === 'change_requested' && !b.change_approved; });
+    var changeSection = document.getElementById('adminChangeRequestsSection');
+    if(pendingChanges.length === 0){
+      changeSection.style.display = 'none';
+    } else {
+      changeSection.style.display = 'block';
+      document.getElementById('adminChangeRequestsList').innerHTML = pendingChanges.map(function(b){
+        var prof = profileByUserId[b.user_id] || {};
+        return '<div style="background:#FEF3D8;border:1.5px solid #F0D48A;border-radius:14px;padding:14px;margin-bottom:10px;">'+
+          '<p style="font-size:13.5px;font-weight:800;color:#2A2013;margin:0 0 4px;">'+(prof.name||'Unknown client')+'</p>'+
+          '<p style="font-size:11px;color:#5C6B94;margin:0 0 2px;">✉ '+(prof.email||'—')+'</p>'+
+          '<p style="font-size:11px;color:#5C6B94;margin:0 0 10px;">☎ '+(prof.phone_number||'—')+'</p>'+
+          '<p style="font-size:11px;color:#9AABCE;margin:0 0 4px;">Currently with '+b.expert_name+' ('+b.role_category+')</p>'+
+          '<div style="background:#FFFFFF;border-radius:10px;padding:10px;margin-bottom:10px;">'+
+            '<p style="font-size:9.5px;font-weight:700;color:#9AABCE;text-transform:uppercase;margin:0 0 4px;">Reason given</p>'+
+            '<p style="font-size:12px;color:#2A2013;margin:0;">'+(b.change_reason||'No reason given')+'</p>'+
+          '</div>'+
+          '<button class="admin-approve-change-btn" data-id="'+b.id+'" style="width:100%;padding:10px;border-radius:10px;border:none;background:#7B4F00;color:#fff;font-size:12px;font-weight:700;cursor:pointer;">Approve Change</button>'+
+        '</div>';
+      }).join('');
+      document.querySelectorAll('.admin-approve-change-btn').forEach(function(btn){
+        btn.onclick = function(){
+          sb.from('expert_bookings').update({ status: 'cancelled', change_approved: true }).eq('id', btn.dataset.id).then(function(result){
+            if(!result.error){ showToast('Change approved — this category is now open for a new booking.'); openAdminDashboard(); }
+          });
+        };
+      });
+    }
 
     var activeCount = bookings.filter(function(b){ return b.status === 'active'; }).length;
     var unconfirmedCount = bookings.filter(function(b){ return b.status === 'active' && !b.payment_confirmed; }).length;
@@ -4732,7 +4801,9 @@ function renderTeamList(){
     var isSomeoneElseBooked = activeBooking && activeBooking.expert_name !== m.name;
 
     var actionHtml;
-    if(isThisPersonBooked){
+    if(isThisPersonBooked && activeBooking.status === 'change_requested'){
+      actionHtml = '<div style="margin-top:6px;padding:11px;border-radius:12px;background:#FEF3D8;color:#7B4F00;font-size:11.5px;font-weight:700;text-align:center;">⏳ Change requested — we\'re reviewing it</div>';
+    } else if(isThisPersonBooked){
       var statusBadge = activeBooking.payment_confirmed
         ? '<div style="flex:1 1 100%;padding:11px;border-radius:12px;background:#EAF4EE;color:#3B8F63;font-size:11.5px;font-weight:700;text-align:center;">✓ Confirmed</div>'
         : '<div style="flex:1 1 100%;padding:11px;border-radius:12px;background:#FEF3D8;color:#7B4F00;font-size:11.5px;font-weight:700;text-align:center;">⏳ Pending confirmation from HOBS</div>';
@@ -6542,4 +6613,3 @@ renderMascotTip('supportMascotTip', 'support_kunnu', 'kunnu', "Hey. Nobody shoul
 </script>
 </body>
 </html>
-<!-- rebuild trigger -->
