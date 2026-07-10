@@ -3075,6 +3075,41 @@ function renderProfile(){
   } else {
     pArea.innerHTML = '<p style="font-size:13px;color:#9AABCE;margin:0;">Nothing turned off right now.</p>';
   }
+  if(IS_NATIVE_APP){
+    var pushTestBtn = document.createElement('button');
+    pushTestBtn.textContent = 'Send me a test notification';
+    pushTestBtn.style.cssText = 'width:100%;padding:11px;border-radius:10px;border:1px solid #C7D2E8;background:transparent;color:#5C6B94;font-size:12px;font-weight:700;cursor:pointer;margin-top:8px;';
+    pushTestBtn.onclick = sendTestPushNotification;
+    pArea.appendChild(pushTestBtn);
+  }
+}
+
+// Self-test: asks the send-push-notification Edge Function to send a notification to the
+// currently signed-in user only. Safe to expose to anyone since the function only allows
+// sending to yourself unless you're an admin/therapist sending to someone else.
+function sendTestPushNotification(){
+  if(!currentUser || !currentUser.id) return;
+  showToast('Sending test notification...');
+  sb.functions.invoke('send-push-notification', {
+    body: { title: 'HOBS Companion', body: 'This is a test notification — if you see this, push is working!', userId: currentUser.id }
+  }).then(function(result){
+    if(result.error){
+      console.error('Test push failed:', result.error);
+      showToast('Could not send — check your connection and try again');
+      return;
+    }
+    var data = result.data;
+    if(data && data.sent > 0){
+      showToast('Sent! It should arrive any moment.');
+    } else if(data && data.message){
+      showToast(data.message + ' — try re-registering by signing out and back in.');
+    } else {
+      showToast('No notification was sent — your device may not be registered yet.');
+    }
+  }).catch(function(err){
+    console.error('Test push error:', err);
+    showToast('Something went wrong sending the test notification');
+  });
 }
 
 // ---- Real voice-to-text via the browser's Speech Recognition API (free, but Chrome/Android-reliable only) ----
