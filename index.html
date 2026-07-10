@@ -551,6 +551,24 @@
       <div id="adminChangeRequestsList"></div>
     </div>
 
+    <div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:16px;padding:16px;margin-bottom:22px;">
+      <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Send a Notification</p>
+      <input type="text" id="notifComposeTitle" placeholder="Title (e.g. Bob here 🐘)" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;">
+      <textarea id="notifComposeBody" placeholder="Message..." style="width:100%;min-height:64px;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;resize:vertical;"></textarea>
+      <select id="notifComposeTarget" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;">
+        <option value="all">Everyone</option>
+        <option value="user">Specific person (by email)</option>
+      </select>
+      <input type="email" id="notifComposeTargetEmail" placeholder="Their email" style="display:none;width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;">
+      <button id="notifComposeSendBtn" style="width:100%;padding:11px;border-radius:10px;border:none;background:#6690D6;color:#FFF8F0;font-size:12.5px;font-weight:700;cursor:pointer;">Send Notification</button>
+      <p id="notifComposeStatus" style="font-size:11px;color:#5C6B94;margin:8px 0 0;min-height:14px;"></p>
+    </div>
+
+    <div style="margin-bottom:22px;">
+      <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Notification History</p>
+      <div id="adminNotifHistoryList"></div>
+    </div>
+
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Add New Expert &amp; Invite</p>
     <input type="text" id="newExpertName" placeholder="Full name" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;">
     <input type="text" id="newExpertRole" placeholder="Role (e.g. Clinical Psychologist)" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;">
@@ -710,6 +728,14 @@
     <p id="slotPickerSubtitle" style="font-size:12.5px;color:#5C6B94;margin:0 0 18px;text-align:center;"></p>
     <div id="slotPickerList"></div>
     <button id="slotPickerCloseBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:13px;font-weight:700;cursor:pointer;margin-top:10px;">Cancel</button>
+  </div>
+
+  <div id="notifDetailModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.45);z-index:60;"></div>
+  <div id="notifDetailModal" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;background:#FFFFFF;border-radius:24px 24px 0 0;padding:24px 22px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;z-index:61;box-shadow:0 -10px 30px rgba(0,0,0,0.15);max-height:80vh;overflow-y:auto;">
+    <p class="prompt-title" id="notifDetailTitle" style="margin-bottom:4px;">Notification</p>
+    <p style="font-size:11.5px;color:#9AABCE;margin:0 0 16px;" id="notifDetailSubtitle"></p>
+    <div id="notifDetailRecipientsList"></div>
+    <button id="notifDetailCloseBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:13px;font-weight:700;cursor:pointer;margin-top:14px;">Close</button>
   </div>
 
   <div id="changeReasonModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.45);z-index:60;"></div>
@@ -1560,7 +1586,8 @@ if (IS_NATIVE_APP && window.Capacitor?.Plugins?.App) {
       { backdrop: 'paymentModalBackdrop', modal: 'paymentModal' },
       { backdrop: 'slotPickerModalBackdrop', modal: 'slotPickerModal' },
       { backdrop: 'changeReasonModalBackdrop', modal: 'changeReasonModal' },
-      { backdrop: 'therapistDayEditorBackdrop', modal: 'therapistDayEditor' }
+      { backdrop: 'therapistDayEditorBackdrop', modal: 'therapistDayEditor' },
+      { backdrop: 'notifDetailModalBackdrop', modal: 'notifDetailModal' }
     ];
     for(var i=0; i<openModals.length; i++){
       var m = openModals[i];
@@ -1806,6 +1833,7 @@ function onAuthSuccess(user){
     claimTherapistInviteIfAny();
     retryPendingSync();
     initPushNotifications();
+    syncDeviceInfo();
     if(!appState.onboardingComplete){
       showOnboarding();
     } else if(!appState.hasSeenIntro){
@@ -1816,9 +1844,71 @@ function onAuthSuccess(user){
   });
 }
 
+// Reports this device's timezone (so scheduled reminders fire at the right LOCAL time for this
+// person, not a fixed server timezone) and app version (so the update-nudge job knows who's
+// behind) back onto their profile. Runs quietly on every sign-in.
+function syncDeviceInfo(){
+  if(!currentUser || !currentUser.id) return;
+  var updates = {};
+  try{
+    var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if(tz) updates.timezone = tz;
+  } catch(e){ /* very old WebView -- leave the existing/default timezone alone */ }
+
+  function applyUpdate(){
+    if(Object.keys(updates).length === 0) return;
+    sb.from('profiles').update(updates).eq('user_id', currentUser.id).then(function(result){
+      if(result.error) console.error('Failed to sync device info:', result.error);
+    });
+  }
+
+  if(IS_NATIVE_APP && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App){
+    window.Capacitor.Plugins.App.getInfo().then(function(info){
+      if(info){
+        if(info.version) updates.app_version_name = info.version;
+        if(info.build) updates.app_version_code = parseInt(info.build, 10) || null;
+      }
+      applyUpdate();
+    }).catch(function(){ applyUpdate(); });
+  } else {
+    applyUpdate();
+  }
+}
+
 // Registers this device for push notifications (native app only) and keeps the resulting
 // FCM token synced onto the signed-in user's profile row so a server-side sender can target it.
 var pushListenersAttached = false;
+// While non-null, the next relevant action the user takes (booking, completing a task, logging a
+// mood, writing a journal entry) gets attributed back to the notification they just tapped --
+// this is what "opened -> and then what did they do" tracking in the admin dashboard is based on.
+var pendingNotificationInteraction = null;
+
+function markNotificationOpened(notificationId){
+  if(!notificationId || !currentUser || !currentUser.id) return;
+  pendingNotificationInteraction = { notificationId: notificationId, openedAt: Date.now() };
+  sb.from('notification_recipients')
+    .update({ opened_at: new Date().toISOString() })
+    .eq('notification_id', notificationId)
+    .eq('user_id', currentUser.id)
+    .then(function(result){ if(result.error) console.error('Failed to mark notification opened:', result.error); });
+}
+
+// Call this from wherever a relevant action actually completes (booking made, task completed,
+// mood logged, journal written). Only attributes if the user opened a notification recently
+// (within the last 24h) -- an action a week after tapping isn't really "because of" that nudge.
+function trackNotificationAction(actionType){
+  if(!pendingNotificationInteraction || !currentUser || !currentUser.id) return;
+  var ageMs = Date.now() - pendingNotificationInteraction.openedAt;
+  if(ageMs > 24 * 60 * 60 * 1000){ pendingNotificationInteraction = null; return; }
+  var notificationId = pendingNotificationInteraction.notificationId;
+  pendingNotificationInteraction = null; // one attribution per tap, first matching action wins
+  sb.from('notification_recipients')
+    .update({ action_taken: actionType, action_taken_at: new Date().toISOString() })
+    .eq('notification_id', notificationId)
+    .eq('user_id', currentUser.id)
+    .then(function(result){ if(result.error) console.error('Failed to record notification action:', result.error); });
+}
+
 function initPushNotifications(){
   if(!IS_NATIVE_APP) return;
   if(!window.Capacitor || !window.Capacitor.Plugins || !window.Capacitor.Plugins.PushNotifications) return;
@@ -1842,11 +1932,20 @@ function initPushNotifications(){
       if(notification && notification.title){
         showToast(notification.title + (notification.body ? ': ' + notification.body : ''));
       }
+      var notifId = notification && notification.data && notification.data.notification_id;
+      if(notifId) markNotificationOpened(notifId);
     });
-    Push.addListener('pushNotificationActionPerformed', function(){
-      // User tapped a notification from the tray. No deep-link routing yet -- land safely on Home.
-      showOnly('panel-bubbles');
-      setActiveNav('navHome');
+    Push.addListener('pushNotificationActionPerformed', function(action){
+      var notifData = action && action.notification && action.notification.data;
+      if(notifData && notifData.type === 'app_update' && notifData.url){
+        // Open the APK link directly so the browser/download manager takes over -- not an in-app screen.
+        window.open(notifData.url, '_system');
+      } else {
+        // No deep-link routing yet for other types -- land safely on Home.
+        showOnly('panel-bubbles');
+        setActiveNav('navHome');
+      }
+      if(notifData && notifData.notification_id) markNotificationOpened(notifData.notification_id);
     });
   }
 
@@ -2509,6 +2608,8 @@ function commitMainJournalIfDirty(){
   appState.entries.unshift(entry);
   saveState();
   saveEntryToSupabase(entry);
+  trackNotificationAction(selected.length ? 'logged_mood' : 'wrote_journal_entry');
+  logAnalyticsEvent(selected.length ? 'mood_logged' : 'journal_written');
   return true;
 }
 
@@ -2779,7 +2880,19 @@ function showOnly(panelId){
   if(panelHistoryStack[panelHistoryStack.length - 1] !== panelId){
     panelHistoryStack.push(panelId);
     if(panelHistoryStack.length > 30) panelHistoryStack.shift(); // avoid unbounded growth
+    logScreenView(panelId);
   }
+}
+
+// Firebase Analytics: automatic screen-view tracking (every panel change, via showOnly above) plus
+// a handful of custom events at the key funnel moments Akash asked to see behavior for.
+function logScreenView(panelId){
+  if(!IS_NATIVE_APP || !window.Capacitor || !window.Capacitor.Plugins || !window.Capacitor.Plugins.FirebaseAnalytics) return;
+  window.Capacitor.Plugins.FirebaseAnalytics.setCurrentScreen({ screenName: panelId, screenClassOverview: panelId }).catch(function(){});
+}
+function logAnalyticsEvent(eventName, params){
+  if(!IS_NATIVE_APP || !window.Capacitor || !window.Capacitor.Plugins || !window.Capacitor.Plugins.FirebaseAnalytics) return;
+  window.Capacitor.Plugins.FirebaseAnalytics.logEvent({ name: eventName, params: params || {} }).catch(function(){});
 }
 function setActiveNav(which){
   ['navHome','navTasks','navJournal','navBreathe','navYou'].forEach(function(id){ document.getElementById(id).classList.remove('active'); });
@@ -2853,6 +2966,8 @@ function commitQuickJournalIfDirty(){
   appState.entries.unshift(entry);
   saveState();
   saveEntryToSupabase(entry);
+  trackNotificationAction(quickJournalSelected.length ? 'logged_mood' : 'wrote_journal_entry');
+  logAnalyticsEvent(quickJournalSelected.length ? 'mood_logged' : 'journal_written');
   textEl.value = '';
   quickJournalSelected = [];
   return true;
@@ -3075,7 +3190,7 @@ function renderProfile(){
   } else {
     pArea.innerHTML = '<p style="font-size:13px;color:#9AABCE;margin:0;">Nothing turned off right now.</p>';
   }
-  if(IS_NATIVE_APP){
+  if(IS_NATIVE_APP && appState.isAdmin){
     var pushTestBtn = document.createElement('button');
     pushTestBtn.textContent = 'Send me a test notification';
     pushTestBtn.style.cssText = 'width:100%;padding:11px;border-radius:10px;border:1px solid #C7D2E8;background:transparent;color:#5C6B94;font-size:12px;font-weight:700;cursor:pointer;margin-top:8px;';
@@ -3851,6 +3966,8 @@ function toggleTaskCal(taskId){
     sb.from('tasks').update({ done: task.done }).eq('id', taskId).then(function(r){ if(r.error) console.error(r.error); });
   }
   if(task.done){
+    trackNotificationAction('completed_task');
+    logAnalyticsEvent('task_completed');
     var newBadge = checkAchievements();
     if(newBadge) showAchievement(newBadge, function(){ showCelebration(task); });
     else showCelebration(task);
@@ -4229,6 +4346,7 @@ function commitSheetTaskIfDirty(){
   };
   getTasks(sheetTargetKey).push(localTask);
   saveState();
+  logAnalyticsEvent('task_created');
   if(sheetTargetKey === bdSelectedKey) renderBodyDoubleTaskList();
   if(sheetTargetKey === activeDayKey) renderTaskListCal();
 
@@ -4862,6 +4980,8 @@ function bookExpert(m){
       var newBooking = { id: 'temp_' + uidGen(), expert_name: m.name, role_category: m.roleCategory, status: 'active', cancellation_count: 0, payment_confirmed: false, session_date: chosenSlot.slot_date };
       appState.expertBookings.push(newBooking);
       renderTeamList();
+      trackNotificationAction('booked_session');
+      logAnalyticsEvent('booking_made');
       sb.from('expert_bookings').insert({
         user_id: currentUser.id, expert_name: m.name, role_category: m.roleCategory, status: 'active', cancellation_count: 0, payment_confirmed: false, session_date: chosenSlot.slot_date
       }).select().single().then(function(result){
@@ -4882,6 +5002,8 @@ function bookExpert(m){
       var newBooking = { id: 'temp_' + uidGen(), expert_name: m.name, role_category: m.roleCategory, status: 'active', cancellation_count: 0, payment_confirmed: false };
       appState.expertBookings.push(newBooking);
       renderTeamList();
+      trackNotificationAction('booked_session');
+      logAnalyticsEvent('booking_made');
       sb.from('expert_bookings').insert({
         user_id: currentUser.id, expert_name: m.name, role_category: m.roleCategory, status: 'active', cancellation_count: 0, payment_confirmed: false
       }).select().single().then(function(result){
@@ -5110,6 +5232,132 @@ function renderAdminErrorLogs(){
   });
 }
 
+var NOTIF_TYPE_LABELS = {
+  book_session: 'Book a session', task_reminder: 'Task reminder', mood_check: 'Mood check',
+  journal_reminder: 'Journal reminder', admin_manual: 'Manual (admin)', self_test: 'Self test', app_update: 'App update'
+};
+
+document.getElementById('notifComposeTarget').onchange = function(){
+  document.getElementById('notifComposeTargetEmail').style.display = this.value === 'user' ? 'block' : 'none';
+};
+
+document.getElementById('notifComposeSendBtn').onclick = function(){
+  var title = document.getElementById('notifComposeTitle').value.trim();
+  var body = document.getElementById('notifComposeBody').value.trim();
+  var target = document.getElementById('notifComposeTarget').value;
+  var statusEl = document.getElementById('notifComposeStatus');
+  if(!title || !body){ statusEl.textContent = 'Title and message are both required.'; statusEl.style.color = '#C77B7B'; return; }
+
+  function doSend(payload){
+    statusEl.textContent = 'Sending...'; statusEl.style.color = '#5C6B94';
+    sb.functions.invoke('send-push-notification', { body: payload }).then(function(result){
+      if(result.error){ statusEl.textContent = 'Failed: ' + result.error.message; statusEl.style.color = '#C77B7B'; return; }
+      var data = result.data;
+      if(data && typeof data.sent === 'number'){
+        statusEl.textContent = 'Sent to ' + data.sent + ' of ' + (data.sent + (data.failed||0)) + ' recipient(s).';
+      } else {
+        statusEl.textContent = (data && data.message) || 'Sent.';
+      }
+      statusEl.style.color = '#3B8F63';
+      document.getElementById('notifComposeTitle').value = '';
+      document.getElementById('notifComposeBody').value = '';
+      renderAdminNotifHistory();
+    }).catch(function(err){ statusEl.textContent = 'Error: ' + err; statusEl.style.color = '#C77B7B'; });
+  }
+
+  if(target === 'all'){
+    doSend({ title: title, body: body, all: true, notificationType: 'admin_manual', targetDescription: 'All users (manual send)' });
+  } else {
+    var email = document.getElementById('notifComposeTargetEmail').value.trim();
+    if(!email){ statusEl.textContent = 'Enter their email.'; statusEl.style.color = '#C77B7B'; return; }
+    statusEl.textContent = 'Looking up that person...'; statusEl.style.color = '#5C6B94';
+    sb.from('profiles').select('user_id').eq('email', email).single().then(function(result){
+      if(result.error || !result.data){ statusEl.textContent = 'No user found with that email.'; statusEl.style.color = '#C77B7B'; return; }
+      doSend({ title: title, body: body, userId: result.data.user_id, notificationType: 'admin_manual', targetDescription: 'Manual send to ' + email });
+    });
+  }
+};
+
+function renderAdminNotifHistory(){
+  var listEl = document.getElementById('adminNotifHistoryList');
+  listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">Loading...</p>';
+  Promise.all([
+    sb.from('notification_log').select('*').order('sent_at', {ascending:false}).limit(30),
+    sb.from('notification_recipients').select('notification_id, opened_at, action_taken')
+  ]).then(function(results){
+    var logRes = results[0], recipRes = results[1];
+    if(logRes.error){ listEl.innerHTML = '<p style="color:#C77B7B;font-size:12px;">Could not load: '+logRes.error.message+'</p>'; return; }
+    var logs = logRes.data || [];
+    var recipients = recipRes.data || [];
+    var statsByNotif = {};
+    recipients.forEach(function(r){
+      if(!statsByNotif[r.notification_id]) statsByNotif[r.notification_id] = { sent:0, opened:0, acted:0 };
+      statsByNotif[r.notification_id].sent++;
+      if(r.opened_at) statsByNotif[r.notification_id].opened++;
+      if(r.action_taken) statsByNotif[r.notification_id].acted++;
+    });
+    if(logs.length === 0){ listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">No notifications sent yet.</p>'; return; }
+    listEl.innerHTML = logs.map(function(n){
+      var stats = statsByNotif[n.id] || {sent:0,opened:0,acted:0};
+      var typeLabel = NOTIF_TYPE_LABELS[n.notification_type] || n.notification_type;
+      var when = new Date(n.sent_at).toLocaleString('en-IN', { dateStyle:'medium', timeStyle:'short' });
+      return '<div class="notif-history-row" data-id="'+n.id+'" style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:14px;padding:14px;margin-bottom:10px;cursor:pointer;">'+
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:4px;">'+
+        '<p style="font-size:13px;font-weight:800;color:#2A2013;margin:0;">'+n.title+'</p>'+
+        '<span style="flex-shrink:0;font-size:9.5px;font-weight:700;color:#6690D6;background:#E9F0FB;padding:2px 8px;border-radius:8px;white-space:nowrap;">'+typeLabel+'</span>'+
+        '</div>'+
+        '<p style="font-size:11.5px;color:#5C6B94;margin:0 0 8px;">'+n.body+'</p>'+
+        '<p style="font-size:10.5px;color:#9AABCE;margin:0;">'+when+' · Sent '+stats.sent+' · Opened '+stats.opened+' · Acted on '+stats.acted+'</p>'+
+        '</div>';
+    }).join('');
+    listEl.querySelectorAll('.notif-history-row').forEach(function(row){
+      row.onclick = function(){ viewNotificationRecipients(row.dataset.id, logs.find(function(n){ return n.id === row.dataset.id; })); };
+    });
+  });
+}
+
+function viewNotificationRecipients(notificationId, notifRow){
+  document.getElementById('notifDetailTitle').textContent = notifRow ? notifRow.title : 'Notification';
+  document.getElementById('notifDetailSubtitle').textContent = notifRow ? notifRow.body : '';
+  var listEl = document.getElementById('notifDetailRecipientsList');
+  listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12px;">Loading...</p>';
+  document.getElementById('notifDetailModalBackdrop').style.display = 'block';
+  document.getElementById('notifDetailModal').style.display = 'block';
+
+  Promise.all([
+    sb.from('notification_recipients').select('*').eq('notification_id', notificationId),
+    sb.from('profiles').select('user_id,name,email')
+  ]).then(function(results){
+    var recipRes = results[0], profRes = results[1];
+    if(recipRes.error){ listEl.innerHTML = '<p style="color:#C77B7B;font-size:12px;">Could not load recipients.</p>'; return; }
+    var profileByUserId = {};
+    (profRes.data||[]).forEach(function(p){ profileByUserId[p.user_id] = p; });
+    var recipients = recipRes.data || [];
+    if(recipients.length === 0){ listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12px;">No recipients recorded.</p>'; return; }
+    listEl.innerHTML = recipients.map(function(r){
+      var prof = profileByUserId[r.user_id] || {};
+      var statusLabel, statusColor;
+      if(r.action_taken){ statusLabel = 'Acted: ' + r.action_taken.replace(/_/g,' '); statusColor = '#3B8F63'; }
+      else if(r.opened_at){ statusLabel = 'Opened, no follow-through yet'; statusColor = '#6690D6'; }
+      else if(r.fcm_ok){ statusLabel = 'Delivered, not opened'; statusColor = '#9AABCE'; }
+      else { statusLabel = 'Failed to deliver'; statusColor = '#C77B7B'; }
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #F5F0E4;">'+
+        '<div><p style="font-size:12.5px;font-weight:700;color:#2A2013;margin:0;">'+(prof.name||prof.email||'Unknown')+'</p>'+
+        (prof.email ? '<p style="font-size:10.5px;color:#9AABCE;margin:0;">'+prof.email+'</p>' : '')+'</div>'+
+        '<span style="font-size:10.5px;font-weight:700;color:'+statusColor+';white-space:nowrap;margin-left:8px;">'+statusLabel+'</span>'+
+        '</div>';
+    }).join('');
+  });
+}
+document.getElementById('notifDetailCloseBtn').onclick = function(){
+  document.getElementById('notifDetailModalBackdrop').style.display = 'none';
+  document.getElementById('notifDetailModal').style.display = 'none';
+};
+document.getElementById('notifDetailModalBackdrop').onclick = function(){
+  document.getElementById('notifDetailModalBackdrop').style.display = 'none';
+  document.getElementById('notifDetailModal').style.display = 'none';
+};
+
 function openAdminDashboard(){
   showOnly('panel-admin');
   document.getElementById('adminBookingsList').innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">Loading...</p>';
@@ -5118,6 +5366,7 @@ function openAdminDashboard(){
   populateAdminTherapistSelect();
   renderLanguageCheckboxes('newExpertLanguagesCheckboxes', '');
   renderAdminErrorLogs();
+  renderAdminNotifHistory();
   Promise.all([
     sb.from('expert_bookings').select('*').order('created_at', {ascending:false}),
     sb.from('profiles').select('user_id,name,email,phone_number')
@@ -6741,6 +6990,7 @@ function renderCustomResult(t, result){
 
 var lastTestResultId = null;
 function saveTestResultToSupabase(testKey, answers, elevated, selfHarmFlagged){
+  logAnalyticsEvent('screening_completed', { test_key: testKey });
   syncToSupabase('test_results', {
     test_key: testKey, answers: answers, elevated: elevated, self_harm_flagged: selfHarmFlagged
   }, function(savedRow){
