@@ -1995,7 +1995,7 @@ function loadUserDataFromSupabase(){
     var subsByTask = {};
     (subtasksRes.data || []).forEach(function(s){
       if(!subsByTask[s.task_id]) subsByTask[s.task_id] = [];
-      subsByTask[s.task_id].push({ id: s.id, title: s.title, done: s.done });
+      subsByTask[s.task_id].push({ id: s.id, title: s.title, done: s.done, sortOrder: s.sort_order || 0 });
     });
     appState.tasksByDate = {};
     (tasksRes.data || []).forEach(function(t){
@@ -2003,7 +2003,7 @@ function loadUserDataFromSupabase(){
       appState.tasksByDate[t.date_key].push({
         id: t.id, title: t.title, done: t.done, priority: t.priority,
         deadline: t.deadline, duration: t.duration, repeat: t.repeat,
-        assignedByTherapist: t.assigned_by_therapist || null,
+        assignedByTherapist: t.assigned_by_therapist || null, sortOrder: t.sort_order || 0,
         subtasks: subsByTask[t.id] || []
       });
     });
@@ -3290,7 +3290,74 @@ document.getElementById('dayMoodSaveBtn').onclick = function(){
   showToast('Mood saved for that day');
   renderDayPanel();
 };
-var PRIORITY_COLORS = { low:'#9AABCE', medium:'#FDB913', high:'#C77B7B' };
+var PRIORITY_COLORS = { low:'#9AABCE', medium:'#D9A536', high:'#C77B7B' };
+
+// Genuine touch-based drag-and-drop reordering (native HTML5 drag doesn't work
+// reliably on mobile browsers/WebViews, so this uses raw touch events instead).
+// Call once per container after rendering its items. Each item needs a child
+// element with class "drag-handle" to grab. onDrop receives (fromIndex, toIndex).
+function makeListDraggable(container, itemSelector, onDrop){
+  var dragEl = null, startY = 0, placeholder = null, items = [];
+
+  container.querySelectorAll(itemSelector).forEach(function(item){
+    var handle = item.querySelector('.drag-handle');
+    if(!handle) return;
+
+    handle.addEventListener('touchstart', function(e){
+      dragEl = item;
+      startY = e.touches[0].clientY;
+      items = Array.from(container.querySelectorAll(itemSelector));
+      placeholder = document.createElement('div');
+      placeholder.style.height = item.offsetHeight + 'px';
+      placeholder.style.background = '#EEF1F6';
+      placeholder.style.borderRadius = '12px';
+      placeholder.style.margin = getComputedStyle(item).margin;
+      item.parentNode.insertBefore(placeholder, item.nextSibling);
+      item.style.position = 'relative';
+      item.style.zIndex = '50';
+      item.style.boxShadow = '0 6px 16px rgba(0,0,0,0.15)';
+      item.style.pointerEvents = 'none';
+    }, {passive:true});
+
+    handle.addEventListener('touchmove', function(e){
+      if(!dragEl) return;
+      e.preventDefault();
+      var y = e.touches[0].clientY;
+      var deltaY = y - startY;
+      dragEl.style.transform = 'translateY(' + deltaY + 'px)';
+
+      var dragRect = dragEl.getBoundingClientRect();
+      var dragMidY = dragRect.top + dragRect.height / 2;
+      var others = items.filter(function(el){ return el !== dragEl; });
+      for(var i=0; i<others.length; i++){
+        var rect = others[i].getBoundingClientRect();
+        var midY = rect.top + rect.height / 2;
+        if(dragMidY < midY){
+          container.insertBefore(placeholder, others[i]);
+          return;
+        }
+      }
+      container.appendChild(placeholder);
+    }, {passive:false});
+
+    handle.addEventListener('touchend', function(){
+      if(!dragEl) return;
+      var fromIndex = items.indexOf(dragEl);
+      container.insertBefore(dragEl, placeholder);
+      placeholder.remove();
+      dragEl.style.transform = '';
+      dragEl.style.position = '';
+      dragEl.style.zIndex = '';
+      dragEl.style.boxShadow = '';
+      dragEl.style.pointerEvents = '';
+      var toIndex = Array.from(container.querySelectorAll(itemSelector)).indexOf(dragEl);
+      var el = dragEl;
+      dragEl = null;
+      if(fromIndex !== toIndex) onDrop(fromIndex, toIndex);
+    });
+  });
+}
+
 function formatDeadline(iso){
   var d = new Date(iso), now = new Date();
   var diffMs = d - now;
@@ -3311,18 +3378,40 @@ function cyclePriority(taskId, dateKey, rerender){
 }
 
 var openBreakdownTaskId = null;
+var PRIORITY_ORDER = ['high','medium','low',null];
+var PRIORITY_LABELS = { high:'High Priority', medium:'Medium Priority', low:'Low Priority', 'null':'No Priority' };
 function renderTaskListCal(){
   var listEl = document.getElementById('taskListCal');
   var tasks = getTasks(activeDayKey);
+  var sorted = tasks.slice().sort(function(a, b){
+    var ai = PRIORITY_ORDER.indexOf(a.priority || null);
+    var bi = PRIORITY_ORDER.indexOf(b.priority || null);
+    if(ai !== bi) return ai - bi;
+    return (a.sortOrder || 0) - (b.sortOrder || 0);
+  });
   listEl.innerHTML = '';
-  tasks.forEach(function(task){
-    var item = document.createElement('div'); item.className = 'task-item';
+  var lastPriorityShown = undefined;
+  sorted.forEach(function(task){
+    var thisPriority = task.priority || null;
+    if(thisPriority !== lastPriorityShown && sorted.some(function(t){ return (t.priority||null) !== (sorted[0].priority||null); })){
+      var zoneLabel = document.createElement('p');
+      zoneLabel.className = 'task-priority-zone-label';
+      zoneLabel.textContent = PRIORITY_LABELS[thisPriority === null ? 'null' : thisPriority];
+      zoneLabel.style.cssText = 'font-size:10px;font-weight:700;color:'+(thisPriority?PRIORITY_COLORS[thisPriority]:'#B0AA98')+';text-transform:uppercase;letter-spacing:0.04em;margin:14px 0 6px;';
+      listEl.appendChild(zoneLabel);
+      lastPriorityShown = thisPriority;
+    }
+    var item = document.createElement('div'); item.className = 'task-item'; item.dataset.priority = thisPriority === null ? '' : thisPriority; item.dataset.taskId = task.id;
     var row = document.createElement('div'); row.className = 'task-row';
+    var handle = document.createElement('span'); handle.className = 'drag-handle'; handle.innerHTML = '⠿';
+    handle.style.cssText = 'color:#D9CFB8;font-size:15px;cursor:grab;padding:0 4px 0 0;touch-action:none;';
+    row.appendChild(handle);
     var cb = document.createElement('div'); cb.className = 'task-checkbox' + (task.done ? ' done' : ''); cb.innerHTML = task.done ? '✓' : '';
     cb.onclick = function(){ toggleTaskCal(task.id); };
     row.appendChild(cb);
     if(task.priority){
       var pdot = document.createElement('span'); pdot.className = 'priority-dot'; pdot.style.background = PRIORITY_COLORS[task.priority];
+      pdot.title = 'Tap to cycle, or drag the task into a different priority zone';
       pdot.onclick = function(){ cyclePriority(task.id, activeDayKey, renderTaskListCal); };
       row.appendChild(pdot);
     }
@@ -3344,8 +3433,12 @@ function renderTaskListCal(){
     }
     if(task.subtasks && task.subtasks.length){
       var subList = document.createElement('div'); subList.className = 'subtask-list';
-      task.subtasks.forEach(function(sub){
-        var subRow = document.createElement('div'); subRow.className = 'subtask-row';
+      var sortedSubs = task.subtasks.slice().sort(function(a,b){ return (a.sortOrder||0) - (b.sortOrder||0); });
+      sortedSubs.forEach(function(sub){
+        var subRow = document.createElement('div'); subRow.className = 'subtask-row'; subRow.dataset.subId = sub.id;
+        var subHandle = document.createElement('span'); subHandle.className = 'drag-handle'; subHandle.innerHTML = '⠿';
+        subHandle.style.cssText = 'color:#D9CFB8;font-size:13px;cursor:grab;padding:0 4px 0 0;touch-action:none;';
+        subRow.appendChild(subHandle);
         var scb = document.createElement('div'); scb.className = 'sub-checkbox' + (sub.done ? ' done' : '');
         scb.onclick = function(){ toggleSubtask(task.id, sub.id); };
         subRow.appendChild(scb);
@@ -3366,6 +3459,19 @@ function renderTaskListCal(){
         subList.appendChild(subRow);
       });
       item.appendChild(subList);
+      makeListDraggable(subList, '.subtask-row', function(fromIdx, toIdx){
+        var reordered = sortedSubs.slice();
+        var moved = reordered.splice(fromIdx, 1)[0];
+        reordered.splice(toIdx, 0, moved);
+        reordered.forEach(function(s, i){ s.sortOrder = i; });
+        task.subtasks = reordered;
+        saveState();
+        reordered.forEach(function(s){
+          if(String(s.id).indexOf('temp_') !== 0){
+            sb.from('subtasks').update({ sort_order: s.sortOrder }).eq('id', s.id).then(function(){});
+          }
+        });
+      });
     }
     if(openBreakdownTaskId === task.id){
       var wrap = document.createElement('div'); wrap.className = 'subtask-add';
@@ -3385,6 +3491,25 @@ function renderTaskListCal(){
     var openInput = listEl.querySelector('.subtask-add input');
     if(openInput) openInput.focus();
   }
+
+  makeListDraggable(listEl, '.task-item', function(fromIdx, toIdx){
+    var items = Array.from(listEl.querySelectorAll('.task-item'));
+    var droppedEl = items[toIdx];
+    var taskId = droppedEl.dataset.taskId;
+    // The dragged element's own data-priority is stale (unchanged since it's the one being moved) —
+    // infer the new priority from whichever neighbor it landed next to instead.
+    var neighbor = items[toIdx - 1] || items[toIdx + 1];
+    var newPriority = neighbor ? (neighbor.dataset.priority || null) : null;
+    var task = tasks.find(function(t){ return t.id === taskId; });
+    if(task){
+      task.priority = newPriority;
+      saveState();
+      if(String(task.id).indexOf('temp_') !== 0){
+        sb.from('tasks').update({ priority: newPriority }).eq('id', task.id).then(function(){});
+      }
+    }
+    renderTaskListCal();
+  });
 }
 function toggleSubtaskForm(container, taskId){
   var existing = container.querySelector('.subtask-add');
