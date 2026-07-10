@@ -628,7 +628,10 @@
       <button id="therapistCalNextBtn" style="background:none;border:none;cursor:pointer;color:#6690D6;font-size:16px;padding:4px 10px;">›</button>
     </div>
     <div class="weekday-row"><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div>
-    <div class="day-grid" id="therapistAvailabilityGrid" style="margin-bottom:22px;"></div>
+    <div class="day-grid" id="therapistAvailabilityGrid" style="margin-bottom:18px;"></div>
+
+    <p style="font-size:11px;font-weight:700;color:#9AABCE;margin:0 0 8px;">All Upcoming Slots</p>
+    <div id="therapistAllSlotsList" style="margin-bottom:22px;"></div>
 
     <div id="therapistDayEditorBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.45);z-index:60;"></div>
     <div id="therapistDayEditor" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;background:#FFFFFF;border-radius:24px 24px 0 0;padding:24px 22px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;z-index:61;box-shadow:0 -10px 30px rgba(0,0,0,0.15);max-height:75vh;overflow-y:auto;">
@@ -5301,6 +5304,42 @@ function renderTherapistAvailabilityGrid(){
         grid.appendChild(cell);
       })(day);
     }
+    renderTherapistAllSlotsList();
+  });
+}
+
+function renderTherapistAllSlotsList(){
+  var wrap = document.getElementById('therapistAllSlotsList');
+  var now = new Date();
+  var allSlots = [];
+  Object.keys(therapistCalSlotsByDay).forEach(function(dateKey){
+    therapistCalSlotsByDay[dateKey].forEach(function(s){
+      if(new Date(s.rawDate) >= now) allSlots.push(s);
+    });
+  });
+  allSlots.sort(function(a, b){ return new Date(a.rawDate) - new Date(b.rawDate); });
+
+  if(allSlots.length === 0){
+    wrap.innerHTML = '<p style="font-size:11px;color:#B0AA98;text-align:center;">No upcoming slots added yet — tap a day above to add some.</p>';
+    return;
+  }
+  wrap.innerHTML = allSlots.map(function(s){
+    var d = new Date(s.rawDate);
+    var dateLabel = d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+    var statusLabel = s.is_booked
+      ? '<span style="font-size:9px;font-weight:700;color:#C77B7B;background:#FBE8E8;padding:2px 6px;border-radius:6px;margin-left:6px;">Booked</span>'
+      : '';
+    return '<div style="display:flex;justify-content:space-between;align-items:center;background:#EAF4EE;border-radius:10px;padding:9px 12px;margin-bottom:6px;">'+
+      '<span style="font-size:11.5px;color:#2A2013;font-weight:600;">'+dateLabel+' · '+s.time+statusLabel+'</span>'+
+      (s.is_booked ? '' : '<button class="therapist-remove-allslot-btn" data-id="'+s.id+'" style="font-size:11px;color:#C77B7B;background:none;border:none;cursor:pointer;font-weight:700;">Remove</button>')+
+    '</div>';
+  }).join('');
+  wrap.querySelectorAll('.therapist-remove-allslot-btn').forEach(function(btn){
+    btn.onclick = function(){
+      sb.from('expert_availability_slots').delete().eq('id', btn.dataset.id).then(function(){
+        renderTherapistAvailabilityGrid();
+      });
+    };
   });
 }
 document.getElementById('therapistCalPrevBtn').onclick = function(){
