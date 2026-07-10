@@ -1266,6 +1266,7 @@
       <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5z"/></svg>
       Feeling overwhelmed? Take a moment in the Calm Room
     </button>
+    <button id="sheetDeleteTaskBtn" style="display:none;width:100%;margin-top:10px;padding:10px;border-radius:14px;border:1px solid #F3D6D6;background:transparent;color:#C77B7B;font-size:12px;font-weight:700;cursor:pointer;">Delete this task</button>
   </div>
 
   <div id="shareOverlay" class="share-overlay" style="display:none;">
@@ -3633,6 +3634,9 @@ function renderTaskListCal(){
       row.appendChild(pdot);
     }
     var title = document.createElement('span'); title.className = 'task-title-cal' + (task.done ? ' done' : ''); title.textContent = task.title;
+    title.style.cursor = 'pointer';
+    title.title = 'Tap to edit this task';
+    title.onclick = function(){ openEditTaskSheet(task, activeDayKey); };
     row.appendChild(title);
     var bd = document.createElement('button'); bd.className = 'breakdown-btn'; bd.textContent = '+';
     bd.onclick = function(){
@@ -3964,27 +3968,78 @@ var sheetDuration = 30;
 var sheetRepeat = false;
 var sheetPriority = null;
 var sheetTargetKey = TODAY_KEY;
+var sheetEditingTaskId = null;
 var durationCycle = [15, 30, 45, 60];
 
 function openAddTaskSheet(dateKey){
+  sheetEditingTaskId = null;
   sheetTargetKey = dateKey || bdSelectedKey || TODAY_KEY;
   document.getElementById('sheetTaskInput').value = '';
+  document.getElementById('sheetTaskInput').placeholder = 'Add new task here';
   sheetDuration = 30; sheetRepeat = false; sheetPriority = null;
   document.getElementById('sheetDurationChip').lastChild.textContent = ' 30m';
   var dLabel = (sheetTargetKey === TODAY_KEY) ? 'Today' : sheetTargetKey;
   document.getElementById('sheetDayChip').lastChild.textContent = ' ' + dLabel;
   document.getElementById('sheetRepeatChip').style.background = '#F0EEE8';
   document.getElementById('sheetRepeatChip').style.color = '#9AABCE';
-  document.querySelectorAll('.priority-chip').forEach(function(c){ c.style.outline = 'none'; });
+  document.querySelectorAll('.priority-chip').forEach(function(c){ c.style.outline = 'none'; c.style.boxShadow = 'none'; });
   document.getElementById('sheetDeadlineToggle').style.display = 'block';
   document.getElementById('sheetDeadlineInput').style.display = 'none';
   document.getElementById('sheetDeadlineInput').value = '';
   document.getElementById('sheetBreakdownToggle').style.display = 'block';
   document.getElementById('sheetSubtaskArea').style.display = 'none';
   document.getElementById('sheetSubtaskArea').innerHTML = '';
+  document.getElementById('sheetDeleteTaskBtn').style.display = 'none';
   document.getElementById('addTaskSheetBackdrop').style.display = 'block';
   document.getElementById('addTaskSheet').style.display = 'block';
   document.getElementById('sheetTaskInput').focus();
+}
+
+// Opens the same sheet pre-filled with an existing task's data, so tapping a task lets you edit
+// it directly rather than only being able to add new ones.
+function openEditTaskSheet(task, dateKey){
+  sheetEditingTaskId = task.id;
+  sheetTargetKey = dateKey || bdSelectedKey || TODAY_KEY;
+  document.getElementById('sheetTaskInput').value = task.title || '';
+  document.getElementById('sheetTaskInput').placeholder = 'Edit your task...';
+  sheetDuration = task.duration || 30;
+  sheetRepeat = !!task.repeat;
+  sheetPriority = task.priority || null;
+  document.getElementById('sheetDurationChip').lastChild.textContent = ' ' + sheetDuration + 'm';
+  var dLabel = (sheetTargetKey === TODAY_KEY) ? 'Today' : sheetTargetKey;
+  document.getElementById('sheetDayChip').lastChild.textContent = ' ' + dLabel;
+  document.getElementById('sheetRepeatChip').style.background = sheetRepeat ? '#E9F0FB' : '#F0EEE8';
+  document.getElementById('sheetRepeatChip').style.color = sheetRepeat ? '#6690D6' : '#9AABCE';
+  document.querySelectorAll('.priority-chip').forEach(function(c){
+    c.style.outline = 'none'; c.style.boxShadow = 'none';
+    if(c.getAttribute('data-priority') === sheetPriority) c.style.boxShadow = 'inset 0 0 0 2px ' + PRIORITY_COLORS[sheetPriority];
+  });
+  if(task.deadline){
+    document.getElementById('sheetDeadlineToggle').style.display = 'none';
+    var dlInput = document.getElementById('sheetDeadlineInput');
+    dlInput.style.display = 'block';
+    var d = new Date(task.deadline);
+    var pad = function(n){ return String(n).padStart(2,'0'); };
+    dlInput.value = d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  } else {
+    document.getElementById('sheetDeadlineToggle').style.display = 'block';
+    document.getElementById('sheetDeadlineInput').style.display = 'none';
+    document.getElementById('sheetDeadlineInput').value = '';
+  }
+  var subtaskArea = document.getElementById('sheetSubtaskArea');
+  subtaskArea.innerHTML = '';
+  var existingSubtasks = (task.subtasks || []).slice().sort(function(a,b){ return (a.sortOrder||0) - (b.sortOrder||0); });
+  if(existingSubtasks.length){
+    document.getElementById('sheetBreakdownToggle').style.display = 'none';
+    subtaskArea.style.display = 'block';
+    existingSubtasks.forEach(function(st){ addSheetSubtaskRow(st.title, st.id); });
+  } else {
+    document.getElementById('sheetBreakdownToggle').style.display = 'block';
+    subtaskArea.style.display = 'none';
+  }
+  document.getElementById('sheetDeleteTaskBtn').style.display = 'block';
+  document.getElementById('addTaskSheetBackdrop').style.display = 'block';
+  document.getElementById('addTaskSheet').style.display = 'block';
 }
 
 function closeAddTaskSheet(){
@@ -4031,16 +4086,18 @@ document.getElementById('sheetBreakdownToggle').onclick = function(){
   addSheetSubtaskRow();
 };
 
-function addSheetSubtaskRow(){
+function addSheetSubtaskRow(prefillText, existingId){
   var area = document.getElementById('sheetSubtaskArea');
   var existingAddBtn = document.getElementById('sheetAddStepBtn');
   if(existingAddBtn) existingAddBtn.remove();
   var stepNum = area.querySelectorAll('input').length + 1;
   var row = document.createElement('div');
   row.style.cssText = 'display:flex;gap:6px;margin-bottom:6px;align-items:center;';
+  if(existingId) row.dataset.subtaskId = existingId;
   var input = document.createElement('input');
   input.type = 'text';
   input.placeholder = 'Step ' + stepNum + '...';
+  if(prefillText) input.value = prefillText;
   input.style.cssText = 'flex:1;border:1px solid #EEE0C4;border-radius:10px;padding:9px 10px;font-size:12.5px;font-family:inherit;';
   row.appendChild(input);
   var delBtn = document.createElement('button');
@@ -4055,7 +4112,8 @@ function addSheetSubtaskRow(){
   addMoreBtn.style.cssText = 'background:none;border:none;color:#6690D6;font-size:11.5px;font-weight:700;cursor:pointer;padding:2px 0;';
   addMoreBtn.onclick = function(){ addSheetSubtaskRow(); };
   area.appendChild(addMoreBtn);
-  input.focus();
+  if(!prefillText) input.focus(); // don't steal focus away when pre-populating existing steps for an edit
+  return row;
 }
 function renumberSheetSteps(){
   var inputs = document.querySelectorAll('#sheetSubtaskArea input');
@@ -4075,12 +4133,18 @@ function commitSheetTaskIfDirty(){
   var title = titleEl.value.trim();
   if(!title) return false;
   var deadlineVal = document.getElementById('sheetDeadlineInput').value;
-  var subInputs = document.querySelectorAll('#sheetSubtaskArea input');
-  var subtaskTitles = [];
-  subInputs.forEach(function(inp){
-    if(inp.value.trim()) subtaskTitles.push(inp.value.trim());
-  });
   var deadlineIso = deadlineVal ? new Date(deadlineVal).toISOString() : null;
+  var subtaskRows = Array.from(document.querySelectorAll('#sheetSubtaskArea > div'));
+
+  if(sheetEditingTaskId){
+    return commitTaskEdit(title, deadlineIso, subtaskRows);
+  }
+
+  var subtaskTitles = [];
+  subtaskRows.forEach(function(row){
+    var inp = row.querySelector('input');
+    if(inp && inp.value.trim()) subtaskTitles.push(inp.value.trim());
+  });
 
   var localTask = {
     id: 'temp_' + uidGen(), title: title, duration: sheetDuration, repeat: sheetRepeat,
@@ -4110,6 +4174,74 @@ function commitSheetTaskIfDirty(){
   return true;
 }
 
+// Applies edits to an existing task in place -- updates fields, and reconciles the subtask rows
+// (kept/edited, newly added, or removed) against what's actually in the sheet right now.
+function commitTaskEdit(title, deadlineIso, subtaskRows){
+  var taskId = sheetEditingTaskId;
+  var task = getTasks(sheetTargetKey).find(function(t){ return t.id === taskId; });
+  if(!task) return false;
+
+  task.title = title;
+  task.duration = sheetDuration;
+  task.repeat = sheetRepeat;
+  task.priority = sheetPriority;
+  task.deadline = deadlineIso;
+  task.subtasks = task.subtasks || [];
+
+  var keptIds = [];
+  var newSubtaskTitles = [];
+  var updatedSubtasks = [];
+  subtaskRows.forEach(function(row){
+    var inp = row.querySelector('input');
+    var text = inp ? inp.value.trim() : '';
+    if(!text) return; // blank row -- treated the same as removing that step
+    var existingId = row.dataset.subtaskId;
+    if(existingId){
+      keptIds.push(existingId);
+      var existingSub = task.subtasks.find(function(s){ return String(s.id) === existingId; });
+      if(existingSub){ existingSub.title = text; updatedSubtasks.push(existingSub); }
+    } else {
+      newSubtaskTitles.push(text);
+    }
+  });
+  var removedSubtasks = task.subtasks.filter(function(s){ return keptIds.indexOf(String(s.id)) === -1; });
+  var newSubtaskObjs = newSubtaskTitles.map(function(t){ return { id: 'temp_' + uidGen(), title: t, done:false }; });
+  task.subtasks = task.subtasks.filter(function(s){ return keptIds.indexOf(String(s.id)) !== -1; }).concat(newSubtaskObjs);
+
+  saveState();
+  if(sheetTargetKey === bdSelectedKey) renderBodyDoubleTaskList();
+  if(sheetTargetKey === activeDayKey) renderTaskListCal();
+
+  if(String(taskId).indexOf('temp_') !== 0){
+    sb.from('tasks').update({
+      title: title, duration: sheetDuration, repeat: sheetRepeat,
+      priority: sheetPriority, deadline: deadlineIso
+    }).eq('id', taskId).then(function(result){ if(result.error) console.error(result.error); });
+  }
+  updatedSubtasks.forEach(function(s){
+    if(String(s.id).indexOf('temp_') !== 0){
+      sb.from('subtasks').update({ title: s.title }).eq('id', s.id).then(function(){});
+    }
+  });
+  removedSubtasks.forEach(function(s){
+    if(String(s.id).indexOf('temp_') !== 0){
+      sb.from('subtasks').delete().eq('id', s.id).then(function(){});
+    }
+  });
+  if(newSubtaskObjs.length && currentUser && currentUser.id){
+    var rows = newSubtaskObjs.map(function(s){ return { user_id: currentUser.id, task_id: taskId, title: s.title, done:false }; });
+    sb.from('subtasks').insert(rows).select().then(function(subResult){
+      if(!subResult.error){
+        newSubtaskObjs.forEach(function(s, i){ if(subResult.data[i]) s.id = subResult.data[i].id; });
+      }
+    });
+  }
+
+  document.getElementById('sheetTaskInput').value = '';
+  sheetEditingTaskId = null;
+  return true;
+}
+
 var sheetSaveTaskInFlight = false;
 function handleSheetSaveTask(e){
   if(e && e.cancelable) e.preventDefault();
@@ -4124,6 +4256,26 @@ function handleSheetSaveTask(e){
 }
 document.getElementById('sheetSaveTaskBtn').addEventListener('touchend', handleSheetSaveTask, {passive:false});
 document.getElementById('sheetSaveTaskBtn').addEventListener('click', handleSheetSaveTask);
+
+document.getElementById('sheetDeleteTaskBtn').onclick = function(){
+  if(!sheetEditingTaskId) return;
+  var taskId = sheetEditingTaskId;
+  var list = getTasks(sheetTargetKey);
+  var idx = list.findIndex(function(t){ return t.id === taskId; });
+  if(idx !== -1) list.splice(idx, 1);
+  saveState();
+  sheetEditingTaskId = null; // clear first so nothing tries to re-save this task on close
+  document.getElementById('sheetTaskInput').value = '';
+  document.getElementById('addTaskSheetBackdrop').style.display = 'none';
+  document.getElementById('addTaskSheet').style.display = 'none';
+  if(sheetTargetKey === bdSelectedKey) renderBodyDoubleTaskList();
+  if(sheetTargetKey === activeDayKey) renderTaskListCal();
+  showToast('Task deleted');
+  if(String(taskId).indexOf('temp_') !== 0){
+    // subtasks cascade-delete automatically via the DB foreign key
+    sb.from('tasks').delete().eq('id', taskId).then(function(result){ if(result.error) console.error(result.error); });
+  }
+};
 
 // ================= TIPS =================
 var ADHD_TIPS = [
