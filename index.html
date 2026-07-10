@@ -1548,13 +1548,18 @@ if (IS_NATIVE_APP && window.Capacitor?.Plugins?.App) {
   // in-app navigation history, and only let Android exit/minimize the app
   // once we're genuinely back at Home with nothing else open.
   window.Capacitor.Plugins.App.addListener('backButton', function(){
+    // addTaskSheet gets its own case (not the generic modal list below) so the hardware
+    // back button triggers the same autosave-on-close as the X button and backdrop tap.
+    if(document.getElementById('addTaskSheet').style.display === 'block'){
+      closeAddTaskSheet();
+      return;
+    }
     var openModals = [
       { backdrop: 'policyModalBackdrop', modal: 'policyModal' },
       { backdrop: 'paymentModalBackdrop', modal: 'paymentModal' },
       { backdrop: 'slotPickerModalBackdrop', modal: 'slotPickerModal' },
       { backdrop: 'changeReasonModalBackdrop', modal: 'changeReasonModal' },
-      { backdrop: 'therapistDayEditorBackdrop', modal: 'therapistDayEditor' },
-      { backdrop: 'addTaskSheetBackdrop', modal: 'addTaskSheet' }
+      { backdrop: 'therapistDayEditorBackdrop', modal: 'therapistDayEditor' }
     ];
     for(var i=0; i<openModals.length; i++){
       var m = openModals[i];
@@ -1565,6 +1570,17 @@ if (IS_NATIVE_APP && window.Capacitor?.Plugins?.App) {
         if(backdropEl) backdropEl.style.display = 'none';
         return;
       }
+    }
+    // These full-screen panels hold typed-but-unsaved content -- autosave it before
+    // stepping back, same as their own in-panel Back buttons do.
+    var currentPanel = panelHistoryStack[panelHistoryStack.length - 1];
+    if(currentPanel === 'panel-journal' && commitMainJournalIfDirty()){
+      resetJournalState();
+      showToast('Saved');
+    } else if(currentPanel === 'panel-quick-journal' && commitQuickJournalIfDirty()){
+      showToast('Saved');
+    } else if(currentPanel === 'panel-worksheet-detail' && commitWorksheetIfDirty()){
+      showToast('Saved');
     }
     if(panelHistoryStack.length > 1){
       panelHistoryStack.pop(); // discard current
@@ -2429,10 +2445,30 @@ document.getElementById('continueBtn').onclick = function(){
 };
 
 document.getElementById('backBtn').onclick = function(){
+  var saved = commitMainJournalIfDirty();
+  if(saved){
+    resetJournalState();
+    showToast('Saved');
+  }
   document.getElementById('panel-journal').style.display = 'none';
   document.getElementById('panel-bubbles').style.display = 'block';
   setActiveNav('navHome');
 };
+function commitMainJournalIfDirty(){
+  var textEl = document.getElementById('journalText');
+  var text = textEl.value;
+  if(!selected.length && !text.trim()) return false;
+  var entry = {
+    date: new Date().toISOString(),
+    moods: selected.map(function(b){ return {label:b.label, color:b.base}; }),
+    text: text,
+    sharedWithTherapist: shareEnabled
+  };
+  appState.entries.unshift(entry);
+  saveState();
+  saveEntryToSupabase(entry);
+  return true;
+}
 
 function resetJournalState(){
   document.getElementById('journalText').value = '';
@@ -2756,10 +2792,29 @@ document.getElementById('choiceJournalBtn').onclick = function(){
   showOnly('panel-quick-journal');
 };
 document.getElementById('quickJournalBackBtn').onclick = function(){
+  var saved = commitQuickJournalIfDirty();
+  if(saved) showToast('Saved');
   renderHistory();
   showOnly('panel-history');
   setActiveNav('navJournal');
 };
+function commitQuickJournalIfDirty(){
+  var textEl = document.getElementById('quickJournalText');
+  var text = textEl.value;
+  if(!quickJournalSelected.length && !text.trim()) return false;
+  var moodObjs = quickJournalSelected.map(function(label){
+    var m = moods.find(function(mm){ return mm.label === label; });
+    return { label: m.label, color: 'hsl('+m.h+','+m.s+'%,'+m.l+'%)' };
+  });
+  var shared = document.getElementById('quickJournalShareCheck').checked;
+  var entry = { date: new Date().toISOString(), moods: moodObjs, text: text, sharedWithTherapist: shared };
+  appState.entries.unshift(entry);
+  saveState();
+  saveEntryToSupabase(entry);
+  textEl.value = '';
+  quickJournalSelected = [];
+  return true;
+}
 function saveEntryToSupabase(entry){
   return new Promise(function(resolve){
     syncToSupabase('entries', {
@@ -2779,19 +2834,10 @@ function saveEntryToSupabase(entry){
 
 document.getElementById('quickJournalSaveBtn').onclick = function(){
   if(!quickJournalSelected.length){ showToast('Pick at least one mood first'); return; }
-  var moodObjs = quickJournalSelected.map(function(label){
-    var m = moods.find(function(mm){ return mm.label === label; });
-    return { label: m.label, color: 'hsl('+m.h+','+m.s+'%,'+m.l+'%)' };
-  });
-  var text = document.getElementById('quickJournalText').value;
-  var shared = document.getElementById('quickJournalShareCheck').checked;
-  var entry = { date: new Date().toISOString(), moods: moodObjs, text: text, sharedWithTherapist: shared };
-  appState.entries.unshift(entry);
-  saveState();
-  saveEntryToSupabase(entry);
-
   var distressMoods = ['Anxious', 'Restless', 'Heavy'];
   var isDistressed = quickJournalSelected.some(function(l){ return distressMoods.indexOf(l) !== -1; });
+  commitQuickJournalIfDirty();
+
   if(isDistressed){
     renderGroundingList();
     showOnly('panel-grounding');
@@ -3942,8 +3988,10 @@ function openAddTaskSheet(dateKey){
 }
 
 function closeAddTaskSheet(){
+  var savedSomething = commitSheetTaskIfDirty(); // catches the case where the sheet is dismissed without tapping Save
   document.getElementById('addTaskSheetBackdrop').style.display = 'none';
   document.getElementById('addTaskSheet').style.display = 'none';
+  if(savedSomething) showToast('Saved');
 }
 
 document.getElementById('bodyDoubleAddTaskBtn').onclick = function(){ openAddTaskSheet(bdSelectedKey); };
@@ -4022,15 +4070,10 @@ document.getElementById('sheetSubtaskArea').addEventListener('keydown', function
   }
 });
 
-var sheetSaveTaskInFlight = false;
-function handleSheetSaveTask(e){
-  if(e && e.cancelable) e.preventDefault();
-  if(sheetSaveTaskInFlight) return; // guards against touchend + click both firing on the same tap
-  sheetSaveTaskInFlight = true;
-  setTimeout(function(){ sheetSaveTaskInFlight = false; }, 700);
-  document.getElementById('sheetTaskInput').blur(); // release keyboard focus before anything else, so a fixed-position sheet isn't mid-resize during the tap
-  var title = document.getElementById('sheetTaskInput').value.trim();
-  if(!title) return;
+function commitSheetTaskIfDirty(){
+  var titleEl = document.getElementById('sheetTaskInput');
+  var title = titleEl.value.trim();
+  if(!title) return false;
   var deadlineVal = document.getElementById('sheetDeadlineInput').value;
   var subInputs = document.querySelectorAll('#sheetSubtaskArea input');
   var subtaskTitles = [];
@@ -4046,7 +4089,6 @@ function handleSheetSaveTask(e){
   };
   getTasks(sheetTargetKey).push(localTask);
   saveState();
-  closeAddTaskSheet();
   if(sheetTargetKey === bdSelectedKey) renderBodyDoubleTaskList();
   if(sheetTargetKey === activeDayKey) renderTaskListCal();
 
@@ -4064,6 +4106,21 @@ function handleSheetSaveTask(e){
       });
     }
   });
+  titleEl.value = ''; // clear so a subsequent close doesn't re-save the same task
+  return true;
+}
+
+var sheetSaveTaskInFlight = false;
+function handleSheetSaveTask(e){
+  if(e && e.cancelable) e.preventDefault();
+  if(sheetSaveTaskInFlight) return; // guards against touchend + click both firing on the same tap
+  var title = document.getElementById('sheetTaskInput').value.trim();
+  if(!title) return; // nothing typed -- leave the sheet open, same as before
+  sheetSaveTaskInFlight = true;
+  setTimeout(function(){ sheetSaveTaskInFlight = false; }, 700);
+  document.getElementById('sheetTaskInput').blur(); // release keyboard focus before anything else, so a fixed-position sheet isn't mid-resize during the tap
+  commitSheetTaskIfDirty();
+  closeAddTaskSheet();
 }
 document.getElementById('sheetSaveTaskBtn').addEventListener('touchend', handleSheetSaveTask, {passive:false});
 document.getElementById('sheetSaveTaskBtn').addEventListener('click', handleSheetSaveTask);
@@ -7236,7 +7293,39 @@ function openWorksheetCategory(catKey){
   showOnly('panel-worksheet-category');
 }
 document.getElementById('worksheetCategoryBackBtn').onclick = function(){ showOnly('panel-worksheets'); };
-document.getElementById('worksheetDetailBackBtn').onclick = function(){ showOnly('panel-worksheet-category'); };
+document.getElementById('worksheetDetailBackBtn').onclick = function(){
+  var saved = commitWorksheetIfDirty();
+  if(saved) showToast('Saved');
+  showOnly('panel-worksheet-category');
+};
+function commitWorksheetIfDirty(){
+  var w = WORKSHEET_CATEGORIES[currentWorksheetCategory] && WORKSHEET_CATEGORIES[currentWorksheetCategory].worksheets[currentWorksheetKey];
+  if(!w) return false;
+  var cat = WORKSHEET_CATEGORIES[currentWorksheetCategory];
+  var data = {};
+  var hasContent = false;
+  w.fields.forEach(function(f){
+    var el = document.getElementById('wf_'+f.key);
+    var val = el ? el.value : '';
+    data[f.key] = val;
+    if(val && val.trim()) hasContent = true;
+  });
+  if(!hasContent) return false;
+  appState.worksheetEntries[currentWorksheetKey] = data;
+  var entry = {
+    date: new Date().toISOString(), type:'worksheet', moods:[], text:'',
+    worksheetName: w.name, categoryName: cat.name, color: cat.color,
+    sharedWithTherapist: false
+  };
+  appState.entries.push(entry);
+  saveState();
+  saveEntryToSupabase(entry);
+  syncToSupabase('worksheet_responses', {
+    worksheet_key: currentWorksheetKey, category_key: currentWorksheetCategory,
+    answers: data, updated_at: new Date().toISOString()
+  });
+  return true;
+}
 
 function openWorksheetDetail(key){
   currentWorksheetKey = key;
