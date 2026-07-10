@@ -1805,6 +1805,7 @@ function onAuthSuccess(user){
     void overlay.offsetHeight; // force immediate reflow so the change paints right away
     claimTherapistInviteIfAny();
     retryPendingSync();
+    initPushNotifications();
     if(!appState.onboardingComplete){
       showOnboarding();
     } else if(!appState.hasSeenIntro){
@@ -1813,6 +1814,45 @@ function onAuthSuccess(user){
       renderHomeGreeting();
     }
   });
+}
+
+// Registers this device for push notifications (native app only) and keeps the resulting
+// FCM token synced onto the signed-in user's profile row so a server-side sender can target it.
+var pushListenersAttached = false;
+function initPushNotifications(){
+  if(!IS_NATIVE_APP) return;
+  if(!window.Capacitor || !window.Capacitor.Plugins || !window.Capacitor.Plugins.PushNotifications) return;
+  if(appState.notificationsEnabled === false) return; // user has explicitly turned this off in their profile
+  var Push = window.Capacitor.Plugins.PushNotifications;
+
+  if(!pushListenersAttached){
+    pushListenersAttached = true;
+    Push.addListener('registration', function(tokenData){
+      var token = tokenData && tokenData.value;
+      if(!currentUser || !currentUser.id || !token) return;
+      sb.from('profiles').update({ push_token: token }).eq('user_id', currentUser.id).then(function(result){
+        if(result.error) console.error('Failed to save push token:', result.error);
+      });
+    });
+    Push.addListener('registrationError', function(err){
+      console.error('Push registration error:', err);
+    });
+    Push.addListener('pushNotificationReceived', function(notification){
+      // App was already open in the foreground -- surface it gently instead of relying on the system tray.
+      if(notification && notification.title){
+        showToast(notification.title + (notification.body ? ': ' + notification.body : ''));
+      }
+    });
+    Push.addListener('pushNotificationActionPerformed', function(){
+      // User tapped a notification from the tray. No deep-link routing yet -- land safely on Home.
+      showOnly('panel-bubbles');
+      setActiveNav('navHome');
+    });
+  }
+
+  Push.requestPermissions().then(function(result){
+    if(result && result.receive === 'granted') Push.register();
+  }).catch(function(err){ console.error('Push permission request failed:', err); });
 }
 
 // Checks whether an admin has granted this exact email therapist access ahead of time.
@@ -2170,6 +2210,7 @@ function loadUserDataFromSupabase(){
       appState.isAdmin = profileRes.data.is_admin || false;
       appState.isTherapist = profileRes.data.is_therapist || false;
       appState.therapistExpertName = profileRes.data.therapist_expert_name || '';
+      appState.notificationsEnabled = profileRes.data.notifications_enabled !== false;
     }
 
     appState.entries = (entriesRes.data || []).map(function(row){
