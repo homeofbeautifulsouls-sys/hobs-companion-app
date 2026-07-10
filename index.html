@@ -605,6 +605,13 @@
     </button>
     <div id="therapistSessionDetailList" style="display:none;margin-bottom:22px;"></div>
 
+    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Send Homework</p>
+    <p style="font-size:11px;color:#B0AA98;margin:0 0 10px;">It'll show up automatically in their Tasks, marked as coming from you.</p>
+    <select id="homeworkClientSelect" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:8px;"></select>
+    <input type="text" id="homeworkTitleInput" placeholder="What would you like them to try?" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:8px;box-sizing:border-box;">
+    <input type="date" id="homeworkDeadlineInput" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:8px;">
+    <button id="homeworkSendBtn" style="width:100%;padding:12px;border-radius:10px;border:none;background:#6690D6;color:#fff;font-size:12.5px;font-weight:700;cursor:pointer;margin-bottom:22px;">Send Homework</button>
+
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">My Availability</p>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
       <button id="therapistCalPrevBtn" style="background:none;border:none;cursor:pointer;color:#6690D6;font-size:16px;padding:4px 10px;">‹</button>
@@ -1916,6 +1923,7 @@ function loadUserDataFromSupabase(){
       appState.tasksByDate[t.date_key].push({
         id: t.id, title: t.title, done: t.done, priority: t.priority,
         deadline: t.deadline, duration: t.duration, repeat: t.repeat,
+        assignedByTherapist: t.assigned_by_therapist || null,
         subtasks: subsByTask[t.id] || []
       });
     });
@@ -3115,8 +3123,11 @@ function renderCalendarPendingTasks(){
     var parts = item.dateKey.split('-').map(Number);
     var dObj = new Date(parts[0], parts[1]-1, parts[2]);
     var dateLabel = dObj.toLocaleDateString('en-US', { month:'short', day:'numeric' });
-    return '<div class="pending-task-row" data-key="'+item.dateKey+'" style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer;">'+
-      '<span style="font-size:12.5px;color:#2A2013;font-weight:600;">'+item.task.title+'</span>'+
+    var homeworkBadge = item.task.assignedByTherapist
+      ? '<div style="font-size:9.5px;font-weight:700;color:#6690D6;margin-top:3px;">📋 Homework from '+item.task.assignedByTherapist+'</div>'
+      : '';
+    return '<div class="pending-task-row" data-key="'+item.dateKey+'" style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:#FFFFFF;border:1px solid '+(item.task.assignedByTherapist?'#D5E2F7':'#EEE0C4')+';border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer;">'+
+      '<div><span style="font-size:12.5px;color:#2A2013;font-weight:600;">'+item.task.title+'</span>'+homeworkBadge+'</div>'+
       '<span style="font-size:10.5px;color:#9AABCE;flex-shrink:0;">'+dateLabel+'</span>'+
     '</div>';
   }).join('');
@@ -4509,6 +4520,7 @@ function openTherapistDashboard(){
   document.getElementById('therapistSessionDetailList').style.display = 'none';
   renderTherapistSummaryAndDetail();
   renderTherapistSlots();
+  populateHomeworkClientSelect();
   var myProfile = TEAM_MEMBERS.find(function(m){ return m.name === appState.therapistExpertName; });
   document.getElementById('therapistBioInput').value = myProfile ? (myProfile.bio||'') : '';
   document.getElementById('therapistApproachesInput').value = myProfile ? (myProfile.approaches||'') : '';
@@ -4518,6 +4530,65 @@ function openTherapistDashboard(){
   document.getElementById('therapistQualificationsInput').value = myProfile ? (myProfile.qualificationsDetail||'') : '';
   renderLanguageCheckboxes('therapistLanguagesCheckboxes', myProfile ? myProfile.languages : '');
 }
+
+function populateHomeworkClientSelect(){
+  var sel = document.getElementById('homeworkClientSelect');
+  sel.innerHTML = '<option value="">Loading clients...</option>';
+  Promise.all([
+    sb.from('expert_bookings').select('user_id').eq('expert_name', appState.therapistExpertName).in('status', ['active','change_requested']),
+    sb.from('profiles').select('user_id,name')
+  ]).then(function(results){
+    var bookingsRes = results[0], profilesRes = results[1];
+    if(bookingsRes.error){ sel.innerHTML = '<option value="">Could not load clients</option>'; return; }
+    var nameByUserId = {};
+    (profilesRes.data || []).forEach(function(p){ nameByUserId[p.user_id] = p.name; });
+    var uniqueClientIds = Array.from(new Set((bookingsRes.data || []).map(function(b){ return b.user_id; })));
+    if(uniqueClientIds.length === 0){
+      sel.innerHTML = '<option value="">No clients connected yet</option>';
+      return;
+    }
+    sel.innerHTML = uniqueClientIds.map(function(uid){
+      return '<option value="'+uid+'">'+(nameByUserId[uid] || 'Client')+'</option>';
+    }).join('');
+  });
+}
+
+document.getElementById('homeworkSendBtn').onclick = function(){
+  var clientId = document.getElementById('homeworkClientSelect').value;
+  var title = document.getElementById('homeworkTitleInput').value.trim();
+  var deadlineInput = document.getElementById('homeworkDeadlineInput').value;
+
+  if(!clientId || !title){
+    showToast('Pick a client and write what you\'d like them to try.');
+    return;
+  }
+
+  var dateKey = deadlineInput || (function(){
+    var d = new Date();
+    return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
+  })();
+
+  var btn = document.getElementById('homeworkSendBtn');
+  btn.textContent = 'Sending...'; btn.disabled = true;
+
+  sb.from('tasks').insert({
+    user_id: clientId,
+    date_key: dateKey,
+    title: title,
+    done: false,
+    deadline: deadlineInput ? new Date(deadlineInput).toISOString() : null,
+    assigned_by_therapist: appState.therapistExpertName
+  }).then(function(result){
+    btn.textContent = 'Send Homework'; btn.disabled = false;
+    if(result.error){
+      showToast('Could not send — please try again.');
+      return;
+    }
+    document.getElementById('homeworkTitleInput').value = '';
+    document.getElementById('homeworkDeadlineInput').value = '';
+    showToast('Sent — it\'ll appear in their tasks automatically.');
+  });
+};
 document.getElementById('therapistDashboardBtn').onclick = openTherapistDashboard;
 document.getElementById('therapistDashboardBackBtn').onclick = function(){ showOnly('panel-profile'); };
 
