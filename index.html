@@ -385,6 +385,8 @@
       </div>
     </div>
 
+    <div id="homeUpdatesBanner"></div>
+
     <p class="prompt-title" style="margin-top:22px;">Where are you right now?</p>
     <p class="prompt-sub">There's no wrong answer here — whatever you're feeling right now is enough. Pick as many as fit.</p>
     <div class="bubble-field" id="bubbleField"></div>
@@ -539,6 +541,9 @@
     </button>
     <p class="prompt-title" style="text-align:center;">Booking Dashboard</p>
     <p class="prompt-sub" style="text-align:center;margin-bottom:18px;">Every booking, change request, and cancellation across all clients.</p>
+    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Overview</p>
+    <div id="adminAnalyticsRow" style="display:flex;gap:8px;margin-bottom:18px;"></div>
+
     <div id="adminStatsRow" style="display:flex;gap:8px;margin-bottom:18px;"></div>
 
     <div id="adminChangeRequestsSection" style="display:none;margin-bottom:22px;">
@@ -588,6 +593,10 @@
 
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">All Bookings</p>
     <div id="adminBookingsList"></div>
+
+    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:22px 0 10px;">Recent App Errors</p>
+    <p style="font-size:11px;color:#B0AA98;margin:0 0 10px;">Real errors users have actually hit, most recent first.</p>
+    <div id="adminErrorLogsList"></div>
   </div>
 
   <div class="content" id="panel-therapist-dashboard" style="display:none;">
@@ -643,6 +652,41 @@
     <p style="font-size:11px;color:#9AABCE;font-weight:700;margin:0 0 6px;">Languages you can work in</p>
     <div id="therapistLanguagesCheckboxes" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;"></div>
     <button id="therapistSaveProfileBtn" style="width:100%;padding:12px;border-radius:10px;border:none;background:#3B8F63;color:#fff;font-size:12.5px;font-weight:700;cursor:pointer;">Save My Profile</button>
+  </div>
+
+  <div class="content" id="panel-edit-profile" style="display:none;">
+    <button id="editProfileBackBtn" style="background:none;border:none;cursor:pointer;padding:0;margin-bottom:14px;color:#5C6B94;display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      Profile
+    </button>
+    <p class="prompt-title" style="text-align:center;">Edit Profile</p>
+    <p class="prompt-sub" style="text-align:center;margin-bottom:22px;">Keep your details up to date.</p>
+
+    <label style="font-size:12px;font-weight:700;color:#2A2013;margin-bottom:6px;display:block;">What would you like to be called?</label>
+    <input id="epName" type="text" placeholder="Your name" style="width:100%;padding:14px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:14px;box-sizing:border-box;margin-bottom:20px;">
+
+    <label style="font-size:12px;font-weight:700;color:#2A2013;margin-bottom:8px;display:block;">Pronouns</label>
+    <div id="epPronounChips" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;"></div>
+    <input id="epPronounCustom" type="text" placeholder="Or type your own" style="display:none;width:100%;padding:12px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:13px;box-sizing:border-box;margin-bottom:20px;">
+
+    <label style="font-size:12px;font-weight:700;color:#2A2013;margin-bottom:6px;display:block;">Phone number</label>
+    <input id="epPhone" type="tel" placeholder="Your phone number" style="width:100%;padding:14px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:14px;box-sizing:border-box;margin-bottom:20px;">
+
+    <label style="font-size:12px;font-weight:700;color:#2A2013;margin-bottom:6px;display:block;">Date of birth</label>
+    <input id="epDob" type="date" style="width:100%;padding:14px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:14px;box-sizing:border-box;margin-bottom:10px;">
+
+    <p id="epError" style="display:none;color:#C77B7B;font-size:12px;text-align:center;margin:8px 0 0;"></p>
+    <button id="epSaveBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:15px;font-weight:700;cursor:pointer;margin-top:18px;">Save Changes</button>
+  </div>
+
+  <div class="content" id="panel-my-bookings" style="display:none;">
+    <button id="myBookingsBackBtn" style="background:none;border:none;cursor:pointer;padding:0;margin-bottom:14px;color:#5C6B94;display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      Profile
+    </button>
+    <p class="prompt-title" style="text-align:center;">My Sessions &amp; Cancellations</p>
+    <p class="prompt-sub" style="text-align:center;margin-bottom:22px;">A clear record of where things stand.</p>
+    <div id="myBookingsList"></div>
   </div>
 
   <div id="paymentModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.45);z-index:60;"></div>
@@ -1000,6 +1044,8 @@
     <div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:16px;padding:16px;margin-top:14px;">
       <p style="font-size:12px;color:#9AABCE;margin:0 0 8px;font-weight:700;">Account</p>
       <p id="profileAccountEmail" style="font-size:12.5px;color:#2A2013;margin:0 0 12px;"></p>
+      <button id="editProfileBtn" style="width:100%;padding:12px;border-radius:12px;border:1px solid #EEE0C4;background:transparent;color:#6690D6;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px;">Edit Profile</button>
+      <button id="myBookingsBtn" style="width:100%;padding:12px;border-radius:12px;border:1px solid #EEE0C4;background:transparent;color:#6690D6;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px;">My Sessions &amp; Cancellations</button>
       <button id="logoutBtn" style="width:100%;padding:12px;border-radius:12px;border:1px solid #EEE0C4;background:transparent;color:#C77B7B;font-size:13px;font-weight:700;cursor:pointer;">Sign Out</button>
     </div>
     <p style="text-align:center;font-size:10.5px;color:#B0AA98;margin:18px 0 0;line-height:1.6;">HOBS isn't an emergency service.<br>If you need to talk to someone right now: iCall, 9152987821, Mon–Sat 10am–8pm.<br>For an immediate emergency, call 112.</p>
@@ -1282,7 +1328,6 @@
         </button>
         <p style="color:rgba(255,255,255,0.6);font-size:11px;margin-top:10px;">Tap to play calming sound</p>
       </div>
-      <audio id="calmRoomAudio" loop src="calmroom-music.mp3"></audio>
     </div>
   </div>
 
@@ -1383,6 +1428,22 @@
 var SUPABASE_URL = 'https://adjvptkzyckkvewbfmzf.supabase.co';
 var SUPABASE_KEY = 'sb_publishable_OfcfAkUyxd9oXKeGvVxBIw_KxUV9TzE';
 var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// Real error monitoring — since there's no server-side infrastructure for this yet,
+// genuine JS errors get logged to Supabase (best-effort, never blocks the user)
+// so Akash has actual visibility into what's breaking for real users, rather than
+// only finding out if someone happens to mention it.
+window.addEventListener('error', function(e){
+  try {
+    sb.from('error_logs').insert({
+      user_id: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null,
+      message: e.message || 'Unknown error',
+      stack: e.error && e.error.stack ? e.error.stack.slice(0, 2000) : '',
+      page_url: window.location.href
+    }).then(function(){});
+  } catch(err){}
+});
+
 var currentUser = null;
 var pendingSyncQueue = [];
 try {
@@ -1824,6 +1885,113 @@ document.getElementById('obSaveBtn').onclick = function(){
     }
   });
 };
+
+// ================= EDIT PROFILE (post-onboarding self-service) =================
+function openEditProfile(){
+  document.getElementById('epName').value = appState.displayName || '';
+  document.getElementById('epPhone').value = appState.phoneNumber || '';
+  document.getElementById('epDob').value = appState.dateOfBirth || '';
+  document.getElementById('epPronounCustom').style.display = 'none';
+  document.getElementById('epPronounCustom').value = '';
+
+  var selectedPronoun = appState.pronouns || '';
+  var chipsWrap = document.getElementById('epPronounChips');
+  chipsWrap.innerHTML = '';
+  PRONOUN_OPTIONS.forEach(function(opt){
+    var chip = document.createElement('button');
+    chip.type = 'button';
+    chip.textContent = opt;
+    var isSelected = (opt === 'Self-describe' && selectedPronoun && PRONOUN_OPTIONS.indexOf(selectedPronoun) === -1) || opt === selectedPronoun;
+    chip.style.cssText = 'padding:9px 14px;border-radius:20px;border:2px solid ' + (isSelected ? '#6690D6' : '#EEE0C4') + ';background:' + (isSelected ? '#6690D6' : '#FFFFFF') + ';color:' + (isSelected ? '#fff' : '#2A2013') + ';font-size:12.5px;font-weight:600;cursor:pointer;';
+    chip.onclick = function(){
+      Array.from(chipsWrap.children).forEach(function(c){ c.style.background = '#FFFFFF'; c.style.color = '#2A2013'; c.style.borderColor = '#EEE0C4'; });
+      chip.style.background = '#6690D6'; chip.style.color = '#fff'; chip.style.borderColor = '#6690D6';
+      chipsWrap.dataset.selected = opt;
+      document.getElementById('epPronounCustom').style.display = (opt === 'Self-describe') ? 'block' : 'none';
+    };
+    chipsWrap.appendChild(chip);
+  });
+  chipsWrap.dataset.selected = selectedPronoun && PRONOUN_OPTIONS.indexOf(selectedPronoun) !== -1 ? selectedPronoun : (selectedPronoun ? 'Self-describe' : '');
+  if(chipsWrap.dataset.selected === 'Self-describe') document.getElementById('epPronounCustom').value = selectedPronoun;
+
+  document.getElementById('epError').style.display = 'none';
+  showOnly('panel-edit-profile');
+}
+document.getElementById('editProfileBtn').onclick = openEditProfile;
+document.getElementById('editProfileBackBtn').onclick = function(){ showOnly('panel-profile'); };
+
+document.getElementById('epSaveBtn').onclick = function(){
+  var name = document.getElementById('epName').value.trim();
+  var phone = document.getElementById('epPhone').value.trim();
+  var dob = document.getElementById('epDob').value;
+  var chipsWrap = document.getElementById('epPronounChips');
+  var selected = chipsWrap.dataset.selected;
+  var pronouns = selected === 'Self-describe' ? document.getElementById('epPronounCustom').value.trim() : selected;
+
+  var errEl = document.getElementById('epError');
+  if(!name || !pronouns || !phone || !dob){
+    errEl.textContent = 'Please fill in all four fields.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  var btn = document.getElementById('epSaveBtn');
+  btn.textContent = 'Saving...'; btn.disabled = true;
+
+  sb.from('profiles').update({
+    name: name, pronouns: pronouns, phone_number: phone, date_of_birth: dob
+  }).eq('user_id', currentUser.id).then(function(result){
+    btn.textContent = 'Save Changes'; btn.disabled = false;
+    if(result.error){
+      errEl.textContent = 'Could not save — check your connection and try again.';
+      errEl.style.display = 'block';
+      return;
+    }
+    appState.displayName = name;
+    appState.pronouns = pronouns;
+    appState.phoneNumber = phone;
+    appState.dateOfBirth = dob;
+    showToast('Profile updated.');
+    renderHomeGreeting();
+    showOnly('panel-profile');
+  });
+};
+
+// ================= MY SESSIONS & CANCELLATIONS (client self-service view) =================
+function openMyBookings(){
+  showOnly('panel-my-bookings');
+  var wrap = document.getElementById('myBookingsList');
+  wrap.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">Loading...</p>';
+  sb.from('expert_bookings').select('*').eq('user_id', currentUser.id).order('created_at', {ascending:false}).then(function(result){
+    if(result.error){ wrap.innerHTML = '<p style="text-align:center;color:#C77B7B;font-size:12.5px;">Could not load your sessions.</p>'; return; }
+    var bookings = result.data || [];
+    if(bookings.length === 0){
+      wrap.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">No sessions booked yet.</p>';
+      return;
+    }
+    wrap.innerHTML = bookings.map(function(b){
+      var statusLabel, statusBg, statusColor;
+      if(b.status === 'change_requested'){ statusLabel = 'Change requested — under review'; statusBg = '#FEF3D8'; statusColor = '#7B4F00'; }
+      else if(b.status === 'cancelled'){ statusLabel = 'Ended'; statusBg = '#F5F3EE'; statusColor = '#9AABCE'; }
+      else if(b.payment_confirmed){ statusLabel = 'Confirmed'; statusBg = '#EAF4EE'; statusColor = '#3B8F63'; }
+      else { statusLabel = 'Pending confirmation'; statusBg = '#FEF3D8'; statusColor = '#7B4F00'; }
+      var cancelCount = b.cancellation_count || 0;
+      var cancelText = cancelCount === 0
+        ? 'You have 1 free cancellation available for this booking.'
+        : 'You\'ve used your free cancellation for this booking — a further one would need to go through our team, with a 50% charge.';
+      return '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:14px;padding:14px;margin-bottom:10px;">'+
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">'+
+          '<p style="font-size:13px;font-weight:700;color:#2A2013;margin:0;">'+b.expert_name+'</p>'+
+          '<span style="font-size:9px;font-weight:700;color:'+statusColor+';background:'+statusBg+';padding:3px 7px;border-radius:8px;white-space:nowrap;">'+statusLabel+'</span>'+
+        '</div>'+
+        '<p style="font-size:11px;color:#9AABCE;margin:0 0 8px;">'+b.role_category+'</p>'+
+        (b.status === 'active' ? '<p style="font-size:11px;color:#5C6B94;margin:0;">'+cancelText+'</p>' : '')+
+      '</div>';
+    }).join('');
+  });
+}
+document.getElementById('myBookingsBtn').onclick = openMyBookings;
+document.getElementById('myBookingsBackBtn').onclick = function(){ showOnly('panel-profile'); };
 
 var WALKTHROUGH_SLIDES = [
   {
@@ -2523,7 +2691,7 @@ document.getElementById('intakeDoneBtn').onclick = function(){
 };
 
 // ---- Bottom nav: Home / Journal / You ----
-var allPanels = ['panel-bubbles','panel-journal','panel-quick-journal','panel-saved','panel-support','panel-therapist-select','panel-intake','panel-booking','panel-history','panel-profile','panel-mood-tracker','panel-who5','panel-who5-results','panel-calendar','panel-day','panel-celebration','panel-bodydouble','panel-tips','panel-calmroom','panel-progress','panel-achievements','panel-rewards','panel-search','panel-team','panel-expert-detail','panel-admin','panel-therapist-dashboard','panel-tests','panel-test-detail','panel-test-results','panel-grounding','panel-grounding-detail','panel-worksheets','panel-worksheet-category','panel-worksheet-detail'];
+var allPanels = ['panel-bubbles','panel-journal','panel-quick-journal','panel-saved','panel-support','panel-therapist-select','panel-intake','panel-booking','panel-history','panel-profile','panel-mood-tracker','panel-who5','panel-who5-results','panel-calendar','panel-day','panel-celebration','panel-bodydouble','panel-tips','panel-calmroom','panel-progress','panel-achievements','panel-rewards','panel-search','panel-team','panel-expert-detail','panel-admin','panel-therapist-dashboard','panel-edit-profile','panel-my-bookings','panel-tests','panel-test-detail','panel-test-results','panel-grounding','panel-grounding-detail','panel-worksheets','panel-worksheet-category','panel-worksheet-detail'];
 var panelHistoryStack = ['panel-bubbles'];
 function showOnly(panelId){
   allPanels.forEach(function(id){ document.getElementById(id).style.display = (id === panelId) ? 'block' : 'none'; });
@@ -3907,27 +4075,108 @@ function renderTips(){
 document.getElementById('openTipsBtn').onclick = function(){ renderTips(); showOnly('panel-tips'); };
 document.getElementById('tipsBackBtn').onclick = function(){ showOnly('panel-bubbles'); setActiveNav('navHome'); };
 
+// ================= CALM ROOM — generated ambient soundscape =================
+// No licensed audio file needed: this builds a genuinely calming, softly evolving
+// drone from scratch using the Web Audio API (detuned oscillators for warmth,
+// a slow LFO so the volume gently breathes rather than sitting static, a lowpass
+// filter to keep it soft, and a layer of filtered noise for a soft room-tone texture).
+var ambientAudioCtx = null;
+var ambientNodes = [];
+var ambientMasterGain = null;
+
+function startAmbientSound(){
+  ambientAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  var ctx = ambientAudioCtx;
+
+  ambientMasterGain = ctx.createGain();
+  ambientMasterGain.gain.value = 0;
+  ambientMasterGain.connect(ctx.destination);
+  ambientMasterGain.gain.linearRampToValueAtTime(0.16, ctx.currentTime + 2.5); // gentle fade in
+
+  var lowpass = ctx.createBiquadFilter();
+  lowpass.type = 'lowpass';
+  lowpass.frequency.value = 900;
+  lowpass.connect(ambientMasterGain);
+
+  // A soft, open drone — low C, G a fifth above, E an octave+third above.
+  // Two slightly-detuned oscillators per note for a warm, chorused feel.
+  var notes = [130.81, 196.00, 329.63];
+  notes.forEach(function(freq){
+    [-4, 4].forEach(function(detune){
+      var osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      osc.detune.value = detune;
+      var noteGain = ctx.createGain();
+      noteGain.gain.value = 0.5;
+      osc.connect(noteGain);
+      noteGain.connect(lowpass);
+      osc.start();
+      ambientNodes.push(osc);
+    });
+  });
+
+  // Slow LFO on the master volume so it breathes instead of droning flatly.
+  var lfo = ctx.createOscillator();
+  lfo.frequency.value = 0.06; // one gentle swell roughly every 16 seconds
+  var lfoGain = ctx.createGain();
+  lfoGain.gain.value = 0.05;
+  lfo.connect(lfoGain);
+  lfoGain.connect(ambientMasterGain.gain);
+  lfo.start();
+  ambientNodes.push(lfo);
+
+  // Soft filtered noise layer for a gentle room-tone texture underneath the drone.
+  var bufferSize = 2 * ctx.sampleRate;
+  var noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  var output = noiseBuffer.getChannelData(0);
+  for(var i=0; i<bufferSize; i++){ output[i] = (Math.random() * 2 - 1) * 0.15; }
+  var noise = ctx.createBufferSource();
+  noise.buffer = noiseBuffer;
+  noise.loop = true;
+  var noiseFilter = ctx.createBiquadFilter();
+  noiseFilter.type = 'lowpass';
+  noiseFilter.frequency.value = 400;
+  var noiseGain = ctx.createGain();
+  noiseGain.gain.value = 0.3;
+  noise.connect(noiseFilter);
+  noiseFilter.connect(noiseGain);
+  noiseGain.connect(ambientMasterGain);
+  noise.start();
+  ambientNodes.push(noise);
+}
+
+function stopAmbientSound(){
+  if(!ambientAudioCtx) return;
+  var ctx = ambientAudioCtx;
+  if(ambientMasterGain){
+    ambientMasterGain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.8);
+  }
+  setTimeout(function(){
+    ambientNodes.forEach(function(node){
+      try { node.stop(); } catch(e){}
+    });
+    ambientNodes = [];
+    if(ambientAudioCtx){ ambientAudioCtx.close(); ambientAudioCtx = null; }
+  }, 850);
+}
+
 // ================= CALM ROOM =================
 function openCalmRoom(){ showOnly('panel-calmroom'); }
 document.getElementById('groundingCalmLinkBtn').onclick = openCalmRoom;
 document.getElementById('sheetCalmLinkBtn').onclick = function(){ closeAddTaskSheet(); openCalmRoom(); };
 document.getElementById('calmRoomCloseBtn').onclick = function(){
-  var audio = document.getElementById('calmRoomAudio');
-  audio.pause(); audio.currentTime = 0;
+  stopAmbientSound();
   document.getElementById('calmRoomPlayIcon').innerHTML = '<path d="M8 5v14l11-7z"/>';
   showOnly('panel-calendar');
 };
 document.getElementById('calmRoomPlayBtn').onclick = function(){
-  var audio = document.getElementById('calmRoomAudio');
   var icon = document.getElementById('calmRoomPlayIcon');
-  if(audio.paused){
-    audio.play().then(function(){
-      icon.innerHTML = '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>';
-    }).catch(function(){
-      showToast("Calm Room music isn't available yet — we're working on adding it.");
-    });
+  if(!ambientAudioCtx){
+    startAmbientSound();
+    icon.innerHTML = '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>';
   } else {
-    audio.pause();
+    stopAmbientSound();
     icon.innerHTML = '<path d="M8 5v14l11-7z"/>';
   }
 };
@@ -4545,6 +4794,26 @@ document.getElementById('adminAddGroupSessionBtn').onclick = function(){
   });
 };
 
+function renderAdminErrorLogs(){
+  var wrap = document.getElementById('adminErrorLogsList');
+  wrap.innerHTML = '<p style="font-size:11px;color:#B0AA98;">Loading...</p>';
+  sb.from('error_logs').select('*').order('created_at', {ascending:false}).limit(20).then(function(result){
+    if(result.error){ wrap.innerHTML = '<p style="font-size:11px;color:#B0AA98;">Could not load error logs.</p>'; return; }
+    var logs = result.data || [];
+    if(logs.length === 0){
+      wrap.innerHTML = '<p style="font-size:11px;color:#3B8F63;">No errors logged — clean so far.</p>';
+      return;
+    }
+    wrap.innerHTML = logs.map(function(l){
+      var dateLabel = new Date(l.created_at).toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+      return '<div style="background:#FBE8E8;border-radius:10px;padding:10px 12px;margin-bottom:6px;">'+
+        '<p style="font-size:11px;color:#C77B7B;font-weight:700;margin:0 0 3px;">'+(l.message||'Unknown error')+'</p>'+
+        '<p style="font-size:9.5px;color:#9AABCE;margin:0;">'+dateLabel+'</p>'+
+      '</div>';
+    }).join('');
+  });
+}
+
 function openAdminDashboard(){
   showOnly('panel-admin');
   document.getElementById('adminBookingsList').innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">Loading...</p>';
@@ -4552,6 +4821,7 @@ function openAdminDashboard(){
   populateAdminAvailabilitySelect();
   populateAdminTherapistSelect();
   renderLanguageCheckboxes('newExpertLanguagesCheckboxes', '');
+  renderAdminErrorLogs();
   Promise.all([
     sb.from('expert_bookings').select('*').order('created_at', {ascending:false}),
     sb.from('profiles').select('user_id,name,email,phone_number')
@@ -4605,6 +4875,21 @@ function openAdminDashboard(){
         };
       });
     }
+
+    var now = new Date();
+    var monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    var thisMonthConfirmed = bookings.filter(function(b){
+      return b.payment_locked && b.therapist_payout_amount && b.created_at && new Date(b.created_at) >= monthStart;
+    });
+    var monthRevenue = thisMonthConfirmed.reduce(function(sum, b){ return sum + parseFloat(b.therapist_payout_amount || 0); }, 0);
+    var uniqueClientsThisMonth = new Set(
+      bookings.filter(function(b){ return b.created_at && new Date(b.created_at) >= monthStart; }).map(function(b){ return b.user_id; })
+    ).size;
+    var totalActiveClients = new Set(bookings.filter(function(b){ return b.status === 'active'; }).map(function(b){ return b.user_id; })).size;
+    document.getElementById('adminAnalyticsRow').innerHTML =
+      '<div style="flex:1;background:#EAF0FB;border-radius:12px;padding:10px;text-align:center;"><p style="font-size:16px;font-weight:800;color:#2E5090;margin:0;">₹'+monthRevenue+'</p><p style="font-size:9.5px;color:#5C6B94;margin:0;">This Month</p></div>'+
+      '<div style="flex:1;background:#EAF0FB;border-radius:12px;padding:10px;text-align:center;"><p style="font-size:16px;font-weight:800;color:#2E5090;margin:0;">'+uniqueClientsThisMonth+'</p><p style="font-size:9.5px;color:#5C6B94;margin:0;">New This Month</p></div>'+
+      '<div style="flex:1;background:#EAF0FB;border-radius:12px;padding:10px;text-align:center;"><p style="font-size:16px;font-weight:800;color:#2E5090;margin:0;">'+totalActiveClients+'</p><p style="font-size:9.5px;color:#5C6B94;margin:0;">Active Clients</p></div>';
 
     var activeCount = bookings.filter(function(b){ return b.status === 'active'; }).length;
     var unconfirmedCount = bookings.filter(function(b){ return b.status === 'active' && !b.payment_confirmed; }).length;
@@ -6999,6 +7284,38 @@ function renderHomeGreeting(){
 
   var pool = AFFIRMATIONS_BY_TIME[timeKey];
   document.getElementById('bobAffirmation').textContent = pool[Math.floor(Math.random()*pool.length)];
+  renderHomeUpdatesBanner();
+}
+
+// Since there's no push notification system yet, this is the honest substitute:
+// check for real status changes (booking confirmed) the client hasn't seen,
+// and show a dismissible banner right on Home where they'll actually see it.
+function renderHomeUpdatesBanner(){
+  var wrap = document.getElementById('homeUpdatesBanner');
+  if(!wrap || !currentUser) return;
+  var seenIds = [];
+  try { seenIds = JSON.parse(localStorage.getItem('hobs_seen_confirmations') || '[]'); } catch(e){}
+
+  sb.from('expert_bookings').select('id,expert_name,payment_confirmed').eq('user_id', currentUser.id).eq('status','active').then(function(result){
+    if(result.error) return;
+    var unseen = (result.data || []).filter(function(b){
+      return b.payment_confirmed && seenIds.indexOf(b.id) === -1;
+    });
+    if(unseen.length === 0){ wrap.innerHTML = ''; return; }
+    wrap.innerHTML = unseen.map(function(b){
+      return '<div class="home-update-banner" style="background:#EAF4EE;border:1px solid #B8DFC7;border-radius:14px;padding:12px 14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;">'+
+        '<span style="font-size:12.5px;color:#2A2013;font-weight:600;">✓ Your session with '+b.expert_name+' is confirmed!</span>'+
+        '<button class="home-update-dismiss-btn" data-id="'+b.id+'" style="background:none;border:none;color:#3B8F63;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;">Got it</button>'+
+      '</div>';
+    }).join('');
+    wrap.querySelectorAll('.home-update-dismiss-btn').forEach(function(btn){
+      btn.onclick = function(){
+        seenIds.push(btn.dataset.id);
+        try { localStorage.setItem('hobs_seen_confirmations', JSON.stringify(seenIds)); } catch(e){}
+        renderHomeUpdatesBanner();
+      };
+    });
+  });
 }
 renderHomeGreeting();
 renderMascotTip('supportMascotTip', 'support_kunnu', 'kunnu', "Hey. Nobody should have to sit with the hard stuff alone. I'm glad you're here.");
