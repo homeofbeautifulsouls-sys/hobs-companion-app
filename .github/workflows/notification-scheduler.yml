@@ -1,0 +1,33 @@
+name: Notification Scheduler
+
+# Runs every 15 minutes and asks the notification-scheduler Edge Function to check every user's
+# LOCAL time and send any recurring reminder (book a session, task reminder, mood check, journal)
+# that's due right now for them. All the actual logic (timezone math, conditions, 3-hour spacing,
+# dedup) lives in the Edge Function itself -- this workflow's only job is to trigger it reliably.
+#
+# Why GitHub Actions and not Supabase's own pg_cron: pg_cron/pg_net calls made through Supabase's
+# Management API SQL endpoint are blocked by a WAF layer there, and using a direct Postgres
+# connection would have meant handling/rotating the raw database password. This reuses
+# infrastructure already available to this project instead.
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch: {} # lets it be triggered manually from the Actions tab too, for testing
+
+jobs:
+  trigger-scheduler:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call notification-scheduler
+        run: |
+          response=$(curl -s -o /tmp/response.json -w "%{http_code}" -X POST \
+            "https://adjvptkzyckkvewbfmzf.supabase.co/functions/v1/notification-scheduler" \
+            -H "Content-Type: application/json" \
+            -H "x-scheduler-secret: ${{ secrets.SCHEDULER_SECRET }}")
+          echo "HTTP status: $response"
+          cat /tmp/response.json
+          if [ "$response" -ge 400 ]; then
+            echo "::error::Scheduler call failed with status $response"
+            exit 1
+          fi
