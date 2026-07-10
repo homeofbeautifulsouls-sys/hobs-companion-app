@@ -1384,6 +1384,53 @@ var SUPABASE_URL = 'https://adjvptkzyckkvewbfmzf.supabase.co';
 var SUPABASE_KEY = 'sb_publishable_OfcfAkUyxd9oXKeGvVxBIw_KxUV9TzE';
 var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 var currentUser = null;
+var pendingSyncQueue = [];
+try {
+  var storedQueue = localStorage.getItem('hobs_pending_sync');
+  if(storedQueue) pendingSyncQueue = JSON.parse(storedQueue);
+} catch(e){}
+
+function savePendingSyncQueue(){
+  try { localStorage.setItem('hobs_pending_sync', JSON.stringify(pendingSyncQueue)); } catch(e){}
+}
+
+// Guarantees a save is never silently lost, even if currentUser is unexpectedly
+// unavailable at the moment of saving (e.g. mid-reload, session hiccup).
+// If we can save now, we do. If not, it's queued and retried automatically
+// the moment a session is confirmed again.
+function syncToSupabase(table, payload, onSuccess){
+  if(currentUser && currentUser.id){
+    var fullPayload = Object.assign({}, payload, { user_id: currentUser.id });
+    sb.from(table).insert(fullPayload).select().single().then(function(result){
+      if(result.error){
+        pendingSyncQueue.push({ table: table, payload: payload, queuedAt: new Date().toISOString() });
+        savePendingSyncQueue();
+        return;
+      }
+      if(onSuccess) onSuccess(result.data);
+    });
+  } else {
+    pendingSyncQueue.push({ table: table, payload: payload, queuedAt: new Date().toISOString() });
+    savePendingSyncQueue();
+  }
+}
+
+function retryPendingSync(){
+  if(!currentUser || !currentUser.id || pendingSyncQueue.length === 0) return;
+  var queue = pendingSyncQueue;
+  pendingSyncQueue = [];
+  savePendingSyncQueue();
+  queue.forEach(function(item){
+    sb.from(item.table).insert(Object.assign({}, item.payload, { user_id: currentUser.id })).then(function(result){
+      if(result.error){
+        pendingSyncQueue.push(item);
+        savePendingSyncQueue();
+      }
+    });
+  });
+  if(queue.length > 0) showToast('Caught up on ' + queue.length + ' unsaved item(s) from earlier.');
+}
+
 var authMode = 'signin';
 
 function showAuthError(msg){
@@ -1432,6 +1479,38 @@ document.getElementById('authGoogleBtn').onclick = function(){
 // Supabase session from the tokens in that URL, since the native shell doesn't process the
 // URL fragment the way a normal browser page load would.
 if (IS_NATIVE_APP && window.Capacitor?.Plugins?.App) {
+
+  // Hardware back button: close any open modal first, then step back through
+  // in-app navigation history, and only let Android exit/minimize the app
+  // once we're genuinely back at Home with nothing else open.
+  window.Capacitor.Plugins.App.addListener('backButton', function(){
+    var openModals = [
+      { backdrop: 'policyModalBackdrop', modal: 'policyModal' },
+      { backdrop: 'paymentModalBackdrop', modal: 'paymentModal' },
+      { backdrop: 'slotPickerModalBackdrop', modal: 'slotPickerModal' },
+      { backdrop: 'changeReasonModalBackdrop', modal: 'changeReasonModal' },
+      { backdrop: 'therapistDayEditorBackdrop', modal: 'therapistDayEditor' },
+      { backdrop: 'addTaskSheetBackdrop', modal: 'addTaskSheet' }
+    ];
+    for(var i=0; i<openModals.length; i++){
+      var m = openModals[i];
+      var modalEl = document.getElementById(m.modal);
+      if(modalEl && modalEl.style.display === 'block'){
+        modalEl.style.display = 'none';
+        var backdropEl = document.getElementById(m.backdrop);
+        if(backdropEl) backdropEl.style.display = 'none';
+        return;
+      }
+    }
+    if(panelHistoryStack.length > 1){
+      panelHistoryStack.pop(); // discard current
+      var previousPanel = panelHistoryStack.pop() || 'panel-bubbles'; // this becomes current again via showOnly
+      showOnly(previousPanel);
+      if(previousPanel === 'panel-bubbles') setActiveNav('navHome');
+    } else {
+      window.Capacitor.Plugins.App.exitApp();
+    }
+  });
 
   window.Capacitor.Plugins.App.addListener('appUrlOpen', async function(data){
 
@@ -1644,6 +1723,7 @@ function onAuthSuccess(user){
     overlay.style.display = 'none';
     void overlay.offsetHeight; // force immediate reflow so the change paints right away
     claimTherapistInviteIfAny();
+    retryPendingSync();
     if(!appState.onboardingComplete){
       showOnboarding();
     } else if(!appState.hasSeenIntro){
@@ -2444,8 +2524,13 @@ document.getElementById('intakeDoneBtn').onclick = function(){
 
 // ---- Bottom nav: Home / Journal / You ----
 var allPanels = ['panel-bubbles','panel-journal','panel-quick-journal','panel-saved','panel-support','panel-therapist-select','panel-intake','panel-booking','panel-history','panel-profile','panel-mood-tracker','panel-who5','panel-who5-results','panel-calendar','panel-day','panel-celebration','panel-bodydouble','panel-tips','panel-calmroom','panel-progress','panel-achievements','panel-rewards','panel-search','panel-team','panel-expert-detail','panel-admin','panel-therapist-dashboard','panel-tests','panel-test-detail','panel-test-results','panel-grounding','panel-grounding-detail','panel-worksheets','panel-worksheet-category','panel-worksheet-detail'];
+var panelHistoryStack = ['panel-bubbles'];
 function showOnly(panelId){
   allPanels.forEach(function(id){ document.getElementById(id).style.display = (id === panelId) ? 'block' : 'none'; });
+  if(panelHistoryStack[panelHistoryStack.length - 1] !== panelId){
+    panelHistoryStack.push(panelId);
+    if(panelHistoryStack.length > 30) panelHistoryStack.shift(); // avoid unbounded growth
+  }
 }
 function setActiveNav(which){
   ['navHome','navTasks','navJournal','navBreathe','navYou'].forEach(function(id){ document.getElementById(id).classList.remove('active'); });
@@ -2505,17 +2590,19 @@ document.getElementById('quickJournalBackBtn').onclick = function(){
   setActiveNav('navJournal');
 };
 function saveEntryToSupabase(entry){
-  return sb.from('entries').insert({
-    user_id: currentUser.id, moods: entry.moods, text: entry.text || '',
-    type: entry.type || 'journal', worksheet_name: entry.worksheetName || null,
-    category_name: entry.categoryName || null, category_color: entry.color || null,
-    shared_with_therapist: entry.sharedWithTherapist || false,
-    created_at: entry.date || new Date().toISOString()
-  }).select().single().then(function(result){
-    if(result.error){ showToast('Could not save — check your connection'); return null; }
-    entry.id = result.data.id;
-    entry.date = result.data.created_at;
-    return result.data;
+  return new Promise(function(resolve){
+    syncToSupabase('entries', {
+      moods: entry.moods, text: entry.text || '',
+      type: entry.type || 'journal', worksheet_name: entry.worksheetName || null,
+      category_name: entry.categoryName || null, category_color: entry.color || null,
+      shared_with_therapist: entry.sharedWithTherapist || false,
+      created_at: entry.date || new Date().toISOString()
+    }, function(savedRow){
+      entry.id = savedRow.id;
+      entry.date = savedRow.created_at;
+      resolve(savedRow);
+    });
+    if(!currentUser || !currentUser.id) resolve(null); // saved locally + queued; don't block the caller
   });
 }
 
@@ -2957,11 +3044,7 @@ function finishWho5(){
   var score = raw * 4; // WHO-5 standard conversion: raw 0-25 -> 0-100
   appState.who5Entries.unshift({date: new Date().toISOString(), score: score});
   saveState();
-  if(currentUser){
-    sb.from('who5_entries').insert({ user_id: currentUser.id, score: score }).then(function(result){
-      if(result.error) console.error('Could not save WHO-5 entry:', result.error);
-    });
-  }
+  syncToSupabase('who5_entries', { score: score });
 
   var arc = document.getElementById('who5Arc');
   var totalLen = 157; // approx length of the semicircle path
@@ -3665,14 +3748,13 @@ document.getElementById('sheetSaveTaskBtn').onclick = function(){
   if(sheetTargetKey === bdSelectedKey) renderBodyDoubleTaskList();
   if(sheetTargetKey === activeDayKey) renderTaskListCal();
 
-  sb.from('tasks').insert({
-    user_id: currentUser.id, date_key: sheetTargetKey, title: title, duration: sheetDuration,
+  syncToSupabase('tasks', {
+    date_key: sheetTargetKey, title: title, duration: sheetDuration,
     repeat: sheetRepeat, priority: sheetPriority, deadline: deadlineIso, done: false
-  }).select().single().then(function(result){
-    if(result.error){ showToast('Task saved locally — sync failed'); return; }
-    localTask.id = result.data.id; // swap temp ID for the real one
-    if(subtaskTitles.length){
-      var rows = subtaskTitles.map(function(st){ return { user_id: currentUser.id, task_id: result.data.id, title: st, done:false }; });
+  }, function(savedRow){
+    localTask.id = savedRow.id; // swap temp ID for the real one
+    if(subtaskTitles.length && currentUser && currentUser.id){
+      var rows = subtaskTitles.map(function(st){ return { user_id: currentUser.id, task_id: savedRow.id, title: st, done:false }; });
       sb.from('subtasks').insert(rows).select().then(function(subResult){
         if(!subResult.error){
           localTask.subtasks.forEach(function(st, i){ if(subResult.data[i]) st.id = subResult.data[i].id; });
@@ -3714,8 +3796,11 @@ document.getElementById('calmRoomPlayBtn').onclick = function(){
   var audio = document.getElementById('calmRoomAudio');
   var icon = document.getElementById('calmRoomPlayIcon');
   if(audio.paused){
-    audio.play().catch(function(){ showToast("Add calmroom-music.mp3 next to index.html to enable sound"); });
-    icon.innerHTML = '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>';
+    audio.play().then(function(){
+      icon.innerHTML = '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>';
+    }).catch(function(){
+      showToast("Calm Room music isn't available yet — we're working on adding it.");
+    });
   } else {
     audio.pause();
     icon.innerHTML = '<path d="M8 5v14l11-7z"/>';
@@ -4374,13 +4459,23 @@ function openAdminDashboard(){
             '<p style="font-size:9.5px;font-weight:700;color:#9AABCE;text-transform:uppercase;margin:0 0 4px;">Reason given</p>'+
             '<p style="font-size:12px;color:#2A2013;margin:0;">'+(b.change_reason||'No reason given')+'</p>'+
           '</div>'+
-          '<button class="admin-approve-change-btn" data-id="'+b.id+'" style="width:100%;padding:10px;border-radius:10px;border:none;background:#7B4F00;color:#fff;font-size:12px;font-weight:700;cursor:pointer;">Approve Change</button>'+
+          '<div style="display:flex;gap:8px;">'+
+            '<button class="admin-approve-change-btn" data-id="'+b.id+'" style="flex:1;padding:10px;border-radius:10px;border:none;background:#7B4F00;color:#fff;font-size:12px;font-weight:700;cursor:pointer;">Approve Change</button>'+
+            '<button class="admin-reject-change-btn" data-id="'+b.id+'" style="flex:1;padding:10px;border-radius:10px;border:1px solid #C77B7B;background:transparent;color:#C77B7B;font-size:12px;font-weight:700;cursor:pointer;">Reject</button>'+
+          '</div>'+
         '</div>';
       }).join('');
       document.querySelectorAll('.admin-approve-change-btn').forEach(function(btn){
         btn.onclick = function(){
           sb.from('expert_bookings').update({ status: 'cancelled', change_approved: true }).eq('id', btn.dataset.id).then(function(result){
             if(!result.error){ showToast('Change approved — this category is now open for a new booking.'); openAdminDashboard(); }
+          });
+        };
+      });
+      document.querySelectorAll('.admin-reject-change-btn').forEach(function(btn){
+        btn.onclick = function(){
+          sb.from('expert_bookings').update({ status: 'active', change_approved: true }).eq('id', btn.dataset.id).then(function(result){
+            if(!result.error){ showToast('Request declined — they stay connected with their current expert.'); openAdminDashboard(); }
           });
         };
       });
@@ -5904,16 +5999,10 @@ function renderCustomResult(t, result){
 
 var lastTestResultId = null;
 function saveTestResultToSupabase(testKey, answers, elevated, selfHarmFlagged){
-  if(!currentUser) return;
-  sb.from('test_results').insert({
-    user_id: currentUser.id,
-    test_key: testKey,
-    answers: answers,
-    elevated: elevated,
-    self_harm_flagged: selfHarmFlagged
-  }).select().single().then(function(result){
-    if(result.error){ console.error('Could not save test result:', result.error); return; }
-    lastTestResultId = result.data.id;
+  syncToSupabase('test_results', {
+    test_key: testKey, answers: answers, elevated: elevated, self_harm_flagged: selfHarmFlagged
+  }, function(savedRow){
+    lastTestResultId = savedRow.id;
     document.getElementById('shareTestResultBtn').style.display = getActiveBookingForCategory('Therapist') ? 'block' : 'none';
   });
 }
@@ -6730,11 +6819,9 @@ document.getElementById('worksheetSaveBtn').onclick = function(){
   appState.entries.push(entry);
   saveState();
   saveEntryToSupabase(entry);
-  sb.from('worksheet_responses').insert({
-    user_id: currentUser.id, worksheet_key: currentWorksheetKey, category_key: currentWorksheetCategory,
+  syncToSupabase('worksheet_responses', {
+    worksheet_key: currentWorksheetKey, category_key: currentWorksheetCategory,
     answers: data, updated_at: new Date().toISOString()
-  }).then(function(result){
-    if(result.error) console.error('Worksheet sync error:', result.error);
   });
   showToast('Saved');
   openWorksheetCategory(currentWorksheetCategory);
