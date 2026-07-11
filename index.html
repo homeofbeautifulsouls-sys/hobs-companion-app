@@ -1549,12 +1549,14 @@ function hideAuthError(){
 document.getElementById('logoutBtn').onclick = function(){
   sb.auth.signOut().then(function(){
     currentUser = null;
-    appState.entries = [];
-    appState.tasksByDate = {};
-    appState.userHasTherapist = false;
-    appState.therapistName = '';
-    appState.hasOutsideTherapist = false;
-    appState.userHasSupportGroup = false;
+    pushListenersAttached = false; // so a different user signing in on this device re-registers cleanly for push
+    pendingNotificationInteraction = null;
+    // Full reset, not a partial one -- this used to only clear 6 of many fields, leaving things
+    // like isAdmin, isTherapist, displayName, phoneNumber, dateOfBirth stale in memory (though
+    // not in localStorage, which was already being cleared) until the next sign-in's fresh
+    // profile fetch overwrote them. On a shared/demo device this was a real window where stale
+    // data from the previous account could show before the new one's real data loaded.
+    appState = getDefaultAppState();
     try { localStorage.removeItem(STORAGE_KEY); } catch(e){}
     document.getElementById('authEmail').value = '';
     document.getElementById('authPassword').value = '';
@@ -2374,15 +2376,18 @@ function loadUserDataFromSupabase(){
 }
 
 var STORAGE_KEY = 'hobs_prototype_state_v1';
-var appState = {
-  entries: [],
-  userHasTherapist: false,
-  therapistName: '',
-  hasOutsideTherapist: false,
-  userHasSupportGroup: false,
-  dontShowPitch: false,
-  dontShowSupportPitch: false
-};
+function getDefaultAppState(){
+  return {
+    entries: [],
+    userHasTherapist: false,
+    therapistName: '',
+    hasOutsideTherapist: false,
+    userHasSupportGroup: false,
+    dontShowPitch: false,
+    dontShowSupportPitch: false
+  };
+}
+var appState = getDefaultAppState();
 (function loadState(){
   try {
     var raw = localStorage.getItem(STORAGE_KEY);
