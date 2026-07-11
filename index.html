@@ -615,6 +615,10 @@
     </div>
     <div id="adminGroupSessionsList" style="margin-bottom:22px;"></div>
 
+    <p style="font-size:12px;font-weight:700;color:#C77B7B;margin:0 0 10px;">⚠ Pending Session Requests</p>
+    <p style="font-size:11px;color:#B0AA98;margin:0 0 10px;">Clients waiting to be matched with a professional. Assign someone to move them forward.</p>
+    <div id="adminPendingRequestsList" style="margin-bottom:22px;"></div>
+
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">All Users</p>
     <p style="font-size:11px;color:#B0AA98;margin:0 0 10px;">Every registered account — not just people who've booked a session.</p>
     <input type="text" id="adminUserSearchInput" placeholder="Search by name or email..." style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:10px;box-sizing:border-box;">
@@ -5250,7 +5254,7 @@ function loadExpertsFromSupabase(){
 }
 function getActiveBookingForCategory(category){
   return (appState.expertBookings || []).find(function(b){
-    return b.role_category === category && (b.status === 'active' || (b.status === 'change_requested' && !b.change_approved));
+    return b.role_category === category && (b.status === 'active' || b.status === 'pending' || (b.status === 'change_requested' && !b.change_approved));
   }) || null;
 }
 
@@ -5321,50 +5325,49 @@ function showSlotPicker(m, onSlotChosen, onNoSlots){
   });
 }
 
+// Client taps "Book Session" on a specific professional -- this used to create an active booking
+// immediately. Now it submits a request for admin to review and assign (possibly to this person,
+// possibly to someone else better suited) -- see renderAdminPendingRequests(). No slot-picking or
+// payment happens at this stage; that comes later via pickSessionTimeForBooking, once assigned.
 function bookExpert(m){
+  showPolicyModal(function(){
+    var newBooking = { id: 'temp_' + uidGen(), expert_name: m.name, role_category: m.roleCategory, status: 'pending', cancellation_count: 0, payment_confirmed: false, session_date: null };
+    appState.expertBookings.push(newBooking);
+    renderTeamList();
+    logAnalyticsEvent('booking_requested');
+    sb.from('expert_bookings').insert({
+      user_id: currentUser.id, expert_name: m.name, role_category: m.roleCategory, status: 'pending', cancellation_count: 0, payment_confirmed: false
+    }).select().single().then(function(result){
+      if(!result.error) newBooking.id = result.data.id;
+    });
+    showToast("Request sent — we'll match you with the right person and let you know.");
+    var idx = TEAM_MEMBERS.findIndex(function(tm){ return tm.name === m.name; });
+    if(idx !== -1) openExpertDetail(idx);
+  });
+}
+
+// Once admin has assigned a client to a professional (booking status is 'active' but no
+// session_date yet, since the request stage doesn't pick a time), this lets the client actually
+// schedule their first session -- reuses the same slot-picker + payment flow bookExpert used to
+// run immediately; it just happens later now, after a real person has been matched to them.
+function pickSessionTimeForBooking(booking, m){
   showSlotPicker(m, function(chosenSlot){
-    // A real slot was picked — book it, mark it taken, and set the session date immediately.
-    showPolicyModal(function(){
-      var newBooking = { id: 'temp_' + uidGen(), expert_name: m.name, role_category: m.roleCategory, status: 'active', cancellation_count: 0, payment_confirmed: false, session_date: chosenSlot.slot_date };
-      appState.expertBookings.push(newBooking);
-      renderTeamList();
-      trackNotificationAction('booked_session');
-      logAnalyticsEvent('booking_made');
-      sb.from('expert_bookings').insert({
-        user_id: currentUser.id, expert_name: m.name, role_category: m.roleCategory, status: 'active', cancellation_count: 0, payment_confirmed: false, session_date: chosenSlot.slot_date
-      }).select().single().then(function(result){
-        if(!result.error) newBooking.id = result.data.id;
-      });
-      sb.from('expert_availability_slots').update({ is_booked: true, booked_by: currentUser.id }).eq('id', chosenSlot.id).then(function(){});
-      showPaymentModal(
-        "Session with " + m.name,
-        "Hi! I've paid for my session with " + m.name + " and wanted to let you know.",
-        function(){
-          showToast("Your time is booked. We'll confirm once payment is verified.");
-        }
-      );
-    });
+    sb.from('expert_bookings').update({ session_date: chosenSlot.slot_date }).eq('id', booking.id).then(function(){});
+    sb.from('expert_availability_slots').update({ is_booked: true, booked_by: currentUser.id }).eq('id', chosenSlot.id).then(function(){});
+    booking.session_date = chosenSlot.slot_date;
+    trackNotificationAction('booked_session');
+    logAnalyticsEvent('booking_made');
+    showPaymentModal(
+      "Session with " + m.name,
+      "Hi! I've paid for my session with " + m.name + " and wanted to let you know.",
+      function(){
+        showToast("Your time is booked. We'll confirm once payment is verified.");
+      }
+    );
+    var idx = TEAM_MEMBERS.findIndex(function(tm){ return tm.name === m.name; });
+    if(idx !== -1) openExpertDetail(idx);
   }, function(){
-    // No real slots configured yet for this expert — fall back to the old flow.
-    showPolicyModal(function(){
-      var newBooking = { id: 'temp_' + uidGen(), expert_name: m.name, role_category: m.roleCategory, status: 'active', cancellation_count: 0, payment_confirmed: false };
-      appState.expertBookings.push(newBooking);
-      renderTeamList();
-      trackNotificationAction('booked_session');
-      logAnalyticsEvent('booking_made');
-      sb.from('expert_bookings').insert({
-        user_id: currentUser.id, expert_name: m.name, role_category: m.roleCategory, status: 'active', cancellation_count: 0, payment_confirmed: false
-      }).select().single().then(function(result){
-        if(!result.error) newBooking.id = result.data.id;
-      });
-      showPaymentModal(
-        "Session with " + m.name,
-        "Hi! I've paid for my session with " + m.name + " and wanted to let you know.",
-        function(){
-          showToast("Payment noted — we'll reach out to schedule your time with " + m.name.split(' ')[0] + ".");
-        }
-      );
-    });
+    showToast("No times available right now — we'll reach out to schedule.");
   });
 }
 
@@ -5679,6 +5682,84 @@ document.getElementById('notifComposeSendBtn').onclick = function(){
   }
 };
 
+// Pending requests: clients who tapped "Book Session" on someone but haven't been formally
+// assigned yet. Admin reviews and picks the actual professional (defaults to whoever the client
+// requested, but can be changed) -- confirming moves the booking to 'active' and the client then
+// gets to pick their session time from the calendar.
+function renderAdminPendingRequests(){
+  var listEl = document.getElementById('adminPendingRequestsList');
+  listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">Loading...</p>';
+  Promise.all([
+    sb.from('expert_bookings').select('id,user_id,expert_name,role_category,created_at').eq('status', 'pending').order('created_at', {ascending:true}),
+    sb.from('profiles').select('user_id,name,email'),
+    sb.from('experts').select('name,role_category')
+  ]).then(function(results){
+    var bookingsRes = results[0], profilesRes = results[1], expertsRes = results[2];
+    if(bookingsRes.error){
+      listEl.innerHTML = '<p style="color:#C77B7B;font-size:12px;">Could not load requests: '+bookingsRes.error.message+'</p>';
+      return;
+    }
+    var requests = bookingsRes.data || [];
+    if(requests.length === 0){
+      listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">No pending requests right now.</p>';
+      return;
+    }
+    var profileByUserId = {};
+    (profilesRes.data || []).forEach(function(p){ profileByUserId[p.user_id] = p; });
+    var expertsByCategory = {};
+    (expertsRes.data || []).forEach(function(e){
+      if(!expertsByCategory[e.role_category]) expertsByCategory[e.role_category] = [];
+      expertsByCategory[e.role_category].push(e.name);
+    });
+
+    listEl.innerHTML = requests.map(function(r){
+      var profile = profileByUserId[r.user_id] || {};
+      var when = new Date(r.created_at).toLocaleDateString('en-IN', {day:'numeric', month:'short'});
+      var options = (expertsByCategory[r.role_category] || []).map(function(name){
+        return '<option value="'+name+'"'+(name === r.expert_name ? ' selected' : '')+'>'+name+'</option>';
+      }).join('');
+      return '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:12px;margin-bottom:8px;">'+
+        '<p style="font-size:12.5px;font-weight:700;color:#2A2013;margin:0 0 2px;">'+(profile.name||'Unknown client')+'</p>'+
+        '<p style="font-size:11px;color:#5C6B94;margin:0 0 2px;">'+(profile.email||'')+'</p>'+
+        '<p style="font-size:10px;color:#9AABCE;margin:0 0 8px;">Requested '+r.role_category+' · '+when+' · originally asked for '+r.expert_name+'</p>'+
+        '<div style="display:flex;gap:6px;">'+
+          '<select class="pending-assign-select" data-booking-id="'+r.id+'" data-user-id="'+r.user_id+'" data-category="'+r.role_category+'" style="flex:1;padding:9px;border-radius:10px;border:1px solid #EEE0C4;font-size:11.5px;font-family:inherit;">'+options+'</select>'+
+          '<button class="pending-assign-btn" data-booking-id="'+r.id+'" style="font-size:11px;font-weight:700;color:#fff;background:#3B8F63;border:none;border-radius:10px;padding:9px 14px;cursor:pointer;white-space:nowrap;">Assign</button>'+
+        '</div>'+
+      '</div>';
+    }).join('');
+
+    listEl.querySelectorAll('.pending-assign-btn').forEach(function(btn){
+      btn.onclick = function(){
+        var bookingId = btn.dataset.bookingId;
+        var select = listEl.querySelector('.pending-assign-select[data-booking-id="'+bookingId+'"]');
+        assignPendingBooking(bookingId, select.value, select.dataset.userId, select.dataset.category);
+      };
+    });
+  });
+}
+
+function assignPendingBooking(bookingId, expertName, clientUserId, category){
+  sb.from('expert_bookings').update({ status: 'active', expert_name: expertName }).eq('id', bookingId).then(function(result){
+    if(result.error){
+      showToast('Could not assign — please try again.');
+      return;
+    }
+    showToast('Assigned to ' + expertName + '.');
+    renderAdminPendingRequests();
+    // Let the client know so they can come back and pick a session time.
+    sb.functions.invoke('send-push-notification', {
+      body: {
+        title: 'Bob here 🐘',
+        body: "You've been matched with " + expertName + " for " + category.toLowerCase() + " support — come pick a time that works for you!",
+        userId: clientUserId,
+        notificationType: 'admin_manual',
+        targetDescription: 'Therapist assignment confirmation'
+      }
+    }).catch(function(){}); // best-effort -- don't block the assignment on notification delivery
+  });
+}
+
 var adminAllUsersCache = null; // so the search filter doesn't need to re-fetch on every keystroke
 function renderAdminAllUsers(){
   var listEl = document.getElementById('adminAllUsersList');
@@ -5852,6 +5933,7 @@ function openAdminDashboard(){
   renderAdminErrorLogs();
   renderAdminNotifHistory();
   renderAdminAllUsers();
+  renderAdminPendingRequests();
   Promise.all([
     sb.from('expert_bookings').select('*').order('created_at', {ascending:false}),
     sb.from('profiles').select('user_id,name,email,phone_number')
@@ -6611,8 +6693,13 @@ function renderTeamList(){
     var isSomeoneElseBooked = activeBooking && activeBooking.expert_name !== m.name;
 
     var actionHtml;
-    if(isThisPersonBooked && activeBooking.status === 'change_requested'){
+    if(isThisPersonBooked && activeBooking.status === 'pending'){
+      actionHtml = '<div style="margin-top:6px;padding:11px;border-radius:12px;background:#FEF3D8;color:#7B4F00;font-size:11.5px;font-weight:700;text-align:center;">Request sent — we\'ll confirm your match soon</div>';
+    } else if(isThisPersonBooked && activeBooking.status === 'change_requested'){
       actionHtml = '<div style="margin-top:6px;padding:11px;border-radius:12px;background:#FEF3D8;color:#7B4F00;font-size:11.5px;font-weight:700;text-align:center;">⏳ Change requested — we\'re reviewing it</div>';
+    } else if(isThisPersonBooked && !activeBooking.session_date){
+      actionHtml = '<div style="margin-top:6px;padding:11px;border-radius:12px;background:#EAF4EE;color:#3B8F63;font-size:11.5px;font-weight:700;text-align:center;margin-bottom:6px;">You\'ve been matched! Pick a session time.</div>'+
+        '<button class="pick-time-btn" data-idx="'+idx+'" style="display:block;width:100%;padding:11px;border-radius:12px;border:none;background:#6690D6;color:#FFF8F0;font-size:12.5px;font-weight:700;cursor:pointer;">Pick a Time</button>';
     } else if(isThisPersonBooked){
       var statusBadge = activeBooking.payment_confirmed
         ? '<div style="flex:1 1 100%;padding:11px;border-radius:12px;background:#EAF4EE;color:#3B8F63;font-size:11.5px;font-weight:700;text-align:center;">✓ Confirmed</div>'
@@ -6623,7 +6710,7 @@ function renderTeamList(){
         '<button class="request-change-btn" data-idx="'+idx+'" style="flex:1;padding:10px;border-radius:12px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:10.5px;font-weight:700;cursor:pointer;">Request Change</button>'+
       '</div>';
     } else if(isSomeoneElseBooked){
-      actionHtml = '<div style="margin-top:6px;padding:11px;border-radius:12px;background:#F5F3EE;color:#B0AA98;font-size:11px;font-weight:600;text-align:center;">Connected with '+activeBooking.expert_name+' in this category</div>';
+      actionHtml = '<div style="margin-top:6px;padding:11px;border-radius:12px;background:#F5F3EE;color:#B0AA98;font-size:11px;font-weight:600;text-align:center;">'+(activeBooking.status === 'pending' ? 'You already have a pending request in this category' : ('Connected with '+activeBooking.expert_name+' in this category'))+'</div>';
     } else {
       actionHtml = '<button class="book-session-btn" data-idx="'+idx+'" style="display:block;width:100%;margin-top:6px;padding:11px;border-radius:12px;border:1.5px solid #6690D6;background:transparent;color:#6690D6;font-size:12.5px;font-weight:700;cursor:pointer;">Book Session</button>';
     }
@@ -6652,6 +6739,13 @@ function renderTeamList(){
   });
   wrap.querySelectorAll('.book-session-btn').forEach(function(btn){
     btn.onclick = function(){ bookExpert(TEAM_MEMBERS[parseInt(btn.dataset.idx)]); };
+  });
+  wrap.querySelectorAll('.pick-time-btn').forEach(function(btn){
+    btn.onclick = function(){
+      var m = TEAM_MEMBERS[parseInt(btn.dataset.idx)];
+      var booking = getActiveBookingForCategory(m.roleCategory);
+      if(booking) pickSessionTimeForBooking(booking, m);
+    };
   });
   wrap.querySelectorAll('.request-change-btn').forEach(function(btn){
     btn.onclick = function(){
@@ -6687,7 +6781,15 @@ function openExpertDetail(idx){
   var isThisPersonBooked = activeBooking && activeBooking.expert_name === m.name;
   var isSomeoneElseBooked = activeBooking && activeBooking.expert_name !== m.name;
   var actionHtml;
-  if(isThisPersonBooked){
+  if(isThisPersonBooked && activeBooking.status === 'pending'){
+    actionHtml = '<div style="padding:15px;border-radius:14px;background:#FEF3D8;color:#7B4F00;font-size:13px;font-weight:700;text-align:center;">Your request has been sent — we\'ll confirm your match soon.</div>';
+  } else if(isThisPersonBooked && !activeBooking.session_date){
+    // Admin has assigned this person but no time has been picked yet.
+    actionHtml = '<div style="display:flex;flex-direction:column;gap:8px;">'+
+      '<div style="padding:15px;border-radius:14px;background:#EAF4EE;color:#3B8F63;font-size:13px;font-weight:700;text-align:center;">You\'ve been matched with '+m.name.split(' ')[0]+'! Pick a time for your first session.</div>'+
+      '<button id="expertDetailPickTimeBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:14.5px;font-weight:700;cursor:pointer;">Pick a Time</button>'+
+    '</div>';
+  } else if(isThisPersonBooked){
     var detailStatusBadge = activeBooking.payment_confirmed
       ? '<div style="padding:15px;border-radius:14px;background:#EAF4EE;color:#3B8F63;font-size:13px;font-weight:700;text-align:center;">✓ Confirmed with '+m.name.split(' ')[0]+'</div>'
       : '<div style="padding:15px;border-radius:14px;background:#FEF3D8;color:#7B4F00;font-size:13px;font-weight:700;text-align:center;">⏳ Pending confirmation — we\'ll confirm once we\'ve verified your payment</div>';
@@ -6698,6 +6800,8 @@ function openExpertDetail(idx){
         '<button id="expertDetailChangeBtn" style="flex:1;padding:14px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:12.5px;font-weight:700;cursor:pointer;">Request Change</button>'+
       '</div>'+
     '</div>';
+  } else if(isSomeoneElseBooked && activeBooking.status === 'pending'){
+    actionHtml = '<div style="padding:15px;border-radius:14px;background:#F5F3EE;color:#B0AA98;font-size:12.5px;font-weight:600;text-align:center;">You already have a pending request for '+m.roleCategory.toLowerCase()+' support — we\'ll be in touch soon.</div>';
   } else if(isSomeoneElseBooked){
     actionHtml = '<div style="padding:15px;border-radius:14px;background:#F5F3EE;color:#B0AA98;font-size:12.5px;font-weight:600;text-align:center;">You\'re currently connected with '+activeBooking.expert_name+' for '+m.roleCategory.toLowerCase()+' support. Message us if you\'d like to change.</div>';
   } else {
@@ -6779,6 +6883,10 @@ function openExpertDetail(idx){
 
   if(!isThisPersonBooked && !isSomeoneElseBooked){
     document.getElementById('expertDetailBookBtn').onclick = function(){ bookExpert(m); };
+  } else if(isThisPersonBooked && activeBooking.status === 'pending'){
+    // No action button in this state -- just the "request sent" message above.
+  } else if(isThisPersonBooked && !activeBooking.session_date){
+    document.getElementById('expertDetailPickTimeBtn').onclick = function(){ pickSessionTimeForBooking(activeBooking, m); };
   } else if(isThisPersonBooked){
     document.getElementById('expertDetailChangeBtn').onclick = function(){ requestExpertChange(m, m.name); };
     document.getElementById('expertDetailCancelBtn').onclick = function(){ cancelSession(m); };
