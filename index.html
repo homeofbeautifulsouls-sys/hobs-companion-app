@@ -84,10 +84,10 @@
   }
 
   /* ---- calendar / day detail / celebration / share (new) ---- */
-  .month-nav { display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:2px; }
+  .month-nav { display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:16px; }
   .month-nav button { background:#F3F6FC; border:none; width:28px;height:28px;border-radius:50%; color:#6690D6; font-size:15px; cursor:pointer; }
   .month-title { font-size:14px; font-weight:700; color:#2E3A5A; min-width:112px; text-align:center; }
-  .weekday-row { display:grid; grid-template-columns:repeat(7,1fr); margin:14px 0 6px; }
+  .weekday-row { display:grid; grid-template-columns:repeat(7,1fr); margin:14px 0 10px; }
   .weekday-row span { text-align:center; font-size:10px; font-weight:700; color:#9AABCE; }
   .day-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
   .day-cell { aspect-ratio:1; border-radius:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; cursor:pointer; position:relative; background:#FFFFFF; border:1px solid #F1E9D6; }
@@ -553,6 +553,12 @@
 
     <div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:16px;padding:16px;margin-bottom:22px;">
       <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Send a Notification</p>
+      <select id="notifTemplateSelect" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;">
+        <option value="">Quick templates (optional — fills in below, edit freely after)</option>
+      </select>
+      <select id="notifCharacterSelect" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;">
+        <option value="">Write your own — send as...</option>
+      </select>
       <input type="text" id="notifComposeTitle" placeholder="Title (e.g. Bob here 🐘)" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;">
       <textarea id="notifComposeBody" placeholder="Message..." style="width:100%;min-height:64px;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;resize:vertical;"></textarea>
       <select id="notifComposeTarget" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;">
@@ -1143,7 +1149,7 @@
       <button id="nextMonthBtn">›</button>
     </div>
     <p class="prompt-title">Your month, at a glance</p>
-    <p class="prompt-sub">Every day you check in gets a place here — tap any day to see your mood and your tasks together.</p>
+    <p class="prompt-sub" style="margin-bottom:14px;">Every day you check in gets a place here — tap any day to see your mood and your tasks together.</p>
     <div class="weekday-row"><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div>
     <div class="day-grid" id="dayGrid"></div>
 
@@ -1288,6 +1294,13 @@
     <input id="sheetDeadlineInput" type="datetime-local" style="display:none;width:100%;margin-top:8px;padding:10px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:13px;color:#2A2013;box-sizing:border-box;">
     <button id="sheetBreakdownToggle" style="width:100%;margin-top:8px;padding:9px;border-radius:14px;border:1px dashed #C7D2E8;background:transparent;color:#6690D6;font-size:11.5px;font-weight:600;cursor:pointer;">+ Break this into smaller steps</button>
     <div id="sheetSubtaskArea" style="display:none;margin-top:10px;"></div>
+    <input type="file" id="sheetImageInput" accept="image/*" style="display:none;">
+    <button id="sheetAddPhotoBtn" style="width:100%;margin-top:8px;padding:9px;border-radius:14px;border:1px dashed #C7D2E8;background:transparent;color:#6690D6;font-size:11.5px;font-weight:600;cursor:pointer;">+ Add a photo</button>
+    <div id="sheetImagePreviewArea" style="display:none;margin-top:10px;position:relative;">
+      <img id="sheetImagePreview" style="width:100%;max-height:180px;object-fit:cover;border-radius:14px;display:block;">
+      <button id="sheetRemoveImageBtn" style="position:absolute;top:8px;right:8px;width:28px;height:28px;border-radius:50%;border:none;background:rgba(20,20,20,0.55);color:#FFF;font-size:14px;cursor:pointer;">&times;</button>
+      <p id="sheetImageUploadStatus" style="font-size:10.5px;color:#9AABCE;margin:6px 0 0;"></p>
+    </div>
     <button id="sheetCalmLinkBtn" style="width:100%;margin-top:10px;padding:9px;border-radius:14px;border:none;background:#EAF6F4;color:#3F8C82;font-size:11.5px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5z"/></svg>
       Feeling overwhelmed? Take a moment in the Calm Room
@@ -1587,7 +1600,8 @@ if (IS_NATIVE_APP && window.Capacitor?.Plugins?.App) {
       { backdrop: 'slotPickerModalBackdrop', modal: 'slotPickerModal' },
       { backdrop: 'changeReasonModalBackdrop', modal: 'changeReasonModal' },
       { backdrop: 'therapistDayEditorBackdrop', modal: 'therapistDayEditor' },
-      { backdrop: 'notifDetailModalBackdrop', modal: 'notifDetailModal' }
+      { backdrop: 'notifDetailModalBackdrop', modal: 'notifDetailModal' },
+      { backdrop: 'dayMoodSheetBackdrop', modal: 'dayMoodSheet' }
     ];
     for(var i=0; i<openModals.length; i++){
       var m = openModals[i];
@@ -1611,12 +1625,28 @@ if (IS_NATIVE_APP && window.Capacitor?.Plugins?.App) {
       showToast('Saved');
     }
     if(panelHistoryStack.length > 1){
-      panelHistoryStack.pop(); // discard current
-      var previousPanel = panelHistoryStack.pop() || 'panel-bubbles'; // this becomes current again via showOnly
+      panelHistoryStack.pop(); // remove the current panel from the stack
+      var previousPanel = panelHistoryStack[panelHistoryStack.length - 1] || 'panel-bubbles'; // peek, don't pop -- showOnly() below will no-op its own push since this already matches the new top of stack
       showOnly(previousPanel);
       if(previousPanel === 'panel-bubbles') setActiveNav('navHome');
     } else {
       window.Capacitor.Plugins.App.exitApp();
+    }
+  });
+
+  // Known Capacitor/WebView issue: resuming from background after the OS has reclaimed
+  // rendering resources can leave the screen showing a blank white frame until something
+  // forces a repaint. There was no handler for this at all before -- add one.
+  window.Capacitor.Plugins.App.addListener('resume', function(){
+    document.body.style.display = 'none';
+    void document.body.offsetHeight; // force a synchronous reflow
+    document.body.style.display = '';
+    // Also worth checking the session actually survived being backgrounded -- if it silently
+    // expired, better to reload into a clean sign-in than leave someone stuck on a stale screen.
+    if(currentUser){
+      sb.auth.getSession().then(function(result){
+        if(!result.data.session) location.reload();
+      }).catch(function(){});
     }
   });
 
@@ -3789,6 +3819,80 @@ function cyclePriority(taskId, dateKey, rerender){
 var openBreakdownTaskId = null;
 var PRIORITY_ORDER = ['high','medium','low',null];
 var PRIORITY_LABELS = { high:'High Priority', medium:'Medium Priority', low:'Low Priority', 'null':'No Priority' };
+// Long-press a task row to arm it for deletion: the drag handle swaps to a trash icon and the
+// row highlights, so a stray tap can't delete anything -- only tapping the trash icon while
+// armed actually does. Tapping anywhere else (another row, blank space) disarms it again.
+var armedTaskItemEl = null;
+function disarmTaskDelete(){
+  if(armedTaskItemEl){
+    armedTaskItemEl.style.background = '';
+    armedTaskItemEl.style.borderRadius = '';
+    var wrap = armedTaskItemEl.querySelector('.drag-handle-wrap');
+    if(wrap) wrap.innerHTML = '<span class="drag-handle" style="color:#D9CFB8;font-size:15px;cursor:grab;touch-action:none;">⠿</span>';
+    armedTaskItemEl = null;
+  }
+}
+document.addEventListener('click', function(e){
+  if(armedTaskItemEl && !armedTaskItemEl.contains(e.target)) disarmTaskDelete();
+});
+
+function deleteTaskDirectly(task, dateKey, rerenderFn){
+  var list = getTasks(dateKey);
+  var idx = list.findIndex(function(t){ return t.id === task.id; });
+  if(idx !== -1) list.splice(idx, 1);
+  saveState();
+  rerenderFn();
+  showToast('Task deleted');
+  if(String(task.id).indexOf('temp_') !== 0){
+    sb.from('tasks').delete().eq('id', task.id).then(function(r){ if(r.error) console.error(r.error); });
+  }
+}
+
+function armTaskForDelete(item, row, handleWrap, task, dateKey, rerenderFn){
+  disarmTaskDelete(); // only one row armed at a time
+  armedTaskItemEl = item;
+  item.style.background = '#FBE8E8';
+  item.style.borderRadius = '10px';
+  handleWrap.innerHTML = '';
+  var trashBtn = document.createElement('button');
+  trashBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>';
+  trashBtn.style.cssText = 'background:none;border:none;color:#C77B7B;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;';
+  trashBtn.onclick = function(e){
+    e.stopPropagation();
+    armedTaskItemEl = null;
+    deleteTaskDirectly(task, dateKey, rerenderFn);
+  };
+  handleWrap.appendChild(trashBtn);
+}
+
+function attachLongPressDelete(item, row, handleWrap, task, dateKey, rerenderFn){
+  var pressTimer = null;
+  var startX = 0, startY = 0;
+  var longPressFired = false;
+
+  row.addEventListener('touchstart', function(e){
+    if(armedTaskItemEl && armedTaskItemEl !== item) disarmTaskDelete();
+    var t = e.touches[0];
+    startX = t.clientX; startY = t.clientY;
+    longPressFired = false;
+    pressTimer = setTimeout(function(){
+      longPressFired = true;
+      armTaskForDelete(item, row, handleWrap, task, dateKey, rerenderFn);
+    }, 550);
+  }, {passive:true});
+
+  row.addEventListener('touchmove', function(e){
+    var t = e.touches[0];
+    if(Math.abs(t.clientX - startX) > 10 || Math.abs(t.clientY - startY) > 10) clearTimeout(pressTimer);
+  }, {passive:true});
+
+  row.addEventListener('touchend', function(e){
+    clearTimeout(pressTimer);
+    if(longPressFired) e.preventDefault(); // swallow the click that would otherwise fire on release (e.g. toggling the checkbox)
+  });
+  row.addEventListener('touchcancel', function(){ clearTimeout(pressTimer); });
+}
+
 function renderTaskListCal(){
   var listEl = document.getElementById('taskListCal');
   var tasks = getTasks(activeDayKey);
@@ -3812,9 +3916,11 @@ function renderTaskListCal(){
     }
     var item = document.createElement('div'); item.className = 'task-item'; item.dataset.priority = thisPriority === null ? '' : thisPriority; item.dataset.taskId = task.id;
     var row = document.createElement('div'); row.className = 'task-row';
+    var handleWrap = document.createElement('span'); handleWrap.className = 'drag-handle-wrap'; handleWrap.style.cssText = 'position:relative;width:15px;flex-shrink:0;display:flex;align-items:center;justify-content:center;';
     var handle = document.createElement('span'); handle.className = 'drag-handle'; handle.innerHTML = '⠿';
-    handle.style.cssText = 'color:#D9CFB8;font-size:15px;cursor:grab;padding:0 4px 0 0;touch-action:none;';
-    row.appendChild(handle);
+    handle.style.cssText = 'color:#D9CFB8;font-size:15px;cursor:grab;touch-action:none;';
+    handleWrap.appendChild(handle);
+    row.appendChild(handleWrap);
     var cb = document.createElement('div'); cb.className = 'task-checkbox' + (task.done ? ' done' : ''); cb.innerHTML = task.done ? '✓' : '';
     cb.onclick = function(){ toggleTaskCal(task.id); };
     row.appendChild(cb);
@@ -3823,6 +3929,13 @@ function renderTaskListCal(){
       pdot.title = 'Tap to cycle, or drag the task into a different priority zone';
       pdot.onclick = function(){ cyclePriority(task.id, activeDayKey, renderTaskListCal); };
       row.appendChild(pdot);
+    }
+    if(task.image_url){
+      var thumb = document.createElement('img');
+      thumb.src = task.image_url;
+      thumb.style.cssText = 'width:26px;height:26px;border-radius:6px;object-fit:cover;flex-shrink:0;margin-right:2px;';
+      thumb.onclick = function(){ openEditTaskSheet(task, activeDayKey); };
+      row.appendChild(thumb);
     }
     var title = document.createElement('span'); title.className = 'task-title-cal' + (task.done ? ' done' : ''); title.textContent = task.title;
     title.style.cursor = 'pointer';
@@ -3836,6 +3949,7 @@ function renderTaskListCal(){
     };
     row.appendChild(bd);
     item.appendChild(row);
+    attachLongPressDelete(item, row, handleWrap, task, activeDayKey, renderTaskListCal);
     if(task.deadline && !task.done){
       var dl = formatDeadline(task.deadline);
       var pill = document.createElement('span'); pill.className = 'deadline-pill'; pill.style.background = dl.color+'22'; pill.style.color = dl.color;
@@ -4162,6 +4276,7 @@ var sheetRepeat = false;
 var sheetPriority = null;
 var sheetTargetKey = TODAY_KEY;
 var sheetEditingTaskId = null;
+var sheetTaskImageUrl = null;
 var durationCycle = [15, 30, 45, 60];
 
 function openAddTaskSheet(dateKey){
@@ -4182,6 +4297,11 @@ function openAddTaskSheet(dateKey){
   document.getElementById('sheetBreakdownToggle').style.display = 'block';
   document.getElementById('sheetSubtaskArea').style.display = 'none';
   document.getElementById('sheetSubtaskArea').innerHTML = '';
+  sheetTaskImageUrl = null;
+  document.getElementById('sheetImagePreviewArea').style.display = 'none';
+  document.getElementById('sheetImagePreview').src = '';
+  document.getElementById('sheetImageUploadStatus').textContent = '';
+  document.getElementById('sheetAddPhotoBtn').style.display = 'block';
   document.getElementById('sheetDeleteTaskBtn').style.display = 'none';
   document.getElementById('addTaskSheetBackdrop').style.display = 'block';
   document.getElementById('addTaskSheet').style.display = 'block';
@@ -4231,6 +4351,17 @@ function openEditTaskSheet(task, dateKey){
     subtaskArea.style.display = 'none';
   }
   document.getElementById('sheetDeleteTaskBtn').style.display = 'block';
+  sheetTaskImageUrl = task.image_url || null;
+  if(sheetTaskImageUrl){
+    document.getElementById('sheetImagePreview').src = sheetTaskImageUrl;
+    document.getElementById('sheetImagePreviewArea').style.display = 'block';
+    document.getElementById('sheetAddPhotoBtn').style.display = 'none';
+  } else {
+    document.getElementById('sheetImagePreviewArea').style.display = 'none';
+    document.getElementById('sheetImagePreview').src = '';
+    document.getElementById('sheetAddPhotoBtn').style.display = 'block';
+  }
+  document.getElementById('sheetImageUploadStatus').textContent = '';
   document.getElementById('addTaskSheetBackdrop').style.display = 'block';
   document.getElementById('addTaskSheet').style.display = 'block';
 }
@@ -4341,7 +4472,7 @@ function commitSheetTaskIfDirty(){
 
   var localTask = {
     id: 'temp_' + uidGen(), title: title, duration: sheetDuration, repeat: sheetRepeat,
-    priority: sheetPriority, deadline: deadlineIso, done: false,
+    priority: sheetPriority, deadline: deadlineIso, done: false, image_url: sheetTaskImageUrl,
     subtasks: subtaskTitles.map(function(st){ return { id: 'temp_' + uidGen(), title: st, done:false }; })
   };
   getTasks(sheetTargetKey).push(localTask);
@@ -4352,7 +4483,7 @@ function commitSheetTaskIfDirty(){
 
   syncToSupabase('tasks', {
     date_key: sheetTargetKey, title: title, duration: sheetDuration,
-    repeat: sheetRepeat, priority: sheetPriority, deadline: deadlineIso, done: false
+    repeat: sheetRepeat, priority: sheetPriority, deadline: deadlineIso, done: false, image_url: sheetTaskImageUrl
   }, function(savedRow){
     localTask.id = savedRow.id; // swap temp ID for the real one
     if(subtaskTitles.length && currentUser && currentUser.id){
@@ -4365,6 +4496,7 @@ function commitSheetTaskIfDirty(){
     }
   });
   titleEl.value = ''; // clear so a subsequent close doesn't re-save the same task
+  sheetTaskImageUrl = null;
   return true;
 }
 
@@ -4380,6 +4512,7 @@ function commitTaskEdit(title, deadlineIso, subtaskRows){
   task.repeat = sheetRepeat;
   task.priority = sheetPriority;
   task.deadline = deadlineIso;
+  task.image_url = sheetTaskImageUrl;
   task.subtasks = task.subtasks || [];
 
   var keptIds = [];
@@ -4409,7 +4542,7 @@ function commitTaskEdit(title, deadlineIso, subtaskRows){
   if(String(taskId).indexOf('temp_') !== 0){
     sb.from('tasks').update({
       title: title, duration: sheetDuration, repeat: sheetRepeat,
-      priority: sheetPriority, deadline: deadlineIso
+      priority: sheetPriority, deadline: deadlineIso, image_url: sheetTaskImageUrl
     }).eq('id', taskId).then(function(result){ if(result.error) console.error(result.error); });
   }
   updatedSubtasks.forEach(function(s){
@@ -4433,6 +4566,7 @@ function commitTaskEdit(title, deadlineIso, subtaskRows){
 
   document.getElementById('sheetTaskInput').value = '';
   sheetEditingTaskId = null;
+  sheetTaskImageUrl = null;
   return true;
 }
 
@@ -4450,6 +4584,48 @@ function handleSheetSaveTask(e){
 }
 document.getElementById('sheetSaveTaskBtn').addEventListener('touchend', handleSheetSaveTask, {passive:false});
 document.getElementById('sheetSaveTaskBtn').addEventListener('click', handleSheetSaveTask);
+
+document.getElementById('sheetAddPhotoBtn').onclick = function(){
+  document.getElementById('sheetImageInput').click();
+};
+document.getElementById('sheetImageInput').onchange = function(e){
+  var file = e.target.files && e.target.files[0];
+  if(!file) return;
+  if(!currentUser || !currentUser.id){ showToast('Sign in first to add a photo'); return; }
+  if(file.size > 5 * 1024 * 1024){ showToast('That photo is a bit too big (5MB max)'); return; }
+
+  var previewArea = document.getElementById('sheetImagePreviewArea');
+  var previewImg = document.getElementById('sheetImagePreview');
+  var statusEl = document.getElementById('sheetImageUploadStatus');
+
+  // Show it immediately from the local file so it doesn't feel like it's stalled while uploading.
+  var localUrl = URL.createObjectURL(file);
+  previewImg.src = localUrl;
+  previewArea.style.display = 'block';
+  document.getElementById('sheetAddPhotoBtn').style.display = 'none';
+  statusEl.textContent = 'Uploading...';
+  statusEl.style.color = '#5C6B94';
+
+  var ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+  var path = currentUser.id + '/' + uidGen() + '.' + ext;
+  sb.storage.from('task-images').upload(path, file, { contentType: file.type }).then(function(result){
+    if(result.error){
+      statusEl.textContent = 'Upload failed — try again';
+      statusEl.style.color = '#C77B7B';
+      return;
+    }
+    var publicUrlResult = sb.storage.from('task-images').getPublicUrl(path);
+    sheetTaskImageUrl = publicUrlResult.data.publicUrl;
+    statusEl.textContent = '';
+  });
+};
+document.getElementById('sheetRemoveImageBtn').onclick = function(){
+  sheetTaskImageUrl = null;
+  document.getElementById('sheetImagePreviewArea').style.display = 'none';
+  document.getElementById('sheetImagePreview').src = '';
+  document.getElementById('sheetImageInput').value = '';
+  document.getElementById('sheetAddPhotoBtn').style.display = 'block';
+};
 
 document.getElementById('sheetDeleteTaskBtn').onclick = function(){
   if(!sheetEditingTaskId) return;
@@ -4505,24 +4681,24 @@ function startAmbientSound(){
   ambientMasterGain = ctx.createGain();
   ambientMasterGain.gain.value = 0;
   ambientMasterGain.connect(ctx.destination);
-  ambientMasterGain.gain.linearRampToValueAtTime(0.16, ctx.currentTime + 2.5); // gentle fade in
+  ambientMasterGain.gain.linearRampToValueAtTime(0.12, ctx.currentTime + 3.5); // slower, gentler fade in
 
   var lowpass = ctx.createBiquadFilter();
   lowpass.type = 'lowpass';
-  lowpass.frequency.value = 900;
+  lowpass.frequency.value = 650; // softer/rounder than before
   lowpass.connect(ambientMasterGain);
 
   // A soft, open drone — low C, G a fifth above, E an octave+third above.
   // Two slightly-detuned oscillators per note for a warm, chorused feel.
   var notes = [130.81, 196.00, 329.63];
   notes.forEach(function(freq){
-    [-4, 4].forEach(function(detune){
+    [-3, 3].forEach(function(detune){ // slightly less detune = smoother, less "wobbly"
       var osc = ctx.createOscillator();
       osc.type = 'sine';
       osc.frequency.value = freq;
       osc.detune.value = detune;
       var noteGain = ctx.createGain();
-      noteGain.gain.value = 0.5;
+      noteGain.gain.value = 0.42;
       osc.connect(noteGain);
       noteGain.connect(lowpass);
       osc.start();
@@ -4532,32 +4708,59 @@ function startAmbientSound(){
 
   // Slow LFO on the master volume so it breathes instead of droning flatly.
   var lfo = ctx.createOscillator();
-  lfo.frequency.value = 0.06; // one gentle swell roughly every 16 seconds
+  lfo.frequency.value = 0.045; // even slower, gentler swell
   var lfoGain = ctx.createGain();
-  lfoGain.gain.value = 0.05;
+  lfoGain.gain.value = 0.04;
   lfo.connect(lfoGain);
   lfoGain.connect(ambientMasterGain.gain);
   lfo.start();
   ambientNodes.push(lfo);
 
-  // Soft filtered noise layer for a gentle room-tone texture underneath the drone.
+  // Soft filtered noise layer for a gentle room-tone texture underneath the drone -- toned down
+  // further so it reads as "warm air" rather than hiss.
   var bufferSize = 2 * ctx.sampleRate;
   var noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
   var output = noiseBuffer.getChannelData(0);
-  for(var i=0; i<bufferSize; i++){ output[i] = (Math.random() * 2 - 1) * 0.15; }
+  for(var i=0; i<bufferSize; i++){ output[i] = (Math.random() * 2 - 1) * 0.08; }
   var noise = ctx.createBufferSource();
   noise.buffer = noiseBuffer;
   noise.loop = true;
   var noiseFilter = ctx.createBiquadFilter();
   noiseFilter.type = 'lowpass';
-  noiseFilter.frequency.value = 400;
+  noiseFilter.frequency.value = 280;
   var noiseGain = ctx.createGain();
-  noiseGain.gain.value = 0.3;
+  noiseGain.gain.value = 0.22;
   noise.connect(noiseFilter);
   noiseFilter.connect(noiseGain);
   noiseGain.connect(ambientMasterGain);
   noise.start();
   ambientNodes.push(noise);
+
+  // Gentle chime shimmer -- sparse, soft high notes from a pentatonic scale (always sounds
+  // pleasant together, never dissonant), each with a slow attack/release like a wind chime.
+  // This is what turns a flat drone into something that feels alive and lightly magical.
+  var chimeScale = [523.25, 587.33, 659.25, 783.99, 880.00]; // C5 pentatonic
+  var chimeStopped = false;
+  ambientNodes.push({ stop: function(){ chimeStopped = true; } }); // fake node so stopAmbientSound's loop doesn't error
+  function scheduleChime(){
+    if(chimeStopped || !ambientAudioCtx) return;
+    var freq = chimeScale[Math.floor(Math.random() * chimeScale.length)];
+    var chimeOsc = ctx.createOscillator();
+    chimeOsc.type = 'sine';
+    chimeOsc.frequency.value = freq;
+    var chimeGain = ctx.createGain();
+    chimeGain.gain.value = 0;
+    chimeOsc.connect(chimeGain);
+    chimeGain.connect(ambientMasterGain);
+    var now = ctx.currentTime;
+    chimeGain.gain.linearRampToValueAtTime(0.05, now + 1.5); // slow, soft attack
+    chimeGain.gain.linearRampToValueAtTime(0, now + 5.5); // long, gentle release
+    chimeOsc.start(now);
+    chimeOsc.stop(now + 6);
+    var nextIn = 9000 + Math.random() * 9000; // next chime somewhere between 9-18s later
+    setTimeout(scheduleChime, nextIn);
+  }
+  setTimeout(scheduleChime, 4000); // let the drone settle in first
 }
 
 function stopAmbientSound(){
@@ -4576,7 +4779,13 @@ function stopAmbientSound(){
 }
 
 // ================= CALM ROOM =================
-function openCalmRoom(){ showOnly('panel-calmroom'); }
+function openCalmRoom(){
+  showOnly('panel-calmroom');
+  if(!ambientAudioCtx){
+    startAmbientSound();
+    document.getElementById('calmRoomPlayIcon').innerHTML = '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>';
+  }
+}
 document.getElementById('groundingCalmLinkBtn').onclick = openCalmRoom;
 document.getElementById('sheetCalmLinkBtn').onclick = function(){ closeAddTaskSheet(); openCalmRoom(); };
 document.getElementById('calmRoomCloseBtn').onclick = function(){
@@ -5235,6 +5444,59 @@ function renderAdminErrorLogs(){
 var NOTIF_TYPE_LABELS = {
   book_session: 'Book a session', task_reminder: 'Task reminder', mood_check: 'Mood check',
   journal_reminder: 'Journal reminder', admin_manual: 'Manual (admin)', self_test: 'Self test', app_update: 'App update'
+};
+
+// HOBS mascots -- matches the Character Bible (Bob=elephant/listener, Kunnu=black cat/connector,
+// Cookie=golden retriever, Po=panda). Used for the "send as..." dropdown so custom manual
+// messages can still open in a mascot's voice with one tap instead of typing "Bob here 🐘" by hand.
+var HOBS_CHARACTERS = [
+  { name: 'Bob', emoji: '🐘' },
+  { name: 'Kunnu', emoji: '🐈\u200d⬛' },
+  { name: 'Cookie', emoji: '🐕' },
+  { name: 'Po', emoji: '🐼' }
+];
+
+// Quick-send templates for things that come up often but aren't part of the automated
+// recurring reminders -- Akash can pick one to fill the fields, then edit before sending.
+var NOTIF_TEMPLATES = [
+  { label: 'We miss you', title: 'Bob here 🐘', body: "It's been a little while — no pressure at all, just wanted you to know there's always a spot here whenever you're ready to come back." },
+  { label: 'Proud of you', title: 'Cookie here 🐕', body: "Just wanted to say — however small it felt, showing up for yourself today counts. I noticed." },
+  { label: 'Gentle check-in', title: 'Bob here 🐘', body: "No particular reason for this one — just checking in. How are you doing today, really?" },
+  { label: 'Community reminder', title: 'Kunnu here 🐈\u200d⬛', body: "Our support group meets soon — you don't have to say much, or anything at all. Just come sit with us if you'd like." },
+  { label: 'New feature announcement', title: 'Po here 🐼', body: "There's something new in the app for you to try — hope it makes things a little easier." },
+  { label: 'After a hard day', title: 'Kunnu here 🐈\u200d⬛', body: "If today was heavy, that's okay. Tomorrow doesn't have to carry it too. We're here whenever you need us." }
+];
+
+(function populateNotifDropdowns(){
+  var templateSelect = document.getElementById('notifTemplateSelect');
+  NOTIF_TEMPLATES.forEach(function(t, i){
+    var opt = document.createElement('option');
+    opt.value = String(i);
+    opt.textContent = t.label;
+    templateSelect.appendChild(opt);
+  });
+  var charSelect = document.getElementById('notifCharacterSelect');
+  HOBS_CHARACTERS.forEach(function(c){
+    var opt = document.createElement('option');
+    opt.value = c.name;
+    opt.textContent = c.emoji + ' ' + c.name;
+    charSelect.appendChild(opt);
+  });
+})();
+
+document.getElementById('notifTemplateSelect').onchange = function(){
+  if(this.value === '') return;
+  var t = NOTIF_TEMPLATES[parseInt(this.value, 10)];
+  document.getElementById('notifComposeTitle').value = t.title;
+  document.getElementById('notifComposeBody').value = t.body;
+  document.getElementById('notifCharacterSelect').value = '';
+  this.value = '';
+};
+
+document.getElementById('notifCharacterSelect').onchange = function(){
+  if(this.value === '') return;
+  var c = HOBS_CHARACTERS.find(function(ch){ return ch.name === this.value; }, this);
+  if(c) document.getElementById('notifComposeTitle').value = c.name + ' here ' + c.emoji;
 };
 
 document.getElementById('notifComposeTarget').onchange = function(){
