@@ -736,6 +736,14 @@
     <button id="slotPickerCloseBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:13px;font-weight:700;cursor:pointer;margin-top:10px;">Cancel</button>
   </div>
 
+  <div id="adminStatDetailModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.45);z-index:60;"></div>
+  <div id="adminStatDetailModal" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;background:#FFFFFF;border-radius:24px 24px 0 0;padding:24px 22px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;z-index:61;box-shadow:0 -10px 30px rgba(0,0,0,0.15);max-height:80vh;overflow-y:auto;">
+    <p class="prompt-title" id="adminStatDetailTitle" style="margin-bottom:4px;">Stat</p>
+    <p style="font-size:11.5px;color:#9AABCE;margin:0 0 16px;line-height:1.5;" id="adminStatDetailDefinition"></p>
+    <div id="adminStatDetailList"></div>
+    <button id="adminStatDetailCloseBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:13px;font-weight:700;cursor:pointer;margin-top:14px;">Close</button>
+  </div>
+
   <div id="notifDetailModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.45);z-index:60;"></div>
   <div id="notifDetailModal" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;background:#FFFFFF;border-radius:24px 24px 0 0;padding:24px 22px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;z-index:61;box-shadow:0 -10px 30px rgba(0,0,0,0.15);max-height:80vh;overflow-y:auto;">
     <p class="prompt-title" id="notifDetailTitle" style="margin-bottom:4px;">Notification</p>
@@ -1603,6 +1611,7 @@ if (IS_NATIVE_APP && window.Capacitor?.Plugins?.App) {
       { backdrop: 'changeReasonModalBackdrop', modal: 'changeReasonModal' },
       { backdrop: 'therapistDayEditorBackdrop', modal: 'therapistDayEditor' },
       { backdrop: 'notifDetailModalBackdrop', modal: 'notifDetailModal' },
+      { backdrop: 'adminStatDetailModalBackdrop', modal: 'adminStatDetailModal' },
       { backdrop: 'dayMoodSheetBackdrop', modal: 'dayMoodSheet' }
     ];
     for(var i=0; i<openModals.length; i++){
@@ -1960,30 +1969,61 @@ function initPushNotifications(){
       console.error('Push registration error:', err);
     });
     Push.addListener('pushNotificationReceived', function(notification){
-      // App was already open in the foreground -- surface it gently instead of relying on the system tray.
+      // App was already open in the foreground. Previously this only showed a toast, which
+      // meant foreground notifications felt like they "didn't arrive" compared to background
+      // ones landing in the system tray -- now it does both, for consistency either way.
       if(notification && notification.title){
         showToast(notification.title + (notification.body ? ': ' + notification.body : ''));
       }
-      var notifId = notification && notification.data && notification.data.notification_id;
-      if(notifId) markNotificationOpened(notifId);
+      if(window.Capacitor.Plugins.LocalNotifications){
+        window.Capacitor.Plugins.LocalNotifications.schedule({
+          notifications: [{
+            id: Math.floor(Math.random() * 2147483647),
+            title: notification.title || 'HOBS Companion',
+            body: notification.body || '',
+            extra: notification.data || {}
+          }]
+        }).catch(function(err){ console.error('Local notification post failed:', err); });
+      }
+      // Note: receiving it (even while foregrounded) isn't the same as the person actually
+      // engaging with it -- "opened" is tracked only on an actual tap, in the action handlers below.
     });
     Push.addListener('pushNotificationActionPerformed', function(action){
       var notifData = action && action.notification && action.notification.data;
-      if(notifData && notifData.type === 'app_update' && notifData.url){
-        // Open the APK link directly so the browser/download manager takes over -- not an in-app screen.
-        window.open(notifData.url, '_system');
-      } else {
-        // No deep-link routing yet for other types -- land safely on Home.
-        showOnly('panel-bubbles');
-        setActiveNav('navHome');
-      }
-      if(notifData && notifData.notification_id) markNotificationOpened(notifData.notification_id);
+      handleNotificationTap(notifData);
     });
+
+    if(window.Capacitor.Plugins.LocalNotifications){
+      window.Capacitor.Plugins.LocalNotifications.addListener('localNotificationActionPerformed', function(action){
+        var notifData = action && action.notification && action.notification.extra;
+        handleNotificationTap(notifData);
+      });
+    }
   }
 
   Push.requestPermissions().then(function(result){
     if(result && result.receive === 'granted') Push.register();
   }).catch(function(err){ console.error('Push permission request failed:', err); });
+
+  if(window.Capacitor.Plugins.LocalNotifications){
+    window.Capacitor.Plugins.LocalNotifications.requestPermissions().catch(function(err){
+      console.error('Local notification permission request failed:', err);
+    });
+  }
+}
+
+// Shared by both a tapped system-tray push (background) and a tapped local notification
+// (foreground receipt, posted by pushNotificationReceived above) -- same outcome either way.
+function handleNotificationTap(notifData){
+  if(notifData && notifData.type === 'app_update' && notifData.url){
+    // Open the APK link directly so the browser/download manager takes over -- not an in-app screen.
+    window.open(notifData.url, '_system');
+  } else {
+    // No deep-link routing yet for other types -- land safely on Home.
+    showOnly('panel-bubbles');
+    setActiveNav('navHome');
+  }
+  if(notifData && notifData.notification_id) markNotificationOpened(notifData.notification_id);
 }
 
 // Checks whether an admin has granted this exact email therapist access ahead of time.
@@ -5625,6 +5665,35 @@ document.getElementById('notifDetailModalBackdrop').onclick = function(){
   document.getElementById('notifDetailModal').style.display = 'none';
 };
 
+// Generic drill-down modal for the admin overview stat tiles -- shows a plain-language
+// definition of what the number actually represents, plus the underlying list it's counting.
+function showAdminStatDetail(title, definition, rows, emptyMessage){
+  document.getElementById('adminStatDetailTitle').textContent = title;
+  document.getElementById('adminStatDetailDefinition').textContent = definition;
+  var listEl = document.getElementById('adminStatDetailList');
+  if(!rows || rows.length === 0){
+    listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12px;">'+emptyMessage+'</p>';
+  } else {
+    listEl.innerHTML = rows.map(function(row){
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #F5F0E4;">'+
+        '<div><p style="font-size:12.5px;font-weight:700;color:#2A2013;margin:0;">'+row.primary+'</p>'+
+        (row.secondary ? '<p style="font-size:10.5px;color:#9AABCE;margin:0;">'+row.secondary+'</p>' : '')+'</div>'+
+        (row.tag ? '<span style="font-size:10.5px;font-weight:700;color:'+(row.tagColor||'#6690D6')+';white-space:nowrap;margin-left:8px;">'+row.tag+'</span>' : '')+
+        '</div>';
+    }).join('');
+  }
+  document.getElementById('adminStatDetailModalBackdrop').style.display = 'block';
+  document.getElementById('adminStatDetailModal').style.display = 'block';
+}
+document.getElementById('adminStatDetailCloseBtn').onclick = function(){
+  document.getElementById('adminStatDetailModalBackdrop').style.display = 'none';
+  document.getElementById('adminStatDetailModal').style.display = 'none';
+};
+document.getElementById('adminStatDetailModalBackdrop').onclick = function(){
+  document.getElementById('adminStatDetailModalBackdrop').style.display = 'none';
+  document.getElementById('adminStatDetailModal').style.display = 'none';
+};
+
 function openAdminDashboard(){
   showOnly('panel-admin');
   document.getElementById('adminBookingsList').innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">Loading...</p>';
@@ -5694,22 +5763,63 @@ function openAdminDashboard(){
       return b.payment_locked && b.therapist_payout_amount && b.created_at && new Date(b.created_at) >= monthStart;
     });
     var monthRevenue = thisMonthConfirmed.reduce(function(sum, b){ return sum + parseFloat(b.therapist_payout_amount || 0); }, 0);
-    var uniqueClientsThisMonth = new Set(
-      bookings.filter(function(b){ return b.created_at && new Date(b.created_at) >= monthStart; }).map(function(b){ return b.user_id; })
-    ).size;
-    var totalActiveClients = new Set(bookings.filter(function(b){ return b.status === 'active'; }).map(function(b){ return b.user_id; })).size;
-    document.getElementById('adminAnalyticsRow').innerHTML =
-      '<div style="flex:1;background:#EAF0FB;border-radius:12px;padding:10px;text-align:center;"><p style="font-size:16px;font-weight:800;color:#2E5090;margin:0;">₹'+monthRevenue+'</p><p style="font-size:9.5px;color:#5C6B94;margin:0;">This Month</p></div>'+
-      '<div style="flex:1;background:#EAF0FB;border-radius:12px;padding:10px;text-align:center;"><p style="font-size:16px;font-weight:800;color:#2E5090;margin:0;">'+uniqueClientsThisMonth+'</p><p style="font-size:9.5px;color:#5C6B94;margin:0;">New This Month</p></div>'+
-      '<div style="flex:1;background:#EAF0FB;border-radius:12px;padding:10px;text-align:center;"><p style="font-size:16px;font-weight:800;color:#2E5090;margin:0;">'+totalActiveClients+'</p><p style="font-size:9.5px;color:#5C6B94;margin:0;">Active Clients</p></div>';
+    var newClientBookingsThisMonth = bookings.filter(function(b){ return b.created_at && new Date(b.created_at) >= monthStart; });
+    var uniqueClientsThisMonth = new Set(newClientBookingsThisMonth.map(function(b){ return b.user_id; })).size;
+    var activeBookings = bookings.filter(function(b){ return b.status === 'active'; });
+    var totalActiveClients = new Set(activeBookings.map(function(b){ return b.user_id; })).size;
 
-    var activeCount = bookings.filter(function(b){ return b.status === 'active'; }).length;
-    var unconfirmedCount = bookings.filter(function(b){ return b.status === 'active' && !b.payment_confirmed; }).length;
-    var chargeOwedCount = bookings.filter(function(b){ return b.cancellation_charge_owed; }).length;
+    function bookingRow(b){
+      var dateLabel = b.session_date ? new Date(b.session_date).toLocaleDateString('en-IN', {day:'numeric', month:'short'}) : 'no date set';
+      return {
+        primary: nameByUserId[b.user_id] || 'Unknown client',
+        secondary: (b.expert_name || 'Unknown expert') + ' · ' + dateLabel,
+        tag: b.status + (b.payment_confirmed === false ? ' · unpaid' : ''),
+        tagColor: b.status === 'active' ? '#3B8F63' : (b.status === 'cancelled' ? '#C77B7B' : '#9AABCE')
+      };
+    }
+    function clientSummaryRows(bookingList){
+      var byClient = {};
+      bookingList.forEach(function(b){
+        var name = nameByUserId[b.user_id] || 'Unknown client';
+        if(!byClient[name]) byClient[name] = 0;
+        byClient[name]++;
+      });
+      return Object.keys(byClient).map(function(name){
+        return { primary: name, secondary: byClient[name] + ' booking' + (byClient[name] > 1 ? 's' : ''), tag: '', tagColor: '' };
+      });
+    }
+
+    document.getElementById('adminAnalyticsRow').innerHTML =
+      '<div class="admin-stat-tile" data-stat="revenue" style="cursor:pointer;flex:1;background:#EAF0FB;border-radius:12px;padding:10px;text-align:center;"><p style="font-size:16px;font-weight:800;color:#2E5090;margin:0;">₹'+monthRevenue+'</p><p style="font-size:9.5px;color:#5C6B94;margin:0;">This Month</p></div>'+
+      '<div class="admin-stat-tile" data-stat="newclients" style="cursor:pointer;flex:1;background:#EAF0FB;border-radius:12px;padding:10px;text-align:center;"><p style="font-size:16px;font-weight:800;color:#2E5090;margin:0;">'+uniqueClientsThisMonth+'</p><p style="font-size:9.5px;color:#5C6B94;margin:0;">New This Month</p></div>'+
+      '<div class="admin-stat-tile" data-stat="activeclients" style="cursor:pointer;flex:1;background:#EAF0FB;border-radius:12px;padding:10px;text-align:center;"><p style="font-size:16px;font-weight:800;color:#2E5090;margin:0;">'+totalActiveClients+'</p><p style="font-size:9.5px;color:#5C6B94;margin:0;">Active Clients</p></div>';
+
+    var activeCount = activeBookings.length;
+    var unconfirmedBookings = bookings.filter(function(b){ return b.status === 'active' && !b.payment_confirmed; });
+    var chargeOwedBookings = bookings.filter(function(b){ return b.cancellation_charge_owed; });
     document.getElementById('adminStatsRow').innerHTML =
-      '<div style="flex:1;background:#EAF4EE;border-radius:12px;padding:10px;text-align:center;"><p style="font-size:18px;font-weight:800;color:#3B8F63;margin:0;">'+activeCount+'</p><p style="font-size:9.5px;color:#5C6B94;margin:0;">Active</p></div>'+
-      '<div style="flex:1;background:#FEF3D8;border-radius:12px;padding:10px;text-align:center;"><p style="font-size:18px;font-weight:800;color:#7B4F00;margin:0;">'+unconfirmedCount+'</p><p style="font-size:9.5px;color:#5C6B94;margin:0;">Unconfirmed</p></div>'+
-      '<div style="flex:1;background:#FBE8E8;border-radius:12px;padding:10px;text-align:center;"><p style="font-size:18px;font-weight:800;color:#C77B7B;margin:0;">'+chargeOwedCount+'</p><p style="font-size:9.5px;color:#5C6B94;margin:0;">Charges Owed</p></div>';
+      '<div class="admin-stat-tile" data-stat="active" style="cursor:pointer;flex:1;background:#EAF4EE;border-radius:12px;padding:10px;text-align:center;"><p style="font-size:18px;font-weight:800;color:#3B8F63;margin:0;">'+activeCount+'</p><p style="font-size:9.5px;color:#5C6B94;margin:0;">Active</p></div>'+
+      '<div class="admin-stat-tile" data-stat="unconfirmed" style="cursor:pointer;flex:1;background:#FEF3D8;border-radius:12px;padding:10px;text-align:center;"><p style="font-size:18px;font-weight:800;color:#7B4F00;margin:0;">'+unconfirmedBookings.length+'</p><p style="font-size:9.5px;color:#5C6B94;margin:0;">Unconfirmed</p></div>'+
+      '<div class="admin-stat-tile" data-stat="chargeowed" style="cursor:pointer;flex:1;background:#FBE8E8;border-radius:12px;padding:10px;text-align:center;"><p style="font-size:18px;font-weight:800;color:#C77B7B;margin:0;">'+chargeOwedBookings.length+'</p><p style="font-size:9.5px;color:#5C6B94;margin:0;">Charges Owed</p></div>';
+
+    document.querySelectorAll('.admin-stat-tile').forEach(function(tile){
+      tile.onclick = function(){
+        var stat = tile.dataset.stat;
+        if(stat === 'revenue'){
+          showAdminStatDetail('This Month — ₹' + monthRevenue, 'Total confirmed therapist payouts for bookings created this calendar month. Only counts bookings where payment has actually been locked in, not pending ones.', thisMonthConfirmed.map(bookingRow), 'No confirmed payments yet this month.');
+        } else if(stat === 'newclients'){
+          showAdminStatDetail('New This Month — ' + uniqueClientsThisMonth, 'Distinct clients who made at least one booking (of any status) during this calendar month.', clientSummaryRows(newClientBookingsThisMonth), 'No new bookings yet this month.');
+        } else if(stat === 'activeclients'){
+          showAdminStatDetail('Active Clients — ' + totalActiveClients, 'Distinct clients who currently have at least one active (non-cancelled) booking, counted across all time — not just this month.', clientSummaryRows(activeBookings), 'No active clients right now.');
+        } else if(stat === 'active'){
+          showAdminStatDetail('Active Bookings — ' + activeCount, 'Every booking currently marked active. Unlike "Active Clients," this counts each session separately — one client with 3 sessions counts as 3 here.', activeBookings.map(bookingRow), 'No active bookings right now.');
+        } else if(stat === 'unconfirmed'){
+          showAdminStatDetail('Unconfirmed — ' + unconfirmedBookings.length, 'Active bookings where payment has not yet been manually confirmed by an admin. These need attention.', unconfirmedBookings.map(bookingRow), 'Nothing waiting on payment confirmation.');
+        } else if(stat === 'chargeowed'){
+          showAdminStatDetail('Charges Owed — ' + chargeOwedBookings.length, 'Bookings with an outstanding cancellation charge that has not been collected from the client yet.', chargeOwedBookings.map(bookingRow), 'No outstanding cancellation charges.');
+        }
+      };
+    });
 
     if(bookings.length === 0){
       document.getElementById('adminBookingsList').innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">No bookings yet.</p>';
