@@ -361,10 +361,10 @@
   <div class="header">
     <img class="logo-img" id="headerLogo" src="logo.png" alt="HOBS logo">
     <div class="header-icons">
-      <div class="icon-circle">
+      <button id="notifBellBtn" class="icon-circle" style="border:none;cursor:pointer;">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22zM19 16.34V11a7 7 0 0 0-5-6.71V3a2 2 0 1 0-4 0v1.29A7 7 0 0 0 5 11v5.34L3 18.5V19h18v-.5z"/></svg>
-        <div class="icon-dot"></div>
-      </div>
+        <div class="icon-dot" id="notifBellDot" style="display:none;"></div>
+      </button>
       <button id="headerSearchBtn" class="avatar-circle" style="border:none;cursor:pointer;">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2E5090" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
       </button>
@@ -742,6 +742,13 @@
     <p style="font-size:11.5px;color:#9AABCE;margin:0 0 16px;line-height:1.5;" id="adminStatDetailDefinition"></p>
     <div id="adminStatDetailList"></div>
     <button id="adminStatDetailCloseBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:13px;font-weight:700;cursor:pointer;margin-top:14px;">Close</button>
+  </div>
+
+  <div id="myNotifInboxBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.45);z-index:60;"></div>
+  <div id="myNotifInboxModal" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;background:#FFFFFF;border-radius:24px 24px 0 0;padding:24px 22px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;z-index:61;box-shadow:0 -10px 30px rgba(0,0,0,0.15);max-height:80vh;overflow-y:auto;">
+    <p class="prompt-title" style="margin-bottom:16px;">Notifications</p>
+    <div id="myNotifInboxList"></div>
+    <button id="myNotifInboxCloseBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:13px;font-weight:700;cursor:pointer;margin-top:14px;">Close</button>
   </div>
 
   <div id="notifDetailModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.45);z-index:60;"></div>
@@ -1616,6 +1623,7 @@ if (IS_NATIVE_APP && window.Capacitor?.Plugins?.App) {
       { backdrop: 'changeReasonModalBackdrop', modal: 'changeReasonModal' },
       { backdrop: 'therapistDayEditorBackdrop', modal: 'therapistDayEditor' },
       { backdrop: 'notifDetailModalBackdrop', modal: 'notifDetailModal' },
+      { backdrop: 'myNotifInboxBackdrop', modal: 'myNotifInboxModal' },
       { backdrop: 'adminStatDetailModalBackdrop', modal: 'adminStatDetailModal' },
       { backdrop: 'dayMoodSheetBackdrop', modal: 'dayMoodSheet' }
     ];
@@ -1880,6 +1888,7 @@ function onAuthSuccess(user){
     retryPendingSync();
     initPushNotifications();
     syncDeviceInfo();
+    checkUnreadNotifications();
     if(!appState.onboardingComplete){
       showOnboarding();
     } else if(!appState.hasSeenIntro){
@@ -1953,6 +1962,77 @@ function trackNotificationAction(actionType){
     .eq('notification_id', notificationId)
     .eq('user_id', currentUser.id)
     .then(function(result){ if(result.error) console.error('Failed to record notification action:', result.error); });
+}
+
+document.getElementById('notifBellBtn').onclick = openMyNotifInbox;
+document.getElementById('myNotifInboxCloseBtn').onclick = function(){
+  document.getElementById('myNotifInboxBackdrop').style.display = 'none';
+  document.getElementById('myNotifInboxModal').style.display = 'none';
+};
+document.getElementById('myNotifInboxBackdrop').onclick = document.getElementById('myNotifInboxCloseBtn').onclick;
+
+function openMyNotifInbox(){
+  var listEl = document.getElementById('myNotifInboxList');
+  listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">Loading...</p>';
+  document.getElementById('myNotifInboxBackdrop').style.display = 'block';
+  document.getElementById('myNotifInboxModal').style.display = 'block';
+  document.getElementById('notifBellDot').style.display = 'none';
+
+  if(!currentUser || !currentUser.id){
+    listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">Sign in to see your notifications.</p>';
+    return;
+  }
+
+  sb.from('notification_recipients')
+    .select('id, notification_id, sent_at, opened_at, notification_log(title, body, data)')
+    .eq('user_id', currentUser.id)
+    .order('sent_at', {ascending: false})
+    .limit(30)
+    .then(function(result){
+      if(result.error){
+        listEl.innerHTML = '<p style="text-align:center;color:#C77B7B;font-size:12px;">Could not load notifications.</p>';
+        return;
+      }
+      var rows = result.data || [];
+      if(rows.length === 0){
+        listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">Nothing here yet — this is where reminders and updates from HOBS will show up.</p>';
+        return;
+      }
+      listEl.innerHTML = rows.map(function(r){
+        var log = r.notification_log || {};
+        var when = new Date(r.sent_at).toLocaleString('en-IN', { dateStyle:'medium', timeStyle:'short' });
+        var unreadDot = !r.opened_at ? '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#FDB913;margin-right:6px;"></span>' : '';
+        return '<div class="my-notif-row" data-notif-id="'+r.notification_id+'" style="padding:11px 0;border-bottom:1px solid #F5F0E4;cursor:pointer;">'+
+          '<p style="font-size:13px;font-weight:700;color:#2A2013;margin:0 0 3px;">'+unreadDot+(log.title||'HOBS Companion')+'</p>'+
+          '<p style="font-size:11.5px;color:#5C6B94;margin:0 0 4px;">'+(log.body||'')+'</p>'+
+          '<p style="font-size:10px;color:#9AABCE;margin:0;">'+when+'</p>'+
+          '</div>';
+      }).join('');
+      listEl.querySelectorAll('.my-notif-row').forEach(function(row){
+        row.onclick = function(){
+          markNotificationOpened(row.dataset.notifId);
+          var dot = row.querySelector('span');
+          if(dot) dot.remove(); // clear the unread dot visually right away
+        };
+      });
+      // Unread dot on the bell itself reflects whether anything in this batch is still unopened.
+      var anyUnread = rows.some(function(r){ return !r.opened_at; });
+      document.getElementById('notifBellDot').style.display = anyUnread ? 'block' : 'none';
+    });
+}
+
+// Quiet check on sign-in so the bell shows its unread dot without the user having to open the inbox first.
+function checkUnreadNotifications(){
+  if(!currentUser || !currentUser.id) return;
+  sb.from('notification_recipients')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', currentUser.id)
+    .is('opened_at', null)
+    .then(function(result){
+      if(!result.error && result.count > 0){
+        document.getElementById('notifBellDot').style.display = 'block';
+      }
+    });
 }
 
 function initPushNotifications(){
