@@ -506,8 +506,8 @@
       <a href="https://www.instagram.com/homeofbeautifulsouls/" id="socialInstagram" class="social-icon-btn" style="background:linear-gradient(45deg,#F58529,#DD2A7B,#8134AF);" target="_blank" rel="noopener">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg>
       </a>
-      <a href="#" id="socialYoutube" class="social-icon-btn" style="background:#FF0000;" target="_blank" rel="noopener">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M23 12s0-3.6-.5-5.3a3 3 0 0 0-2.1-2.1C18.7 4 12 4 12 4s-6.7 0-8.4.6a3 3 0 0 0-2.1 2.1C1 8.4 1 12 1 12s0 3.6.5 5.3a3 3 0 0 0 2.1 2.1C5.3 20 12 20 12 20s6.7 0 8.4-.6a3 3 0 0 0 2.1-2.1C23 15.6 23 12 23 12z"/><path d="M10 15.5v-7l6 3.5z" fill="#FF0000" style="fill:#FF0000;"/><path d="M10 15.5v-7l6 3.5z" fill="#fff"/></svg>
+      <a href="https://www.youtube.com/channel/UCM4Y7UVpc1bXUgHlcHVRfTw" id="socialYoutube" class="social-icon-btn" style="background:#FF0000;" target="_blank" rel="noopener">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M23 12s0-3.6-.5-5.3a3 3 0 0 0-2.1-2.1C18.7 4 12 4 12 4s-6.7 0-8.4.6a3 3 0 0 0-2.1 2.1C1 8.4 1 12 1 12s0 3.6.5 5.3a3 3 0 0 0 2.1 2.1C5.3 20 12 20 12 20s6.7 0 8.4-.6a3 3 0 0 0 2.1-2.1C23 15.6 23 12 23 12z"/><path d="M10 15.5v-7l6 3.5z" fill="#FF0000"/></svg>
       </a>
       <a href="https://www.linkedin.com/company/home-of-beautiful-souls/" id="socialLinkedin" class="social-icon-btn" style="background:#0A66C2;" target="_blank" rel="noopener">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M6.5 8.5H3V21h3.5zM4.7 3A2 2 0 1 0 4.8 7 2 2 0 0 0 4.7 3zM21 21v-6.8c0-3.6-1.9-5.3-4.5-5.3a3.9 3.9 0 0 0-3.5 1.9V9H9.5V21H13v-6.6c0-1.7 1-2.4 2-2.4s2 .7 2 2.4V21z"/></svg>
@@ -615,6 +615,11 @@
     </div>
     <div id="adminGroupSessionsList" style="margin-bottom:22px;"></div>
 
+    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">All Users</p>
+    <p style="font-size:11px;color:#B0AA98;margin:0 0 10px;">Every registered account — not just people who've booked a session.</p>
+    <input type="text" id="adminUserSearchInput" placeholder="Search by name or email..." style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:10px;box-sizing:border-box;">
+    <div id="adminAllUsersList" style="margin-bottom:22px;max-height:420px;overflow-y:auto;"></div>
+
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">All Bookings</p>
     <div id="adminBookingsList"></div>
 
@@ -637,6 +642,10 @@
       <p style="font-size:10.5px;color:rgba(255,255,255,0.75);margin:6px 0 0;">Tap to see the detail ↓</p>
     </button>
     <div id="therapistSessionDetailList" style="display:none;margin-bottom:22px;"></div>
+
+    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">My Clients</p>
+    <p style="font-size:11px;color:#B0AA98;margin:0 0 10px;">Everyone currently connected to you as their therapist.</p>
+    <div id="therapistClientsList" style="margin-bottom:22px;"></div>
 
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Send Homework</p>
     <p style="font-size:11px;color:#B0AA98;margin:0 0 10px;">It'll show up automatically in their Tasks, marked as coming from you.</p>
@@ -5670,6 +5679,60 @@ document.getElementById('notifComposeSendBtn').onclick = function(){
   }
 };
 
+var adminAllUsersCache = null; // so the search filter doesn't need to re-fetch on every keystroke
+function renderAdminAllUsers(){
+  var listEl = document.getElementById('adminAllUsersList');
+  listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">Loading...</p>';
+  Promise.all([
+    sb.from('profiles').select('user_id,name,email,is_admin,is_therapist,created_at,onboarding_complete').order('created_at', {ascending:false}),
+    sb.from('expert_bookings').select('user_id,status')
+  ]).then(function(results){
+    var profilesRes = results[0], bookingsRes = results[1];
+    if(profilesRes.error){
+      listEl.innerHTML = '<p style="color:#C77B7B;font-size:12px;">Could not load users: '+profilesRes.error.message+'</p>';
+      return;
+    }
+    var bookingCountByUser = {};
+    (bookingsRes.data || []).forEach(function(b){
+      if(!bookingCountByUser[b.user_id]) bookingCountByUser[b.user_id] = { total:0, active:0 };
+      bookingCountByUser[b.user_id].total++;
+      if(b.status === 'active') bookingCountByUser[b.user_id].active++;
+    });
+    adminAllUsersCache = { users: profilesRes.data || [], bookingCounts: bookingCountByUser };
+    renderAdminAllUsersFiltered('');
+  });
+}
+function renderAdminAllUsersFiltered(query){
+  var listEl = document.getElementById('adminAllUsersList');
+  if(!adminAllUsersCache) return;
+  var q = (query || '').trim().toLowerCase();
+  var users = adminAllUsersCache.users.filter(function(u){
+    if(!q) return true;
+    return (u.name||'').toLowerCase().indexOf(q) !== -1 || (u.email||'').toLowerCase().indexOf(q) !== -1;
+  });
+  if(users.length === 0){
+    listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">No users match that search.</p>';
+    return;
+  }
+  listEl.innerHTML = '<p style="font-size:10.5px;color:#9AABCE;margin:0 0 8px;">'+users.length+' user'+(users.length===1?'':'s')+'</p>' + users.map(function(u){
+    var counts = adminAllUsersCache.bookingCounts[u.user_id] || { total:0, active:0 };
+    var badges = '';
+    if(u.is_admin) badges += '<span style="font-size:9px;font-weight:700;color:#7B4F00;background:#FEF3D8;padding:2px 6px;border-radius:6px;margin-left:4px;">Admin</span>';
+    if(u.is_therapist) badges += '<span style="font-size:9px;font-weight:700;color:#3B8F63;background:#EAF4EE;padding:2px 6px;border-radius:6px;margin-left:4px;">Therapist</span>';
+    if(!u.onboarding_complete) badges += '<span style="font-size:9px;font-weight:700;color:#9AABCE;background:#F5F0E4;padding:2px 6px;border-radius:6px;margin-left:4px;">Onboarding incomplete</span>';
+    var joined = u.created_at ? new Date(u.created_at).toLocaleDateString('en-IN', {day:'numeric', month:'short', year:'numeric'}) : 'unknown';
+    var bookingText = counts.total === 0 ? 'No bookings yet' : (counts.active + ' active, ' + counts.total + ' total booking' + (counts.total===1?'':'s'));
+    return '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:11px 13px;margin-bottom:7px;">'+
+      '<p style="font-size:12.5px;font-weight:700;color:#2A2013;margin:0 0 2px;">'+(u.name||'(no name set)')+badges+'</p>'+
+      '<p style="font-size:11px;color:#5C6B94;margin:0 0 2px;">'+(u.email||'')+'</p>'+
+      '<p style="font-size:10px;color:#9AABCE;margin:0;">Joined '+joined+' · '+bookingText+'</p>'+
+      '</div>';
+  }).join('');
+}
+document.getElementById('adminUserSearchInput').oninput = function(){
+  renderAdminAllUsersFiltered(this.value);
+};
+
 function renderAdminNotifHistory(){
   var listEl = document.getElementById('adminNotifHistoryList');
   listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">Loading...</p>';
@@ -5788,6 +5851,7 @@ function openAdminDashboard(){
   renderLanguageCheckboxes('newExpertLanguagesCheckboxes', '');
   renderAdminErrorLogs();
   renderAdminNotifHistory();
+  renderAdminAllUsers();
   Promise.all([
     sb.from('expert_bookings').select('*').order('created_at', {ascending:false}),
     sb.from('profiles').select('user_id,name,email,phone_number')
@@ -6032,6 +6096,7 @@ function openTherapistDashboard(){
   document.getElementById('therapistSessionDetailList').style.display = 'none';
   renderTherapistSummaryAndDetail();
   renderTherapistSlots();
+  renderTherapistClientsList();
   populateHomeworkClientSelect();
   var myProfile = TEAM_MEMBERS.find(function(m){ return m.name === appState.therapistExpertName; });
   document.getElementById('therapistBioInput').value = myProfile ? (myProfile.bio||'') : '';
@@ -6041,6 +6106,58 @@ function openTherapistDashboard(){
   document.getElementById('therapistWhyInput').value = myProfile ? (myProfile.whyTherapist||'') : '';
   document.getElementById('therapistQualificationsInput').value = myProfile ? (myProfile.qualificationsDetail||'') : '';
   renderLanguageCheckboxes('therapistLanguagesCheckboxes', myProfile ? myProfile.languages : '');
+}
+
+function renderTherapistClientsList(){
+  var listEl = document.getElementById('therapistClientsList');
+  listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">Loading...</p>';
+  Promise.all([
+    sb.from('expert_bookings').select('user_id,status,session_date,created_at').eq('expert_name', appState.therapistExpertName).in('status', ['active','change_requested']),
+    sb.from('profiles').select('user_id,name,email,therapist_expert_name')
+  ]).then(function(results){
+    var bookingsRes = results[0], profilesRes = results[1];
+    if(bookingsRes.error){
+      listEl.innerHTML = '<p style="color:#C77B7B;font-size:12px;">Could not load clients: '+bookingsRes.error.message+'</p>';
+      return;
+    }
+    var profileByUserId = {};
+    (profilesRes.data || []).forEach(function(p){ profileByUserId[p.user_id] = p; });
+
+    // Exclude self-bookings -- i.e. bookings made by whoever actually OWNS this therapist identity
+    // testing/booking themselves, not just "whoever happens to be logged in right now" (that
+    // distinction matters: an admin viewing someone else's client list, for instance).
+    var selfUserIds = (profilesRes.data || [])
+      .filter(function(p){ return p.therapist_expert_name === appState.therapistExpertName; })
+      .map(function(p){ return p.user_id; });
+
+    var byClient = {};
+    (bookingsRes.data || []).forEach(function(b){
+      if(selfUserIds.indexOf(b.user_id) !== -1) return;
+      if(!byClient[b.user_id]) byClient[b.user_id] = { count: 0, latestSessionDate: null };
+      byClient[b.user_id].count++;
+      if(b.session_date && (!byClient[b.user_id].latestSessionDate || b.session_date > byClient[b.user_id].latestSessionDate)){
+        byClient[b.user_id].latestSessionDate = b.session_date;
+      }
+    });
+
+    var clientIds = Object.keys(byClient);
+    if(clientIds.length === 0){
+      listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">No clients connected yet.</p>';
+      return;
+    }
+    listEl.innerHTML = clientIds.map(function(uid){
+      var profile = profileByUserId[uid] || {};
+      var info = byClient[uid];
+      var sessionText = info.latestSessionDate
+        ? 'Next/latest session: ' + new Date(info.latestSessionDate).toLocaleDateString('en-IN', {day:'numeric', month:'short'})
+        : (info.count + ' booking' + (info.count===1?'':'s') + ', no date set yet');
+      return '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:11px 13px;margin-bottom:7px;">'+
+        '<p style="font-size:12.5px;font-weight:700;color:#2A2013;margin:0 0 2px;">'+(profile.name||'Unknown client')+'</p>'+
+        '<p style="font-size:11px;color:#5C6B94;margin:0 0 2px;">'+(profile.email||'')+'</p>'+
+        '<p style="font-size:10px;color:#9AABCE;margin:0;">'+sessionText+'</p>'+
+        '</div>';
+    }).join('');
+  });
 }
 
 function populateHomeworkClientSelect(){
