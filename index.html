@@ -109,7 +109,7 @@
   .task-item[data-priority="high"] { background:#FBE8E8; border-color:#F3D4D4; }
   .task-item.done-item { background:#EAF4EE !important; border-color:#CFE8DA !important; }
   .task-row { display:flex; align-items:center; gap:10px; }
-  .task-checkbox { width:20px; height:20px; border-radius:7px; border:2px solid #C7D2E8; flex-shrink:0; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:11px; color:#fff; }
+  .task-checkbox { width:30px; height:30px; border-radius:9px; border:2px solid #C7D2E8; flex-shrink:0; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:15px; color:#fff; }
   .task-checkbox.done { background:#3B8F63; border-color:#3B8F63; }
   .task-title-cal { flex:1; font-size:13.5px; color:#2A2013; font-weight:600; }
   .task-title-cal.done { color:#5C8F6E; font-weight:700; }
@@ -120,7 +120,7 @@
   .sub-checkbox { width:16px; height:16px; border-radius:5px; border:1.5px solid #C7D2E8; cursor:pointer; flex-shrink:0; }
   .sub-checkbox.done { background:#6690D6; border-color:#6690D6; }
   .subtask-row.done-row .sub-checkbox.done { background:#3B8F63; border-color:#3B8F63; }
-  .subtask-title { font-size:12px; color:#3A4A6A; }
+  .subtask-title { font-size:12px; color:#3A4A6A; min-width:0; word-break:break-word; white-space:normal; }
   .subtask-title.done { color:#3B8F63; font-weight:700; }
   .subtask-add { display:flex; gap:6px; margin:10px 0 0 30px; }
   .subtask-add input { flex:1; border:1px solid #EEE0C4; border-radius:8px; padding:6px 8px; font-size:11.5px; font-family:inherit; }
@@ -539,7 +539,6 @@
       Our Experts
     </button>
     <div id="expertDetailContent"></div>
-    <div id="expertDetailDonationWidget" style="margin-top:18px;"></div>
   </div>
 
   <div id="donateModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.45);z-index:60;"></div>
@@ -621,6 +620,9 @@
       <p id="adminInviteMessageText" style="font-size:11px;color:#2A2013;line-height:1.5;margin:0 0 8px;white-space:pre-wrap;"></p>
       <button id="adminCopyInviteBtn" style="width:100%;padding:8px;border-radius:8px;border:1px solid #3B8F63;background:none;color:#3B8F63;font-size:10.5px;font-weight:700;cursor:pointer;">Copy Message</button>
     </div>
+
+    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:18px 0 10px;">Manage Existing Experts</p>
+    <div id="adminExpertsManageList" style="margin-bottom:22px;"></div>
     <div id="adminTherapistInvitesList" style="margin-bottom:22px;"></div>
 
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Expert Availability</p>
@@ -684,6 +686,10 @@
       <p style="font-size:10.5px;color:rgba(255,255,255,0.75);margin:6px 0 0;">Tap to see the detail ↓</p>
     </button>
     <div id="therapistSessionDetailList" style="display:none;margin-bottom:22px;"></div>
+
+    <p style="font-size:12px;font-weight:700;color:#C77B7B;margin:0 0 10px;">⚠ Session Time Requests</p>
+    <p style="font-size:11px;color:#B0AA98;margin:0 0 10px;">Clients waiting on you to confirm, change, or decline a time they've asked for.</p>
+    <div id="therapistTimeRequestsList" style="margin-bottom:22px;"></div>
 
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">My Clients</p>
     <p style="font-size:11px;color:#B0AA98;margin:0 0 10px;">Everyone currently connected to you as their therapist.</p>
@@ -815,7 +821,8 @@
     <p style="font-size:11.5px;color:#9AABCE;margin:0 0 4px;" id="adminUserProfileEmail"></p>
     <p style="font-size:10.5px;color:#B0AA98;margin:0 0 16px;" id="adminUserProfileMeta"></p>
     <div id="adminUserProfileConnections"></div>
-    <button id="adminUserProfileCloseBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:13px;font-weight:700;cursor:pointer;margin-top:14px;">Close</button>
+    <button id="adminUserProfileDeleteBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #F0C7C7;background:transparent;color:#C77B7B;font-size:13px;font-weight:700;cursor:pointer;margin-top:18px;">Delete This Account</button>
+    <button id="adminUserProfileCloseBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:13px;font-weight:700;cursor:pointer;margin-top:10px;">Close</button>
   </div>
 
   <div id="adminStatDetailModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.45);z-index:60;"></div>
@@ -1149,6 +1156,7 @@
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
       Search your entries and tasks
     </button>
+    <div id="profileDonationWidget" style="margin-bottom:14px;"></div>
     <div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:16px;padding:16px;margin-bottom:14px;">
       <p style="font-size:12px;color:#9AABCE;margin:0 0 6px;font-weight:700;">Therapist</p>
       <div id="profileTherapistArea"></div>
@@ -1506,13 +1514,13 @@
     <p class="prompt-title" style="text-align:center;">Your rewards</p>
     <p class="prompt-sub" style="text-align:center;margin-bottom:18px;">Every completed task earns a little something.</p>
     <div class="reward-card">
-      <div class="reward-label-row"><span class="reward-label">Today</span><span class="reward-value" id="rewardTodayValue">₹0 / ₹10</span></div>
+      <div class="reward-label-row"><span class="reward-label">Today</span><span class="reward-value" id="rewardTodayValue">₹0 today</span></div>
       <div class="reward-bar-track"><div class="reward-bar-fill" id="rewardTodayBar" style="width:0%;"></div></div>
     </div>
     <div class="reward-card">
       <div class="reward-label-row"><span class="reward-label">This month</span><span class="reward-value" id="rewardMonthValue">₹0 / ₹300</span></div>
       <div class="reward-bar-track"><div class="reward-bar-fill" id="rewardMonthBar" style="width:0%;"></div></div>
-      <p class="reward-note">₹1 per completed task, capped at ₹10/day. This month's total becomes a voucher next month — only if you've had 4 booked therapy sessions that week, each week.</p>
+      <p class="reward-note">₹1 per completed task, no daily limit. This month's total becomes a voucher next month — only if you've had 4 booked therapy sessions that week, each week.</p>
     </div>
     <div class="reward-placeholder">
       <p style="font-size:12.5px;color:#5C6B94;margin:0 0 4px;font-weight:600;">Session check-in: coming soon</p>
@@ -2558,7 +2566,9 @@ function loadUserDataFromSupabase(){
     appState.userHasTherapist = !!(therapistBooking && therapistBooking.status === 'active');
     appState.therapistName = therapistBooking ? therapistBooking.expert_name : '';
     appState.therapistBookingPending = !!(therapistBooking && therapistBooking.status === 'pending');
-    appState.therapistBookingNeedsTime = !!(therapistBooking && therapistBooking.status === 'active' && !therapistBooking.session_date);
+    appState.therapistBookingTimeRequested = !!(therapistBooking && therapistBooking.status === 'active' && therapistBooking.time_request_status === 'pending');
+    appState.therapistRequestedSessionDate = therapistBooking ? therapistBooking.requested_session_date : null;
+    appState.therapistBookingNeedsTime = !!(therapistBooking && therapistBooking.status === 'active' && !therapistBooking.session_date && therapistBooking.time_request_status !== 'pending');
 
     if(profileRes.data){
       appState.hasOutsideTherapist = profileRes.data.has_outside_therapist || false;
@@ -3528,6 +3538,7 @@ function renderProfile(){
   document.getElementById('profileAccountEmail').textContent = currentUser ? ('Signed in as ' + currentUser.email) : '';
   document.getElementById('adminEntryCard').style.display = appState.isAdmin ? 'block' : 'none';
   document.getElementById('therapistEntryCard').style.display = appState.isTherapist ? 'block' : 'none';
+  renderProfileDonationWidget();
   var tArea = document.getElementById('profileTherapistArea');
   tArea.innerHTML = '';
   var therapistBookingObj = appState.expertBookings.find(function(b){
@@ -3535,6 +3546,9 @@ function renderProfile(){
   });
   if(appState.therapistBookingPending){
     tArea.innerHTML = '<p style="font-size:13px;color:#7B4F00;background:#FEF3D8;border-radius:10px;padding:11px;margin:0;">Your request has been sent — we\'ll confirm your match soon.</p>';
+  } else if(appState.therapistBookingTimeRequested){
+    var reqLabel = appState.therapistRequestedSessionDate ? new Date(appState.therapistRequestedSessionDate).toLocaleString('en-IN', {weekday:'long', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}) : '';
+    tArea.innerHTML = '<p style="font-size:13px;color:#7B4F00;background:#FEF3D8;border-radius:10px;padding:11px;margin:0;">You requested '+reqLabel+' with '+appState.therapistName+' — awaiting confirmation.</p>';
   } else if(appState.therapistBookingNeedsTime){
     tArea.innerHTML = '<p style="font-size:14px;color:#2A2013;font-weight:700;margin:0 0 4px;">'+appState.therapistName+'</p>'+
       '<p style="font-size:12px;color:#3B8F63;margin:0 0 10px;">You\'ve been matched! Pick a time for your first session.</p>';
@@ -4256,6 +4270,7 @@ function cyclePriority(taskId, dateKey, rerender){
 }
 
 var openBreakdownTaskId = null;
+var justOpenedBreakdown = false; // only true for the single render right after tapping the '+' button
 var PRIORITY_ORDER = ['high','medium','low',null];
 var PRIORITY_LABELS = { high:'High Priority', medium:'Medium Priority', low:'Low Priority', 'null':'No Priority' };
 // Long-press a task row to arm it for deletion: the drag handle swaps to a trash icon and the
@@ -4383,7 +4398,9 @@ function renderTaskListCal(){
     row.appendChild(title);
     var bd = document.createElement('button'); bd.className = 'breakdown-btn'; bd.textContent = '+';
     bd.onclick = function(){
-      openBreakdownTaskId = (openBreakdownTaskId === task.id) ? null : task.id;
+      var wasAlreadyOpenForThisTask = openBreakdownTaskId === task.id;
+      openBreakdownTaskId = wasAlreadyOpenForThisTask ? null : task.id;
+      justOpenedBreakdown = !wasAlreadyOpenForThisTask; // only scroll/focus when freshly opened by this exact tap
       renderTaskListCal();
     };
     row.appendChild(bd);
@@ -4409,6 +4426,30 @@ function renderTaskListCal(){
         subRow.appendChild(scb);
         var stitle = document.createElement('span'); stitle.className = 'subtask-title' + (sub.done ? ' done' : ''); stitle.textContent = sub.title;
         stitle.style.flex = '1';
+        stitle.style.cursor = 'pointer';
+        stitle.title = 'Tap to edit';
+        stitle.onclick = function(){
+          var editInput = document.createElement('input');
+          editInput.type = 'text';
+          editInput.value = sub.title;
+          editInput.style.cssText = 'flex:1;font-size:12px;color:#3A4A6A;border:1px solid #C7D2E8;border-radius:6px;padding:4px 6px;font-family:inherit;min-width:0;';
+          var finishEdit = function(){
+            var newTitle = editInput.value.trim();
+            if(newTitle && newTitle !== sub.title){
+              sub.title = newTitle;
+              saveState();
+              if(String(sub.id).indexOf('temp_') !== 0){
+                sb.from('subtasks').update({ title: newTitle }).eq('id', sub.id).then(function(r){ if(r.error) console.error(r.error); });
+              }
+            }
+            renderTaskListCal();
+          };
+          editInput.addEventListener('blur', finishEdit);
+          editInput.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); editInput.blur(); } });
+          subRow.replaceChild(editInput, stitle);
+          editInput.focus();
+          editInput.select();
+        };
         subRow.appendChild(stitle);
         var delBtn = document.createElement('button');
         delBtn.innerHTML = '&times;';
@@ -4452,9 +4493,10 @@ function renderTaskListCal(){
     }
     listEl.appendChild(item);
   });
-  if(openBreakdownTaskId){
+  if(openBreakdownTaskId && justOpenedBreakdown){
     var openInput = listEl.querySelector('.subtask-add input');
     if(openInput) openInput.focus();
+    justOpenedBreakdown = false;
   }
 
   makeListDraggable(listEl, '.task-item', function(fromIdx, toIdx){
@@ -5411,7 +5453,8 @@ document.getElementById('searchInput').addEventListener('input', function(){
 // IMPORTANT: this is prototype-only, cosmetic tracking using localStorage. Real money must
 // never be driven by client-side data — see build log for the required backend before this
 // can be wired to an actual voucher/payment.
-var DAILY_CREDIT_CAP = 10;   // rs
+// Policy simplified per Akash: every completed task adds ₹1 immediately, no daily cap -- only
+// the monthly cap remains.
 var MONTHLY_CREDIT_CAP = 300; // rs
 
 function completedTasksOnDate(key){
@@ -5422,18 +5465,17 @@ function getCurrentMonthCredit(){
   var monthCredit = 0;
   Object.keys(appState.tasksByDate).forEach(function(key){
     if(key.slice(0,7) === monthPrefix){
-      monthCredit += Math.min(completedTasksOnDate(key), DAILY_CREDIT_CAP);
+      monthCredit += completedTasksOnDate(key);
     }
   });
   return Math.min(monthCredit, MONTHLY_CREDIT_CAP);
 }
 function renderRewards(){
-  var todayCount = completedTasksOnDate(TODAY_KEY);
-  var todayCredit = Math.min(todayCount, DAILY_CREDIT_CAP);
+  var todayCredit = completedTasksOnDate(TODAY_KEY);
   var monthCredit = getCurrentMonthCredit();
 
-  document.getElementById('rewardTodayValue').textContent = '₹' + todayCredit + ' / ₹' + DAILY_CREDIT_CAP;
-  document.getElementById('rewardTodayBar').style.width = (todayCredit/DAILY_CREDIT_CAP*100) + '%';
+  document.getElementById('rewardTodayValue').textContent = '₹' + todayCredit + ' today';
+  document.getElementById('rewardTodayBar').style.width = Math.min(100, (todayCredit/20*100)) + '%'; // visual scale only, no cap
   document.getElementById('rewardMonthValue').textContent = '₹' + monthCredit + ' / ₹' + MONTHLY_CREDIT_CAP;
   document.getElementById('rewardMonthBar').style.width = (monthCredit/MONTHLY_CREDIT_CAP*100) + '%';
 }
@@ -5677,23 +5719,24 @@ function bookExpert(m){
 // session_date yet, since the request stage doesn't pick a time), this lets the client actually
 // schedule their first session -- reuses the same slot-picker + payment flow bookExpert used to
 // run immediately; it just happens later now, after a real person has been matched to them.
+// Client picking a time used to confirm it immediately. Per Akash: the client should be able to
+// REQUEST a time, and the therapist reviews it -- accept, propose a different time, or reject.
+// The slot is reserved (is_booked=true) the moment it's requested, so nobody else can also
+// request it while the therapist is deciding; it's released again if rejected.
 function pickSessionTimeForBooking(booking, m){
   showSlotPicker(m, function(chosenSlot){
-    sb.from('expert_bookings').update({ session_date: chosenSlot.slot_date }).eq('id', booking.id).then(function(){});
+    sb.from('expert_bookings').update({
+      requested_session_date: chosenSlot.slot_date, time_request_status: 'pending'
+    }).eq('id', booking.id).then(function(){});
     sb.from('expert_availability_slots').update({ is_booked: true, booked_by: currentUser.id }).eq('id', chosenSlot.id).then(function(){});
-    booking.session_date = chosenSlot.slot_date;
-    trackNotificationAction('booked_session');
-    logAnalyticsEvent('booking_made');
+    booking.requested_session_date = chosenSlot.slot_date;
+    booking.time_request_status = 'pending';
+    booking._reservedSlotId = chosenSlot.id; // remembered locally in case it needs releasing on rejection
+    logAnalyticsEvent('session_time_requested');
     sb.functions.invoke('send-push-notification', {
       body: { alertProfessionalSessionBooked: true, expertName: m.name }
     }).catch(function(){}); // best-effort
-    showPaymentModal(
-      "Session with " + m.name,
-      "Hi! I've paid for my session with " + m.name + " and wanted to let you know.",
-      function(){
-        showToast("Your time is booked. We'll confirm once payment is verified.");
-      }
-    );
+    showToast("Time requested — " + m.name.split(' ')[0] + " will confirm, propose another time, or let you know if it doesn't work.");
     var idx = TEAM_MEMBERS.findIndex(function(tm){ return tm.name === m.name; });
     if(idx !== -1) openExpertDetail(idx);
   }, function(){
@@ -6017,6 +6060,38 @@ document.getElementById('notifComposeSendBtn').onclick = function(){
 // requested, but can be changed) -- confirming moves the booking to 'active' and the client then
 // gets to pick their session time from the calendar.
 var adminActiveCampaignId = null;
+function renderAdminExpertsManageList(){
+  var listEl = document.getElementById('adminExpertsManageList');
+  listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12px;">Loading...</p>';
+  sb.from('experts').select('id,name,role,role_category').order('role_category').then(function(result){
+    if(result.error){
+      listEl.innerHTML = '<p style="color:#C77B7B;font-size:12px;">Could not load: '+result.error.message+'</p>';
+      return;
+    }
+    var experts = result.data || [];
+    if(experts.length === 0){
+      listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12px;">No experts added yet.</p>';
+      return;
+    }
+    listEl.innerHTML = experts.map(function(e){
+      return '<div style="display:flex;justify-content:space-between;align-items:center;background:#FFFFFF;border:1px solid #EEE0C4;border-radius:10px;padding:10px 12px;margin-bottom:6px;">'+
+        '<span style="font-size:12px;color:#2A2013;"><strong>'+e.name+'</strong><br><span style="color:#9AABCE;font-size:10.5px;">'+e.role+' · '+e.role_category+'</span></span>'+
+        '<button class="admin-delete-expert-btn" data-id="'+e.id+'" data-name="'+e.name+'" style="font-size:10.5px;font-weight:700;color:#C77B7B;background:none;border:1px solid #F0C7C7;border-radius:8px;padding:6px 10px;cursor:pointer;white-space:nowrap;">Remove</button>'+
+      '</div>';
+    }).join('');
+    listEl.querySelectorAll('.admin-delete-expert-btn').forEach(function(btn){
+      btn.onclick = function(){
+        if(!confirm('Remove ' + btn.dataset.name + ' from the experts list? This only removes their public profile — it does not touch their account or booking history if they have one.')) return;
+        sb.from('experts').delete().eq('id', btn.dataset.id).then(function(result){
+          if(result.error){ showToast('Could not remove — please try again.'); return; }
+          showToast('Removed.');
+          renderAdminExpertsManageList();
+        });
+      };
+    });
+  });
+}
+
 function renderAdminCampaign(){
   sb.from('donation_campaigns').select('*').eq('is_active', true).order('created_at', {ascending:false}).limit(1).then(function(result){
     var infoEl = document.getElementById('adminCampaignCurrentInfo');
@@ -6260,7 +6335,11 @@ document.getElementById('adminUnassignedOnlyFilter').onchange = function(){
 // Full profile view for a single user, opened by tapping their row in All Users. Shows their
 // connection status in every professional category, with a direct assign control for any
 // category they're not yet connected in -- doesn't require them to have submitted a request first.
+var adminUserProfileCurrentId = null;
+var adminUserProfileCurrentName = null;
 function showAdminUserProfile(userId){
+  adminUserProfileCurrentId = userId;
+  adminUserProfileCurrentName = null;
   document.getElementById('adminUserProfileName').textContent = 'Loading...';
   document.getElementById('adminUserProfileEmail').textContent = '';
   document.getElementById('adminUserProfileMeta').textContent = '';
@@ -6279,6 +6358,7 @@ function showAdminUserProfile(userId){
       return;
     }
     var p = profileRes.data;
+    adminUserProfileCurrentName = p.name || p.email || 'this account';
     document.getElementById('adminUserProfileName').textContent = p.name || '(no name set)';
     document.getElementById('adminUserProfileEmail').textContent = p.email || '';
     var joined = p.created_at ? new Date(p.created_at).toLocaleDateString('en-IN', {day:'numeric', month:'short', year:'numeric'}) : 'unknown';
@@ -6333,6 +6413,28 @@ document.getElementById('adminUserProfileCloseBtn').onclick = function(){
   document.getElementById('adminUserProfileModal').style.display = 'none';
 };
 document.getElementById('adminUserProfileModalBackdrop').onclick = document.getElementById('adminUserProfileCloseBtn').onclick;
+
+document.getElementById('adminUserProfileDeleteBtn').onclick = function(){
+  if(!adminUserProfileCurrentId) return;
+  if(!confirm('Permanently delete ' + adminUserProfileCurrentName + '? This removes their account, journal entries, tasks, bookings — everything. This cannot be undone.')) return;
+  if(!confirm('Really sure? Type-to-confirm isn\'t available here, so this is your last check: delete ' + adminUserProfileCurrentName + ' permanently?')) return;
+
+  var btn = this;
+  btn.disabled = true;
+  btn.textContent = 'Deleting…';
+  sb.functions.invoke('delete-user-account', { body: { userId: adminUserProfileCurrentId } }).then(function(result){
+    btn.disabled = false;
+    btn.textContent = 'Delete This Account';
+    if(result.error || (result.data && result.data.error)){
+      showToast('Could not delete — ' + ((result.data && result.data.error) || 'please try again.'));
+      return;
+    }
+    showToast('Account deleted.');
+    document.getElementById('adminUserProfileModalBackdrop').style.display = 'none';
+    document.getElementById('adminUserProfileModal').style.display = 'none';
+    renderAdminAllUsers();
+  });
+};
 
 // Admin proactively assigns a professional to a user who never submitted a request at all --
 // inserts a fresh active booking rather than updating an existing pending one.
@@ -6480,6 +6582,7 @@ function openAdminDashboard(){
   renderAdminAllUsers();
   renderAdminPendingRequests();
   renderAdminCampaign();
+  renderAdminExpertsManageList();
   Promise.all([
     sb.from('expert_bookings').select('*').order('created_at', {ascending:false}),
     sb.from('profiles').select('user_id,name,email,phone_number')
@@ -6741,6 +6844,7 @@ function openTherapistDashboard(){
   document.getElementById('therapistSessionDetailList').style.display = 'none';
   renderTherapistSummaryAndDetail();
   renderTherapistSlots();
+  renderTherapistTimeRequests();
   renderTherapistClientsList();
   populateHomeworkClientSelect();
   var myProfile = TEAM_MEMBERS.find(function(m){ return m.name === appState.therapistExpertName; });
@@ -6751,6 +6855,113 @@ function openTherapistDashboard(){
   document.getElementById('therapistWhyInput').value = myProfile ? (myProfile.whyTherapist||'') : '';
   document.getElementById('therapistQualificationsInput').value = myProfile ? (myProfile.qualificationsDetail||'') : '';
   renderLanguageCheckboxes('therapistLanguagesCheckboxes', myProfile ? myProfile.languages : '');
+}
+
+function renderTherapistTimeRequests(){
+  var listEl = document.getElementById('therapistTimeRequestsList');
+  listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">Loading...</p>';
+  Promise.all([
+    sb.from('expert_bookings').select('id,user_id,requested_session_date,created_at').eq('expert_name', appState.therapistExpertName).eq('time_request_status', 'pending'),
+    sb.from('profiles').select('user_id,name,email')
+  ]).then(function(results){
+    var bookingsRes = results[0], profilesRes = results[1];
+    if(bookingsRes.error){
+      listEl.innerHTML = '<p style="color:#C77B7B;font-size:12px;">Could not load: '+bookingsRes.error.message+'</p>';
+      return;
+    }
+    var requests = bookingsRes.data || [];
+    if(requests.length === 0){
+      listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">No time requests waiting right now.</p>';
+      return;
+    }
+    var profileByUserId = {};
+    (profilesRes.data || []).forEach(function(p){ profileByUserId[p.user_id] = p; });
+
+    listEl.innerHTML = requests.map(function(r){
+      var profile = profileByUserId[r.user_id] || {};
+      var reqLabel = r.requested_session_date ? new Date(r.requested_session_date).toLocaleString('en-IN', {weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}) : 'unknown time';
+      return '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:12px;margin-bottom:8px;">'+
+        '<p style="font-size:12.5px;font-weight:700;color:#2A2013;margin:0 0 2px;">'+(profile.name||'Unknown client')+'</p>'+
+        '<p style="font-size:11px;color:#5C6B94;margin:0 0 8px;">Requested: '+reqLabel+'</p>'+
+        '<div style="display:flex;gap:6px;margin-bottom:6px;">'+
+          '<button class="therapist-accept-time-btn" data-id="'+r.id+'" style="flex:1;font-size:10.5px;font-weight:700;color:#fff;background:#3B8F63;border:none;border-radius:8px;padding:8px;cursor:pointer;">Accept</button>'+
+          '<button class="therapist-reject-time-btn" data-id="'+r.id+'" data-uid="'+r.user_id+'" style="flex:1;font-size:10.5px;font-weight:700;color:#C77B7B;background:none;border:1px solid #F0C7C7;border-radius:8px;padding:8px;cursor:pointer;">Decline</button>'+
+        '</div>'+
+        '<div style="display:flex;gap:6px;">'+
+          '<input type="datetime-local" class="therapist-propose-time-input" data-id="'+r.id+'" style="flex:1;padding:8px;border-radius:8px;border:1px solid #EEE0C4;font-size:11px;font-family:inherit;">'+
+          '<button class="therapist-propose-time-btn" data-id="'+r.id+'" data-uid="'+r.user_id+'" style="font-size:10.5px;font-weight:700;color:#6690D6;background:#E9F0FB;border:none;border-radius:8px;padding:8px 10px;cursor:pointer;white-space:nowrap;">Propose instead</button>'+
+        '</div>'+
+      '</div>';
+    }).join('');
+
+    listEl.querySelectorAll('.therapist-accept-time-btn').forEach(function(btn){
+      btn.onclick = function(){
+        var req = requests.find(function(r){ return r.id === btn.dataset.id; });
+        sb.from('expert_bookings').update({
+          session_date: req.requested_session_date, time_request_status: 'accepted', requested_session_date: null
+        }).eq('id', btn.dataset.id).then(function(result){
+          if(result.error){ showToast('Could not accept — please try again.'); return; }
+          showToast('Time confirmed.');
+          renderTherapistTimeRequests();
+          renderTherapistClientsList();
+          sb.functions.invoke('send-push-notification', {
+            body: {
+              title: 'Bob here 🐘', body: appState.therapistExpertName + " confirmed your session time!",
+              userId: req.user_id, notificationType: 'admin_manual', targetDescription: 'Session time confirmed'
+            }
+          }).catch(function(){});
+        });
+      };
+    });
+
+    listEl.querySelectorAll('.therapist-reject-time-btn').forEach(function(btn){
+      btn.onclick = function(){
+        if(!confirm('Decline this time? The slot will be released and the client will need to request a different one.')) return;
+        var req = requests.find(function(r){ return r.id === btn.dataset.id; });
+        // Release the availability slot that was held for this request, if any.
+        if(req.requested_session_date){
+          sb.from('expert_availability_slots').update({ is_booked: false, booked_by: null })
+            .eq('expert_name', appState.therapistExpertName).eq('slot_date', req.requested_session_date).then(function(){});
+        }
+        sb.from('expert_bookings').update({
+          time_request_status: 'rejected', requested_session_date: null
+        }).eq('id', btn.dataset.id).then(function(result){
+          if(result.error){ showToast('Could not decline — please try again.'); return; }
+          showToast('Declined.');
+          renderTherapistTimeRequests();
+          sb.functions.invoke('send-push-notification', {
+            body: {
+              title: 'Bob here 🐘', body: "That time didn't work for " + appState.therapistExpertName + " — come pick another.",
+              userId: btn.dataset.uid, notificationType: 'admin_manual', targetDescription: 'Session time declined'
+            }
+          }).catch(function(){});
+        });
+      };
+    });
+
+    listEl.querySelectorAll('.therapist-propose-time-btn').forEach(function(btn){
+      btn.onclick = function(){
+        var input = listEl.querySelector('.therapist-propose-time-input[data-id="'+btn.dataset.id+'"]');
+        if(!input || !input.value){ showToast('Pick a date and time first.'); return; }
+        var newDate = new Date(input.value).toISOString();
+        sb.from('expert_bookings').update({
+          session_date: newDate, time_request_status: 'accepted', requested_session_date: null
+        }).eq('id', btn.dataset.id).then(function(result){
+          if(result.error){ showToast('Could not propose — please try again.'); return; }
+          showToast('New time set — client has been notified.');
+          renderTherapistTimeRequests();
+          renderTherapistClientsList();
+          sb.functions.invoke('send-push-notification', {
+            body: {
+              title: 'Bob here 🐘',
+              body: appState.therapistExpertName + " proposed a different time for your session — check the app for details.",
+              userId: btn.dataset.uid, notificationType: 'admin_manual', targetDescription: 'Session time proposed'
+            }
+          }).catch(function(){});
+        });
+      };
+    });
+  });
 }
 
 function renderTherapistClientsList(){
@@ -7229,36 +7440,79 @@ document.getElementById('therapistDayEditorBackdrop').onclick = function(){
   document.getElementById('therapistDayEditor').style.display = 'none';
 };
 
+// Rebuilt to actually match the real policy published in the Terms of Service (it didn't
+// before -- the old version never checked session timing at all, never actually marked the
+// booking cancelled, and tracked a lifetime count instead of resetting each calendar month).
+// Rebuilt AGAIN after testing surfaced a real design gap: each cancelled session creates a
+// fresh booking row for the next one, so checking "has this happened before this month" on the
+// current booking's own history could never actually detect a repeat across different sessions
+// -- the previous cancellation's history lives on a DIFFERENT row entirely. Fixed by querying
+// the client's actual cancellation history across all their bookings with this expert, not just
+// the one being cancelled right now.
 function cancelSession(m){
   var booking = getActiveBookingForCategory(m.roleCategory);
-  if(!booking) return;
-  var count = booking.cancellation_count || 0;
+  if(!booking || !currentUser || !currentUser.id) return;
 
-  if(count >= 1){
-    // Second+ cancellation attempt — not self-service, must go through admin.
-    // This is exactly when the 50% charge applies, so record it for admin tracking.
-    booking.cancellation_charge_owed = true;
-    if(String(booking.id).indexOf('temp_') !== 0){
-      sb.from('expert_bookings').update({ cancellation_charge_owed: true }).eq('id', booking.id).then(function(){});
-    }
-    showToast("This is a repeat cancellation — it can't be self-service. A 50% charge applies.");
-    showPaymentModal(
-      "50% cancellation charge — " + m.name,
-      "Hi! I need to cancel my session with " + m.name + " again (2nd+ cancellation). I've paid the 50% cancellation charge and wanted to let you know."
-    );
-    return;
-  }
+  var now = new Date();
+  var monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-  // First cancellation — allowed, free, self-service.
-  booking.cancellation_count = 1;
-  booking.last_cancelled_at = new Date().toISOString();
-  if(String(booking.id).indexOf('temp_') !== 0){
-    sb.from('expert_bookings').update({
-      cancellation_count: 1, last_cancelled_at: new Date().toISOString()
-    }).eq('id', booking.id).then(function(){});
-  }
-  showToast("Session cancelled — this was your one free cancellation for this booking.");
-  renderTeamList();
+  sb.from('expert_bookings')
+    .select('id')
+    .eq('user_id', currentUser.id)
+    .eq('expert_name', m.name)
+    .eq('cancellation_charge_percent', 50)
+    .gte('last_cancelled_at', monthStart)
+    .then(function(historyResult){
+      var alreadyUsedLateAllowanceThisMonth = !historyResult.error && historyResult.data && historyResult.data.length > 0;
+
+      var sessionDate = booking.session_date ? new Date(booking.session_date) : null;
+      var hoursUntilSession = sessionDate ? (sessionDate - now) / (1000*60*60) : null;
+      var isLateCancellation = hoursUntilSession !== null && hoursUntilSession < 24;
+
+      var chargePercent, message;
+      if(!isLateCancellation){
+        chargePercent = 0;
+        message = "More than 24 hours out, so the full amount carries forward to your next session — no charge. Cancel this session?";
+      } else if(!alreadyUsedLateAllowanceThisMonth){
+        chargePercent = 50;
+        message = "This is within 24 hours of your session, so a 50% cancellation charge applies (the rest carries forward). This is your one late cancellation for this month. Continue?";
+      } else {
+        chargePercent = 100;
+        message = "You've already used your one late cancellation for this month, so the full amount is charged this time, with nothing carried forward. Continue?";
+      }
+
+      if(!confirm(message)) return;
+
+      booking.status = 'cancelled';
+      booking.cancellation_count = (booking.cancellation_count || 0) + 1;
+      booking.last_cancelled_at = now.toISOString();
+      booking.cancellation_charge_percent = chargePercent;
+      booking.cancellation_charge_owed = chargePercent > 0;
+      saveState();
+
+      if(String(booking.id).indexOf('temp_') !== 0){
+        sb.from('expert_bookings').update({
+          status: 'cancelled',
+          cancellation_count: booking.cancellation_count,
+          last_cancelled_at: booking.last_cancelled_at,
+          cancellation_charge_percent: chargePercent,
+          cancellation_charge_owed: chargePercent > 0
+        }).eq('id', booking.id).then(function(){});
+      }
+
+      if(chargePercent > 0){
+        showPaymentModal(
+          chargePercent + '% cancellation charge — ' + m.name,
+          "Hi! I've cancelled my session with " + m.name + " and paid the " + chargePercent + "% cancellation charge.",
+          function(){ showToast('Cancelled — thanks for letting us know about the payment.'); }
+        );
+      } else {
+        showToast('Session cancelled — the full amount carries forward to your next booking.');
+      }
+
+      renderTeamList();
+      renderProfile();
+    });
 }
 
 var teamActiveLanguageFilter = null;
@@ -7312,6 +7566,9 @@ function renderTeamList(){
       actionHtml = '<div style="margin-top:6px;padding:11px;border-radius:12px;background:#FEF3D8;color:#7B4F00;font-size:11.5px;font-weight:700;text-align:center;">Request sent — we\'ll confirm your match soon</div>';
     } else if(isThisPersonBooked && activeBooking.status === 'change_requested'){
       actionHtml = '<div style="margin-top:6px;padding:11px;border-radius:12px;background:#FEF3D8;color:#7B4F00;font-size:11.5px;font-weight:700;text-align:center;">⏳ Change requested — we\'re reviewing it</div>';
+    } else if(isThisPersonBooked && activeBooking.time_request_status === 'pending'){
+      var reqTimeLabel = activeBooking.requested_session_date ? new Date(activeBooking.requested_session_date).toLocaleString('en-IN', {weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}) : '';
+      actionHtml = '<div style="margin-top:6px;padding:11px;border-radius:12px;background:#FEF3D8;color:#7B4F00;font-size:11.5px;font-weight:700;text-align:center;">Requested '+reqTimeLabel+' — awaiting confirmation</div>';
     } else if(isThisPersonBooked && !activeBooking.session_date){
       actionHtml = '<div style="margin-top:6px;padding:11px;border-radius:12px;background:#EAF4EE;color:#3B8F63;font-size:11.5px;font-weight:700;text-align:center;margin-bottom:6px;">You\'ve been matched! Pick a session time.</div>'+
         '<button class="pick-time-btn" data-idx="'+idx+'" style="display:block;width:100%;padding:11px;border-radius:12px;border:none;background:#6690D6;color:#FFF8F0;font-size:12.5px;font-weight:700;cursor:pointer;">Pick a Time</button>';
@@ -7393,8 +7650,13 @@ var currentDonateCampaign = null;
 // Shown on every professional's profile -- a compact campaign progress widget with a Donate
 // button and a Share button (uses the public donate.html page so it's viewable and shareable by
 // people who don't have the app at all, per "they can also share it outside the app").
-function renderExpertDetailDonationWidget(){
-  var widget = document.getElementById('expertDetailDonationWidget');
+// Shown on the user's own Profile page ("You" tab) -- this used to live on each therapist's
+// profile, which Akash correctly pointed out makes little sense: a donation ask belongs
+// somewhere every user actually sees regularly, not buried on a page only visited while
+// browsing for a therapist.
+function renderProfileDonationWidget(){
+  var widget = document.getElementById('profileDonationWidget');
+  if(!widget) return;
   widget.innerHTML = '';
   Promise.all([
     sb.from('donation_campaigns').select('*').eq('is_active', true).order('created_at', {ascending:false}).limit(1),
@@ -7417,13 +7679,13 @@ function renderExpertDetailDonationWidget(){
         '</div>'+
         '<p style="font-size:11.5px;color:#3B8F63;font-weight:700;margin:0 0 14px;">₹'+raised.toLocaleString('en-IN')+' raised of ₹'+parseFloat(c.goal_amount).toLocaleString('en-IN')+' goal</p>'+
         '<div style="display:flex;gap:8px;">'+
-          '<button id="expertDetailDonateBtn" style="flex:1;padding:12px;border-radius:12px;border:none;background:#6690D6;color:#FFF8F0;font-size:13px;font-weight:700;cursor:pointer;">Donate</button>'+
-          '<button id="expertDetailShareCampaignBtn" style="padding:12px 16px;border-radius:12px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:13px;font-weight:700;cursor:pointer;">Share</button>'+
+          '<button id="profileDonateBtn" style="flex:1;padding:12px;border-radius:12px;border:none;background:#6690D6;color:#FFF8F0;font-size:13px;font-weight:700;cursor:pointer;">Donate</button>'+
+          '<button id="profileShareCampaignBtn" style="padding:12px 16px;border-radius:12px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:13px;font-weight:700;cursor:pointer;">Share</button>'+
         '</div>'+
       '</div>';
 
-    document.getElementById('expertDetailDonateBtn').onclick = function(){ openDonateModal(c); };
-    document.getElementById('expertDetailShareCampaignBtn').onclick = function(){ shareCampaign(c); };
+    document.getElementById('profileDonateBtn').onclick = function(){ openDonateModal(c); };
+    document.getElementById('profileShareCampaignBtn').onclick = function(){ shareCampaign(c); };
   });
 }
 
@@ -7471,7 +7733,7 @@ document.getElementById('donateContinueBtn').onclick = function(){
       }).then(function(result){
         if(!result.error){
           logAnalyticsEvent('donation_pledged');
-          renderExpertDetailDonationWidget();
+          renderProfileDonationWidget();
         }
       });
     }
@@ -7490,6 +7752,9 @@ function openExpertDetail(idx){
   var actionHtml;
   if(isThisPersonBooked && activeBooking.status === 'pending'){
     actionHtml = '<div style="padding:15px;border-radius:14px;background:#FEF3D8;color:#7B4F00;font-size:13px;font-weight:700;text-align:center;">Your request has been sent — we\'ll confirm your match soon.</div>';
+  } else if(isThisPersonBooked && activeBooking.time_request_status === 'pending'){
+    var reqTimeLabel2 = activeBooking.requested_session_date ? new Date(activeBooking.requested_session_date).toLocaleString('en-IN', {weekday:'long', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}) : '';
+    actionHtml = '<div style="padding:15px;border-radius:14px;background:#FEF3D8;color:#7B4F00;font-size:13px;font-weight:700;text-align:center;">You requested '+reqTimeLabel2+' — '+m.name.split(' ')[0]+' will confirm, propose another time, or let you know if it doesn\'t work.</div>';
   } else if(isThisPersonBooked && !activeBooking.session_date){
     // Admin has assigned this person but no time has been picked yet.
     actionHtml = '<div style="display:flex;flex-direction:column;gap:8px;">'+
@@ -7499,7 +7764,8 @@ function openExpertDetail(idx){
   } else if(isThisPersonBooked){
     var detailStatusBadge = activeBooking.payment_confirmed
       ? '<div style="padding:15px;border-radius:14px;background:#EAF4EE;color:#3B8F63;font-size:13px;font-weight:700;text-align:center;">✓ Confirmed with '+m.name.split(' ')[0]+'</div>'
-      : '<div style="padding:15px;border-radius:14px;background:#FEF3D8;color:#7B4F00;font-size:13px;font-weight:700;text-align:center;">⏳ Pending confirmation — we\'ll confirm once we\'ve verified your payment</div>';
+      : '<div style="padding:15px;border-radius:14px;background:#FEF3D8;color:#7B4F00;font-size:13px;font-weight:700;text-align:center;">Time confirmed — pay to lock it in</div>'+
+        '<button id="expertDetailPayNowBtn" style="display:block;width:100%;padding:14px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:13.5px;font-weight:700;cursor:pointer;">Pay Now</button>';
     actionHtml = '<div style="display:flex;flex-direction:column;gap:8px;">'+
       detailStatusBadge+
       '<div style="display:flex;gap:8px;">'+
@@ -7592,15 +7858,30 @@ function openExpertDetail(idx){
     document.getElementById('expertDetailBookBtn').onclick = function(){ bookExpert(m); };
   } else if(isThisPersonBooked && activeBooking.status === 'pending'){
     // No action button in this state -- just the "request sent" message above.
+  } else if(isThisPersonBooked && activeBooking.time_request_status === 'pending'){
+    // No action button in this state either -- just the "time requested, awaiting confirmation" message above.
   } else if(isThisPersonBooked && !activeBooking.session_date){
     document.getElementById('expertDetailPickTimeBtn').onclick = function(){ pickSessionTimeForBooking(activeBooking, m); };
   } else if(isThisPersonBooked){
     document.getElementById('expertDetailChangeBtn').onclick = function(){ requestExpertChange(m, m.name); };
     document.getElementById('expertDetailCancelBtn').onclick = function(){ cancelSession(m); };
+    var payNowBtn = document.getElementById('expertDetailPayNowBtn');
+    if(payNowBtn){
+      payNowBtn.onclick = function(){
+        showPaymentModal(
+          "Session with " + m.name,
+          "Hi! I've paid for my session with " + m.name + " and wanted to let you know.",
+          function(){
+            trackNotificationAction('booked_session');
+            logAnalyticsEvent('booking_made');
+            showToast("Thanks! We'll confirm once your payment is verified.");
+          }
+        );
+      };
+    }
   }
 
   showOnly('panel-expert-detail');
-  renderExpertDetailDonationWidget();
 }
 document.getElementById('expertDetailBackBtn').onclick = function(){ showOnly('panel-team'); };
 function teamPhotoFallback(img, initials){
@@ -9266,32 +9547,36 @@ function getDisplayName(){
   return '';
 }
 
-var AFFIRMATIONS_BY_TIME = {
-  morning: [
-    "However today goes, you get to start again right now.",
-    "You don't need to have it figured out yet. Just begin.",
-    "Whatever pace feels right today is the right pace.",
-    "A new day doesn't ask you to be different than you were yesterday."
-  ],
-  afternoon: [
-    "You're allowed to pause. The day will still be there after.",
-    "One thing at a time is still moving forward.",
-    "It's okay if today looks different than you planned.",
-    "You don't have to push through everything alone."
-  ],
-  evening: [
-    "You don't have to earn rest. It's already yours.",
-    "Whatever today looked like, you're still here. That matters.",
-    "Showing up messy still counts as showing up.",
-    "The day doesn't need a perfect ending to have been worth living."
-  ],
-  night: [
-    "If sleep isn't coming easily, that's okay too. You're not doing anything wrong.",
-    "Whatever kept you up, you don't have to carry it alone.",
-    "It's alright to just be still for a while.",
-    "Tomorrow isn't asking anything of you yet. Not tonight."
-  ]
-};
+function getAffirmationPool(timeKey){
+  var name = getDisplayName();
+  var pools = {
+    morning: [
+      "However today goes, you get to start again right now.",
+      (name ? name + ", you don\'t need to have it figured out yet. Just begin." : "You don't need to have it figured out yet. Just begin."),
+      "Whatever pace feels right today is the right pace.",
+      (name ? "A new day doesn\'t ask you to be different than you were yesterday, " + name + "." : "A new day doesn't ask you to be different than you were yesterday.")
+    ],
+    afternoon: [
+      (name ? name + ", you\'re allowed to pause. The day will still be there after." : "You're allowed to pause. The day will still be there after."),
+      "One thing at a time is still moving forward.",
+      (name ? "It\'s okay if today looks different than you planned, " + name + "." : "It's okay if today looks different than you planned."),
+      "You don't have to push through everything alone."
+    ],
+    evening: [
+      "You don't have to earn rest. It's already yours.",
+      (name ? "Whatever today looked like, you\'re still here, " + name + ". That matters." : "Whatever today looked like, you're still here. That matters."),
+      "Showing up messy still counts as showing up.",
+      (name ? "The day doesn\'t need a perfect ending to have been worth living, " + name + "." : "The day doesn't need a perfect ending to have been worth living.")
+    ],
+    night: [
+      (name ? "If sleep isn\'t coming easily, that\'s okay too, " + name + ". You\'re not doing anything wrong." : "If sleep isn't coming easily, that's okay too. You're not doing anything wrong."),
+      "Whatever kept you up, you don't have to carry it alone.",
+      (name ? name + ", it\'s alright to just be still for a while." : "It's alright to just be still for a while."),
+      "Tomorrow isn't asking anything of you yet. Not tonight."
+    ]
+  };
+  return pools[timeKey];
+}
 
 function renderHomeGreeting(){
   var hour = new Date().getHours();
@@ -9300,7 +9585,7 @@ function renderHomeGreeting(){
   var greetingEl = document.getElementById('homeGreeting');
   greetingEl.textContent = name ? ('Welcome home, ' + name) : 'Welcome home';
 
-  var pool = AFFIRMATIONS_BY_TIME[timeKey];
+  var pool = getAffirmationPool(timeKey);
   document.getElementById('bobAffirmation').textContent = pool[Math.floor(Math.random()*pool.length)];
   renderHomeUpdatesBanner();
 }
