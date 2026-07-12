@@ -308,6 +308,17 @@
 
     <p id="authError" style="display:none;color:#C77B7B;font-size:12px;text-align:center;margin:0 0 12px;"></p>
 
+    <div id="authSignupChecks" style="display:none;margin-bottom:16px;">
+      <label style="display:flex;align-items:flex-start;gap:8px;font-size:11.5px;color:#5C6B94;cursor:pointer;margin-bottom:8px;">
+        <input type="checkbox" id="authAge18Check" style="accent-color:#6690D6;width:16px;height:16px;flex-shrink:0;margin-top:1px;">
+        I confirm I am 18 years of age or older.
+      </label>
+      <label style="display:flex;align-items:flex-start;gap:8px;font-size:11.5px;color:#5C6B94;cursor:pointer;">
+        <input type="checkbox" id="authTosCheck" style="accent-color:#6690D6;width:16px;height:16px;flex-shrink:0;margin-top:1px;">
+        I agree to the <a href="https://homeofbeautifulsouls-sys.github.io/hobs-companion-app/terms-of-service.html" target="_blank" style="color:#6690D6;" onclick="event.stopPropagation();">Terms of Service</a> and <a href="https://homeofbeautifulsouls-sys.github.io/hobs-companion-app/privacy-policy.html" target="_blank" style="color:#6690D6;" onclick="event.stopPropagation();">Privacy Policy</a>.
+      </label>
+    </div>
+
     <button id="authSubmitBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:14px;">Sign In</button>
     <button id="authToggleModeBtn" style="display:block;width:100%;padding:0;border:none;background:none;color:#6690D6;font-size:12.5px;font-weight:700;cursor:pointer;margin-bottom:10px;">Don't have an account? Sign up</button>
     <button id="forgotPasswordBtn" style="display:block;width:100%;padding:0;border:none;background:none;color:#9AABCE;font-size:11.5px;font-weight:600;cursor:pointer;">Forgot password?</button>
@@ -356,8 +367,8 @@
   </div>
 
   <div id="consentGateOverlay" style="position:absolute;inset:0;z-index:101;background:#FFF8F0;display:none;flex-direction:column;padding:28px 22px;box-sizing:border-box;overflow-y:auto;">
-    <p style="text-align:center;font-size:18px;font-weight:800;color:#2E5090;margin:4px 0 4px;">Before we begin</p>
-    <p style="text-align:center;font-size:12px;color:#5C6B94;margin:0 0 20px;">Please read this and fill in your details — this has to be completed before you can use the app.</p>
+    <p style="text-align:center;font-size:18px;font-weight:800;color:#2E5090;margin:4px 0 4px;">One more thing before your first session</p>
+    <p style="text-align:center;font-size:12px;color:#5C6B94;margin:0 0 20px;">You've been connected with a therapist! Please read this and fill in your details — this has to be completed before you can pick a session time.</p>
 
     <div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:14px;padding:16px;margin-bottom:16px;font-size:12px;color:#3A4A6A;line-height:1.6;">
       <p style="font-weight:800;color:#2A2013;margin:0 0 8px;">Informed Consent — Home of Beautiful Souls Foundation</p>
@@ -379,8 +390,16 @@
       <p style="margin:0 0 8px;">You understand the Clinical Team will use their professional judgment, and you agree not to hold them or HOBS responsible for adverse outcomes (lack of improvement, deterioration, or risk of harm) that occur during consultation — though you may still be advised to seek emergency or in-person care when needed.</p>
 
       <p style="font-weight:700;color:#2A2013;margin:12px 0 4px;">No Suicide Agreement</p>
-      <p style="margin:0;">As part of this consultation, you agree that if you ever want to hurt or kill yourself, you will reach out to one of the emergency contacts you list below, or call them directly, before acting on that urge — and that you'll continue engaging with the Clinical Team rather than facing it alone.</p>
+      <p style="margin:0 0 8px;">As part of this consultation, you agree that if you ever want to hurt or kill yourself, you will reach out to one of the emergency contacts you list below, or call them directly, before acting on that urge — and that you'll continue engaging with the Clinical Team rather than facing it alone.</p>
+
+      <p style="font-weight:700;color:#2A2013;margin:12px 0 4px;">Your Data</p>
+      <p style="margin:0;">How we handle everything you share is covered in full in our <a href="https://homeofbeautifulsouls-sys.github.io/hobs-companion-app/privacy-policy.html" target="_blank" style="color:#6690D6;">Privacy Policy</a>, in line with India's Digital Personal Data Protection Act, 2023.</p>
     </div>
+
+    <label style="display:flex;align-items:flex-start;gap:8px;font-size:12.5px;color:#2A2013;cursor:pointer;margin-bottom:16px;background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:12px;">
+      <input type="checkbox" id="consentAge18Check" style="accent-color:#6690D6;width:16px;height:16px;flex-shrink:0;margin-top:1px;">
+      I confirm I am 18 years of age or older.
+    </label>
 
     <label style="font-size:12px;font-weight:700;color:#2A2013;margin-bottom:6px;display:block;">Your residential address</label>
     <textarea id="consentAddress" rows="2" placeholder="Full address" style="width:100%;padding:12px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:13px;box-sizing:border-box;margin-bottom:14px;resize:none;"></textarea>
@@ -1942,6 +1961,7 @@ document.getElementById('authToggleModeBtn').onclick = function(){
   document.getElementById('authSubmitBtn').textContent = authMode === 'signin' ? 'Sign In' : 'Create Account';
   document.getElementById('authToggleModeBtn').textContent = authMode === 'signin' ? "Don't have an account? Sign up" : 'Already have an account? Sign in';
   document.getElementById('authSubtitle').textContent = authMode === 'signin' ? 'Sign in to sync your data across devices.' : 'Create an account so your data is never lost.';
+  document.getElementById('authSignupChecks').style.display = authMode === 'signup' ? 'block' : 'none';
   hideAuthError();
 };
 
@@ -2009,6 +2029,12 @@ document.getElementById('authSubmitBtn').onclick = function(){
   var password = document.getElementById('authPassword').value;
   if(!email || !password){ showAuthError('Enter both email and password.'); return; }
   if(password.length < 6){ showAuthError('Password needs to be at least 6 characters.'); return; }
+  if(authMode === 'signup'){
+    if(!document.getElementById('authAge18Check').checked || !document.getElementById('authTosCheck').checked){
+      showAuthError('Please confirm both boxes above before creating an account.');
+      return;
+    }
+  }
   var btn = document.getElementById('authSubmitBtn');
   btn.textContent = 'Please wait...'; btn.disabled = true;
 
@@ -2051,7 +2077,10 @@ function onAuthSuccess(user){
     checkUnreadNotifications();
     if(!appState.onboardingComplete){
       showOnboarding();
-    } else if(!appState.consentSigned && !appState.isTherapist){
+    } else if(appState.userHasTherapist && !appState.consentSigned && !appState.isTherapist){
+      // Covers existing users who already had a therapist connection before this gate existed,
+      // and anyone assigned while they weren't actively in the app -- without this, they'd only
+      // ever hit the gate if they happened to tap "Pick a Time" specifically.
       showConsentGate();
     } else if(!appState.hasSeenIntro){
       showWalkthrough();
@@ -2356,9 +2385,7 @@ document.getElementById('obSaveBtn').onclick = function(){
     appState.dateOfBirth = dob;
     appState.onboardingComplete = true;
     document.getElementById('onboardingOverlay').style.display = 'none';
-    if(!appState.consentSigned && !appState.isTherapist){
-      showConsentGate();
-    } else if(!appState.hasSeenIntro){
+    if(!appState.hasSeenIntro){
       showWalkthrough();
     } else {
       renderHomeGreeting();
@@ -2502,10 +2529,15 @@ var WALKTHROUGH_SLIDES = [
 ];
 var walkthroughIdx = 0;
 
-// Mandatory therapy consent + No Suicide Agreement gate. Required for every user except
-// professionals (therapists), per Akash's explicit decision -- shown once, right after
-// onboarding, blocking all other app access until every field is filled in.
-function showConsentGate(){
+// Mandatory therapy consent + No Suicide Agreement gate. Required for every non-therapist user
+// -- but per Akash's refined direction, triggered specifically when a client is actually
+// ASSIGNED a therapist (not at generic signup/onboarding for everyone, which would force this
+// on people who only ever want the free tools). General app Terms of Service + an explicit 18+
+// checkbox are handled separately at signup for everyone; THIS form is the fuller clinical
+// consent + No Suicide Agreement, shown once a real therapist connection exists.
+var consentGatePendingAction = null; // what to resume once consent is signed (usually: pick a session time)
+function showConsentGate(resumeAction){
+  consentGatePendingAction = resumeAction || null;
   document.getElementById('consentPhone').value = appState.phoneNumber || '';
   document.getElementById('consentGateError').style.display = 'none';
   document.getElementById('consentGateOverlay').style.display = 'flex';
@@ -2527,13 +2559,14 @@ document.getElementById('consentGateSubmitBtn').onclick = function(){
   var consentChat = document.getElementById('consentChat').checked;
   var consentAudio = document.getElementById('consentAudio').checked;
   var consentVideo = document.getElementById('consentVideo').checked;
+  var age18Confirmed = document.getElementById('consentAge18Check').checked;
 
-  // Every field is required -- at least one session type must be checked, and both signature
-  // fields must be filled, per "they have to enter all the information or they won't be able
-  // to move forward."
+  // Every field is required -- at least one session type must be checked, the 18+ box must be
+  // checked, and both signature fields must be filled, per "they won't be able to move forward"
+  // otherwise.
   var allTextFilled = Object.keys(fields).every(function(k){ return fields[k].length > 0; });
   var atLeastOneModality = consentChat || consentAudio || consentVideo;
-  if(!allTextFilled || !atLeastOneModality){
+  if(!allTextFilled || !atLeastOneModality || !age18Confirmed){
     document.getElementById('consentGateError').style.display = 'block';
     document.getElementById('consentGateError').scrollIntoView({ behavior:'smooth', block:'center' });
     return;
@@ -2548,6 +2581,7 @@ document.getElementById('consentGateSubmitBtn').onclick = function(){
   var payload = Object.assign({}, fields, {
     user_id: currentUser.id,
     consent_chat: consentChat, consent_audio: consentAudio, consent_video: consentVideo,
+    age_18_confirmed: age18Confirmed,
     signature_date: todayStr, no_suicide_signature_date: todayStr
   });
 
@@ -2563,7 +2597,14 @@ document.getElementById('consentGateSubmitBtn').onclick = function(){
     document.getElementById('consentGateOverlay').style.display = 'none';
     btn.disabled = false;
     btn.textContent = 'I Agree & Continue';
-    if(!appState.hasSeenIntro){
+    // Resume whatever the person was actually trying to do (usually: pick a session time) --
+    // this gate is now triggered by that action, not by a generic login check, so simply
+    // landing on the walkthrough/home screen afterward would lose their place.
+    if(typeof consentGatePendingAction === 'function'){
+      var action = consentGatePendingAction;
+      consentGatePendingAction = null;
+      action();
+    } else if(!appState.hasSeenIntro){
       showWalkthrough();
     } else {
       renderHomeGreeting();
@@ -5875,6 +5916,13 @@ function bookExpert(m){
 // The slot is reserved (is_booked=true) the moment it's requested, so nobody else can also
 // request it while the therapist is deciding; it's released again if rejected.
 function pickSessionTimeForBooking(booking, m){
+  // This is the actual moment "assigned a therapist... doesn't go ahead till they fill it"
+  // refers to -- not a generic login gate, but specifically blocking the next real step
+  // (picking a session time) until the clinical consent + No Suicide Agreement is on file.
+  if(!appState.consentSigned && !appState.isTherapist){
+    showConsentGate(function(){ pickSessionTimeForBooking(booking, m); });
+    return;
+  }
   showSlotPicker(m, function(chosenSlot){
     sb.from('expert_bookings').update({
       requested_session_date: chosenSlot.slot_date, time_request_status: 'pending'
