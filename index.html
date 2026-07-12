@@ -1151,7 +1151,7 @@
   </div>
 
   <div class="content" id="panel-profile" style="display:none;">
-    <p class="prompt-title" style="text-align:center;">You</p>
+    <p class="prompt-title" id="profilePageTitle" style="text-align:center;">You</p>
     <button id="profileSearchBtn" style="display:flex;align-items:center;gap:8px;width:100%;padding:12px 14px;border-radius:14px;border:1px solid #EEE0C4;background:#FFFFFF;color:#5C6B94;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:14px;">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
       Search your entries and tasks
@@ -1376,7 +1376,7 @@
       <div style="width:34px;height:34px;border-radius:50%;background:#E9F0FB;display:flex;align-items:center;justify-content:center;color:#6690D6;flex-shrink:0;">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>
       </div>
-      <input id="sheetTaskInput" type="text" placeholder="Add new task here" style="border:none;outline:none;font-size:17px;color:#2A2013;font-family:inherit;flex:1;background:transparent;">
+      <textarea id="sheetTaskInput" rows="1" placeholder="Add new task here" style="border:none;outline:none;font-size:17px;color:#2A2013;font-family:inherit;flex:1;background:transparent;resize:none;overflow:hidden;line-height:1.35;padding:0;"></textarea>
     </div>
     <div style="display:flex;gap:8px;align-items:center;">
       <button id="sheetDurationChip" data-duration="30" style="flex:1;padding:10px 8px;border-radius:20px;border:none;background:#E9F0FB;color:#6690D6;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;">
@@ -3535,6 +3535,8 @@ function toClearAndReselectMoodsForEdit(moods){
 
 
 function renderProfile(){
+  var profileName = getDisplayName();
+  document.getElementById('profilePageTitle').textContent = profileName || 'You';
   document.getElementById('profileAccountEmail').textContent = currentUser ? ('Signed in as ' + currentUser.email) : '';
   document.getElementById('adminEntryCard').style.display = appState.isAdmin ? 'block' : 'none';
   document.getElementById('therapistEntryCard').style.display = appState.isTherapist ? 'block' : 'none';
@@ -4429,10 +4431,11 @@ function renderTaskListCal(){
         stitle.style.cursor = 'pointer';
         stitle.title = 'Tap to edit';
         stitle.onclick = function(){
-          var editInput = document.createElement('input');
-          editInput.type = 'text';
+          var editInput = document.createElement('textarea');
           editInput.value = sub.title;
-          editInput.style.cssText = 'flex:1;font-size:12px;color:#3A4A6A;border:1px solid #C7D2E8;border-radius:6px;padding:4px 6px;font-family:inherit;min-width:0;';
+          editInput.rows = 1;
+          editInput.style.cssText = 'flex:1;font-size:12px;color:#3A4A6A;border:1px solid #C7D2E8;border-radius:6px;padding:4px 6px;font-family:inherit;min-width:0;width:100%;resize:none;overflow:hidden;line-height:1.4;';
+          var autoGrow = function(){ editInput.style.height = 'auto'; editInput.style.height = editInput.scrollHeight + 'px'; };
           var finishEdit = function(){
             var newTitle = editInput.value.trim();
             if(newTitle && newTitle !== sub.title){
@@ -4444,9 +4447,11 @@ function renderTaskListCal(){
             }
             renderTaskListCal();
           };
+          editInput.addEventListener('input', autoGrow);
           editInput.addEventListener('blur', finishEdit);
           editInput.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); editInput.blur(); } });
           subRow.replaceChild(editInput, stitle);
+          autoGrow();
           editInput.focus();
           editInput.select();
         };
@@ -4768,10 +4773,15 @@ var sheetEditingTaskId = null;
 var sheetTaskImageUrl = null;
 var durationCycle = [15, 30, 45, 60];
 
+document.getElementById('sheetTaskInput').addEventListener('input', function(){
+  this.style.height = 'auto';
+  this.style.height = this.scrollHeight + 'px';
+});
+
 function openAddTaskSheet(dateKey){
   sheetEditingTaskId = null;
   sheetTargetKey = dateKey || bdSelectedKey || TODAY_KEY;
-  document.getElementById('sheetTaskInput').value = '';
+  document.getElementById('sheetTaskInput').value = ''; document.getElementById('sheetTaskInput').style.height = 'auto';
   document.getElementById('sheetTaskInput').placeholder = 'Add new task here';
   sheetDuration = 30; sheetRepeat = false; sheetPriority = null;
   document.getElementById('sheetDurationChip').lastChild.textContent = ' 30m';
@@ -4804,6 +4814,7 @@ function openEditTaskSheet(task, dateKey){
   sheetTargetKey = dateKey || bdSelectedKey || TODAY_KEY;
   document.getElementById('sheetTaskInput').value = task.title || '';
   document.getElementById('sheetTaskInput').placeholder = 'Edit your task...';
+  document.getElementById('sheetTaskInput').dispatchEvent(new Event('input')); // resize to fit the loaded title
   sheetDuration = task.duration || 30;
   sheetRepeat = !!task.repeat;
   sheetPriority = task.priority || null;
@@ -5069,7 +5080,7 @@ function commitTaskEdit(title, deadlineIso, subtaskRows){
     });
   }
 
-  document.getElementById('sheetTaskInput').value = '';
+  document.getElementById('sheetTaskInput').value = ''; document.getElementById('sheetTaskInput').style.height = 'auto';
   sheetEditingTaskId = null;
   sheetTaskImageUrl = null;
   return true;
@@ -5140,7 +5151,7 @@ document.getElementById('sheetDeleteTaskBtn').onclick = function(){
   if(idx !== -1) list.splice(idx, 1);
   saveState();
   sheetEditingTaskId = null; // clear first so nothing tries to re-save this task on close
-  document.getElementById('sheetTaskInput').value = '';
+  document.getElementById('sheetTaskInput').value = ''; document.getElementById('sheetTaskInput').style.height = 'auto';
   document.getElementById('addTaskSheetBackdrop').style.display = 'none';
   document.getElementById('addTaskSheet').style.display = 'none';
   if(sheetTargetKey === bdSelectedKey) renderBodyDoubleTaskList();
@@ -5957,7 +5968,7 @@ function renderAdminErrorLogs(){
 }
 
 var NOTIF_TYPE_LABELS = {
-  book_session: 'Book a session', task_reminder: 'Task reminder', mood_check: 'Mood check',
+  book_session: 'Book a session', task_add_reminder: 'Add-task nudge', task_complete_reminder: 'Mark-complete nudge', mood_check: 'Mood check',
   journal_reminder: 'Journal reminder', admin_manual: 'Manual (admin)', self_test: 'Self test', app_update: 'App update'
 };
 
@@ -6063,7 +6074,7 @@ var adminActiveCampaignId = null;
 function renderAdminExpertsManageList(){
   var listEl = document.getElementById('adminExpertsManageList');
   listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12px;">Loading...</p>';
-  sb.from('experts').select('id,name,role,role_category').order('role_category').then(function(result){
+  sb.from('experts').select('id,name,role,role_category,credential,years,photo_url').order('role_category').then(function(result){
     if(result.error){
       listEl.innerHTML = '<p style="color:#C77B7B;font-size:12px;">Could not load: '+result.error.message+'</p>';
       return;
@@ -6074,11 +6085,19 @@ function renderAdminExpertsManageList(){
       return;
     }
     listEl.innerHTML = experts.map(function(e){
-      return '<div style="display:flex;justify-content:space-between;align-items:center;background:#FFFFFF;border:1px solid #EEE0C4;border-radius:10px;padding:10px 12px;margin-bottom:6px;">'+
-        '<span style="font-size:12px;color:#2A2013;"><strong>'+e.name+'</strong><br><span style="color:#9AABCE;font-size:10.5px;">'+e.role+' · '+e.role_category+'</span></span>'+
-        '<button class="admin-delete-expert-btn" data-id="'+e.id+'" data-name="'+e.name+'" style="font-size:10.5px;font-weight:700;color:#C77B7B;background:none;border:1px solid #F0C7C7;border-radius:8px;padding:6px 10px;cursor:pointer;white-space:nowrap;">Remove</button>'+
+      return '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:10px;padding:10px 12px;margin-bottom:6px;">'+
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'+
+          '<span style="font-size:12px;color:#2A2013;"><strong>'+e.name+'</strong><br><span style="color:#9AABCE;font-size:10.5px;">'+e.role+' · '+e.role_category+'</span></span>'+
+        '</div>'+
+        '<div style="display:flex;gap:6px;">'+
+          '<button class="admin-edit-expert-btn" data-id="'+e.id+'" style="flex:1;font-size:10.5px;font-weight:700;color:#6690D6;background:#E9F0FB;border:none;border-radius:8px;padding:7px;cursor:pointer;">Edit</button>'+
+          '<button class="admin-link-expert-btn" data-id="'+e.id+'" data-name="'+e.name+'" style="flex:1;font-size:10.5px;font-weight:700;color:#3B8F63;background:#EAF4EE;border:none;border-radius:8px;padding:7px;cursor:pointer;">Link Account</button>'+
+          '<button class="admin-delete-expert-btn" data-id="'+e.id+'" data-name="'+e.name+'" style="flex:1;font-size:10.5px;font-weight:700;color:#C77B7B;background:none;border:1px solid #F0C7C7;border-radius:8px;padding:7px;cursor:pointer;">Remove</button>'+
+        '</div>'+
+        '<div class="admin-expert-edit-form" data-id="'+e.id+'" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid #F5F0E4;"></div>'+
       '</div>';
     }).join('');
+
     listEl.querySelectorAll('.admin-delete-expert-btn').forEach(function(btn){
       btn.onclick = function(){
         if(!confirm('Remove ' + btn.dataset.name + ' from the experts list? This only removes their public profile — it does not touch their account or booking history if they have one.')) return;
@@ -6087,6 +6106,52 @@ function renderAdminExpertsManageList(){
           showToast('Removed.');
           renderAdminExpertsManageList();
         });
+      };
+    });
+
+    // Link Account: for a professional whose public profile ALREADY exists (added once via
+    // "Add New Expert"), this connects a real email to that SAME existing profile instead of
+    // running through "Add New Expert & Invite" again, which would create a second, duplicate
+    // experts-table row for the same person -- exactly the duplication Akash flagged.
+    listEl.querySelectorAll('.admin-link-expert-btn').forEach(function(btn){
+      btn.onclick = function(){
+        var email = prompt('Link which email to this existing profile for ' + btn.dataset.name + '? When they sign up or sign in with this email, their account will be connected automatically -- no new profile will be created.');
+        if(!email || !email.trim()) return;
+        sb.from('therapist_invites').insert({ email: email.trim().toLowerCase(), expert_name: btn.dataset.name, claimed: false }).then(function(result){
+          if(result.error){ showToast('Could not link — please try again.'); return; }
+          showToast('Linked. ' + email.trim() + ' will connect to this profile on next sign-in.');
+        });
+      };
+    });
+
+    listEl.querySelectorAll('.admin-edit-expert-btn').forEach(function(btn){
+      btn.onclick = function(){
+        var expert = experts.find(function(e){ return e.id === btn.dataset.id; });
+        var formEl = listEl.querySelector('.admin-expert-edit-form[data-id="'+btn.dataset.id+'"]');
+        if(formEl.style.display === 'block'){ formEl.style.display = 'none'; return; }
+        formEl.innerHTML =
+          '<input type="text" class="edit-expert-name" value="'+expert.name.replace(/"/g,'&quot;')+'" placeholder="Full name" style="width:100%;padding:9px;border-radius:8px;border:1px solid #EEE0C4;font-size:11.5px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;">'+
+          '<input type="text" class="edit-expert-role" value="'+(expert.role||'').replace(/"/g,'&quot;')+'" placeholder="Role" style="width:100%;padding:9px;border-radius:8px;border:1px solid #EEE0C4;font-size:11.5px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;">'+
+          '<div style="display:flex;gap:6px;margin-bottom:6px;">'+
+            '<input type="text" class="edit-expert-credential" value="'+(expert.credential||'').replace(/"/g,'&quot;')+'" placeholder="Credential" style="flex:1;padding:9px;border-radius:8px;border:1px solid #EEE0C4;font-size:11.5px;font-family:inherit;box-sizing:border-box;">'+
+            '<input type="text" class="edit-expert-years" value="'+(expert.years||'').replace(/"/g,'&quot;')+'" placeholder="Experience" style="flex:1;padding:9px;border-radius:8px;border:1px solid #EEE0C4;font-size:11.5px;font-family:inherit;box-sizing:border-box;">'+
+          '</div>'+
+          '<button class="admin-save-expert-edit-btn" data-id="'+expert.id+'" style="width:100%;padding:9px;border-radius:8px;border:none;background:#6690D6;color:#fff;font-size:11px;font-weight:700;cursor:pointer;">Save Changes</button>';
+        formEl.style.display = 'block';
+        formEl.querySelector('.admin-save-expert-edit-btn').onclick = function(){
+          var updates = {
+            name: formEl.querySelector('.edit-expert-name').value.trim(),
+            role: formEl.querySelector('.edit-expert-role').value.trim(),
+            credential: formEl.querySelector('.edit-expert-credential').value.trim(),
+            years: formEl.querySelector('.edit-expert-years').value.trim()
+          };
+          if(!updates.name){ showToast('Name can\'t be empty.'); return; }
+          sb.from('experts').update(updates).eq('id', expert.id).then(function(result){
+            if(result.error){ showToast('Could not save — please try again.'); return; }
+            showToast('Updated.');
+            renderAdminExpertsManageList();
+          });
+        };
       };
     });
   });
