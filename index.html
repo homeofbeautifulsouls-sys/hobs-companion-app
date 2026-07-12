@@ -842,6 +842,16 @@
       </label>
       <div id="therapistRepeatDatesArea" style="display:none;margin-bottom:14px;background:#F9F6EE;border-radius:12px;padding:12px;max-height:180px;overflow-y:auto;"></div>
       <button id="therapistDayAddTimeBtn" style="display:block;width:100%;padding:12px;border-radius:10px;border:none;background:#3B8F63;color:#fff;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:14px;">Add Time</button>
+
+      <div style="border-top:1px solid #F0E9D8;margin:6px 0 14px;padding-top:14px;">
+        <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 4px;">Log an appointment outside the app</p>
+        <p style="font-size:10.5px;color:#B0AA98;margin:0 0 10px;">For clients who aren't on HOBS Companion (e.g. iPhone users) — this just tracks it on your calendar, no app account needed for them.</p>
+        <input type="text" id="therapistExternalClientName" placeholder="Client name" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:13px;font-family:inherit;box-sizing:border-box;margin-bottom:6px;">
+        <input type="text" id="therapistExternalClientContact" placeholder="Contact (phone/email) — optional" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:13px;font-family:inherit;box-sizing:border-box;margin-bottom:6px;">
+        <input type="time" id="therapistExternalTime" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:13px;font-family:inherit;box-sizing:border-box;margin-bottom:10px;">
+        <button id="therapistLogExternalBtn" style="display:block;width:100%;padding:12px;border-radius:10px;border:1px solid #6690D6;background:transparent;color:#6690D6;font-size:13px;font-weight:700;cursor:pointer;">Log Appointment</button>
+      </div>
+
       <button id="therapistDayEditorCloseBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:13px;font-weight:700;cursor:pointer;">Done</button>
     </div>
 
@@ -2229,7 +2239,7 @@ function openMyNotifInbox(){
         var log = r.notification_log || {};
         var when = new Date(r.sent_at).toLocaleString('en-IN', { dateStyle:'medium', timeStyle:'short' });
         var unreadDot = !r.opened_at ? '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#FDB913;margin-right:6px;"></span>' : '';
-        return '<div class="my-notif-row" data-notif-id="'+r.notification_id+'" style="padding:11px 0;border-bottom:1px solid #F5F0E4;cursor:pointer;">'+
+        return '<div class="my-notif-row" data-notif-id="'+r.notification_id+'" data-nav="'+encodeURIComponent(JSON.stringify(log.data||{}))+'" style="padding:11px 0;border-bottom:1px solid #F5F0E4;cursor:pointer;">'+
           '<p style="font-size:13px;font-weight:700;color:#2A2013;margin:0 0 3px;">'+unreadDot+(log.title||'HOBS Companion')+'</p>'+
           '<p style="font-size:11.5px;color:#5C6B94;margin:0 0 4px;">'+(log.body||'')+'</p>'+
           '<p style="font-size:10px;color:#9AABCE;margin:0;">'+when+'</p>'+
@@ -2237,9 +2247,16 @@ function openMyNotifInbox(){
       }).join('');
       listEl.querySelectorAll('.my-notif-row').forEach(function(row){
         row.onclick = function(){
-          markNotificationOpened(row.dataset.notifId);
-          var dot = row.querySelector('span');
-          if(dot) dot.remove(); // clear the unread dot visually right away
+          // This used to only mark the notification read and clear the dot -- it never actually
+          // took the person anywhere, even though tapping a real push notification (for the
+          // same underlying event) did navigate. Now both paths go through the same routing
+          // logic, closing the inbox modal first so the destination is actually visible.
+          var navData;
+          try { navData = JSON.parse(decodeURIComponent(row.dataset.nav)); } catch(e) { navData = {}; }
+          navData.notification_id = row.dataset.notifId;
+          document.getElementById('myNotifInboxBackdrop').style.display = 'none';
+          document.getElementById('myNotifInboxModal').style.display = 'none';
+          handleNotificationTap(navData);
         };
       });
       // Unread dot on the bell itself reflects whether anything in this batch is still unopened.
@@ -2327,11 +2344,29 @@ function initPushNotifications(){
 // Shared by both a tapped system-tray push (background) and a tapped local notification
 // (foreground receipt, posted by pushNotificationReceived above) -- same outcome either way.
 function handleNotificationTap(notifData){
-  if(notifData && notifData.type === 'app_update' && notifData.url){
+  var type = notifData && notifData.type;
+  if(type === 'app_update' && notifData.url){
     // Open the APK link directly so the browser/download manager takes over -- not an in-app screen.
     window.open(notifData.url, '_system');
+  } else if(type === 'book_session'){
+    renderTeamList(); showOnly('panel-team'); setActiveNav('navTasks');
+  } else if(type === 'task_add_reminder' || type === 'task_complete_reminder'){
+    showOnly('panel-calendar'); setActiveNav('navTasks');
+  } else if(type === 'mood_check'){
+    showOnly('panel-bubbles'); setActiveNav('navHome');
+  } else if(type === 'journal_reminder'){
+    renderHistory(); showOnly('panel-history'); setActiveNav('navJournal');
+  } else if(type === 'new_booking_request' && appState.isAdmin){
+    openAdminDashboard();
+  } else if((type === 'therapist_assignment' || type === 'session_confirmed' || type === 'session_time_proposed') && appState.userHasTherapist){
+    // Client-facing booking-lifecycle notifications -- land on their Profile, where the
+    // Therapist card shows exactly what state they're in (pick a time / pay now / confirmed).
+    renderProfile(); showOnly('panel-profile'); setActiveNav('navYou');
+  } else if((type === 'new_client_connected' || type === 'session_booked_alert') && appState.isTherapist){
+    openTherapistDashboard();
   } else {
-    // No deep-link routing yet for other types -- land safely on Home.
+    // Genuinely no specific destination for this type (or type wasn't set on an older/manual
+    // send) -- land safely on Home rather than guessing wrong.
     showOnly('panel-bubbles');
     setActiveNav('navHome');
   }
@@ -6362,14 +6397,41 @@ function renderAdminExpertsManageList(){
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'+
           '<span style="font-size:12px;color:#2A2013;"><strong>'+e.name+'</strong><br><span style="color:#9AABCE;font-size:10.5px;">'+e.role+' · '+e.role_category+'</span></span>'+
         '</div>'+
-        '<div style="display:flex;gap:6px;">'+
+        '<div style="display:flex;gap:6px;margin-bottom:6px;">'+
+          '<button class="admin-view-expert-btn" data-id="'+e.id+'" style="flex:1;font-size:10.5px;font-weight:700;color:#5C6B94;background:#F3F0E8;border:none;border-radius:8px;padding:7px;cursor:pointer;">View</button>'+
           '<button class="admin-edit-expert-btn" data-id="'+e.id+'" style="flex:1;font-size:10.5px;font-weight:700;color:#6690D6;background:#E9F0FB;border:none;border-radius:8px;padding:7px;cursor:pointer;">Edit</button>'+
+        '</div>'+
+        '<div style="display:flex;gap:6px;">'+
           '<button class="admin-link-expert-btn" data-id="'+e.id+'" data-name="'+e.name+'" style="flex:1;font-size:10.5px;font-weight:700;color:#3B8F63;background:#EAF4EE;border:none;border-radius:8px;padding:7px;cursor:pointer;">Link Account</button>'+
           '<button class="admin-delete-expert-btn" data-id="'+e.id+'" data-name="'+e.name+'" style="flex:1;font-size:10.5px;font-weight:700;color:#C77B7B;background:none;border:1px solid #F0C7C7;border-radius:8px;padding:7px;cursor:pointer;">Remove</button>'+
         '</div>'+
+        '<div class="admin-expert-view-panel" data-id="'+e.id+'" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid #F5F0E4;font-size:11.5px;color:#3A4A6A;line-height:1.6;"></div>'+
         '<div class="admin-expert-edit-form" data-id="'+e.id+'" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid #F5F0E4;"></div>'+
       '</div>';
     }).join('');
+
+    listEl.querySelectorAll('.admin-view-expert-btn').forEach(function(btn){
+      btn.onclick = function(){
+        var panelEl = listEl.querySelector('.admin-expert-view-panel[data-id="'+btn.dataset.id+'"]');
+        if(panelEl.style.display === 'block'){ panelEl.style.display = 'none'; return; }
+        panelEl.innerHTML = '<p style="color:#9AABCE;">Loading full profile…</p>';
+        panelEl.style.display = 'block';
+        sb.from('experts').select('*').eq('id', btn.dataset.id).single().then(function(result){
+          if(result.error || !result.data){ panelEl.innerHTML = '<p style="color:#C77B7B;">Could not load.</p>'; return; }
+          var ex = result.data;
+          var rows = [
+            ['Credential', ex.credential], ['Experience', ex.years],
+            ['Bio', ex.bio], ['Why this work', ex.why_therapist],
+            ['Qualifications (detail)', ex.qualifications_detail],
+            ['Approaches', ex.approaches], ['Specializations', ex.specializations],
+            ['Languages', ex.languages], ['Superpowers', ex.superpowers]
+          ];
+          panelEl.innerHTML = rows.filter(function(r){ return r[1]; }).map(function(r){
+            return '<p style="margin:0 0 8px;"><strong style="color:#2A2013;">'+r[0]+':</strong> '+r[1]+'</p>';
+          }).join('') || '<p style="color:#9AABCE;">No additional profile details filled in yet.</p>';
+        });
+      };
+    });
 
     listEl.querySelectorAll('.admin-delete-expert-btn').forEach(function(btn){
       btn.onclick = function(){
@@ -6390,8 +6452,14 @@ function renderAdminExpertsManageList(){
       btn.onclick = function(){
         var email = prompt('Link which email to this existing profile for ' + btn.dataset.name + '? When they sign up or sign in with this email, their account will be connected automatically -- no new profile will be created.');
         if(!email || !email.trim()) return;
-        sb.from('therapist_invites').insert({ email: email.trim().toLowerCase(), expert_name: btn.dataset.name, claimed: false }).then(function(result){
-          if(result.error){ showToast('Could not link — please try again.'); return; }
+        // Upsert, not insert -- email has a unique constraint, so re-linking an email that was
+        // already invited (even to a different profile, e.g. correcting a mistake) would
+        // otherwise fail outright instead of just updating where it points. Confirmed this was
+        // the actual cause of "Could not link" reports by checking the real data first.
+        sb.from('therapist_invites').upsert({
+          email: email.trim().toLowerCase(), expert_name: btn.dataset.name, claimed: false
+        }, { onConflict: 'email' }).then(function(result){
+          if(result.error){ showToast('Could not link — ' + result.error.message); return; }
           showToast('Linked. ' + email.trim() + ' will connect to this profile on next sign-in.');
         });
       };
@@ -6609,7 +6677,7 @@ function notifyProfessionalByName(expertName, title, body){
     if(result.error || !result.data || result.data.length === 0) return;
     result.data.forEach(function(p){
       sb.functions.invoke('send-push-notification', {
-        body: { title: title, body: body, userId: p.user_id, notificationType: 'admin_manual', targetDescription: 'Professional notification' }
+        body: { title: title, body: body, userId: p.user_id, notificationType: 'admin_manual', targetDescription: 'Professional notification', data: { type: 'new_client_connected' } }
       }).catch(function(){});
     });
   });
@@ -6630,7 +6698,8 @@ function assignPendingBooking(bookingId, expertName, clientUserId, category){
         body: "You've been matched with " + expertName + " for " + category.toLowerCase() + " support — come pick a time that works for you!",
         userId: clientUserId,
         notificationType: 'admin_manual',
-        targetDescription: 'Therapist assignment confirmation'
+        targetDescription: 'Therapist assignment confirmation',
+        data: { type: 'therapist_assignment' }
       }
     }).catch(function(){}); // best-effort -- don't block the assignment on notification delivery
     // Let the professional know they've got a new client too.
@@ -6847,7 +6916,8 @@ function directAssignUser(userId, category, expertName){
       body: {
         title: 'Bob here 🐘',
         body: "You've been matched with " + expertName + " for " + category.toLowerCase() + " support — come pick a time that works for you!",
-        userId: userId, notificationType: 'admin_manual', targetDescription: 'Direct therapist assignment'
+        userId: userId, notificationType: 'admin_manual', targetDescription: 'Direct therapist assignment',
+        data: { type: 'therapist_assignment' }
       }
     }).catch(function(){});
     notifyProfessionalByName(expertName, 'New client connected 🎉', "You've been connected with a new " + category.toLowerCase() + " client — check My Clients on your dashboard.");
@@ -7300,7 +7370,8 @@ function renderTherapistTimeRequests(){
           sb.functions.invoke('send-push-notification', {
             body: {
               title: 'Bob here 🐘', body: appState.therapistExpertName + " confirmed your session time!",
-              userId: req.user_id, notificationType: 'admin_manual', targetDescription: 'Session time confirmed'
+              userId: req.user_id, notificationType: 'admin_manual', targetDescription: 'Session time confirmed',
+              data: { type: 'session_confirmed' }
             }
           }).catch(function(){});
         });
@@ -7348,7 +7419,8 @@ function renderTherapistTimeRequests(){
             body: {
               title: 'Bob here 🐘',
               body: appState.therapistExpertName + " proposed a different time for your session — check the app for details.",
-              userId: btn.dataset.uid, notificationType: 'admin_manual', targetDescription: 'Session time proposed'
+              userId: btn.dataset.uid, notificationType: 'admin_manual', targetDescription: 'Session time proposed',
+              data: { type: 'session_time_proposed' }
             }
           }).catch(function(){});
         });
@@ -7361,7 +7433,7 @@ function renderTherapistClientsList(){
   var listEl = document.getElementById('therapistClientsList');
   listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">Loading...</p>';
   Promise.all([
-    sb.from('expert_bookings').select('user_id,status,session_date,created_at').eq('expert_name', appState.therapistExpertName).in('status', ['active','change_requested']),
+    sb.from('expert_bookings').select('user_id,status,session_date,created_at,is_external,external_client_name,external_client_contact').eq('expert_name', appState.therapistExpertName).in('status', ['active','change_requested']),
     sb.from('profiles').select('user_id,name,email,therapist_expert_name')
   ]).then(function(results){
     var bookingsRes = results[0], profilesRes = results[1];
@@ -7379,8 +7451,13 @@ function renderTherapistClientsList(){
       .filter(function(p){ return p.therapist_expert_name === appState.therapistExpertName; })
       .map(function(p){ return p.user_id; });
 
-    var byClient = {};
+    var byClient = {}; // real app users, keyed by user_id
+    var externalRows = []; // clients outside the app -- no stable identity to group by beyond what was typed each time
     (bookingsRes.data || []).forEach(function(b){
+      if(b.is_external){
+        externalRows.push(b);
+        return;
+      }
       if(selfUserIds.indexOf(b.user_id) !== -1) return;
       if(!byClient[b.user_id]) byClient[b.user_id] = { count: 0, latestSessionDate: null };
       byClient[b.user_id].count++;
@@ -7390,11 +7467,11 @@ function renderTherapistClientsList(){
     });
 
     var clientIds = Object.keys(byClient);
-    if(clientIds.length === 0){
+    if(clientIds.length === 0 && externalRows.length === 0){
       listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">No clients connected yet.</p>';
       return;
     }
-    listEl.innerHTML = clientIds.map(function(uid){
+    var appClientsHtml = clientIds.map(function(uid){
       var profile = profileByUserId[uid] || {};
       var info = byClient[uid];
       var sessionText = info.latestSessionDate
@@ -7406,6 +7483,17 @@ function renderTherapistClientsList(){
         '<p style="font-size:10px;color:#9AABCE;margin:0;">'+sessionText+'</p>'+
         '</div>';
     }).join('');
+
+    var externalClientsHtml = externalRows.map(function(b){
+      var sessionText = b.session_date ? new Date(b.session_date).toLocaleString('en-IN', {day:'numeric', month:'short', hour:'numeric', minute:'2-digit'}) : 'no time set';
+      return '<div style="background:#FFF8F0;border:1px dashed #EEE0C4;border-radius:12px;padding:11px 13px;margin-bottom:7px;">'+
+        '<p style="font-size:12.5px;font-weight:700;color:#2A2013;margin:0 0 2px;">'+(b.external_client_name||'Unnamed')+' <span style="font-size:9px;font-weight:700;color:#9AABCE;background:#F0EEE8;padding:2px 6px;border-radius:6px;">Outside app</span></p>'+
+        (b.external_client_contact ? '<p style="font-size:11px;color:#5C6B94;margin:0 0 2px;">'+b.external_client_contact+'</p>' : '')+
+        '<p style="font-size:10px;color:#9AABCE;margin:0;">'+sessionText+'</p>'+
+        '</div>';
+    }).join('');
+
+    listEl.innerHTML = appClientsHtml + externalClientsHtml;
   });
 }
 
@@ -7822,6 +7910,39 @@ document.getElementById('therapistDayAddTimeBtn').onclick = function(){
     showToast(rows.length > 1 ? ('Added to ' + rows.length + ' dates') : 'Time added');
     renderTherapistDaySlotsList();
     renderTherapistAvailabilityGrid();
+  });
+};
+
+// Logs an appointment directly for a client who isn't on HOBS Companion at all (e.g. iPhone
+// users, or anyone the therapist sees outside the app) -- still shows up in the therapist's own
+// calendar and counts toward real booking history, just without a real user_id, since there's
+// no app account to link it to.
+document.getElementById('therapistLogExternalBtn').onclick = function(){
+  var name = document.getElementById('therapistExternalClientName').value.trim();
+  var contact = document.getElementById('therapistExternalClientContact').value.trim();
+  var timeVal = document.getElementById('therapistExternalTime').value;
+  if(!name || !timeVal){
+    showToast('Add at least a client name and a time.');
+    return;
+  }
+  var timeParts = timeVal.split(':').map(Number);
+  var parts = therapistCalActiveDayKey.split('-').map(Number);
+  var fullDate = new Date(parts[0], parts[1]-1, parts[2], timeParts[0], timeParts[1]);
+
+  sb.from('experts').select('role_category').eq('name', appState.therapistExpertName).limit(1).then(function(expertResult){
+    var roleCategory = (expertResult.data && expertResult.data[0] && expertResult.data[0].role_category) || 'Therapist';
+    sb.from('expert_bookings').insert({
+      user_id: null, is_external: true, external_client_name: name, external_client_contact: contact || null,
+      expert_name: appState.therapistExpertName, role_category: roleCategory,
+      status: 'active', session_date: fullDate.toISOString(), payment_confirmed: true, cancellation_count: 0
+    }).then(function(result){
+      if(result.error){ showToast('Could not log — please try again.'); return; }
+      document.getElementById('therapistExternalClientName').value = '';
+      document.getElementById('therapistExternalClientContact').value = '';
+      document.getElementById('therapistExternalTime').value = '';
+      showToast('Logged.');
+      renderTherapistClientsList();
+    });
   });
 };
 document.getElementById('therapistDayEditorCloseBtn').onclick = function(){
