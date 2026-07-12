@@ -355,6 +355,71 @@
     <button id="obSaveBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:15px;font-weight:700;cursor:pointer;margin-top:18px;">Continue</button>
   </div>
 
+  <div id="consentGateOverlay" style="position:absolute;inset:0;z-index:101;background:#FFF8F0;display:none;flex-direction:column;padding:28px 22px;box-sizing:border-box;overflow-y:auto;">
+    <p style="text-align:center;font-size:18px;font-weight:800;color:#2E5090;margin:4px 0 4px;">Before we begin</p>
+    <p style="text-align:center;font-size:12px;color:#5C6B94;margin:0 0 20px;">Please read this and fill in your details — this has to be completed before you can use the app.</p>
+
+    <div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:14px;padding:16px;margin-bottom:16px;font-size:12px;color:#3A4A6A;line-height:1.6;">
+      <p style="font-weight:800;color:#2A2013;margin:0 0 8px;">Informed Consent — Home of Beautiful Souls Foundation</p>
+      <p style="margin:0 0 10px;">This is a real therapy consent agreement, not just app terms. It covers tele-consultation with our Clinical Team (Therapist, Peer Caregiver, and Psychiatrist).</p>
+
+      <p style="font-weight:700;color:#2A2013;margin:12px 0 4px;">Roles</p>
+      <p style="margin:0 0 8px;"><strong>Therapist:</strong> direct tele-psychotherapy, session notes, assessments, treatment recommendations. <strong>Peer Caregiver:</strong> non-clinical emotional/social support only — never diagnosis, treatment planning, or independent crisis intervention. <strong>Psychiatrist:</strong> medical oversight and pharmacological treatment where needed, on referral from your Therapist.</p>
+
+      <p style="font-weight:700;color:#2A2013;margin:12px 0 4px;">Confidentiality</p>
+      <p style="margin:0 0 8px;">Sessions are confidential and not recorded. Details are shared only if legally mandated, or with your specific consent for supervision/training purposes. Recording or sharing session content yourself is a serious breach and may end services.</p>
+
+      <p style="font-weight:700;color:#2A2013;margin:12px 0 4px;">Booking &amp; Cancellation</p>
+      <p style="margin:0 0 8px;">Sessions are booked and confirmed through the app. Cancelling more than 24 hours ahead carries no charge — the amount carries forward. Cancelling within 24 hours carries a 50% charge (once per calendar month); a second late cancellation in the same month is charged in full.</p>
+
+      <p style="font-weight:700;color:#2A2013;margin:12px 0 4px;">Emergencies &amp; Limits</p>
+      <p style="margin:0 0 8px;">This app is not an emergency service. In a genuine emergency, contact local emergency services or a crisis line directly — iCall: 9152987821 (Mon–Sat, 10am–8pm), or 112. If you're at risk of harming yourself or someone else, we may need to inform someone who can help protect you, including a listed emergency contact, even without your separate consent for that specific disclosure.</p>
+
+      <p style="font-weight:700;color:#2A2013;margin:12px 0 4px;">Responsibility</p>
+      <p style="margin:0 0 8px;">You understand the Clinical Team will use their professional judgment, and you agree not to hold them or HOBS responsible for adverse outcomes (lack of improvement, deterioration, or risk of harm) that occur during consultation — though you may still be advised to seek emergency or in-person care when needed.</p>
+
+      <p style="font-weight:700;color:#2A2013;margin:12px 0 4px;">No Suicide Agreement</p>
+      <p style="margin:0;">As part of this consultation, you agree that if you ever want to hurt or kill yourself, you will reach out to one of the emergency contacts you list below, or call them directly, before acting on that urge — and that you'll continue engaging with the Clinical Team rather than facing it alone.</p>
+    </div>
+
+    <label style="font-size:12px;font-weight:700;color:#2A2013;margin-bottom:6px;display:block;">Your residential address</label>
+    <textarea id="consentAddress" rows="2" placeholder="Full address" style="width:100%;padding:12px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:13px;box-sizing:border-box;margin-bottom:14px;resize:none;"></textarea>
+
+    <label style="font-size:12px;font-weight:700;color:#2A2013;margin-bottom:6px;display:block;">Your phone number</label>
+    <input id="consentPhone" type="tel" placeholder="Phone number" style="width:100%;padding:12px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:13px;box-sizing:border-box;margin-bottom:14px;">
+
+    <label style="font-size:12px;font-weight:700;color:#2A2013;margin-bottom:4px;display:block;">Emergency contacts</label>
+    <p style="font-size:11px;color:#9AABCE;margin:0 0 8px;">People who could be physically present if you needed them — this is who the No Suicide Agreement above refers to.</p>
+    <div style="display:flex;gap:6px;margin-bottom:8px;">
+      <input id="consentEC1Name" type="text" placeholder="Contact 1 name" style="flex:1;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
+      <input id="consentEC1Phone" type="tel" placeholder="Phone" style="flex:1;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:8px;">
+      <input id="consentEC2Name" type="text" placeholder="Contact 2 name" style="flex:1;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
+      <input id="consentEC2Phone" type="tel" placeholder="Phone" style="flex:1;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:16px;">
+      <input id="consentEC3Name" type="text" placeholder="Contact 3 name" style="flex:1;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
+      <input id="consentEC3Phone" type="tel" placeholder="Phone" style="flex:1;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
+    </div>
+
+    <label style="font-size:12px;font-weight:700;color:#2A2013;margin-bottom:8px;display:block;">I consent to being offered these session types</label>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
+      <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:#2A2013;cursor:pointer;"><input type="checkbox" id="consentChat" style="accent-color:#6690D6;width:16px;height:16px;"> Chat sessions</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:#2A2013;cursor:pointer;"><input type="checkbox" id="consentAudio" style="accent-color:#6690D6;width:16px;height:16px;"> Telephone / audio sessions</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:#2A2013;cursor:pointer;"><input type="checkbox" id="consentVideo" style="accent-color:#6690D6;width:16px;height:16px;"> Video sessions</label>
+    </div>
+
+    <label style="font-size:12px;font-weight:700;color:#2A2013;margin-bottom:6px;display:block;">Type your full name to sign — consent to the agreement above</label>
+    <input id="consentSignature" type="text" placeholder="Full name as signature" style="width:100%;padding:12px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:13px;box-sizing:border-box;margin-bottom:16px;">
+
+    <label style="font-size:12px;font-weight:700;color:#2A2013;margin-bottom:6px;display:block;">Type your full name to sign — the No Suicide Agreement specifically</label>
+    <input id="consentNoSuicideSignature" type="text" placeholder="Full name as signature" style="width:100%;padding:12px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:13px;box-sizing:border-box;margin-bottom:8px;">
+
+    <p id="consentGateError" style="display:none;color:#C77B7B;font-size:12px;text-align:center;margin:0 0 12px;">Please fill in every field above before continuing.</p>
+    <button id="consentGateSubmitBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:8px;">I Agree &amp; Continue</button>
+  </div>
+
   <div id="walkthroughOverlay" style="position:absolute;inset:0;z-index:100;background:#FFF8F0;display:none;flex-direction:column;padding:32px 24px;box-sizing:border-box;overflow:hidden;">
     <div id="walkthroughSlides" style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;transition:transform 0.25s ease, opacity 0.25s ease;touch-action:pan-y;"></div>
     <div id="walkthroughDots" style="display:flex;justify-content:center;gap:7px;margin:14px 0;"></div>
@@ -821,6 +886,7 @@
     <p style="font-size:11.5px;color:#9AABCE;margin:0 0 4px;" id="adminUserProfileEmail"></p>
     <p style="font-size:10.5px;color:#B0AA98;margin:0 0 16px;" id="adminUserProfileMeta"></p>
     <div id="adminUserProfileConnections"></div>
+    <div id="adminUserProfileConsentInfo" style="margin-top:14px;"></div>
     <button id="adminUserProfileDeleteBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #F0C7C7;background:transparent;color:#C77B7B;font-size:13px;font-weight:700;cursor:pointer;margin-top:18px;">Delete This Account</button>
     <button id="adminUserProfileCloseBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:13px;font-weight:700;cursor:pointer;margin-top:10px;">Close</button>
   </div>
@@ -1985,6 +2051,8 @@ function onAuthSuccess(user){
     checkUnreadNotifications();
     if(!appState.onboardingComplete){
       showOnboarding();
+    } else if(!appState.consentSigned && !appState.isTherapist){
+      showConsentGate();
     } else if(!appState.hasSeenIntro){
       showWalkthrough();
     } else {
@@ -2288,7 +2356,9 @@ document.getElementById('obSaveBtn').onclick = function(){
     appState.dateOfBirth = dob;
     appState.onboardingComplete = true;
     document.getElementById('onboardingOverlay').style.display = 'none';
-    if(!appState.hasSeenIntro){
+    if(!appState.consentSigned && !appState.isTherapist){
+      showConsentGate();
+    } else if(!appState.hasSeenIntro){
       showWalkthrough();
     } else {
       renderHomeGreeting();
@@ -2431,6 +2501,75 @@ var WALKTHROUGH_SLIDES = [
   }
 ];
 var walkthroughIdx = 0;
+
+// Mandatory therapy consent + No Suicide Agreement gate. Required for every user except
+// professionals (therapists), per Akash's explicit decision -- shown once, right after
+// onboarding, blocking all other app access until every field is filled in.
+function showConsentGate(){
+  document.getElementById('consentPhone').value = appState.phoneNumber || '';
+  document.getElementById('consentGateError').style.display = 'none';
+  document.getElementById('consentGateOverlay').style.display = 'flex';
+}
+
+document.getElementById('consentGateSubmitBtn').onclick = function(){
+  var fields = {
+    residential_address: document.getElementById('consentAddress').value.trim(),
+    contact_phone: document.getElementById('consentPhone').value.trim(),
+    emergency_contact_1_name: document.getElementById('consentEC1Name').value.trim(),
+    emergency_contact_1_phone: document.getElementById('consentEC1Phone').value.trim(),
+    emergency_contact_2_name: document.getElementById('consentEC2Name').value.trim(),
+    emergency_contact_2_phone: document.getElementById('consentEC2Phone').value.trim(),
+    emergency_contact_3_name: document.getElementById('consentEC3Name').value.trim(),
+    emergency_contact_3_phone: document.getElementById('consentEC3Phone').value.trim(),
+    signature_name: document.getElementById('consentSignature').value.trim(),
+    no_suicide_signature_name: document.getElementById('consentNoSuicideSignature').value.trim()
+  };
+  var consentChat = document.getElementById('consentChat').checked;
+  var consentAudio = document.getElementById('consentAudio').checked;
+  var consentVideo = document.getElementById('consentVideo').checked;
+
+  // Every field is required -- at least one session type must be checked, and both signature
+  // fields must be filled, per "they have to enter all the information or they won't be able
+  // to move forward."
+  var allTextFilled = Object.keys(fields).every(function(k){ return fields[k].length > 0; });
+  var atLeastOneModality = consentChat || consentAudio || consentVideo;
+  if(!allTextFilled || !atLeastOneModality){
+    document.getElementById('consentGateError').style.display = 'block';
+    document.getElementById('consentGateError').scrollIntoView({ behavior:'smooth', block:'center' });
+    return;
+  }
+  document.getElementById('consentGateError').style.display = 'none';
+
+  var todayStr = new Date().toISOString().slice(0,10);
+  var btn = document.getElementById('consentGateSubmitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  var payload = Object.assign({}, fields, {
+    user_id: currentUser.id,
+    consent_chat: consentChat, consent_audio: consentAudio, consent_video: consentVideo,
+    signature_date: todayStr, no_suicide_signature_date: todayStr
+  });
+
+  sb.from('consent_agreements').insert(payload).then(function(result){
+    if(result.error){
+      btn.disabled = false;
+      btn.textContent = 'I Agree & Continue';
+      showToast('Could not save — please check your connection and try again.');
+      return;
+    }
+    sb.from('profiles').update({ consent_signed: true }).eq('user_id', currentUser.id).then(function(){});
+    appState.consentSigned = true;
+    document.getElementById('consentGateOverlay').style.display = 'none';
+    btn.disabled = false;
+    btn.textContent = 'I Agree & Continue';
+    if(!appState.hasSeenIntro){
+      showWalkthrough();
+    } else {
+      renderHomeGreeting();
+    }
+  });
+};
 
 function showWalkthrough(){
   walkthroughIdx = 0;
@@ -2581,6 +2720,7 @@ function loadUserDataFromSupabase(){
       appState.phoneNumber = profileRes.data.phone_number || '';
       appState.dateOfBirth = profileRes.data.date_of_birth || '';
       appState.onboardingComplete = profileRes.data.onboarding_complete || false;
+      appState.consentSigned = profileRes.data.consent_signed || false;
       appState.hasSeenIntro = profileRes.data.has_seen_intro || false;
       appState.isAdmin = profileRes.data.is_admin || false;
       appState.isTherapist = profileRes.data.is_therapist || false;
@@ -6415,9 +6555,10 @@ function showAdminUserProfile(userId){
   Promise.all([
     sb.from('profiles').select('*').eq('user_id', userId).single(),
     sb.from('expert_bookings').select('*').eq('user_id', userId),
-    sb.from('experts').select('name,role_category')
+    sb.from('experts').select('name,role_category'),
+    sb.from('consent_agreements').select('*').eq('user_id', userId).order('created_at', {ascending:false}).limit(1)
   ]).then(function(results){
-    var profileRes = results[0], bookingsRes = results[1], expertsRes = results[2];
+    var profileRes = results[0], bookingsRes = results[1], expertsRes = results[2], consentRes = results[3];
     if(profileRes.error || !profileRes.data){
       document.getElementById('adminUserProfileName').textContent = 'Could not load this profile';
       return;
@@ -6471,6 +6612,21 @@ function showAdminUserProfile(userId){
         directAssignUser(userId, cat, select.value);
       };
     });
+
+    var consentEl = document.getElementById('adminUserProfileConsentInfo');
+    var c = (consentRes && !consentRes.error && consentRes.data && consentRes.data[0]) ? consentRes.data[0] : null;
+    if(!c){
+      consentEl.innerHTML = '<div style="background:#FBE8E8;border-radius:10px;padding:10px 12px;"><p style="font-size:11px;color:#8A4A4A;margin:0;font-weight:700;">⚠ Consent agreement not yet signed</p></div>';
+    } else {
+      consentEl.innerHTML =
+        '<p style="font-size:11px;font-weight:700;color:#9AABCE;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 6px;">Emergency Contacts (from signed consent)</p>'+
+        '<div style="background:#F9F6EE;border-radius:10px;padding:10px 12px;font-size:11.5px;color:#2A2013;line-height:1.7;">'+
+          (c.emergency_contact_1_name ? c.emergency_contact_1_name+' — '+c.emergency_contact_1_phone+'<br>' : '')+
+          (c.emergency_contact_2_name ? c.emergency_contact_2_name+' — '+c.emergency_contact_2_phone+'<br>' : '')+
+          (c.emergency_contact_3_name ? c.emergency_contact_3_name+' — '+c.emergency_contact_3_phone : '')+
+        '</div>'+
+        '<p style="font-size:10.5px;color:#9AABCE;margin:6px 0 0;">Signed '+new Date(c.created_at).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})+' · consented to: '+[c.consent_chat?'Chat':null,c.consent_audio?'Audio':null,c.consent_video?'Video':null].filter(Boolean).join(', ')+'</p>';
+    }
   });
 }
 document.getElementById('adminUserProfileCloseBtn').onclick = function(){
