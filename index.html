@@ -115,11 +115,13 @@
   .task-title-cal.done { color:#5C8F6E; font-weight:700; }
   .breakdown-btn { background:#F3F6FC; border:none; border-radius:8px; width:26px;height:26px; color:#6690D6; cursor:pointer; font-size:14px; flex-shrink:0; }
   .subtask-list { margin:10px 0 0 30px; display:flex; flex-direction:column; gap:6px; }
-  .subtask-row { display:flex; align-items:center; gap:8px; }
+  .subtask-row { display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:8px; transition:background 0.2s; }
+  .subtask-row.done-row { background:#EAF4EE; }
   .sub-checkbox { width:16px; height:16px; border-radius:5px; border:1.5px solid #C7D2E8; cursor:pointer; flex-shrink:0; }
   .sub-checkbox.done { background:#6690D6; border-color:#6690D6; }
+  .subtask-row.done-row .sub-checkbox.done { background:#3B8F63; border-color:#3B8F63; }
   .subtask-title { font-size:12px; color:#3A4A6A; }
-  .subtask-title.done { text-decoration:line-through; color:#B0AA98; }
+  .subtask-title.done { color:#3B8F63; font-weight:700; }
   .subtask-add { display:flex; gap:6px; margin:10px 0 0 30px; }
   .subtask-add input { flex:1; border:1px solid #EEE0C4; border-radius:8px; padding:6px 8px; font-size:11.5px; font-family:inherit; }
   .subtask-add button { border:none; background:#6690D6; color:#fff; border-radius:8px; padding:0 10px; font-size:11.5px; cursor:pointer; }
@@ -162,7 +164,8 @@
   /* ---- progress timeline ---- */
   .timeline-day { margin-bottom:18px; }
   .timeline-date { font-size:11px; font-weight:700; color:#9AABCE; margin:0 0 8px; }
-  .timeline-item { display:flex; align-items:center; gap:10px; background:#FFFFFF; border:1px solid #EEE0C4; border-radius:12px; padding:10px 12px; margin-bottom:6px; }
+  .timeline-item { display:flex; align-items:center; gap:10px; background:#FFFFFF; border:1px solid #EEE0C4; border-radius:12px; padding:10px 12px; margin-bottom:6px; transition:background 0.2s; }
+  .timeline-item.done-row { background:#EAF4EE; border-color:#CFE8DA; }
 
   /* ---- achievements ---- */
   .badge-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:16px; }
@@ -4356,7 +4359,7 @@ function renderTaskListCal(){
       var subList = document.createElement('div'); subList.className = 'subtask-list';
       var sortedSubs = task.subtasks.slice().sort(function(a,b){ return (a.sortOrder||0) - (b.sortOrder||0); });
       sortedSubs.forEach(function(sub){
-        var subRow = document.createElement('div'); subRow.className = 'subtask-row'; subRow.dataset.subId = sub.id;
+        var subRow = document.createElement('div'); subRow.className = 'subtask-row' + (sub.done ? ' done-row' : ''); subRow.dataset.subId = sub.id;
         var subHandle = document.createElement('span'); subHandle.className = 'drag-handle'; subHandle.innerHTML = '⠿';
         subHandle.style.cssText = 'color:#D9CFB8;font-size:13px;cursor:grab;padding:0 4px 0 0;touch-action:none;';
         subRow.appendChild(subHandle);
@@ -4628,14 +4631,14 @@ function renderBodyDoubleTaskList(){
   }
   relevant.forEach(function(t){
     var row = document.createElement('div');
-    row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:14px 4px;border-bottom:1px solid #F0E9D8;';
+    row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:14px 4px;border-bottom:1px solid #F0E9D8;transition:background 0.2s;'+(t.done ? 'background:#EAF4EE;border-radius:10px;' : '');
     var icon = document.createElement('div');
     icon.style.cssText = 'width:34px;height:34px;border-radius:50%;background:#E9F0FB;display:flex;align-items:center;justify-content:center;color:#6690D6;flex-shrink:0;';
     icon.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>';
     var textWrap = document.createElement('div');
     textWrap.style.cssText = 'flex:1;';
     var title = document.createElement('p');
-    title.style.cssText = 'font-size:14px;color:#2A2013;font-weight:600;margin:0;'+(t.done ? 'text-decoration:line-through;color:#B0AA98;' : '');
+    title.style.cssText = 'font-size:14px;color:#2A2013;font-weight:600;margin:0;'+(t.done ? 'color:#3B8F63;' : '');
     title.textContent = t.title;
     textWrap.appendChild(title);
     var cb = document.createElement('input');
@@ -5243,7 +5246,7 @@ function renderProgressTimeline(){
     var dayBlock = document.createElement('div'); dayBlock.className = 'timeline-day';
     dayBlock.innerHTML = '<p class="timeline-date">' + label + (key === TODAY_KEY ? ' · Today' : '') + '</p>';
     tasks.forEach(function(t){
-      var row = document.createElement('div'); row.className = 'timeline-item';
+      var row = document.createElement('div'); row.className = 'timeline-item' + (t.done ? ' done-row' : '');
       var cb = document.createElement('div'); cb.className = 'task-checkbox' + (t.done ? ' done' : ''); cb.innerHTML = t.done ? '✓' : '';
       cb.onclick = function(){
         t.done = !t.done; saveState();
@@ -5255,7 +5258,7 @@ function renderProgressTimeline(){
       pdot.style.background = t.priority ? PRIORITY_COLORS[t.priority] : '#EEE0C4';
       pdot.onclick = function(){ cyclePriority(t.id, key, renderProgressTimeline); };
       row.appendChild(pdot);
-      var title = document.createElement('span'); title.style.cssText = 'flex:1;font-size:13px;font-weight:600;color:#2A2013;' + (t.done ? 'text-decoration:line-through;color:#B0AA98;' : '');
+      var title = document.createElement('span'); title.style.cssText = 'flex:1;font-size:13px;font-weight:600;color:#2A2013;' + (t.done ? 'color:#3B8F63;' : '');
       title.textContent = t.title;
       row.appendChild(title);
       dayBlock.appendChild(row);
