@@ -539,6 +539,22 @@
       Our Experts
     </button>
     <div id="expertDetailContent"></div>
+    <div id="expertDetailDonationWidget" style="margin-top:18px;"></div>
+  </div>
+
+  <div id="donateModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.45);z-index:60;"></div>
+  <div id="donateModal" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;background:#FFFFFF;border-radius:24px 24px 0 0;padding:24px 22px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;z-index:61;box-shadow:0 -10px 30px rgba(0,0,0,0.15);max-height:85vh;overflow-y:auto;">
+    <p class="prompt-title" id="donateModalTitle" style="margin-bottom:4px;text-align:center;">Support this campaign</p>
+    <p style="font-size:12px;color:#5C6B94;margin:0 0 16px;text-align:center;" id="donateModalDescription"></p>
+    <input type="text" id="donateDonorName" placeholder="Your name (optional)" style="width:100%;padding:12px;border-radius:10px;border:1px solid #EEE0C4;font-size:13px;font-family:inherit;margin-bottom:8px;box-sizing:border-box;">
+    <input type="number" id="donateAmount" placeholder="Amount (₹)" style="width:100%;padding:12px;border-radius:10px;border:1px solid #EEE0C4;font-size:13px;font-family:inherit;margin-bottom:8px;box-sizing:border-box;">
+    <div style="display:flex;gap:6px;margin-bottom:14px;">
+      <button class="donate-preset-btn" data-amt="500" style="flex:1;padding:9px;border-radius:10px;border:1px solid #EEE0C4;background:transparent;color:#6690D6;font-size:12px;font-weight:700;cursor:pointer;">₹500</button>
+      <button class="donate-preset-btn" data-amt="1000" style="flex:1;padding:9px;border-radius:10px;border:1px solid #EEE0C4;background:transparent;color:#6690D6;font-size:12px;font-weight:700;cursor:pointer;">₹1000</button>
+      <button class="donate-preset-btn" data-amt="2500" style="flex:1;padding:9px;border-radius:10px;border:1px solid #EEE0C4;background:transparent;color:#6690D6;font-size:12px;font-weight:700;cursor:pointer;">₹2500</button>
+    </div>
+    <button id="donateContinueBtn" style="display:block;width:100%;padding:14px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:10px;">Continue to Payment</button>
+    <button id="donateCancelBtn" style="display:block;width:100%;padding:12px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:13px;font-weight:700;cursor:pointer;">Cancel</button>
   </div>
 
   <div class="content" id="panel-admin" style="display:none;">
@@ -621,6 +637,17 @@
       <button id="adminAddGroupSessionBtn" style="font-size:11px;font-weight:700;color:#fff;background:#6690D6;border:none;border-radius:10px;padding:10px 14px;cursor:pointer;white-space:nowrap;">Add</button>
     </div>
     <div id="adminGroupSessionsList" style="margin-bottom:22px;"></div>
+
+    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Donation Campaign</p>
+    <p style="font-size:11px;color:#B0AA98;margin:0 0 10px;">Shown on every professional's profile in the app, plus a public page anyone can share outside it.</p>
+    <div id="adminCampaignCurrentInfo" style="margin-bottom:10px;"></div>
+    <input type="text" id="adminCampaignTitle" placeholder="Campaign title" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;">
+    <textarea id="adminCampaignDescription" placeholder="Description — what this campaign is for" style="width:100%;min-height:60px;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;resize:vertical;"></textarea>
+    <input type="number" id="adminCampaignGoal" placeholder="Goal amount (₹)" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;">
+    <button id="adminCampaignSaveBtn" style="width:100%;padding:11px;border-radius:10px;border:none;background:#6690D6;color:#FFF8F0;font-size:12.5px;font-weight:700;cursor:pointer;margin-bottom:14px;">Save Campaign</button>
+
+    <p style="font-size:11px;font-weight:700;color:#7B4F00;margin:0 0 10px;">Pledged donations awaiting confirmation</p>
+    <div id="adminDonationsList" style="margin-bottom:22px;"></div>
 
     <p style="font-size:12px;font-weight:700;color:#C77B7B;margin:0 0 10px;">⚠ Pending Session Requests</p>
     <p style="font-size:11px;color:#B0AA98;margin:0 0 10px;">Clients waiting to be matched with a professional. Assign someone to move them forward.</p>
@@ -1683,6 +1710,7 @@ if (IS_NATIVE_APP && window.Capacitor?.Plugins?.App) {
       { backdrop: 'adminStatDetailModalBackdrop', modal: 'adminStatDetailModal' },
       { backdrop: 'adminUserProfileModalBackdrop', modal: 'adminUserProfileModal' },
       { backdrop: 'crisisResourceModalBackdrop', modal: 'crisisResourceModal' },
+      { backdrop: 'donateModalBackdrop', modal: 'donateModal' },
       { backdrop: 'dayMoodSheetBackdrop', modal: 'dayMoodSheet' }
     ];
     for(var i=0; i<openModals.length; i++){
@@ -5975,6 +6003,84 @@ document.getElementById('notifComposeSendBtn').onclick = function(){
 // assigned yet. Admin reviews and picks the actual professional (defaults to whoever the client
 // requested, but can be changed) -- confirming moves the booking to 'active' and the client then
 // gets to pick their session time from the calendar.
+var adminActiveCampaignId = null;
+function renderAdminCampaign(){
+  sb.from('donation_campaigns').select('*').eq('is_active', true).order('created_at', {ascending:false}).limit(1).then(function(result){
+    var infoEl = document.getElementById('adminCampaignCurrentInfo');
+    if(result.error || !result.data || result.data.length === 0){
+      adminActiveCampaignId = null;
+      infoEl.innerHTML = '<p style="font-size:11px;color:#B0AA98;">No active campaign yet — fill in the fields below to start one.</p>';
+      return;
+    }
+    var c = result.data[0];
+    adminActiveCampaignId = c.id;
+    document.getElementById('adminCampaignTitle').value = c.title;
+    document.getElementById('adminCampaignDescription').value = c.description || '';
+    document.getElementById('adminCampaignGoal').value = c.goal_amount;
+
+    sb.from('donations').select('amount').eq('campaign_id', c.id).eq('payment_confirmed', true).then(function(donResult){
+      var raised = (donResult.data || []).reduce(function(sum, d){ return sum + parseFloat(d.amount); }, 0);
+      infoEl.innerHTML = '<div style="background:#EAF4EE;border-radius:10px;padding:10px;"><p style="font-size:12px;color:#3B8F63;font-weight:700;margin:0;">₹'+raised.toLocaleString('en-IN')+' raised of ₹'+parseFloat(c.goal_amount).toLocaleString('en-IN')+' goal</p></div>';
+    });
+  });
+  renderAdminDonationsList();
+}
+
+document.getElementById('adminCampaignSaveBtn').onclick = function(){
+  var title = document.getElementById('adminCampaignTitle').value.trim();
+  var description = document.getElementById('adminCampaignDescription').value.trim();
+  var goal = parseFloat(document.getElementById('adminCampaignGoal').value);
+  if(!title || !goal || goal <= 0){
+    showToast('Add a title and a goal amount first.');
+    return;
+  }
+  if(adminActiveCampaignId){
+    sb.from('donation_campaigns').update({ title: title, description: description, goal_amount: goal }).eq('id', adminActiveCampaignId).then(function(result){
+      if(result.error){ showToast('Could not save — please try again.'); return; }
+      showToast('Campaign updated.');
+      renderAdminCampaign();
+    });
+  } else {
+    sb.from('donation_campaigns').insert({ title: title, description: description, goal_amount: goal, is_active: true }).then(function(result){
+      if(result.error){ showToast('Could not save — please try again.'); return; }
+      showToast('Campaign created.');
+      renderAdminCampaign();
+    });
+  }
+};
+
+function renderAdminDonationsList(){
+  var listEl = document.getElementById('adminDonationsList');
+  listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12px;">Loading...</p>';
+  sb.from('donations').select('*').eq('payment_confirmed', false).order('created_at', {ascending:false}).then(function(result){
+    if(result.error){
+      listEl.innerHTML = '<p style="color:#C77B7B;font-size:12px;">Could not load: '+result.error.message+'</p>';
+      return;
+    }
+    var pending = result.data || [];
+    if(pending.length === 0){
+      listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12px;">Nothing waiting on confirmation.</p>';
+      return;
+    }
+    listEl.innerHTML = pending.map(function(d){
+      var when = new Date(d.created_at).toLocaleDateString('en-IN', {day:'numeric', month:'short'});
+      return '<div style="display:flex;justify-content:space-between;align-items:center;background:#FFFFFF;border:1px solid #EEE0C4;border-radius:10px;padding:10px 12px;margin-bottom:6px;">'+
+        '<span style="font-size:12px;color:#2A2013;"><strong>₹'+parseFloat(d.amount).toLocaleString('en-IN')+'</strong> — '+(d.donor_name||'Anonymous')+' · '+when+'</span>'+
+        '<button class="admin-confirm-donation-btn" data-id="'+d.id+'" style="font-size:10.5px;font-weight:700;color:#fff;background:#3B8F63;border:none;border-radius:8px;padding:6px 10px;cursor:pointer;">Confirm</button>'+
+      '</div>';
+    }).join('');
+    listEl.querySelectorAll('.admin-confirm-donation-btn').forEach(function(btn){
+      btn.onclick = function(){
+        sb.from('donations').update({ payment_confirmed: true }).eq('id', btn.dataset.id).then(function(result){
+          if(result.error){ showToast('Could not confirm — please try again.'); return; }
+          showToast('Donation confirmed — thank them!');
+          renderAdminCampaign();
+        });
+      };
+    });
+  });
+}
+
 function renderAdminPendingRequests(){
   var listEl = document.getElementById('adminPendingRequestsList');
   listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">Loading...</p>';
@@ -6360,6 +6466,7 @@ function openAdminDashboard(){
   renderAdminNotifHistory();
   renderAdminAllUsers();
   renderAdminPendingRequests();
+  renderAdminCampaign();
   Promise.all([
     sb.from('expert_bookings').select('*').order('created_at', {ascending:false}),
     sb.from('profiles').select('user_id,name,email,phone_number')
@@ -7267,6 +7374,98 @@ function renderExpertAccordionItem(question, answer){
   '</div>';
 }
 
+var DONATE_PUBLIC_URL = 'https://homeofbeautifulsouls-sys.github.io/hobs-companion-app/donate.html';
+var currentDonateCampaign = null;
+
+// Shown on every professional's profile -- a compact campaign progress widget with a Donate
+// button and a Share button (uses the public donate.html page so it's viewable and shareable by
+// people who don't have the app at all, per "they can also share it outside the app").
+function renderExpertDetailDonationWidget(){
+  var widget = document.getElementById('expertDetailDonationWidget');
+  widget.innerHTML = '';
+  Promise.all([
+    sb.from('donation_campaigns').select('*').eq('is_active', true).order('created_at', {ascending:false}).limit(1),
+    sb.from('donations').select('amount, campaign_id').eq('payment_confirmed', true)
+  ]).then(function(results){
+    var campaignRes = results[0], donationsRes = results[1];
+    if(campaignRes.error || !campaignRes.data || campaignRes.data.length === 0) return; // no active campaign -- show nothing, not an error state
+    var c = campaignRes.data[0];
+    currentDonateCampaign = c;
+    var raised = (donationsRes.data || []).filter(function(d){ return d.campaign_id === c.id; }).reduce(function(sum, d){ return sum + parseFloat(d.amount); }, 0);
+    var pct = Math.min(100, Math.round((raised / parseFloat(c.goal_amount)) * 100));
+
+    widget.innerHTML =
+      '<div style="background:#FFF8F0;border:1px solid #EEE0C4;border-radius:16px;padding:16px;">'+
+        '<p style="font-size:12px;font-weight:700;color:#9AABCE;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 6px;">Support HOBS</p>'+
+        '<p style="font-size:14px;font-weight:800;color:#2A2013;margin:0 0 6px;">'+c.title+'</p>'+
+        (c.description ? '<p style="font-size:11.5px;color:#5C6B94;margin:0 0 12px;">'+c.description+'</p>' : '')+
+        '<div style="background:#EEE0C4;border-radius:20px;height:10px;overflow:hidden;margin-bottom:8px;">'+
+          '<div style="background:#3B8F63;height:100%;width:'+pct+'%;border-radius:20px;"></div>'+
+        '</div>'+
+        '<p style="font-size:11.5px;color:#3B8F63;font-weight:700;margin:0 0 14px;">₹'+raised.toLocaleString('en-IN')+' raised of ₹'+parseFloat(c.goal_amount).toLocaleString('en-IN')+' goal</p>'+
+        '<div style="display:flex;gap:8px;">'+
+          '<button id="expertDetailDonateBtn" style="flex:1;padding:12px;border-radius:12px;border:none;background:#6690D6;color:#FFF8F0;font-size:13px;font-weight:700;cursor:pointer;">Donate</button>'+
+          '<button id="expertDetailShareCampaignBtn" style="padding:12px 16px;border-radius:12px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:13px;font-weight:700;cursor:pointer;">Share</button>'+
+        '</div>'+
+      '</div>';
+
+    document.getElementById('expertDetailDonateBtn').onclick = function(){ openDonateModal(c); };
+    document.getElementById('expertDetailShareCampaignBtn').onclick = function(){ shareCampaign(c); };
+  });
+}
+
+function shareCampaign(c){
+  var shareText = 'Help support ' + c.title + ' with Home of Beautiful Souls Foundation: ' + DONATE_PUBLIC_URL;
+  if(navigator.share){
+    navigator.share({ title: c.title, text: 'Help support ' + c.title + ' with Home of Beautiful Souls Foundation', url: DONATE_PUBLIC_URL }).catch(function(){});
+  } else if(navigator.clipboard){
+    navigator.clipboard.writeText(shareText).then(function(){ showToast('Link copied — paste it anywhere to share'); });
+  } else {
+    showToast(DONATE_PUBLIC_URL);
+  }
+}
+
+function openDonateModal(c){
+  document.getElementById('donateModalTitle').textContent = c.title;
+  document.getElementById('donateModalDescription').textContent = c.description || '';
+  document.getElementById('donateDonorName').value = appState.displayName || '';
+  document.getElementById('donateAmount').value = '';
+  document.getElementById('donateModalBackdrop').style.display = 'block';
+  document.getElementById('donateModal').style.display = 'block';
+}
+document.querySelectorAll('.donate-preset-btn').forEach(function(btn){
+  btn.onclick = function(){ document.getElementById('donateAmount').value = btn.dataset.amt; };
+});
+document.getElementById('donateCancelBtn').onclick = function(){
+  document.getElementById('donateModalBackdrop').style.display = 'none';
+  document.getElementById('donateModal').style.display = 'none';
+};
+document.getElementById('donateModalBackdrop').onclick = document.getElementById('donateCancelBtn').onclick;
+document.getElementById('donateContinueBtn').onclick = function(){
+  var amount = parseFloat(document.getElementById('donateAmount').value);
+  if(!amount || amount <= 0){ showToast('Enter an amount first.'); return; }
+  var donorName = document.getElementById('donateDonorName').value.trim();
+  document.getElementById('donateModalBackdrop').style.display = 'none';
+  document.getElementById('donateModal').style.display = 'none';
+
+  showPaymentModal(
+    'Donation of ₹' + amount.toLocaleString('en-IN') + ' — ' + currentDonateCampaign.title,
+    "Hi! I've donated ₹" + amount + " to " + currentDonateCampaign.title + " and wanted to let you know.",
+    function(){
+      sb.from('donations').insert({
+        campaign_id: currentDonateCampaign.id, donor_name: donorName || null, amount: amount,
+        payment_confirmed: false, user_id: (currentUser && currentUser.id) || null
+      }).then(function(result){
+        if(!result.error){
+          logAnalyticsEvent('donation_pledged');
+          renderExpertDetailDonationWidget();
+        }
+      });
+    }
+  );
+};
+
+
 function openExpertDetail(idx){
   var m = TEAM_MEMBERS[idx];
   var initials = m.name.split(' ').filter(function(w){ return w!=='Dr.'; }).map(function(w){ return w[0]; }).slice(0,2).join('');
@@ -7388,6 +7587,7 @@ function openExpertDetail(idx){
   }
 
   showOnly('panel-expert-detail');
+  renderExpertDetailDonationWidget();
 }
 document.getElementById('expertDetailBackBtn').onclick = function(){ showOnly('panel-team'); };
 function teamPhotoFallback(img, initials){

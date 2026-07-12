@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Support HOBS — Home of Beautiful Souls Foundation</title>
+<meta property="og:title" content="Support Home of Beautiful Souls Foundation">
+<meta property="og:description" content="Help us continue making mental health support accessible.">
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #FFF8F0; color: #2A2013; margin: 0; padding: 0; }
+  .wrap { max-width: 480px; margin: 0 auto; padding: 24px 20px 60px; }
+  .logo { display: block; height: 40px; margin-bottom: 24px; }
+  h1 { color: #2E5090; font-size: 22px; margin: 0 0 6px; }
+  .desc { color: #5C6B94; font-size: 14px; line-height: 1.6; margin: 0 0 20px; }
+  .progress-track { background: #EEE0C4; border-radius: 20px; height: 14px; overflow: hidden; margin-bottom: 10px; }
+  .progress-fill { background: #3B8F63; height: 100%; border-radius: 20px; transition: width 0.4s; }
+  .stats { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 28px; }
+  .raised { color: #3B8F63; font-weight: 700; }
+  .goal { color: #9AABCE; }
+  .card { background: #FFFFFF; border: 1px solid #EEE0C4; border-radius: 20px; padding: 24px; }
+  input { width: 100%; padding: 13px 14px; border-radius: 12px; border: 1px solid #EEE0C4; font-size: 14px; font-family: inherit; box-sizing: border-box; margin-bottom: 10px; }
+  .presets { display: flex; gap: 8px; margin-bottom: 16px; }
+  .preset-btn { flex: 1; padding: 10px; border-radius: 10px; border: 1px solid #EEE0C4; background: transparent; color: #6690D6; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .preset-btn.active { background: #6690D6; color: #fff; }
+  button.primary { display: block; width: 100%; padding: 15px; border-radius: 14px; border: none; background: #6690D6; color: #FFF8F0; font-size: 15px; font-weight: 700; cursor: pointer; margin-bottom: 10px; }
+  .qr-area { text-align: center; display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid #F0E9D8; }
+  .qr-area img { width: 100%; max-width: 220px; border-radius: 16px; border: 1px solid #EEE0C4; margin-bottom: 12px; }
+  .upi { font-size: 11px; color: #9AABCE; margin-bottom: 14px; }
+  .status { text-align: center; font-size: 13px; margin-top: 14px; min-height: 18px; }
+  .footer-note { text-align: center; font-size: 11px; color: #B0AA98; margin-top: 24px; }
+  .footer-note a { color: #6690D6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p style="font-weight:800;color:#2E5090;font-size:16px;margin:0 0 24px;">HOBS · Home of Beautiful Souls Foundation</p>
+
+  <div id="campaignInfo">
+    <h1 id="campaignTitle">Loading…</h1>
+    <p class="desc" id="campaignDesc"></p>
+    <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%;"></div></div>
+    <div class="stats">
+      <span class="raised" id="raisedLabel">₹0 raised</span>
+      <span class="goal" id="goalLabel">of ₹0 goal</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <input type="text" id="donorName" placeholder="Your name (optional)">
+    <input type="number" id="donateAmount" placeholder="Amount (₹)">
+    <div class="presets">
+      <button class="preset-btn" data-amt="500">₹500</button>
+      <button class="preset-btn" data-amt="1000">₹1000</button>
+      <button class="preset-btn" data-amt="2500">₹2500</button>
+    </div>
+    <button class="primary" id="continueBtn">Continue to Payment</button>
+    <p style="font-size:11.5px;color:#9AABCE;text-align:center;margin:0;">A registered non-profit. Every contribution helps us keep mental health support accessible.</p>
+
+    <div class="qr-area" id="qrArea">
+      <img src="paytm-qr.jpg" alt="Paytm QR Code">
+      <p class="upi">UPI ID: 9426212083@ptyes</p>
+      <p style="font-size:12px;color:#5C6B94;margin:0 0 16px;">Scan with any UPI app to pay. Once you've paid, tap below to let us know.</p>
+      <button class="primary" id="paidBtn">I've Paid</button>
+    </div>
+    <p class="status" id="statusMsg"></p>
+  </div>
+
+  <p class="footer-note">Prefer to use the app? <a href="index.html">Open HOBS Companion</a></p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  var SUPABASE_URL = 'https://adjvptkzyckkvewbfmzf.supabase.co';
+  var SUPABASE_ANON_KEY = 'sb_publishable_OfcfAkUyxd9oXKeGvVxBIw_KxUV9TzE';
+  var sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  var activeCampaign = null;
+
+  function loadCampaign(){
+    Promise.all([
+      sb.from('donation_campaigns').select('*').eq('is_active', true).order('created_at', {ascending:false}).limit(1),
+      sb.from('donations').select('amount, campaign_id').eq('payment_confirmed', true)
+    ]).then(function(results){
+      var campaignRes = results[0], donationsRes = results[1];
+      if(campaignRes.error || !campaignRes.data || campaignRes.data.length === 0){
+        document.getElementById('campaignTitle').textContent = 'No active campaign right now';
+        document.getElementById('campaignDesc').textContent = 'Check back soon, or reach out directly to support HOBS.';
+        return;
+      }
+      var c = campaignRes.data[0];
+      activeCampaign = c;
+      document.getElementById('campaignTitle').textContent = c.title;
+      document.getElementById('campaignDesc').textContent = c.description || '';
+      var raised = (donationsRes.data || []).filter(function(d){ return d.campaign_id === c.id; }).reduce(function(sum, d){ return sum + parseFloat(d.amount); }, 0);
+      var pct = Math.min(100, Math.round((raised / parseFloat(c.goal_amount)) * 100));
+      document.getElementById('progressFill').style.width = pct + '%';
+      document.getElementById('raisedLabel').textContent = '₹' + raised.toLocaleString('en-IN') + ' raised';
+      document.getElementById('goalLabel').textContent = 'of ₹' + parseFloat(c.goal_amount).toLocaleString('en-IN') + ' goal';
+    });
+  }
+  loadCampaign();
+
+  document.querySelectorAll('.preset-btn').forEach(function(btn){
+    btn.onclick = function(){
+      document.getElementById('donateAmount').value = btn.dataset.amt;
+      document.querySelectorAll('.preset-btn').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+    };
+  });
+
+  var pendingAmount = null, pendingName = null;
+  document.getElementById('continueBtn').onclick = function(){
+    var amount = parseFloat(document.getElementById('donateAmount').value);
+    if(!amount || amount <= 0){
+      document.getElementById('statusMsg').textContent = 'Enter an amount first.';
+      document.getElementById('statusMsg').style.color = '#C77B7B';
+      return;
+    }
+    if(!activeCampaign){
+      document.getElementById('statusMsg').textContent = 'No active campaign to donate to right now.';
+      document.getElementById('statusMsg').style.color = '#C77B7B';
+      return;
+    }
+    pendingAmount = amount;
+    pendingName = document.getElementById('donorName').value.trim();
+    document.getElementById('statusMsg').textContent = '';
+    document.getElementById('qrArea').style.display = 'block';
+    document.getElementById('qrArea').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  };
+
+  document.getElementById('paidBtn').onclick = function(){
+    sb.from('donations').insert({
+      campaign_id: activeCampaign.id, donor_name: pendingName || null, amount: pendingAmount, payment_confirmed: false
+    }).then(function(result){
+      if(result.error){
+        document.getElementById('statusMsg').textContent = 'Something went wrong — please try again.';
+        document.getElementById('statusMsg').style.color = '#C77B7B';
+        return;
+      }
+      document.getElementById('qrArea').style.display = 'none';
+      document.getElementById('statusMsg').textContent = 'Thank you! We\'ll confirm your donation shortly.';
+      document.getElementById('statusMsg').style.color = '#3B8F63';
+      document.getElementById('donateAmount').value = '';
+      document.getElementById('donorName').value = '';
+      loadCampaign();
+    });
+  };
+</script>
+</body>
+</html>
