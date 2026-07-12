@@ -679,13 +679,25 @@
     <div id="therapistAllSlotsList" style="margin-bottom:22px;"></div>
 
     <div id="therapistDayEditorBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.45);z-index:60;"></div>
-    <div id="therapistDayEditor" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;background:#FFFFFF;border-radius:24px 24px 0 0;padding:24px 22px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;z-index:61;box-shadow:0 -10px 30px rgba(0,0,0,0.15);max-height:75vh;overflow-y:auto;">
+    <div id="therapistDayEditor" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;background:#FFFFFF;border-radius:24px 24px 0 0;padding:24px 22px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;z-index:61;box-shadow:0 -10px 30px rgba(0,0,0,0.15);max-height:80vh;overflow-y:auto;">
       <p id="therapistDayEditorTitle" style="font-size:16px;font-weight:800;color:#2E5090;margin:0 0 14px;text-align:center;"></p>
       <div id="therapistDaySlotsList" style="margin-bottom:14px;"></div>
-      <div style="display:flex;gap:6px;margin-bottom:14px;">
+      <div style="display:flex;gap:6px;margin-bottom:10px;">
         <input type="time" id="therapistDayNewTime" style="flex:1;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:13px;font-family:inherit;">
-        <button id="therapistDayAddTimeBtn" style="font-size:12px;font-weight:700;color:#fff;background:#3B8F63;border:none;border-radius:10px;padding:10px 14px;cursor:pointer;white-space:nowrap;">Add Time</button>
+        <select id="therapistDayNewDuration" style="padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:13px;font-family:inherit;">
+          <option value="15">15 min</option>
+          <option value="30">30 min</option>
+          <option value="45" selected>45 min</option>
+          <option value="60">60 min</option>
+          <option value="90">90 min</option>
+        </select>
       </div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#5C6B94;margin-bottom:10px;cursor:pointer;">
+        <input type="checkbox" id="therapistRepeatToggle" style="accent-color:#6690D6;">
+        Also add this same time to other days
+      </label>
+      <div id="therapistRepeatDatesArea" style="display:none;margin-bottom:14px;background:#F9F6EE;border-radius:12px;padding:12px;max-height:180px;overflow-y:auto;"></div>
+      <button id="therapistDayAddTimeBtn" style="display:block;width:100%;padding:12px;border-radius:10px;border:none;background:#3B8F63;color:#fff;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:14px;">Add Time</button>
       <button id="therapistDayEditorCloseBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:13px;font-weight:700;cursor:pointer;">Done</button>
     </div>
 
@@ -5569,7 +5581,11 @@ function showSlotPicker(m, onSlotChosen, onNoSlots){
     }
     document.getElementById('slotPickerSubtitle').textContent = 'Available times with ' + m.name;
     document.getElementById('slotPickerList').innerHTML = slots.map(function(s){
-      var dateLabel = new Date(s.slot_date).toLocaleString('en-US', { weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+      var startD = new Date(s.slot_date);
+      var duration = s.duration_minutes || 45;
+      var endD = new Date(startD.getTime() + duration*60000);
+      var dateLabel = startD.toLocaleString('en-US', { weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }) +
+        ' – ' + endD.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
       return '<button class="slot-picker-option" data-id="'+s.id+'" data-date="'+s.slot_date+'" style="display:block;width:100%;text-align:left;padding:13px 14px;border-radius:12px;border:1px solid #EEE0C4;background:#FFFFFF;color:#2A2013;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:8px;">'+dateLabel+'</button>';
     }).join('');
     document.getElementById('slotPickerModalBackdrop').style.display = 'block';
@@ -6907,7 +6923,7 @@ function renderTherapistAvailabilityGrid(){
       var d = new Date(s.slot_date);
       var key = d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
       if(!therapistCalSlotsByDay[key]) therapistCalSlotsByDay[key] = [];
-      therapistCalSlotsByDay[key].push({ id: s.id, time: d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}), rawDate: s.slot_date, is_booked: s.is_booked });
+      therapistCalSlotsByDay[key].push({ id: s.id, time: d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}), rawDate: s.slot_date, is_booked: s.is_booked, duration: s.duration_minutes || 45 });
     });
 
     var grid = document.getElementById('therapistAvailabilityGrid');
@@ -6996,8 +7012,13 @@ function renderTherapistDaySlotsList(){
   }
   wrap.innerHTML = slots.map(function(s){
     var statusLabel = s.is_booked ? '<span style="font-size:9px;font-weight:700;color:#C77B7B;background:#FBE8E8;padding:2px 6px;border-radius:6px;margin-left:6px;">Booked</span>' : '';
+    var timeLabel = s.time;
+    if(s.rawDate && s.duration){
+      var endD = new Date(new Date(s.rawDate).getTime() + s.duration*60000);
+      timeLabel = s.time + ' – ' + endD.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+    }
     return '<div style="display:flex;justify-content:space-between;align-items:center;background:#EAF4EE;border-radius:10px;padding:10px 12px;margin-bottom:6px;">'+
-      '<span style="font-size:13px;color:#2A2013;font-weight:600;">'+s.time+statusLabel+'</span>'+
+      '<span style="font-size:13px;color:#2A2013;font-weight:600;">'+timeLabel+statusLabel+'</span>'+
       (s.is_booked ? '' : '<button class="therapist-remove-daytime-btn" data-id="'+s.id+'" style="font-size:11px;color:#C77B7B;background:none;border:none;cursor:pointer;font-weight:700;">Remove</button>')+
     '</div>';
   }).join('');
@@ -7014,17 +7035,64 @@ function renderTherapistDaySlotsList(){
     };
   });
 }
+// Repeat picker: when enabled, shows the next several occurrences of the SAME weekday as the
+// day currently being edited, so a therapist can check off exactly which future dates should
+// also get this same time slot -- matches "I choose 7-7:45pm, then add the option to repeat,
+// add the same slot to a different date, I just have to select them."
+document.getElementById('therapistRepeatToggle').onchange = function(){
+  var area = document.getElementById('therapistRepeatDatesArea');
+  if(!this.checked){ area.style.display = 'none'; area.innerHTML = ''; return; }
+  area.style.display = 'block';
+  var parts = therapistCalActiveDayKey.split('-').map(Number);
+  var baseDate = new Date(parts[0], parts[1]-1, parts[2]);
+  var weekdayName = baseDate.toLocaleDateString('en-US', { weekday: 'long' });
+  var rows = [];
+  for(var i=1; i<=10; i++){
+    var d = new Date(baseDate);
+    d.setDate(d.getDate() + i*7); // same weekday, one week apart each
+    var key = d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
+    var label = d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+    rows.push('<label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:#2A2013;padding:6px 0;cursor:pointer;">'+
+      '<input type="checkbox" class="therapist-repeat-date-check" data-key="'+key+'" style="accent-color:#6690D6;">'+
+      'Next '+weekdayName+' — '+label+
+    '</label>');
+  }
+  area.innerHTML = '<p style="font-size:10.5px;color:#9AABCE;margin:0 0 6px;">Same time, same weekday — pick which future dates to add it to:</p>' + rows.join('');
+};
+
 document.getElementById('therapistDayAddTimeBtn').onclick = function(){
   var timeInput = document.getElementById('therapistDayNewTime');
   if(!timeInput.value) return;
-  var parts = therapistCalActiveDayKey.split('-').map(Number);
+  var duration = parseInt(document.getElementById('therapistDayNewDuration').value, 10);
   var timeParts = timeInput.value.split(':').map(Number);
-  var fullDate = new Date(parts[0], parts[1]-1, parts[2], timeParts[0], timeParts[1]);
-  sb.from('expert_availability_slots').insert({ expert_name: appState.therapistExpertName, slot_date: fullDate.toISOString(), is_booked: false }).select().single().then(function(result){
-    if(result.error) return;
+
+  var targetDateKeys = [therapistCalActiveDayKey];
+  if(document.getElementById('therapistRepeatToggle').checked){
+    document.querySelectorAll('.therapist-repeat-date-check:checked').forEach(function(cb){
+      targetDateKeys.push(cb.dataset.key);
+    });
+  }
+
+  var rows = targetDateKeys.map(function(dateKey){
+    var parts = dateKey.split('-').map(Number);
+    var fullDate = new Date(parts[0], parts[1]-1, parts[2], timeParts[0], timeParts[1]);
+    return { expert_name: appState.therapistExpertName, slot_date: fullDate.toISOString(), is_booked: false, duration_minutes: duration, dateKey: dateKey };
+  });
+  var insertRows = rows.map(function(r){ return { expert_name: r.expert_name, slot_date: r.slot_date, is_booked: r.is_booked, duration_minutes: r.duration_minutes }; });
+
+  sb.from('expert_availability_slots').insert(insertRows).select().then(function(result){
+    if(result.error){ showToast('Could not add — please try again.'); return; }
     timeInput.value = '';
-    if(!therapistCalSlotsByDay[therapistCalActiveDayKey]) therapistCalSlotsByDay[therapistCalActiveDayKey] = [];
-    therapistCalSlotsByDay[therapistCalActiveDayKey].push({ id: result.data.id, time: fullDate.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}), is_booked: false });
+    document.getElementById('therapistRepeatToggle').checked = false;
+    document.getElementById('therapistRepeatDatesArea').style.display = 'none';
+    document.getElementById('therapistRepeatDatesArea').innerHTML = '';
+    result.data.forEach(function(savedRow, i){
+      var dateKey = rows[i].dateKey;
+      if(!therapistCalSlotsByDay[dateKey]) therapistCalSlotsByDay[dateKey] = [];
+      var d = new Date(savedRow.slot_date);
+      therapistCalSlotsByDay[dateKey].push({ id: savedRow.id, time: d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}), rawDate: savedRow.slot_date, is_booked: false, duration: duration });
+    });
+    showToast(rows.length > 1 ? ('Added to ' + rows.length + ' dates') : 'Time added');
     renderTherapistDaySlotsList();
     renderTherapistAvailabilityGrid();
   });
