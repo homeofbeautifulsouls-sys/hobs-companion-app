@@ -3225,20 +3225,69 @@ function commitQuickJournalIfDirty(){
 // than narrow -- a false positive just shows a supportive resource banner (low cost), while a
 // missed real signal could genuinely matter. Mirrors the same crisis messaging already used for
 // screening test results, so the experience is consistent wherever it appears.
+//
+// IMPORTANT LIMITATION, stated honestly: this is keyword/phrase matching, and real research on
+// suicidal ideation detection (crisis text line studies, clinical NLP literature) is clear that
+// pure pattern matching cannot reliably catch truly indirect, metaphorical, or poetic expression
+// -- people often don't state things directly. This list is organized around the broader
+// thematic categories that research identifies as actually predictive (hopelessness, burden,
+// absolutist language, death-focus, farewell signals), not just literal "I want to die" phrases,
+// which meaningfully widens the net beyond the first version -- but it is still pattern matching,
+// not understanding, and will still miss things a human (or a real language model) would catch.
+// See maybeCheckJournalRiskViaAI() below for the more robust check this is paired with.
 var SELF_HARM_SIGNAL_PATTERNS = [
+  // Direct statements
   /kill(ing)?\s+myself/i, /suicid/i, /end(ing)?\s+(my\s+)?life/i, /end(ing)?\s+it\s+all/i,
-  /want(ed|ing)?\s+to\s+die/i, /wish(ed|ing)?\s+i\s+(was|were)\s+dead/i, /don'?t\s+want\s+to\s+(be\s+here|live|exist)/i,
-  /no\s+reason\s+to\s+live/i, /better\s+off\s+dead/i, /hurt(ing)?\s+myself/i, /harm(ing)?\s+myself/i,
-  /self[\s-]?harm/i, /cut(ting)?\s+myself/i, /can'?t\s+go\s+on/i, /(don'?t|dont)\s+want\s+to\s+wake\s+up/i
+  /want(ed|ing)?\s+to\s+die/i, /wish(ed|ing)?\s+i\s+(was|were)\s+dead/i,
+  /hurt(ing)?\s+myself/i, /harm(ing)?\s+myself/i, /self[\s-]?harm/i, /cut(ting)?\s+myself/i,
+  // Death-focus / wishful, not just literal "want to die"
+  /don'?t\s+want\s+to\s+(be\s+here|live|exist|wake\s+up)/i, /wish\s+i\s+(could\s+)?disappear/i,
+  /wonder(ing)?\s+what\s+it\s+(would\s+be\s+|'?s?\s+)?like\s+to\s+(just\s+)?(not\s+exist|die|be\s+dead)/i,
+  /wish(ed|ing)?\s+i\s+(could\s+)?(just\s+)?(disappear|not\s+exist|stop\s+existing|vanish)/i,
+  /want(ed|ing)?\s+to\s+(disappear|not\s+exist|stop\s+existing|vanish)/i,
+  /wish\s+i\s+(was|were)\s+never\s+born/i, /(fade|drift)\s+away\s+forever/i,
+  /just\s+want(ed)?\s+(it|everything)\s+to\s+stop/i, /wish\s+(this|it)\s+would\s+just\s+end/i,
+  // Burden / worthlessness
+  /(everyone|everybody|they)\s+('?d|would)\s+be\s+better\s+(off\s+)?without\s+me/i,
+  /(i'?m|i\s+am)\s+(such\s+a\s+)?burden/i, /no\s?one\s+(would\s+)?(miss|need)s?\s+me/i,
+  /world\s+would\s+be\s+(quieter|better|easier)\s+without\s+me/i,
+  // Farewell / finality signals
+  /this\s+is\s+(my\s+)?goodbye/i, /say(ing)?\s+goodbye\s+to\s+everyone/i,
+  /won'?t\s+be\s+(here|around)\s+much\s+longer/i, /running\s+out\s+of\s+time/i,
+  /(last|final)\s+(entry|time|goodbye|letter)/i, /giving\s+away\s+(my\s+)?(things|stuff|belongings)/i,
+  // Hopelessness / absolutist language (research-backed marker even without explicit death mention)
+  /nothing\s+will\s+ever\s+(get\s+better|change|matter)/i, /no\s+point\s+(in\s+)?(anymore|any\s?more|trying)/i,
+  /no\s+reason\s+to\s+(live|keep\s+going|go\s+on)/i, /(no|can'?t\s+see\s+a)\s+way\s+out/i,
+  /trapped\s+forever/i, /can'?t\s+go\s+on/i, /can'?t\s+(take|do)\s+this\s+any\s?more/i,
+  /(so\s+)?tired\s+of\s+(living|life|everything|trying|existing)/i, /done\s+with\s+(life|everything)/i,
+  /better\s+off\s+dead/i,
+  // Void / emptiness / disappearing themes common in indirect poetic language
+  /(swallowed|consumed)\s+by\s+(the\s+)?(dark|void|emptiness)/i, /empty\s+inside\s+forever/i,
+  /nothing\s+left\s+(in|of)\s+me/i
 ];
 function containsSelfHarmSignal(text){
   if(!text || !text.trim()) return false;
   return SELF_HARM_SIGNAL_PATTERNS.some(function(re){ return re.test(text); });
 }
-function maybeShowCrisisResources(text){
-  if(!containsSelfHarmSignal(text)) return;
+function showCrisisResourceModal(){
   document.getElementById('crisisResourceModalBackdrop').style.display = 'block';
   document.getElementById('crisisResourceModal').style.display = 'block';
+}
+function maybeShowCrisisResources(text){
+  // First line of defense: instant, offline, catches direct/clear language immediately.
+  if(containsSelfHarmSignal(text)){
+    showCrisisResourceModal();
+    return;
+  }
+  // Second line of defense: a real language-understanding check for indirect, metaphorical, or
+  // poetic expression the keyword list structurally can't catch -- runs in the background so it
+  // doesn't delay saving, and shows the same resources a few seconds later if it finds something
+  // the instant check missed. Fails silently/closed if not yet configured -- see the Edge
+  // Function for details.
+  if(!text || !text.trim() || !currentUser || !currentUser.id) return;
+  sb.functions.invoke('check-journal-risk', { body: { text: text } }).then(function(result){
+    if(result && result.data && result.data.riskDetected === true) showCrisisResourceModal();
+  }).catch(function(){});
 }
 document.getElementById('crisisResourceCloseBtn').onclick = function(){
   document.getElementById('crisisResourceModalBackdrop').style.display = 'none';
