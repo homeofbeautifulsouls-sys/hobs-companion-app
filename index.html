@@ -346,20 +346,14 @@
 
   <div id="onboardingOverlay" style="position:absolute;inset:0;z-index:100;background:#FFF8F0;display:none;flex-direction:column;padding:32px 24px;box-sizing:border-box;overflow-y:auto;">
     <p style="text-align:center;font-size:19px;font-weight:800;color:#2E5090;margin:8px 0 4px;">A couple of quick things</p>
-    <p style="text-align:center;font-size:12.5px;color:#5C6B94;margin:0 0 26px;">So we can talk to you the way you'd actually want.</p>
+    <p style="text-align:center;font-size:12.5px;color:#5C6B94;margin:0 0 26px;">Totally optional — so we can talk to you the way you'd actually want, if you'd like. You can always add or change this later in Profile.</p>
 
-    <label style="font-size:12px;font-weight:700;color:#2A2013;margin-bottom:6px;display:block;">What would you like to be called?</label>
+    <label style="font-size:12px;font-weight:700;color:#2A2013;margin-bottom:6px;display:block;">What would you like to be called? <span style="color:#B0AA98;font-weight:400;">(optional)</span></label>
     <input id="obName" type="text" placeholder="Your name" style="width:100%;padding:14px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:14px;box-sizing:border-box;margin-bottom:20px;">
 
-    <label style="font-size:12px;font-weight:700;color:#2A2013;margin-bottom:8px;display:block;">Pronouns</label>
+    <label style="font-size:12px;font-weight:700;color:#2A2013;margin-bottom:8px;display:block;">Pronouns <span style="color:#B0AA98;font-weight:400;">(optional)</span></label>
     <div id="obPronounChips" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;"></div>
-    <input id="obPronounCustom" type="text" placeholder="Or type your own" style="display:none;width:100%;padding:12px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:13px;box-sizing:border-box;margin-bottom:20px;">
-
-    <label style="font-size:12px;font-weight:700;color:#2A2013;margin-bottom:6px;display:block;">Phone number</label>
-    <input id="obPhone" type="tel" placeholder="Your phone number" style="width:100%;padding:14px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:14px;box-sizing:border-box;margin-bottom:20px;">
-
-    <label style="font-size:12px;font-weight:700;color:#2A2013;margin-bottom:6px;display:block;">Date of birth</label>
-    <input id="obDob" type="date" style="width:100%;padding:14px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:14px;box-sizing:border-box;margin-bottom:10px;">
+    <input id="obPronounCustom" type="text" placeholder="Or type your own" style="display:none;width:100%;padding:12px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:13px;box-sizing:border-box;margin-bottom:10px;">
 
     <p id="obError" style="display:none;color:#C77B7B;font-size:12px;text-align:center;margin:8px 0 0;"></p>
 
@@ -2394,8 +2388,6 @@ var PRONOUN_OPTIONS = ['She/Her', 'He/Him', 'They/Them', 'Prefer not to say', 'S
 function showOnboarding(){
   var meta = (currentUser.user_metadata || {});
   document.getElementById('obName').value = appState.displayName || meta.full_name || meta.name || '';
-  document.getElementById('obPhone').value = appState.phoneNumber || '';
-  document.getElementById('obDob').value = appState.dateOfBirth || '';
   document.getElementById('obPronounCustom').style.display = 'none';
   document.getElementById('obPronounCustom').value = '';
 
@@ -2425,25 +2417,26 @@ function showOnboarding(){
 
 document.getElementById('obSaveBtn').onclick = function(){
   var name = document.getElementById('obName').value.trim();
-  var phone = document.getElementById('obPhone').value.trim();
-  var dob = document.getElementById('obDob').value;
   var chipsWrap = document.getElementById('obPronounChips');
   var selected = chipsWrap.dataset.selected;
-  var pronouns = selected === 'Self-describe' ? document.getElementById('obPronounCustom').value.trim() : selected;
+  var pronouns = selected === 'Self-describe' ? document.getElementById('obPronounCustom').value.trim() : (selected || '');
 
   var errEl = document.getElementById('obError');
-  if(!name || !pronouns || !phone || !dob){
-    errEl.textContent = 'Please fill in all four fields to continue.';
-    errEl.style.display = 'block';
-    return;
-  }
+  errEl.style.display = 'none';
 
   var btn = document.getElementById('obSaveBtn');
   btn.textContent = 'Saving...'; btn.disabled = true;
 
-  var updatePayload = {
-    name: name, pronouns: pronouns, phone_number: phone, date_of_birth: dob, onboarding_complete: true, email: currentUser.email
-  };
+  // Nothing here is required -- name and pronouns are the only things this screen ever asks
+  // for now, and both are optional. Phone number and date of birth used to be required fields
+  // on this same screen for every user regardless of whether they ever intended to book a
+  // session; phone is already collected properly at the point it's actually needed (the
+  // clinical consent form when assigned a therapist), and date of birth was collecting more
+  // than the actual purpose needed -- there's already a separate 18+ confirmation checkbox at
+  // signup that does the real job an exact birthdate isn't necessary for.
+  var updatePayload = { onboarding_complete: true, email: currentUser.email };
+  if(name) updatePayload.name = name;
+  if(pronouns) updatePayload.pronouns = pronouns;
   if(justSignedUpWithChecksConfirmed){
     updatePayload.basic_tos_signed = true;
   }
@@ -2454,10 +2447,8 @@ document.getElementById('obSaveBtn').onclick = function(){
       errEl.style.display = 'block';
       return;
     }
-    appState.displayName = name;
-    appState.pronouns = pronouns;
-    appState.phoneNumber = phone;
-    appState.dateOfBirth = dob;
+    if(name) appState.displayName = name;
+    if(pronouns) appState.pronouns = pronouns;
     appState.onboardingComplete = true;
     if(justSignedUpWithChecksConfirmed){
       appState.basicTosSigned = true;
@@ -10057,7 +10048,11 @@ function getDisplayName(){
   var meta = currentUser.user_metadata || {};
   var full = meta.full_name || meta.name || '';
   if(full) return full.split(' ')[0];
-  if(currentUser.email) return currentUser.email.split('@')[0];
+  // Used to fall back to the email prefix here, but now that skipping the name field is
+  // common and actively encouraged (not an edge case), showing someone's raw email-derived
+  // string as their "name" throughout the app is worse than just having no name -- every
+  // caller of this function already has its own graceful fallback (e.g. "You") for an empty
+  // string, which reads better than an arbitrary email handle.
   return '';
 }
 
