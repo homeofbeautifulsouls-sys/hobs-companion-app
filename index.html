@@ -753,6 +753,16 @@
     <button id="slotPickerCloseBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:13px;font-weight:700;cursor:pointer;margin-top:10px;">Cancel</button>
   </div>
 
+  <div id="crisisResourceModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.5);z-index:70;"></div>
+  <div id="crisisResourceModal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:calc(100% - 48px);max-width:380px;background:#FFFFFF;border-radius:20px;padding:26px 22px;box-sizing:border-box;z-index:71;box-shadow:0 10px 40px rgba(0,0,0,0.2);text-align:center;">
+    <p style="font-size:15px;font-weight:800;color:#2A2013;margin:0 0 10px;">Before you go —</p>
+    <p style="font-size:13px;color:#5C6B94;line-height:1.6;margin:0 0 18px;">What you wrote sounds like it might be about a really hard place — thoughts of harming yourself, or not wanting to be here. You don't have to sit with that alone.</p>
+    <div style="background:#FBF2F2;border-radius:14px;padding:14px;margin-bottom:18px;text-align:left;">
+      <p style="font-size:12.5px;color:#8A4A4A;margin:0;line-height:1.7;"><strong>iCall: 9152987821</strong><br>Mon–Sat, 10am–8pm<br><strong>112</strong> for immediate emergency help</p>
+    </div>
+    <button id="crisisResourceCloseBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:13.5px;font-weight:700;cursor:pointer;">Okay</button>
+  </div>
+
   <div id="adminUserProfileModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.45);z-index:62;"></div>
   <div id="adminUserProfileModal" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;background:#FFFFFF;border-radius:24px 24px 0 0;padding:24px 22px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;z-index:63;box-shadow:0 -10px 30px rgba(0,0,0,0.15);max-height:85vh;overflow-y:auto;">
     <p class="prompt-title" id="adminUserProfileName" style="margin-bottom:2px;">Name</p>
@@ -1652,6 +1662,7 @@ if (IS_NATIVE_APP && window.Capacitor?.Plugins?.App) {
       { backdrop: 'myNotifInboxBackdrop', modal: 'myNotifInboxModal' },
       { backdrop: 'adminStatDetailModalBackdrop', modal: 'adminStatDetailModal' },
       { backdrop: 'adminUserProfileModalBackdrop', modal: 'adminUserProfileModal' },
+      { backdrop: 'crisisResourceModalBackdrop', modal: 'crisisResourceModal' },
       { backdrop: 'dayMoodSheetBackdrop', modal: 'dayMoodSheet' }
     ];
     for(var i=0; i<openModals.length; i++){
@@ -2506,6 +2517,13 @@ function loadUserDataFromSupabase(){
       appState.notificationsEnabled = profileRes.data.notifications_enabled !== false;
     }
 
+    // Rescue any journal entries sitting ONLY in local storage that were never actually synced
+    // to the server -- this was possible before a real bug was fixed where the main "Save
+    // entry" button skipped the Supabase sync entirely. Without this rescue step, the very next
+    // line (replacing appState.entries with the fresh server list) would silently and
+    // permanently discard them, since they don't exist server-side to be fetched back.
+    var unsyncedLocalEntries = (appState.entries || []).filter(function(e){ return !e.id; });
+
     appState.entries = (entriesRes.data || []).map(function(row){
       return {
         id: row.id, date: row.created_at, moods: row.moods || [], text: row.text || '',
@@ -2513,6 +2531,14 @@ function loadUserDataFromSupabase(){
         color: row.category_color, sharedWithTherapist: row.shared_with_therapist
       };
     });
+
+    if(unsyncedLocalEntries.length > 0 && currentUser && currentUser.id){
+      unsyncedLocalEntries.forEach(function(entry){
+        appState.entries.unshift(entry); // show it right away rather than waiting on the sync round-trip
+        saveEntryToSupabase(entry); // sync it now so it's finally not lost -- fills in entry.id once done
+      });
+      saveState();
+    }
 
     var subsByTask = {};
     (subtasksRes.data || []).forEach(function(s){
@@ -2796,6 +2822,28 @@ function commitMainJournalIfDirty(){
   var textEl = document.getElementById('journalText');
   var text = textEl.value;
   if(!selected.length && !text.trim()) return false;
+
+  if(editingEntryRef){
+    // Editing an existing entry in place, not creating a new one.
+    var entry = editingEntryRef;
+    entry.moods = selected.map(function(b){ return {label:b.label, color:b.base}; });
+    entry.text = text;
+    entry.sharedWithTherapist = shareEnabled;
+    saveState();
+    if(entry.id){
+      sb.from('entries').update({
+        moods: entry.moods, text: entry.text || '', shared_with_therapist: entry.sharedWithTherapist
+      }).eq('id', entry.id).then(function(){});
+    } else {
+      // This entry was never actually synced in the first place (from before this whole class
+      // of bug was fixed) -- treat editing it as the moment to finally save it for real.
+      saveEntryToSupabase(entry);
+    }
+    logAnalyticsEvent('journal_edited');
+    maybeShowCrisisResources(text);
+    return true;
+  }
+
   var entry = {
     date: new Date().toISOString(),
     moods: selected.map(function(b){ return {label:b.label, color:b.base}; }),
@@ -2807,12 +2855,15 @@ function commitMainJournalIfDirty(){
   saveEntryToSupabase(entry);
   trackNotificationAction(selected.length ? 'logged_mood' : 'wrote_journal_entry');
   logAnalyticsEvent(selected.length ? 'mood_logged' : 'journal_written');
+  maybeShowCrisisResources(text);
   return true;
 }
 
 function resetJournalState(){
   document.getElementById('journalText').value = '';
   shareEnabled = false;
+  editingEntryRef = null;
+  document.getElementById('saveNoteBtn').textContent = 'Save entry';
   document.getElementById('shareCheck').style.background = 'transparent';
   document.getElementById('shareCheck').style.borderColor = '#C7D2E8';
   document.getElementById('shareNote').style.display = 'none';
@@ -2826,19 +2877,19 @@ function resetJournalState(){
 var intakeReturnTo = 'journal';
 
 document.getElementById('saveNoteBtn').onclick = function(){
-  var entry = {
-    date: new Date().toISOString(),
-    moods: selected.map(function(b){ return {label:b.label, color:b.base}; }),
-    text: document.getElementById('journalText').value,
-    sharedWithTherapist: shareEnabled
-  };
-  appState.entries.unshift(entry);
-  saveState();
+  // This used to duplicate commitMainJournalIfDirty's logic inline, but an older, incomplete
+  // copy that was missing the actual Supabase sync call entirely -- entries saved via this
+  // button (the primary, explicit "Save entry" action) were only ever written to local
+  // storage, never the server. That meant they could vanish entirely on logout, reinstall, or
+  // switching devices, and never appeared for anyone using the app on a second device. Fixed
+  // by routing through the same shared function every other save path already correctly uses.
+  var distressMoods = ['Anxious', 'Restless', 'Heavy'];
+  var isDistressed = selected.some(function(b){ return distressMoods.indexOf(b.label) !== -1; });
+  var saved = commitMainJournalIfDirty();
+  if(!saved){ showToast('Write something or pick a mood first'); return; }
   document.getElementById('panel-journal').style.display = 'none';
   resetJournalState();
 
-  var distressMoods = ['Anxious', 'Restless', 'Heavy'];
-  var isDistressed = entry.moods.some(function(m){ return distressMoods.indexOf(m.label) !== -1; });
   if(isDistressed){
     renderGroundingList();
     showOnly('panel-grounding');
@@ -3167,8 +3218,34 @@ function commitQuickJournalIfDirty(){
   logAnalyticsEvent(quickJournalSelected.length ? 'mood_logged' : 'journal_written');
   textEl.value = '';
   quickJournalSelected = [];
+  maybeShowCrisisResources(text);
   return true;
 }
+// Free-text self-harm/suicide signal detection for journal entries. Deliberately broad rather
+// than narrow -- a false positive just shows a supportive resource banner (low cost), while a
+// missed real signal could genuinely matter. Mirrors the same crisis messaging already used for
+// screening test results, so the experience is consistent wherever it appears.
+var SELF_HARM_SIGNAL_PATTERNS = [
+  /kill(ing)?\s+myself/i, /suicid/i, /end(ing)?\s+(my\s+)?life/i, /end(ing)?\s+it\s+all/i,
+  /want(ed|ing)?\s+to\s+die/i, /wish(ed|ing)?\s+i\s+(was|were)\s+dead/i, /don'?t\s+want\s+to\s+(be\s+here|live|exist)/i,
+  /no\s+reason\s+to\s+live/i, /better\s+off\s+dead/i, /hurt(ing)?\s+myself/i, /harm(ing)?\s+myself/i,
+  /self[\s-]?harm/i, /cut(ting)?\s+myself/i, /can'?t\s+go\s+on/i, /(don'?t|dont)\s+want\s+to\s+wake\s+up/i
+];
+function containsSelfHarmSignal(text){
+  if(!text || !text.trim()) return false;
+  return SELF_HARM_SIGNAL_PATTERNS.some(function(re){ return re.test(text); });
+}
+function maybeShowCrisisResources(text){
+  if(!containsSelfHarmSignal(text)) return;
+  document.getElementById('crisisResourceModalBackdrop').style.display = 'block';
+  document.getElementById('crisisResourceModal').style.display = 'block';
+}
+document.getElementById('crisisResourceCloseBtn').onclick = function(){
+  document.getElementById('crisisResourceModalBackdrop').style.display = 'none';
+  document.getElementById('crisisResourceModal').style.display = 'none';
+};
+document.getElementById('crisisResourceModalBackdrop').onclick = document.getElementById('crisisResourceCloseBtn').onclick;
+
 function saveEntryToSupabase(entry){
   return new Promise(function(resolve){
     syncToSupabase('entries', {
@@ -3260,20 +3337,62 @@ function renderHistory(){
     }
 
     var isConnected = document.getElementById('demoHasTherapist').checked || appState.userHasTherapist;
+    var actionsRow = document.createElement('div');
+    actionsRow.style.cssText = 'display:flex;gap:14px;margin-top:8px;align-items:center;flex-wrap:wrap;';
+
     if(!e.sharedWithTherapist && isConnected){
       var shareBtn = document.createElement('button');
       shareBtn.textContent = 'Share with ' + (appState.therapistName || 'your therapist');
-      shareBtn.style.cssText = 'margin-top:8px;background:none;border:none;color:#6690D6;font-size:10.5px;font-weight:700;cursor:pointer;padding:0;text-decoration:underline;';
+      shareBtn.style.cssText = 'background:none;border:none;color:#6690D6;font-size:10.5px;font-weight:700;cursor:pointer;padding:0;text-decoration:underline;';
       shareBtn.onclick = function(){
         e.sharedWithTherapist = true;
         saveState();
+        // This used to only update local state -- since a therapist reads shared entries
+        // straight from the server, an entry marked "shared" here would never actually reach
+        // them without this sync.
+        if(e.id) sb.from('entries').update({ shared_with_therapist: true }).eq('id', e.id).then(function(){});
         renderHistory();
       };
-      card.appendChild(shareBtn);
+      actionsRow.appendChild(shareBtn);
     }
+
+    if(e.type !== 'worksheet'){
+      var editBtn = document.createElement('button');
+      editBtn.textContent = 'Edit';
+      editBtn.style.cssText = 'background:none;border:none;color:#9AABCE;font-size:10.5px;font-weight:700;cursor:pointer;padding:0;text-decoration:underline;';
+      editBtn.onclick = function(){ openEditEntrySheet(e); };
+      actionsRow.appendChild(editBtn);
+    }
+
+    if(actionsRow.children.length > 0) card.appendChild(actionsRow);
     list.appendChild(card);
   });
 }
+
+// Editing a past journal/mood entry -- reuses the main journal panel's UI (mood picker + text
+// area) rather than building a whole separate edit screen, since the fields are identical.
+var editingEntryRef = null;
+function openEditEntrySheet(entry){
+  editingEntryRef = entry;
+  document.getElementById('journalText').value = entry.text || '';
+  toClearAndReselectMoodsForEdit(entry.moods || []);
+  shareEnabled = !!entry.sharedWithTherapist;
+  document.getElementById('shareCheck').style.background = shareEnabled ? '#6690D6' : 'transparent';
+  document.getElementById('shareCheck').style.borderColor = shareEnabled ? '#6690D6' : '#C7D2E8';
+  document.getElementById('saveNoteBtn').textContent = 'Save changes';
+  showOnly('panel-journal');
+}
+function toClearAndReselectMoodsForEdit(moods){
+  // Clear whatever's currently selected in the mood picker, then re-select to match this entry.
+  selected.slice().forEach(function(b){ if(b.el) b.el.click(); });
+  var labelsToSelect = moods.map(function(m){ return m.label; });
+  if(typeof bubbles !== 'undefined'){
+    bubbles.forEach(function(b){
+      if(labelsToSelect.indexOf(b.label) !== -1 && b.el) b.el.click();
+    });
+  }
+}
+
 
 function renderProfile(){
   document.getElementById('profileAccountEmail').textContent = currentUser ? ('Signed in as ' + currentUser.email) : '';
