@@ -366,6 +366,22 @@
     <button id="obSaveBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:15px;font-weight:700;cursor:pointer;margin-top:18px;">Continue</button>
   </div>
 
+  <div id="basicTosGateOverlay" style="position:absolute;inset:0;z-index:101;background:#FFF8F0;display:none;flex-direction:column;justify-content:center;padding:28px 24px;box-sizing:border-box;">
+    <p style="text-align:center;font-size:18px;font-weight:800;color:#2E5090;margin:4px 0 8px;">We've updated our policies</p>
+    <p style="text-align:center;font-size:12.5px;color:#5C6B94;margin:0 0 24px;">Please confirm these before continuing — this only takes a second.</p>
+
+    <label style="display:flex;align-items:flex-start;gap:8px;font-size:12.5px;color:#2A2013;cursor:pointer;margin-bottom:10px;background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:14px;">
+      <input type="checkbox" id="basicTosAge18Check" style="accent-color:#6690D6;width:16px;height:16px;flex-shrink:0;margin-top:1px;">
+      I confirm I am 18 years of age or older.
+    </label>
+    <label style="display:flex;align-items:flex-start;gap:8px;font-size:12.5px;color:#2A2013;cursor:pointer;margin-bottom:8px;background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:14px;">
+      <input type="checkbox" id="basicTosAgreeCheck" style="accent-color:#6690D6;width:16px;height:16px;flex-shrink:0;margin-top:1px;">
+      I agree to the <a href="https://homeofbeautifulsouls-sys.github.io/hobs-companion-app/terms-of-service.html" target="_blank" style="color:#6690D6;" onclick="event.stopPropagation();">Terms of Service</a> and <a href="https://homeofbeautifulsouls-sys.github.io/hobs-companion-app/privacy-policy.html" target="_blank" style="color:#6690D6;" onclick="event.stopPropagation();">Privacy Policy</a>, including the upcoming features listed there.
+    </label>
+    <p id="basicTosGateError" style="display:none;color:#C77B7B;font-size:12px;text-align:center;margin:12px 0 0;">Please confirm both boxes above before continuing.</p>
+    <button id="basicTosGateSubmitBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:15px;font-weight:700;cursor:pointer;margin-top:18px;">Continue</button>
+  </div>
+
   <div id="consentGateOverlay" style="position:absolute;inset:0;z-index:101;background:#FFF8F0;display:none;flex-direction:column;padding:28px 22px;box-sizing:border-box;overflow-y:auto;">
     <p style="text-align:center;font-size:18px;font-weight:800;color:#2E5090;margin:4px 0 4px;">One more thing before your first session</p>
     <p style="text-align:center;font-size:12px;color:#5C6B94;margin:0 0 20px;">You've been connected with a therapist! Please read this and fill in your details — this has to be completed before you can pick a session time.</p>
@@ -647,6 +663,14 @@
     </button>
     <p class="prompt-title" style="text-align:center;">Booking Dashboard</p>
     <p class="prompt-sub" style="text-align:center;margin-bottom:18px;">Every booking, change request, and cancellation across all clients.</p>
+
+    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Policy Updates</p>
+    <div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:14px;padding:14px;margin-bottom:18px;">
+      <p style="font-size:11.5px;color:#5C6B94;margin:0 0 10px;">Notify everyone who's already signed the therapy consent that the Terms of Service / Privacy Policy have been updated (currently: the new "Upcoming Features" section covering the SOS button and automated email communications).</p>
+      <button id="adminNotifyPolicyUpdateBtn" style="width:100%;padding:11px;border-radius:10px;border:none;background:#6690D6;color:#FFF8F0;font-size:12px;font-weight:700;cursor:pointer;">Notify Consented Users of Policy Update</button>
+      <p id="adminNotifyPolicyUpdateStatus" style="font-size:11px;color:#3B8F63;margin:8px 0 0;display:none;"></p>
+    </div>
+
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Overview</p>
     <div id="adminAnalyticsRow" style="display:flex;gap:8px;margin-bottom:18px;"></div>
 
@@ -1732,6 +1756,7 @@ function retryPendingSync(){
 }
 
 var authMode = 'signin';
+var justSignedUpWithChecksConfirmed = false; // set true right after a fresh signup where the 18+/ToS checkboxes were already checked -- lets onboarding-save skip showing the redundant basic ToS gate right after
 
 function showAuthError(msg){
   var el = document.getElementById('authError');
@@ -2056,6 +2081,12 @@ document.getElementById('authSubmitBtn').onclick = function(){
       document.getElementById('authToggleModeBtn').textContent = 'Already have an account? Sign in';
       return;
     }
+    if(authMode === 'signup'){
+      // Don't write basic_tos_signed here -- the profiles row may not exist yet this soon after
+      // signUp() resolves (it's created by a database trigger, not synchronously). Piggyback
+      // the actual write onto the onboarding-save update instead, once we know the row exists.
+      justSignedUpWithChecksConfirmed = true;
+    }
     onAuthSuccess(result.data.user);
   }).catch(function(err){
     btn.disabled = false;
@@ -2077,6 +2108,11 @@ function onAuthSuccess(user){
     checkUnreadNotifications();
     if(!appState.onboardingComplete){
       showOnboarding();
+    } else if(!appState.basicTosSigned){
+      // Applies to literally everyone, including therapists -- unlike the clinical consent
+      // gate below, there's no professional exemption here, since this is just the general
+      // app Terms of Service, which every account needs regardless of role.
+      showBasicTosGate();
     } else if(appState.userHasTherapist && !appState.consentSigned && !appState.isTherapist){
       // Covers existing users who already had a therapist connection before this gate existed,
       // and anyone assigned while they weren't actively in the app -- without this, they'd only
@@ -2370,9 +2406,13 @@ document.getElementById('obSaveBtn').onclick = function(){
   var btn = document.getElementById('obSaveBtn');
   btn.textContent = 'Saving...'; btn.disabled = true;
 
-  sb.from('profiles').update({
+  var updatePayload = {
     name: name, pronouns: pronouns, phone_number: phone, date_of_birth: dob, onboarding_complete: true, email: currentUser.email
-  }).eq('user_id', currentUser.id).then(function(result){
+  };
+  if(justSignedUpWithChecksConfirmed){
+    updatePayload.basic_tos_signed = true;
+  }
+  sb.from('profiles').update(updatePayload).eq('user_id', currentUser.id).then(function(result){
     btn.textContent = 'Continue'; btn.disabled = false;
     if(result.error){
       errEl.textContent = 'Could not save — check your connection and try again.';
@@ -2384,8 +2424,16 @@ document.getElementById('obSaveBtn').onclick = function(){
     appState.phoneNumber = phone;
     appState.dateOfBirth = dob;
     appState.onboardingComplete = true;
+    if(justSignedUpWithChecksConfirmed){
+      appState.basicTosSigned = true;
+      justSignedUpWithChecksConfirmed = false;
+    }
     document.getElementById('onboardingOverlay').style.display = 'none';
-    if(!appState.hasSeenIntro){
+    if(!appState.basicTosSigned){
+      // Also closes a real gap: Google OAuth signups never saw the email/password signup
+      // screen's checkboxes, so this is their actual first checkpoint for this.
+      showBasicTosGate();
+    } else if(!appState.hasSeenIntro){
       showWalkthrough();
     } else {
       renderHomeGreeting();
@@ -2536,6 +2584,42 @@ var walkthroughIdx = 0;
 // checkbox are handled separately at signup for everyone; THIS form is the fuller clinical
 // consent + No Suicide Agreement, shown once a real therapist connection exists.
 var consentGatePendingAction = null; // what to resume once consent is signed (usually: pick a session time)
+// General ToS + 18+ gate for literally everyone -- separate from and simpler than the clinical
+// consent gate below. Exists specifically to (a) catch every existing account from before the
+// signup-time checkboxes existed, and (b) catch Google OAuth signups, which never see those
+// checkboxes at all since that flow skips the email/password form entirely.
+function showBasicTosGate(){
+  document.getElementById('basicTosGateError').style.display = 'none';
+  document.getElementById('basicTosAge18Check').checked = false;
+  document.getElementById('basicTosAgreeCheck').checked = false;
+  document.getElementById('basicTosGateOverlay').style.display = 'flex';
+}
+document.getElementById('basicTosGateSubmitBtn').onclick = function(){
+  if(!document.getElementById('basicTosAge18Check').checked || !document.getElementById('basicTosAgreeCheck').checked){
+    document.getElementById('basicTosGateError').style.display = 'block';
+    return;
+  }
+  document.getElementById('basicTosGateError').style.display = 'none';
+  var btn = document.getElementById('basicTosGateSubmitBtn');
+  btn.disabled = true;
+  sb.from('profiles').update({ basic_tos_signed: true }).eq('user_id', currentUser.id).then(function(result){
+    btn.disabled = false;
+    if(result.error){
+      showToast('Could not save — please check your connection and try again.');
+      return;
+    }
+    appState.basicTosSigned = true;
+    document.getElementById('basicTosGateOverlay').style.display = 'none';
+    if(appState.userHasTherapist && !appState.consentSigned && !appState.isTherapist){
+      showConsentGate();
+    } else if(!appState.hasSeenIntro){
+      showWalkthrough();
+    } else {
+      renderHomeGreeting();
+    }
+  });
+};
+
 function showConsentGate(resumeAction){
   consentGatePendingAction = resumeAction || null;
   document.getElementById('consentPhone').value = appState.phoneNumber || '';
@@ -2762,6 +2846,7 @@ function loadUserDataFromSupabase(){
       appState.dateOfBirth = profileRes.data.date_of_birth || '';
       appState.onboardingComplete = profileRes.data.onboarding_complete || false;
       appState.consentSigned = profileRes.data.consent_signed || false;
+      appState.basicTosSigned = profileRes.data.basic_tos_signed || false;
       appState.hasSeenIntro = profileRes.data.has_seen_intro || false;
       appState.isAdmin = profileRes.data.is_admin || false;
       appState.isTherapist = profileRes.data.is_therapist || false;
@@ -6344,6 +6429,45 @@ function renderAdminExpertsManageList(){
     });
   });
 }
+
+document.getElementById('adminNotifyPolicyUpdateBtn').onclick = function(){
+  var btn = this;
+  var statusEl = document.getElementById('adminNotifyPolicyUpdateStatus');
+  sb.from('profiles').select('user_id').eq('consent_signed', true).then(function(result){
+    if(result.error || !result.data){ showToast('Could not load the list — please try again.'); return; }
+    var userIds = result.data.map(function(p){ return p.user_id; });
+    if(userIds.length === 0){
+      statusEl.style.display = 'block';
+      statusEl.style.color = '#9AABCE';
+      statusEl.textContent = 'No one has signed the consent form yet — nothing to notify.';
+      return;
+    }
+    if(!confirm('Send a policy-update notification to ' + userIds.length + ' user' + (userIds.length===1?'':'s') + ' who have signed the consent form?')) return;
+
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    sb.functions.invoke('send-push-notification', {
+      body: {
+        title: 'Bob here 🐘',
+        body: "We've updated our Terms of Service and Privacy Policy — nothing you need to do, just wanted you to know. Check the app for details.",
+        userIds: userIds,
+        notificationType: 'admin_manual',
+        targetDescription: 'Policy update notice (consented users)'
+      }
+    }).then(function(result){
+      btn.disabled = false;
+      btn.textContent = 'Notify Consented Users of Policy Update';
+      statusEl.style.display = 'block';
+      if(result.error){
+        statusEl.style.color = '#C77B7B';
+        statusEl.textContent = 'Could not send — please try again.';
+        return;
+      }
+      statusEl.style.color = '#3B8F63';
+      statusEl.textContent = 'Sent to ' + ((result.data && result.data.sent) || 0) + ' of ' + userIds.length + ' user(s).';
+    });
+  });
+};
 
 function renderAdminCampaign(){
   sb.from('donation_campaigns').select('*').eq('is_active', true).order('created_at', {ascending:false}).limit(1).then(function(result){
