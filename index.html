@@ -2529,11 +2529,24 @@ function loadUserDataFromSupabase(){
     sb.from('entries').select('*').eq('user_id', uid).order('created_at', {ascending:false}),
     sb.from('tasks').select('*').eq('user_id', uid),
     sb.from('subtasks').select('*').eq('user_id', uid),
-    sb.from('expert_bookings').select('*').eq('user_id', uid)
+    sb.from('expert_bookings').select('*').eq('user_id', uid),
+    sb.from('worksheet_responses').select('*').eq('user_id', uid)
   ]).then(function(results){
-    var profileRes = results[0], entriesRes = results[1], tasksRes = results[2], subtasksRes = results[3], bookingsRes = results[4];
+    var profileRes = results[0], entriesRes = results[1], tasksRes = results[2], subtasksRes = results[3], bookingsRes = results[4], worksheetRes = results[5];
 
     appState.expertBookings = (bookingsRes && !bookingsRes.error && bookingsRes.data) ? bookingsRes.data : [];
+
+    // worksheet_responses was being written on every save but never read back anywhere --
+    // appState.worksheetEntries only ever got populated in-memory at the moment of saving, so
+    // past worksheet answers looked empty on any fresh session (new device, reinstall, or just
+    // reopening the app after local state was cleared) even though the data was safely on the
+    // server the whole time. Same root pattern as the journal save bug from an earlier session,
+    // caught by specifically checking other save paths for the same "write-only, never read
+    // back" shape after finding it once.
+    appState.worksheetEntries = {};
+    (worksheetRes && !worksheetRes.error && worksheetRes.data ? worksheetRes.data : []).forEach(function(row){
+      appState.worksheetEntries[row.worksheet_key] = row.answers || {};
+    });
 
     // Therapist connection status used to be a separately-set flag (profiles.has_therapist) that
     // could drift out of sync with the real booking data -- exactly what happened when the new
@@ -9180,11 +9193,23 @@ function commitWorksheetIfDirty(){
   appState.entries.push(entry);
   saveState();
   saveEntryToSupabase(entry);
-  syncToSupabase('worksheet_responses', {
-    worksheet_key: currentWorksheetKey, category_key: currentWorksheetCategory,
-    answers: data, updated_at: new Date().toISOString()
-  });
+  upsertWorksheetResponse(currentWorksheetKey, currentWorksheetCategory, data);
   return true;
+}
+
+// Worksheet saves used to always INSERT a new row via the generic syncToSupabase helper, even
+// when re-saving the exact same worksheet -- meaning revising an answer a second time created a
+// duplicate row instead of updating the existing one, and which copy "won" on load was
+// non-deterministic. Fixed with a real upsert against a new unique constraint on
+// (user_id, worksheet_key).
+function upsertWorksheetResponse(worksheetKey, categoryKey, data){
+  if(!currentUser || !currentUser.id) return;
+  sb.from('worksheet_responses').upsert({
+    user_id: currentUser.id, worksheet_key: worksheetKey, category_key: categoryKey,
+    answers: data, updated_at: new Date().toISOString()
+  }, { onConflict: 'user_id,worksheet_key' }).then(function(result){
+    if(result.error) console.error('worksheet upsert failed:', result.error);
+  });
 }
 
 function openWorksheetDetail(key){
@@ -9225,10 +9250,7 @@ document.getElementById('worksheetSaveBtn').onclick = function(){
   appState.entries.push(entry);
   saveState();
   saveEntryToSupabase(entry);
-  syncToSupabase('worksheet_responses', {
-    worksheet_key: currentWorksheetKey, category_key: currentWorksheetCategory,
-    answers: data, updated_at: new Date().toISOString()
-  });
+  upsertWorksheetResponse(currentWorksheetKey, currentWorksheetCategory, data);
   showToast('Saved');
   openWorksheetCategory(currentWorksheetCategory);
 };
