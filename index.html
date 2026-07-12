@@ -620,8 +620,12 @@
     <div id="adminPendingRequestsList" style="margin-bottom:22px;"></div>
 
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">All Users</p>
-    <p style="font-size:11px;color:#B0AA98;margin:0 0 10px;">Every registered account — not just people who've booked a session.</p>
-    <input type="text" id="adminUserSearchInput" placeholder="Search by name or email..." style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:10px;box-sizing:border-box;">
+    <p style="font-size:11px;color:#B0AA98;margin:0 0 6px;">Every registered account — not just people who've booked a session. Tap anyone to see their full profile and assign a professional directly.</p>
+    <input type="text" id="adminUserSearchInput" placeholder="Search by name or email..." style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:8px;box-sizing:border-box;">
+    <label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:#5C6B94;margin-bottom:10px;cursor:pointer;">
+      <input type="checkbox" id="adminUnassignedOnlyFilter" style="accent-color:#6690D6;">
+      Show only clients with no professional connected yet
+    </label>
     <div id="adminAllUsersList" style="margin-bottom:22px;max-height:420px;overflow-y:auto;"></div>
 
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">All Bookings</p>
@@ -747,6 +751,15 @@
     <p id="slotPickerSubtitle" style="font-size:12.5px;color:#5C6B94;margin:0 0 18px;text-align:center;"></p>
     <div id="slotPickerList"></div>
     <button id="slotPickerCloseBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:13px;font-weight:700;cursor:pointer;margin-top:10px;">Cancel</button>
+  </div>
+
+  <div id="adminUserProfileModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.45);z-index:62;"></div>
+  <div id="adminUserProfileModal" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;background:#FFFFFF;border-radius:24px 24px 0 0;padding:24px 22px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;z-index:63;box-shadow:0 -10px 30px rgba(0,0,0,0.15);max-height:85vh;overflow-y:auto;">
+    <p class="prompt-title" id="adminUserProfileName" style="margin-bottom:2px;">Name</p>
+    <p style="font-size:11.5px;color:#9AABCE;margin:0 0 4px;" id="adminUserProfileEmail"></p>
+    <p style="font-size:10.5px;color:#B0AA98;margin:0 0 16px;" id="adminUserProfileMeta"></p>
+    <div id="adminUserProfileConnections"></div>
+    <button id="adminUserProfileCloseBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:13px;font-weight:700;cursor:pointer;margin-top:14px;">Close</button>
   </div>
 
   <div id="adminStatDetailModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.45);z-index:60;"></div>
@@ -1638,6 +1651,7 @@ if (IS_NATIVE_APP && window.Capacitor?.Plugins?.App) {
       { backdrop: 'notifDetailModalBackdrop', modal: 'notifDetailModal' },
       { backdrop: 'myNotifInboxBackdrop', modal: 'myNotifInboxModal' },
       { backdrop: 'adminStatDetailModalBackdrop', modal: 'adminStatDetailModal' },
+      { backdrop: 'adminUserProfileModalBackdrop', modal: 'adminUserProfileModal' },
       { backdrop: 'dayMoodSheetBackdrop', modal: 'dayMoodSheet' }
     ];
     for(var i=0; i<openModals.length; i++){
@@ -2462,9 +2476,19 @@ function loadUserDataFromSupabase(){
 
     appState.expertBookings = (bookingsRes && !bookingsRes.error && bookingsRes.data) ? bookingsRes.data : [];
 
+    // Therapist connection status used to be a separately-set flag (profiles.has_therapist) that
+    // could drift out of sync with the real booking data -- exactly what happened when the new
+    // request/assign flow was built without anything updating this old flag. Now it's derived
+    // fresh from the actual expert_bookings row every time, so there's only one source of truth.
+    var therapistBooking = appState.expertBookings.find(function(b){
+      return b.role_category === 'Therapist' && (b.status === 'active' || b.status === 'pending');
+    });
+    appState.userHasTherapist = !!(therapistBooking && therapistBooking.status === 'active');
+    appState.therapistName = therapistBooking ? therapistBooking.expert_name : '';
+    appState.therapistBookingPending = !!(therapistBooking && therapistBooking.status === 'pending');
+    appState.therapistBookingNeedsTime = !!(therapistBooking && therapistBooking.status === 'active' && !therapistBooking.session_date);
+
     if(profileRes.data){
-      appState.userHasTherapist = profileRes.data.has_therapist || false;
-      appState.therapistName = profileRes.data.therapist_name || '';
       appState.hasOutsideTherapist = profileRes.data.has_outside_therapist || false;
       appState.userHasSupportGroup = profileRes.data.has_support_group || false;
       appState.dontShowPitch = profileRes.data.dismissed_pitch || false;
@@ -3257,7 +3281,23 @@ function renderProfile(){
   document.getElementById('therapistEntryCard').style.display = appState.isTherapist ? 'block' : 'none';
   var tArea = document.getElementById('profileTherapistArea');
   tArea.innerHTML = '';
-  if(appState.userHasTherapist){
+  var therapistBookingObj = appState.expertBookings.find(function(b){
+    return b.role_category === 'Therapist' && (b.status === 'active' || b.status === 'pending');
+  });
+  if(appState.therapistBookingPending){
+    tArea.innerHTML = '<p style="font-size:13px;color:#7B4F00;background:#FEF3D8;border-radius:10px;padding:11px;margin:0;">Your request has been sent — we\'ll confirm your match soon.</p>';
+  } else if(appState.therapistBookingNeedsTime){
+    tArea.innerHTML = '<p style="font-size:14px;color:#2A2013;font-weight:700;margin:0 0 4px;">'+appState.therapistName+'</p>'+
+      '<p style="font-size:12px;color:#3B8F63;margin:0 0 10px;">You\'ve been matched! Pick a time for your first session.</p>';
+    var pickTimeBtn = document.createElement('button');
+    pickTimeBtn.textContent = 'Pick a Time';
+    pickTimeBtn.style.cssText = 'width:100%;padding:11px;border-radius:10px;border:none;background:#6690D6;color:#FFF8F0;font-size:12px;font-weight:700;cursor:pointer;';
+    pickTimeBtn.onclick = function(){
+      var m = TEAM_MEMBERS.find(function(tm){ return tm.name === appState.therapistName; });
+      if(m && therapistBookingObj) pickSessionTimeForBooking(therapistBookingObj, m);
+    };
+    tArea.appendChild(pickTimeBtn);
+  } else if(appState.userHasTherapist){
     tArea.innerHTML = '<p style="font-size:14px;color:#2A2013;font-weight:700;margin:0 0 10px;">'+appState.therapistName+'</p>';
     var changeBtn = document.createElement('button');
     changeBtn.textContent = 'Change therapist';
@@ -3277,6 +3317,13 @@ function renderProfile(){
     confirmYes.textContent = 'Yes, disconnect';
     confirmYes.style.cssText = 'flex:1;padding:9px;border-radius:10px;border:none;background:#C77B7B;color:#FFF8F0;font-size:12px;font-weight:700;cursor:pointer;';
     confirmYes.onclick = function(){
+      // This used to only clear local flags -- since connection status is now derived from the
+      // real booking, that would have just silently un-done itself on the next data load. Now it
+      // actually updates the booking that's the real source of truth.
+      if(therapistBookingObj && String(therapistBookingObj.id).indexOf('temp_') !== 0){
+        sb.from('expert_bookings').update({ status: 'cancelled' }).eq('id', therapistBookingObj.id).then(function(){});
+      }
+      if(therapistBookingObj) therapistBookingObj.status = 'cancelled';
       appState.userHasTherapist = false;
       appState.therapistName = '';
       saveState();
@@ -5341,6 +5388,9 @@ function bookExpert(m){
       if(!result.error) newBooking.id = result.data.id;
     });
     showToast("Request sent — we'll match you with the right person and let you know.");
+    sb.functions.invoke('send-push-notification', {
+      body: { alertAdminsNewRequest: true, category: m.roleCategory }
+    }).catch(function(){}); // best-effort -- don't block the client's flow on this
     var idx = TEAM_MEMBERS.findIndex(function(tm){ return tm.name === m.name; });
     if(idx !== -1) openExpertDetail(idx);
   });
@@ -5357,6 +5407,9 @@ function pickSessionTimeForBooking(booking, m){
     booking.session_date = chosenSlot.slot_date;
     trackNotificationAction('booked_session');
     logAnalyticsEvent('booking_made');
+    sb.functions.invoke('send-push-notification', {
+      body: { alertProfessionalSessionBooked: true, expertName: m.name }
+    }).catch(function(){}); // best-effort
     showPaymentModal(
       "Session with " + m.name,
       "Hi! I've paid for my session with " + m.name + " and wanted to let you know.",
@@ -5739,6 +5792,21 @@ function renderAdminPendingRequests(){
   });
 }
 
+// Looks up whether a named professional has their own HOBS Companion account (via
+// profiles.therapist_expert_name matching their listed name) and, if so, notifies them.
+// Silently does nothing if that professional doesn't have an account -- not every expert
+// necessarily uses the app themselves yet.
+function notifyProfessionalByName(expertName, title, body){
+  sb.from('profiles').select('user_id').eq('therapist_expert_name', expertName).then(function(result){
+    if(result.error || !result.data || result.data.length === 0) return;
+    result.data.forEach(function(p){
+      sb.functions.invoke('send-push-notification', {
+        body: { title: title, body: body, userId: p.user_id, notificationType: 'admin_manual', targetDescription: 'Professional notification' }
+      }).catch(function(){});
+    });
+  });
+}
+
 function assignPendingBooking(bookingId, expertName, clientUserId, category){
   sb.from('expert_bookings').update({ status: 'active', expert_name: expertName }).eq('id', bookingId).then(function(result){
     if(result.error){
@@ -5757,16 +5825,19 @@ function assignPendingBooking(bookingId, expertName, clientUserId, category){
         targetDescription: 'Therapist assignment confirmation'
       }
     }).catch(function(){}); // best-effort -- don't block the assignment on notification delivery
+    // Let the professional know they've got a new client too.
+    notifyProfessionalByName(expertName, 'New client connected 🎉', "You've been connected with a new " + category.toLowerCase() + " client — check My Clients on your dashboard.");
   });
 }
 
 var adminAllUsersCache = null; // so the search filter doesn't need to re-fetch on every keystroke
+var ROLE_CATEGORIES = ['Therapist', 'Psychiatrist', 'Peer Caregiver', 'General Physician'];
 function renderAdminAllUsers(){
   var listEl = document.getElementById('adminAllUsersList');
   listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">Loading...</p>';
   Promise.all([
     sb.from('profiles').select('user_id,name,email,is_admin,is_therapist,created_at,onboarding_complete').order('created_at', {ascending:false}),
-    sb.from('expert_bookings').select('user_id,status')
+    sb.from('expert_bookings').select('user_id,status,role_category')
   ]).then(function(results){
     var profilesRes = results[0], bookingsRes = results[1];
     if(profilesRes.error){
@@ -5774,25 +5845,35 @@ function renderAdminAllUsers(){
       return;
     }
     var bookingCountByUser = {};
+    var connectedCategoriesByUser = {}; // user_id -> Set-like object of categories with an active connection
     (bookingsRes.data || []).forEach(function(b){
       if(!bookingCountByUser[b.user_id]) bookingCountByUser[b.user_id] = { total:0, active:0 };
       bookingCountByUser[b.user_id].total++;
-      if(b.status === 'active') bookingCountByUser[b.user_id].active++;
+      if(b.status === 'active'){
+        bookingCountByUser[b.user_id].active++;
+        if(!connectedCategoriesByUser[b.user_id]) connectedCategoriesByUser[b.user_id] = {};
+        connectedCategoriesByUser[b.user_id][b.role_category] = true;
+      }
     });
-    adminAllUsersCache = { users: profilesRes.data || [], bookingCounts: bookingCountByUser };
-    renderAdminAllUsersFiltered('');
+    adminAllUsersCache = { users: profilesRes.data || [], bookingCounts: bookingCountByUser, connectedCategories: connectedCategoriesByUser };
+    renderAdminAllUsersFiltered(document.getElementById('adminUserSearchInput').value);
   });
 }
 function renderAdminAllUsersFiltered(query){
   var listEl = document.getElementById('adminAllUsersList');
   if(!adminAllUsersCache) return;
   var q = (query || '').trim().toLowerCase();
+  var unassignedOnly = document.getElementById('adminUnassignedOnlyFilter').checked;
   var users = adminAllUsersCache.users.filter(function(u){
-    if(!q) return true;
-    return (u.name||'').toLowerCase().indexOf(q) !== -1 || (u.email||'').toLowerCase().indexOf(q) !== -1;
+    if(q && (u.name||'').toLowerCase().indexOf(q) === -1 && (u.email||'').toLowerCase().indexOf(q) === -1) return false;
+    if(unassignedOnly){
+      var connected = adminAllUsersCache.connectedCategories[u.user_id];
+      if(connected && Object.keys(connected).length > 0) return false;
+    }
+    return true;
   });
   if(users.length === 0){
-    listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">No users match that search.</p>';
+    listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">No users match.</p>';
     return;
   }
   listEl.innerHTML = '<p style="font-size:10.5px;color:#9AABCE;margin:0 0 8px;">'+users.length+' user'+(users.length===1?'':'s')+'</p>' + users.map(function(u){
@@ -5803,16 +5884,124 @@ function renderAdminAllUsersFiltered(query){
     if(!u.onboarding_complete) badges += '<span style="font-size:9px;font-weight:700;color:#9AABCE;background:#F5F0E4;padding:2px 6px;border-radius:6px;margin-left:4px;">Onboarding incomplete</span>';
     var joined = u.created_at ? new Date(u.created_at).toLocaleDateString('en-IN', {day:'numeric', month:'short', year:'numeric'}) : 'unknown';
     var bookingText = counts.total === 0 ? 'No bookings yet' : (counts.active + ' active, ' + counts.total + ' total booking' + (counts.total===1?'':'s'));
-    return '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:11px 13px;margin-bottom:7px;">'+
+    return '<div class="admin-user-row" data-user-id="'+u.user_id+'" style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:11px 13px;margin-bottom:7px;cursor:pointer;">'+
       '<p style="font-size:12.5px;font-weight:700;color:#2A2013;margin:0 0 2px;">'+(u.name||'(no name set)')+badges+'</p>'+
       '<p style="font-size:11px;color:#5C6B94;margin:0 0 2px;">'+(u.email||'')+'</p>'+
       '<p style="font-size:10px;color:#9AABCE;margin:0;">Joined '+joined+' · '+bookingText+'</p>'+
       '</div>';
   }).join('');
+  listEl.querySelectorAll('.admin-user-row').forEach(function(row){
+    row.onclick = function(){ showAdminUserProfile(row.dataset.userId); };
+  });
 }
 document.getElementById('adminUserSearchInput').oninput = function(){
   renderAdminAllUsersFiltered(this.value);
 };
+document.getElementById('adminUnassignedOnlyFilter').onchange = function(){
+  renderAdminAllUsersFiltered(document.getElementById('adminUserSearchInput').value);
+};
+
+// Full profile view for a single user, opened by tapping their row in All Users. Shows their
+// connection status in every professional category, with a direct assign control for any
+// category they're not yet connected in -- doesn't require them to have submitted a request first.
+function showAdminUserProfile(userId){
+  document.getElementById('adminUserProfileName').textContent = 'Loading...';
+  document.getElementById('adminUserProfileEmail').textContent = '';
+  document.getElementById('adminUserProfileMeta').textContent = '';
+  document.getElementById('adminUserProfileConnections').innerHTML = '';
+  document.getElementById('adminUserProfileModalBackdrop').style.display = 'block';
+  document.getElementById('adminUserProfileModal').style.display = 'block';
+
+  Promise.all([
+    sb.from('profiles').select('*').eq('user_id', userId).single(),
+    sb.from('expert_bookings').select('*').eq('user_id', userId),
+    sb.from('experts').select('name,role_category')
+  ]).then(function(results){
+    var profileRes = results[0], bookingsRes = results[1], expertsRes = results[2];
+    if(profileRes.error || !profileRes.data){
+      document.getElementById('adminUserProfileName').textContent = 'Could not load this profile';
+      return;
+    }
+    var p = profileRes.data;
+    document.getElementById('adminUserProfileName').textContent = p.name || '(no name set)';
+    document.getElementById('adminUserProfileEmail').textContent = p.email || '';
+    var joined = p.created_at ? new Date(p.created_at).toLocaleDateString('en-IN', {day:'numeric', month:'short', year:'numeric'}) : 'unknown';
+    var metaParts = ['Joined ' + joined];
+    if(p.phone_number) metaParts.push(p.phone_number);
+    if(p.pronouns) metaParts.push(p.pronouns);
+    document.getElementById('adminUserProfileMeta').textContent = metaParts.join(' · ');
+
+    var bookingsByCategory = {};
+    (bookingsRes.data || []).forEach(function(b){
+      if(b.status === 'active' || b.status === 'pending'){
+        // If multiple exist (shouldn't normally), prefer active over pending for display.
+        if(!bookingsByCategory[b.role_category] || b.status === 'active') bookingsByCategory[b.role_category] = b;
+      }
+    });
+    var expertsByCategory = {};
+    (expertsRes.data || []).forEach(function(e){
+      if(!expertsByCategory[e.role_category]) expertsByCategory[e.role_category] = [];
+      expertsByCategory[e.role_category].push(e.name);
+    });
+
+    var connEl = document.getElementById('adminUserProfileConnections');
+    connEl.innerHTML = ROLE_CATEGORIES.map(function(cat){
+      var b = bookingsByCategory[cat];
+      var statusHtml;
+      if(b && b.status === 'active'){
+        statusHtml = '<p style="font-size:12px;color:#3B8F63;margin:0;">Connected with '+b.expert_name+(b.session_date ? '' : ' — no session time picked yet')+'</p>';
+      } else if(b && b.status === 'pending'){
+        statusHtml = '<p style="font-size:12px;color:#7B4F00;margin:0;">Pending request (asked for '+b.expert_name+')</p>';
+      } else {
+        var options = (expertsByCategory[cat] || []).map(function(name){ return '<option value="'+name+'">'+name+'</option>'; }).join('');
+        statusHtml = '<div style="display:flex;gap:6px;margin-top:4px;">'+
+          '<select class="admin-direct-assign-select" data-category="'+cat+'" style="flex:1;padding:8px;border-radius:8px;border:1px solid #EEE0C4;font-size:11px;font-family:inherit;">'+options+'</select>'+
+          '<button class="admin-direct-assign-btn" data-category="'+cat+'" style="font-size:10.5px;font-weight:700;color:#fff;background:#3B8F63;border:none;border-radius:8px;padding:8px 12px;cursor:pointer;white-space:nowrap;">Assign</button>'+
+        '</div>';
+      }
+      return '<div style="margin-bottom:14px;"><p style="font-size:11px;font-weight:700;color:#9AABCE;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 4px;">'+cat+'</p>'+statusHtml+'</div>';
+    }).join('');
+
+    connEl.querySelectorAll('.admin-direct-assign-btn').forEach(function(btn){
+      btn.onclick = function(){
+        var cat = btn.dataset.category;
+        var select = connEl.querySelector('.admin-direct-assign-select[data-category="'+cat+'"]');
+        if(!select || !select.value) return;
+        directAssignUser(userId, cat, select.value);
+      };
+    });
+  });
+}
+document.getElementById('adminUserProfileCloseBtn').onclick = function(){
+  document.getElementById('adminUserProfileModalBackdrop').style.display = 'none';
+  document.getElementById('adminUserProfileModal').style.display = 'none';
+};
+document.getElementById('adminUserProfileModalBackdrop').onclick = document.getElementById('adminUserProfileCloseBtn').onclick;
+
+// Admin proactively assigns a professional to a user who never submitted a request at all --
+// inserts a fresh active booking rather than updating an existing pending one.
+function directAssignUser(userId, category, expertName){
+  sb.from('expert_bookings').insert({
+    user_id: userId, expert_name: expertName, role_category: category,
+    status: 'active', cancellation_count: 0, payment_confirmed: false
+  }).then(function(result){
+    if(result.error){
+      showToast('Could not assign — please try again.');
+      return;
+    }
+    showToast('Assigned to ' + expertName + '.');
+    showAdminUserProfile(userId); // refresh the modal to reflect the new connection
+    renderAdminAllUsers();
+    sb.functions.invoke('send-push-notification', {
+      body: {
+        title: 'Bob here 🐘',
+        body: "You've been matched with " + expertName + " for " + category.toLowerCase() + " support — come pick a time that works for you!",
+        userId: userId, notificationType: 'admin_manual', targetDescription: 'Direct therapist assignment'
+      }
+    }).catch(function(){});
+    notifyProfessionalByName(expertName, 'New client connected 🎉', "You've been connected with a new " + category.toLowerCase() + " client — check My Clients on your dashboard.");
+  });
+}
 
 function renderAdminNotifHistory(){
   var listEl = document.getElementById('adminNotifHistoryList');
@@ -6065,7 +6254,10 @@ function openAdminDashboard(){
       return '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:14px;padding:14px;margin-bottom:10px;">'+
         '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">'+
           '<p style="font-size:13px;font-weight:700;color:#2A2013;margin:0;">'+clientName+' → '+b.expert_name+'</p>'+
-          '<span style="font-size:9px;font-weight:700;color:'+statusColor+';background:'+statusBg+';padding:3px 7px;border-radius:8px;white-space:nowrap;">'+b.status.replace('_',' ')+'</span>'+
+          '<div style="display:flex;align-items:center;gap:6px;">'+
+            '<span style="font-size:9px;font-weight:700;color:'+statusColor+';background:'+statusBg+';padding:3px 7px;border-radius:8px;white-space:nowrap;">'+b.status.replace('_',' ')+'</span>'+
+            '<button class="admin-delete-booking-btn" data-id="'+b.id+'" title="Delete this booking" style="background:none;border:none;color:#C77B7B;cursor:pointer;padding:2px;font-size:13px;line-height:1;">🗑</button>'+
+          '</div>'+
         '</div>'+
         '<p style="font-size:11px;color:#9AABCE;margin:0 0 6px;">'+b.role_category+' · Cancelled '+(b.cancellation_count||0)+' time(s)</p>'+
         (b.status === 'active' && !b.payment_confirmed ?
@@ -6101,6 +6293,20 @@ function openAdminDashboard(){
         )+
       '</div>';
     }).join('');
+
+    document.querySelectorAll('.admin-delete-booking-btn').forEach(function(btn){
+      btn.onclick = function(){
+        if(!confirm('Delete this booking permanently? This cannot be undone -- useful for cleaning up trial/test bookings, but be careful with real ones.')) return;
+        sb.from('expert_bookings').delete().eq('id', btn.dataset.id).then(function(result){
+          if(result.error){
+            showToast('Could not delete — please try again.');
+            return;
+          }
+          showToast('Booking deleted.');
+          openAdminDashboard();
+        });
+      };
+    });
 
     document.querySelectorAll('.admin-confirm-payment-btn').forEach(function(btn){
       btn.onclick = function(){
