@@ -4576,113 +4576,107 @@ function attachLongPressDelete(item, row, handleWrap, task, dateKey, rerenderFn)
   row.addEventListener('touchcancel', function(){ clearTimeout(pressTimer); });
 }
 
-function renderTaskListCal(){
-  var listEl = document.getElementById('taskListCal');
-  var tasks = getTasks(activeDayKey);
-  // Completed tasks now move to their own section at the end, separate from priority zones,
-  // instead of staying inline wherever they happened to be -- easier to see what's actually
-  // still outstanding today, and completed tasks don't visually compete for attention.
-  var activeTasks = tasks.filter(function(t){ return !t.done; });
-  var completedTasks = tasks.filter(function(t){ return t.done; });
-  var sortByPriority = function(a, b){
-    var ai = PRIORITY_ORDER.indexOf(a.priority || null);
-    var bi = PRIORITY_ORDER.indexOf(b.priority || null);
-    if(ai !== bi) return ai - bi;
-    return (a.sortOrder || 0) - (b.sortOrder || 0);
-  };
-  activeTasks.sort(sortByPriority);
-  completedTasks.sort(sortByPriority);
-  var sorted = activeTasks.concat(completedTasks);
-  listEl.innerHTML = '';
-  var lastPriorityShown = undefined;
-  var completedHeaderShown = false;
-  sorted.forEach(function(task){
-    var thisPriority = task.priority || null;
-    if(task.done && !completedHeaderShown){
-      var completedLabel = document.createElement('p');
-      completedLabel.className = 'task-priority-zone-label';
-      completedLabel.textContent = '✓ Completed';
-      completedLabel.style.cssText = 'font-size:10px;font-weight:700;color:#3B8F63;text-transform:uppercase;letter-spacing:0.04em;margin:20px 0 6px;';
-      listEl.appendChild(completedLabel);
-      completedHeaderShown = true;
-      lastPriorityShown = undefined; // reset so the first completed task's own priority zone label (if any) doesn't get suppressed by whatever was last shown among active tasks
-    } else if(!task.done && thisPriority !== lastPriorityShown && activeTasks.some(function(t){ return (t.priority||null) !== (activeTasks[0].priority||null); })){
-      var zoneLabel = document.createElement('p');
-      zoneLabel.className = 'task-priority-zone-label';
-      zoneLabel.textContent = PRIORITY_LABELS[thisPriority === null ? 'null' : thisPriority];
-      zoneLabel.style.cssText = 'font-size:10px;font-weight:700;color:'+(thisPriority?PRIORITY_COLORS[thisPriority]:'#B0AA98')+';text-transform:uppercase;letter-spacing:0.04em;margin:14px 0 6px;';
-      listEl.appendChild(zoneLabel);
-      lastPriorityShown = thisPriority;
-    }
-    var item = document.createElement('div'); item.className = 'task-item' + (task.done ? ' done-item' : ''); item.dataset.priority = thisPriority === null ? '' : thisPriority; item.dataset.taskId = task.id;
-    var row = document.createElement('div'); row.className = 'task-row';
-    var handleWrap = document.createElement('span'); handleWrap.className = 'drag-handle-wrap'; handleWrap.style.cssText = 'position:relative;width:15px;flex-shrink:0;display:flex;align-items:center;justify-content:center;';
-    var handle = document.createElement('span'); handle.className = 'drag-handle'; handle.innerHTML = '⠿';
-    handle.style.cssText = 'color:#D9CFB8;font-size:15px;cursor:grab;touch-action:none;';
-    handleWrap.appendChild(handle);
-    row.appendChild(handleWrap);
-    // The tick button, tapped on its own small target, kept getting reported as not working
-    // despite the underlying toggle logic testing correctly every time (including via precise
-    // touch simulation and a server-write check) -- after that happened three separate times,
-    // including after enlarging the target, the honest conclusion is that a bigger checkbox
-    // wasn't fixing the actual problem. Removed it as an independent tap target entirely: it's
-    // now a purely visual indicator, and tapping ANYWHERE on the row (other than the specific
-    // sub-controls below, which keep their own distinct actions) toggles completion instead --
-    // a target that can't realistically be missed.
-    var cb = document.createElement('div'); cb.className = 'task-checkbox' + (task.done ? ' done' : ''); cb.innerHTML = task.done ? '✓' : '';
-    cb.style.pointerEvents = 'none'; // decorative only now -- the row itself handles the tap
-    row.appendChild(cb);
-    if(task.priority){
-      var pdot = document.createElement('span'); pdot.className = 'priority-dot'; pdot.style.background = PRIORITY_COLORS[task.priority];
+// Builds one task-item DOM element. Used both for a task's normal (Remaining) appearance and,
+// when a task has a mix of completed/incomplete subtasks, its second (Completed, read-only)
+// appearance showing only the completed slice. See renderTaskListCal for how these get combined.
+function buildTaskItemElement(task, opts){
+  opts = opts || {};
+  var subtasksToShow = opts.subtasksToShow; // null/undefined = "not filtered, show all" (used for simple tasks and fully-done tasks)
+  var isCompletedAppearance = !!opts.isCompletedAppearance; // this is the read-only "here's what's done so far" half of a split task
+  var idSuffix = opts.idSuffix || '';
+
+  var item = document.createElement('div');
+  item.className = 'task-item' + ((task.done || isCompletedAppearance) ? ' done-item' : '');
+  item.dataset.priority = (task.priority || null) === null ? '' : task.priority;
+  item.dataset.taskId = task.id + idSuffix;
+  if(isCompletedAppearance) item.dataset.splitAppearance = 'completed'; // excluded from drag-reordering, see makeListDraggable call below
+
+  var row = document.createElement('div'); row.className = 'task-row';
+  var handleWrap = document.createElement('span'); handleWrap.className = 'drag-handle-wrap'; handleWrap.style.cssText = 'position:relative;width:15px;flex-shrink:0;display:flex;align-items:center;justify-content:center;';
+  var handle = document.createElement('span'); handle.className = 'drag-handle'; handle.innerHTML = '⠿';
+  handle.style.cssText = 'color:#D9CFB8;font-size:15px;cursor:'+(isCompletedAppearance ? 'default' : 'grab')+';touch-action:none;'+(isCompletedAppearance ? 'opacity:0.3;' : '');
+  handleWrap.appendChild(handle);
+  row.appendChild(handleWrap);
+  var cb = document.createElement('div'); cb.className = 'task-checkbox' + ((task.done || isCompletedAppearance) ? ' done' : ''); cb.innerHTML = (task.done || isCompletedAppearance) ? '✓' : '';
+  cb.style.pointerEvents = 'none'; // decorative only -- the row itself (when actionable) handles the tap
+  row.appendChild(cb);
+  if(task.priority){
+    var pdot = document.createElement('span'); pdot.className = 'priority-dot'; pdot.style.background = PRIORITY_COLORS[task.priority];
+    if(!isCompletedAppearance){
       pdot.title = 'Tap to cycle, or drag the task into a different priority zone';
       pdot.onclick = function(e){ e.stopPropagation(); cyclePriority(task.id, activeDayKey, renderTaskListCal); };
-      row.appendChild(pdot);
     }
-    if(task.image_url){
-      var thumb = document.createElement('img');
-      thumb.src = task.image_url;
-      thumb.style.cssText = 'width:26px;height:26px;border-radius:6px;object-fit:cover;flex-shrink:0;margin-right:2px;';
-      thumb.onclick = function(e){ e.stopPropagation(); openEditTaskSheet(task, activeDayKey); };
-      row.appendChild(thumb);
-    }
-    var title = document.createElement('span'); title.className = 'task-title-cal' + (task.done ? ' done' : ''); title.textContent = task.title;
+    row.appendChild(pdot);
+  }
+  if(task.image_url){
+    var thumb = document.createElement('img');
+    thumb.src = task.image_url;
+    thumb.style.cssText = 'width:26px;height:26px;border-radius:6px;object-fit:cover;flex-shrink:0;margin-right:2px;';
+    if(!isCompletedAppearance) thumb.onclick = function(e){ e.stopPropagation(); openEditTaskSheet(task, activeDayKey); };
+    row.appendChild(thumb);
+  }
+  var title = document.createElement('span'); title.className = 'task-title-cal' + ((task.done || isCompletedAppearance) ? ' done' : ''); title.textContent = task.title;
+  if(!isCompletedAppearance){
     title.style.cursor = 'pointer';
     title.title = 'Tap to edit this task';
     title.onclick = function(e){ e.stopPropagation(); openEditTaskSheet(task, activeDayKey); };
-    row.appendChild(title);
+  }
+  row.appendChild(title);
+  if(isCompletedAppearance && subtasksToShow){
+    // This is the split/partial appearance -- make clear this isn't the whole task, just the
+    // completed slice of it, so it doesn't read as "this entire task is done" when it isn't.
+    var doneCount = subtasksToShow.length;
+    var totalCount = task.subtasks.length;
+    var progressTag = document.createElement('span');
+    progressTag.textContent = doneCount + ' of ' + totalCount + ' done';
+    progressTag.style.cssText = 'font-size:9.5px;font-weight:700;color:#3B8F63;background:#EAF4EE;padding:2px 7px;border-radius:8px;flex-shrink:0;';
+    row.appendChild(progressTag);
+  }
+  if(!isCompletedAppearance){
     var bd = document.createElement('button'); bd.className = 'breakdown-btn'; bd.textContent = '+';
     bd.onclick = function(e){
       e.stopPropagation();
       var wasAlreadyOpenForThisTask = openBreakdownTaskId === task.id;
       openBreakdownTaskId = wasAlreadyOpenForThisTask ? null : task.id;
-      justOpenedBreakdown = !wasAlreadyOpenForThisTask; // only scroll/focus when freshly opened by this exact tap
+      justOpenedBreakdown = !wasAlreadyOpenForThisTask;
       renderTaskListCal();
     };
     row.appendChild(bd);
+  }
+  if(!isCompletedAppearance){
     row.style.cursor = 'pointer';
     row.onclick = function(){ toggleTaskCal(task.id); };
-    item.appendChild(row);
-    attachLongPressDelete(item, row, handleWrap, task, activeDayKey, renderTaskListCal);
-    if(task.deadline && !task.done){
-      var dl = formatDeadline(task.deadline);
-      var pill = document.createElement('span'); pill.className = 'deadline-pill'; pill.style.background = dl.color+'22'; pill.style.color = dl.color;
-      pill.textContent = dl.text; pill.title = 'Tap to remove deadline';
-      pill.onclick = function(){ task.deadline = null; saveState(); renderTaskListCal(); };
-      item.appendChild(pill);
-    }
-    if(task.subtasks && task.subtasks.length){
-      var subList = document.createElement('div'); subList.className = 'subtask-list';
-      var sortedSubs = task.subtasks.slice().sort(function(a,b){ return (a.sortOrder||0) - (b.sortOrder||0); });
-      sortedSubs.forEach(function(sub){
-        var subRow = document.createElement('div'); subRow.className = 'subtask-row' + (sub.done ? ' done-row' : ''); subRow.dataset.subId = sub.id;
-        var subHandle = document.createElement('span'); subHandle.className = 'drag-handle'; subHandle.innerHTML = '⠿';
-        subHandle.style.cssText = 'color:#D9CFB8;font-size:13px;cursor:grab;padding:0 4px 0 0;touch-action:none;';
-        subRow.appendChild(subHandle);
-        var scb = document.createElement('div'); scb.className = 'sub-checkbox' + (sub.done ? ' done' : '');
-        scb.onclick = function(){ toggleSubtask(task.id, sub.id); };
-        subRow.appendChild(scb);
-        var stitle = document.createElement('span'); stitle.className = 'subtask-title' + (sub.done ? ' done' : ''); stitle.textContent = sub.title;
-        stitle.style.flex = '1';
+  }
+  item.appendChild(row);
+  if(!isCompletedAppearance) attachLongPressDelete(item, row, handleWrap, task, activeDayKey, renderTaskListCal);
+
+  if(task.deadline && !task.done && !isCompletedAppearance){
+    var dl = formatDeadline(task.deadline);
+    var pill = document.createElement('span'); pill.className = 'deadline-pill'; pill.style.background = dl.color+'22'; pill.style.color = dl.color;
+    pill.textContent = dl.text; pill.title = 'Tap to remove deadline';
+    pill.onclick = function(){ task.deadline = null; saveState(); renderTaskListCal(); };
+    item.appendChild(pill);
+  }
+
+  var subsForThisAppearance = subtasksToShow !== undefined && subtasksToShow !== null
+    ? subtasksToShow
+    : (task.subtasks || []).slice().sort(function(a,b){ return (a.sortOrder||0) - (b.sortOrder||0); });
+
+  if(subsForThisAppearance.length){
+    var subList = document.createElement('div'); subList.className = 'subtask-list';
+    subsForThisAppearance.forEach(function(sub){
+      var subRow = document.createElement('div'); subRow.className = 'subtask-row' + (sub.done ? ' done-row' : ''); subRow.dataset.subId = sub.id;
+      var subHandle = document.createElement('span'); subHandle.className = 'drag-handle'; subHandle.innerHTML = '⠿';
+      subHandle.style.cssText = 'color:#D9CFB8;font-size:13px;cursor:grab;padding:0 4px 0 0;touch-action:none;'+(isCompletedAppearance ? 'visibility:hidden;' : '');
+      subRow.appendChild(subHandle);
+      var scb = document.createElement('div'); scb.className = 'sub-checkbox' + (sub.done ? ' done' : '');
+      // Toggling a subtask stays live in BOTH appearances -- this is specifically how "mark it
+      // incomplete and it shifts back to Remaining" works from the Completed side.
+      scb.onclick = function(){ toggleSubtask(task.id, sub.id); };
+      subRow.appendChild(scb);
+      var stitle = document.createElement('span'); stitle.className = 'subtask-title' + (sub.done ? ' done' : ''); stitle.textContent = sub.title;
+      stitle.style.flex = '1';
+      if(!isCompletedAppearance){
         stitle.style.cursor = 'pointer';
         stitle.title = 'Tap to edit';
         stitle.onclick = function(){
@@ -4710,23 +4704,25 @@ function renderTaskListCal(){
           editInput.focus();
           editInput.select();
         };
-        subRow.appendChild(stitle);
-        var delBtn = document.createElement('button');
-        delBtn.innerHTML = '&times;';
-        delBtn.style.cssText = 'background:none;border:none;color:#C7BFA8;font-size:15px;cursor:pointer;padding:0 4px;line-height:1;';
-        delBtn.onclick = function(){
-          task.subtasks = task.subtasks.filter(function(s){ return s.id !== sub.id; });
-          saveState(); renderTaskListCal();
-          if(String(sub.id).indexOf('temp_') !== 0){
-            sb.from('subtasks').delete().eq('id', sub.id).then(function(r){ if(r.error) console.error(r.error); });
-          }
-        };
-        subRow.appendChild(delBtn);
-        subList.appendChild(subRow);
-      });
-      item.appendChild(subList);
+      }
+      subRow.appendChild(stitle);
+      var delBtn = document.createElement('button');
+      delBtn.innerHTML = '&times;';
+      delBtn.style.cssText = 'background:none;border:none;color:#C7BFA8;font-size:15px;cursor:pointer;padding:0 4px;line-height:1;';
+      delBtn.onclick = function(){
+        task.subtasks = task.subtasks.filter(function(s){ return s.id !== sub.id; });
+        saveState(); renderTaskListCal();
+        if(String(sub.id).indexOf('temp_') !== 0){
+          sb.from('subtasks').delete().eq('id', sub.id).then(function(r){ if(r.error) console.error(r.error); });
+        }
+      };
+      subRow.appendChild(delBtn);
+      subList.appendChild(subRow);
+    });
+    item.appendChild(subList);
+    if(!isCompletedAppearance){
       makeListDraggable(subList, '.subtask-row', function(fromIdx, toIdx){
-        var reordered = sortedSubs.slice();
+        var reordered = subsForThisAppearance.slice();
         var moved = reordered.splice(fromIdx, 1)[0];
         reordered.splice(toIdx, 0, moved);
         reordered.forEach(function(s, i){ s.sortOrder = i; });
@@ -4739,34 +4735,97 @@ function renderTaskListCal(){
         });
       });
     }
-    if(openBreakdownTaskId === task.id){
-      var wrap = document.createElement('div'); wrap.className = 'subtask-add';
-      wrap.innerHTML = '<textarea rows="1" placeholder="Add a step, then keep going..."></textarea><button>Add</button>';
-      var input = wrap.querySelector('textarea'), addBtn = wrap.querySelector('button');
-      var autoGrowAddStep = function(){ input.style.height = 'auto'; input.style.height = input.scrollHeight + 'px'; };
-      input.addEventListener('input', autoGrowAddStep);
-      var submit = function(){
-        if(!input.value.trim()) return;
-        addSubtask(task.id, input.value.trim());
-      };
-      addBtn.onclick = submit;
-      input.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); submit(); } });
-      item.appendChild(wrap);
+  }
+  if(!isCompletedAppearance && openBreakdownTaskId === task.id){
+    var wrap = document.createElement('div'); wrap.className = 'subtask-add';
+    wrap.innerHTML = '<textarea rows="1" placeholder="Add a step, then keep going..."></textarea><button>Add</button>';
+    var input = wrap.querySelector('textarea'), addBtn = wrap.querySelector('button');
+    var autoGrowAddStep = function(){ input.style.height = 'auto'; input.style.height = input.scrollHeight + 'px'; };
+    input.addEventListener('input', autoGrowAddStep);
+    var submit = function(){
+      if(!input.value.trim()) return;
+      addSubtask(task.id, input.value.trim());
+    };
+    addBtn.onclick = submit;
+    input.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); submit(); } });
+    item.appendChild(wrap);
+  }
+  return item;
+}
+
+function renderTaskListCal(){
+  var listEl = document.getElementById('taskListCal');
+  var tasks = getTasks(activeDayKey);
+
+  // Each task resolves to one or two "entries" to render:
+  //  - a task with no subtasks, or fully done: one entry, either Remaining or Completed.
+  //  - a task with subtasks and NOT fully done: a Remaining entry showing only its incomplete
+  //    subtasks (this is where add-step/breakdown controls live), PLUS -- if it has any
+  //    completed subtasks -- a second, read-only Completed entry showing only those.
+  var remainingEntries = [];
+  var completedEntries = [];
+  tasks.forEach(function(task){
+    var hasSubtasks = task.subtasks && task.subtasks.length > 0;
+    if(!hasSubtasks || task.done){
+      (task.done ? completedEntries : remainingEntries).push({ task: task, subtasksToShow: null, isCompletedAppearance: task.done });
+      return;
     }
-    listEl.appendChild(item);
+    var doneSubs = task.subtasks.filter(function(s){ return s.done; });
+    var incompleteSubs = task.subtasks.filter(function(s){ return !s.done; });
+    remainingEntries.push({ task: task, subtasksToShow: incompleteSubs.slice().sort(function(a,b){ return (a.sortOrder||0)-(b.sortOrder||0); }), isCompletedAppearance: false });
+    if(doneSubs.length > 0){
+      completedEntries.push({ task: task, subtasksToShow: doneSubs.slice().sort(function(a,b){ return (a.sortOrder||0)-(b.sortOrder||0); }), isCompletedAppearance: true });
+    }
   });
+
+  var sortByPriority = function(a, b){
+    var ai = PRIORITY_ORDER.indexOf(a.task.priority || null);
+    var bi = PRIORITY_ORDER.indexOf(b.task.priority || null);
+    if(ai !== bi) return ai - bi;
+    return (a.task.sortOrder || 0) - (b.task.sortOrder || 0);
+  };
+  remainingEntries.sort(sortByPriority);
+  completedEntries.sort(sortByPriority);
+
+  listEl.innerHTML = '';
+  var lastPriorityShown = undefined;
+  remainingEntries.forEach(function(entry){
+    var thisPriority = entry.task.priority || null;
+    if(thisPriority !== lastPriorityShown && remainingEntries.some(function(e){ return (e.task.priority||null) !== (remainingEntries[0].task.priority||null); })){
+      var zoneLabel = document.createElement('p');
+      zoneLabel.className = 'task-priority-zone-label';
+      zoneLabel.textContent = PRIORITY_LABELS[thisPriority === null ? 'null' : thisPriority];
+      zoneLabel.style.cssText = 'font-size:10px;font-weight:700;color:'+(thisPriority?PRIORITY_COLORS[thisPriority]:'#B0AA98')+';text-transform:uppercase;letter-spacing:0.04em;margin:14px 0 6px;';
+      listEl.appendChild(zoneLabel);
+      lastPriorityShown = thisPriority;
+    }
+    listEl.appendChild(buildTaskItemElement(entry.task, { subtasksToShow: entry.subtasksToShow, isCompletedAppearance: false }));
+  });
+
+  if(completedEntries.length > 0){
+    var completedLabel = document.createElement('p');
+    completedLabel.className = 'task-priority-zone-label';
+    completedLabel.textContent = '✓ Completed';
+    completedLabel.style.cssText = 'font-size:10px;font-weight:700;color:#3B8F63;text-transform:uppercase;letter-spacing:0.04em;margin:20px 0 6px;';
+    listEl.appendChild(completedLabel);
+    completedEntries.forEach(function(entry){
+      listEl.appendChild(buildTaskItemElement(entry.task, { subtasksToShow: entry.subtasksToShow, isCompletedAppearance: true, idSuffix: entry.subtasksToShow !== null && !entry.task.done ? '-completedsplit' : '' }));
+    });
+  }
+
   if(openBreakdownTaskId && justOpenedBreakdown){
     var openInput = listEl.querySelector('.subtask-add textarea');
     if(openInput) openInput.focus();
     justOpenedBreakdown = false;
   }
 
-  makeListDraggable(listEl, '.task-item', function(fromIdx, toIdx){
-    var items = Array.from(listEl.querySelectorAll('.task-item'));
+  // Split/completed-appearance items are excluded from drag-reordering entirely -- dragging a
+  // read-only "here's what's done so far" preview to reorder priority doesn't mean anything
+  // coherent, since it isn't really an independent task sitting in that zone.
+  makeListDraggable(listEl, '.task-item:not([data-split-appearance])', function(fromIdx, toIdx){
+    var items = Array.from(listEl.querySelectorAll('.task-item:not([data-split-appearance])'));
     var droppedEl = items[toIdx];
     var taskId = droppedEl.dataset.taskId;
-    // The dragged element's own data-priority is stale (unchanged since it's the one being moved) —
-    // infer the new priority from whichever neighbor it landed next to instead.
     var neighbor = items[toIdx - 1] || items[toIdx + 1];
     var newPriority = neighbor ? (neighbor.dataset.priority || null) : null;
     var task = tasks.find(function(t){ return t.id === taskId; });
@@ -4806,10 +4865,26 @@ function toggleSubtask(taskId, subId){
   var task = getTasks(activeDayKey).find(function(t){ return t.id === taskId; });
   var sub = task.subtasks.find(function(s){ return s.id === subId; });
   sub.done = !sub.done;
+
+  // Auto-sync the parent's own completion with its subtasks: all done -> parent completes;
+  // any subtask un-checked -> parent un-completes too, even if it had been auto- or manually
+  // completed before. This is what makes "mark a subtask incomplete and it moves back" work --
+  // the parent's real done state changes here, and the render/grouping logic (which decides
+  // Remaining vs Completed placement purely from current state, recalculated every render)
+  // does the rest with no extra bookkeeping needed. Tapping the parent row directly still
+  // works as a manual override independent of this.
+  var allSubtasksDone = task.subtasks.length > 0 && task.subtasks.every(function(s){ return s.done; });
+  var parentDoneChanged = false;
+  if(allSubtasksDone && !task.done){ task.done = true; parentDoneChanged = true; }
+  else if(!allSubtasksDone && task.done){ task.done = false; parentDoneChanged = true; }
+
   saveState();
   renderTaskListCal();
   if(String(subId).indexOf('temp_') !== 0){
     sb.from('subtasks').update({ done: sub.done }).eq('id', subId).then(function(r){ if(r.error) console.error(r.error); });
+  }
+  if(parentDoneChanged && String(taskId).indexOf('temp_') !== 0){
+    sb.from('tasks').update({ done: task.done }).eq('id', taskId).then(function(r){ if(r.error) console.error(r.error); });
   }
   if(sub.done){
     var newBadge = checkAchievements();
