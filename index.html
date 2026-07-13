@@ -1685,8 +1685,8 @@
     </div>
   </div>
 
-  <button id="assistantFabBtn" style="position:absolute;right:16px;bottom:86px;width:52px;height:52px;border-radius:50%;border:none;background:#6690D6;box-shadow:0 4px 14px rgba(0,0,0,0.2);cursor:pointer;z-index:55;display:flex;align-items:center;justify-content:center;padding:0;">
-    <img id="assistantFabImg" src="bob.png" alt="Assistant" style="width:34px;height:34px;object-fit:contain;">
+  <button id="assistantFabBtn" style="position:absolute;right:16px;bottom:86px;width:56px;height:56px;border-radius:50%;border:none;background:transparent;box-shadow:0 4px 14px rgba(0,0,0,0.2);cursor:pointer;z-index:55;display:flex;align-items:center;justify-content:center;padding:0;overflow:hidden;">
+    <img id="assistantFabImg" src="assistant-fab.gif" alt="Assistant" style="width:100%;height:100%;object-fit:cover;">
   </button>
 
   <div id="assistantModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.4);z-index:64;"></div>
@@ -1738,7 +1738,7 @@
 // the foreground -- not just on a cold launch -- so an update shows up the next time someone
 // glances at the app, not only after they've force-closed it.
 (function(){
-  var CURRENT_BUILD = '20260713214139';
+  var CURRENT_BUILD = '20260713215935';
   function checkForUpdate(){
     // Safety guard: reload AT MOST ONCE per session, no matter what. Without this, a mistake
     // where version.json and the HTML's own build ID get out of sync (e.g. one gets updated
@@ -3591,6 +3591,11 @@ var ASSISTANT_CHARACTERS = {
   cookie: { name: 'Cookie', img: 'cookie.png' }
 };
 
+// Tracks a pending clarifying question so a reply can be routed correctly, instead of every
+// message being matched independently with no memory of what was just asked. Reset once the
+// clarifying step resolves (either a quick-reply tap or free text that answers it).
+var assistantConversationState = null;
+
 function assistantGoTo(panelFn, navId){
   return function(){
     document.getElementById('assistantModalBackdrop').style.display = 'none';
@@ -3602,25 +3607,25 @@ function assistantGoTo(panelFn, navId){
 
 var ASSISTANT_COMMANDS = [
   // ---- Bob: general / home / mood / breathe ----
-  { character: 'bob', patterns: [/\bmood\b/i, /how (am|are) i (feeling|doing)/i, /check.?in/i],
+  { character: 'bob', patterns: [/\bmood\b/i, /how (am|are) i (feeling|doing)/i, /check.?in/i, /log (my|a) mood/i],
     reply: "Let's see where you're at right now.", action: assistantGoTo(function(){ showOnly('panel-bubbles'); }, 'navHome') },
-  { character: 'bob', patterns: [/breathe/i, /\bcalm\b/i, /overwhelm/i, /ground/i],
+  { character: 'bob', patterns: [/breathe/i, /\bcalm\b/i, /overwhelm/i, /\bground/i, /(need|want).*(relax|breather)/i],
     reply: "Come breathe with me for a second.", action: assistantGoTo(function(){ renderGroundingList(); showOnly('panel-grounding'); }, 'navBreathe') },
-  { character: 'bob', patterns: [/\bhome\b/i],
+  { character: 'bob', patterns: [/\bhome\b/i, /^(go\s+)?back$/i],
     reply: "Right here.", action: assistantGoTo(function(){ showOnly('panel-bubbles'); }, 'navHome') },
 
   // ---- Kunnu: connection ----
-  { character: 'kunnu', patterns: [/connect/i, /\btherapist\b/i, /book.*(session|professional|someone)/i, /find.*(help|therapist|someone)/i],
+  { character: 'kunnu', patterns: [/connect/i, /\btherapist\b/i, /book.*(session|professional|someone|appointment)/i, /find.*(help|therapist|someone)/i, /(i want|i need|i'?d like).*(psychiatrist|counsel|professional)/i],
     reply: "Let's get you someone to actually talk to.", action: assistantGoTo(function(){ renderTeamList(); showOnly('panel-team'); }, 'navYou') },
-  { character: 'kunnu', patterns: [/\bshare\b/i, /entries/i],
+  { character: 'kunnu', patterns: [/\bshare\b.*(entry|entries|journal|therapist)/i, /show.*(entries|journal)/i],
     reply: "Let's find what you want to share.", action: assistantGoTo(function(){ renderHistory(); showOnly('panel-history'); }, 'navJournal') },
   { character: 'kunnu', patterns: [/support group/i, /group session/i],
     reply: "You don't have to do this one alone either.", action: assistantGoTo(function(){ showOnly('panel-calendar'); renderCalendar(); }, 'navTasks') },
 
   // ---- Po: practical / tasks / calendar / scheduling ----
-  { character: 'po', patterns: [/\bjournal\b/i, /\bwrite\b/i, /write.*(down|entry)/i],
+  { character: 'po', patterns: [/\bjournal\b/i, /(want|need|let'?s|gonna).*write/i, /write.*(down|entry|about)/i, /new entry/i],
     reply: "Say less — here you go.", action: assistantGoTo(function(){ showOnly('panel-journal'); }, 'navJournal') },
-  { character: 'po', patterns: [/\btask\b/i, /\bcalendar\b/i, /\bschedule\b/i, /to.?do/i],
+  { character: 'po', patterns: [/\btask/i, /\bcalendar\b/i, /\bschedule\b/i, /to.?do/i, /add.*(step|thing)/i],
     reply: "On it.", action: assistantGoTo(function(){ showOnly('panel-calendar'); renderCalendar(); }, 'navTasks') },
   { character: 'po', patterns: [/log.*(appointment|session)/i],
     reply: null, // handled specially below -- attempts to parse a name and time
@@ -3629,17 +3634,70 @@ var ASSISTANT_COMMANDS = [
     reply: "Here's everyone you've got.", action: assistantGoTo(function(){ openTherapistDashboard(); }, 'navYou') },
   { character: 'po', patterns: [/time request/i, /waiting on (me|you)/i],
     reply: "Let's clear those out.", action: assistantGoTo(function(){ openTherapistDashboard(); renderTherapistTimeRequests(); }, 'navYou') },
-  { character: 'po', patterns: [/admin/i, /booking dashboard/i],
+  { character: 'po', patterns: [/\badmin\b/i, /booking dashboard/i],
     reply: "Dashboard, coming up.", action: assistantGoTo(function(){ openAdminDashboard(); }, 'navYou') },
   { character: 'po', patterns: [/unconfirmed/i, /unpaid/i, /waiting on payment/i],
     reply: "Let's see what's still unpaid.", action: assistantGoTo(function(){ openAdminDashboard(); setTimeout(function(){ var t = document.querySelector('[data-stat="unconfirmed"]'); if(t) t.click(); }, 800); }, 'navYou') },
 
   // ---- Cookie: progress / motivation / stats ----
-  { character: 'cookie', patterns: [/how am i doing/i, /this week/i, /progress/i, /credits/i],
+  { character: 'cookie', patterns: [/how am i doing/i, /this week/i, /\bprogress\b/i, /\bcredits\b/i],
     reply: "Let's see how far you've come!", action: assistantGoTo(function(){ renderProfile(); showOnly('panel-profile'); }, 'navYou') },
   { character: 'cookie', patterns: [/active users/i, /how many (users|people|signed up)/i],
     reply: "LET'S GO — pulling up the numbers!", action: assistantGoTo(function(){ openAdminDashboard(); setTimeout(function(){ var t = document.querySelector('[data-stat="totalusers"]'); if(t) t.click(); }, 800); }, 'navYou') }
 ];
+
+// This is what was actually missing: an explicit conversation step for AMBIGUOUS requests
+// that don't map to one clear action on their own. "I wanna talk to someone" could mean
+// booking a real professional, writing it out privately, or just needing to calm down --
+// three completely different destinations. Guessing wrong here is worse than asking. Quick-
+// reply buttons (not another round of free-text guessing) resolve this reliably, since typing
+// a second ambiguous reply would hit the exact same ceiling all over again.
+var ASSISTANT_AMBIGUOUS_TRIGGERS = [
+  /(want|wanna|need).*(talk to|speak (to|with)).*(someone|somebody|person)/i,
+  /\bneed (to talk|someone)\b/i,
+  /someone to talk to/i,
+  /i'?m not (okay|ok|fine)/i,
+  /i (don'?t know what|need help) but/i
+];
+
+function renderAssistantQuickReplies(options){
+  var wrap = document.getElementById('assistantMessages');
+  var row = document.createElement('div');
+  row.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin:-4px 0 12px 38px;';
+  options.forEach(function(opt){
+    var btn = document.createElement('button');
+    btn.textContent = opt.label;
+    btn.style.cssText = 'background:#E9F0FB;border:1px solid #C7D2E8;color:#2E5090;font-size:11.5px;font-weight:700;border-radius:10px;padding:7px 12px;cursor:pointer;';
+    btn.onclick = function(){
+      row.remove();
+      renderAssistantUserMessage(opt.label);
+      assistantConversationState = null;
+      opt.onSelect();
+    };
+    row.appendChild(btn);
+  });
+  wrap.appendChild(row);
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+function assistantAskTopic(){
+  assistantConversationState = { step: 'awaiting_topic' };
+  renderAssistantMessage('bob', "I hear you. What's this about, roughly?");
+  renderAssistantQuickReplies([
+    { label: 'Talk to a professional', onSelect: function(){
+      renderAssistantMessage('kunnu', "Let's get you someone real to talk to.");
+      setTimeout(assistantGoTo(function(){ renderTeamList(); showOnly('panel-team'); }, 'navYou'), 500);
+    }},
+    { label: 'I just need to write it out', onSelect: function(){
+      renderAssistantMessage('bob', "Then let's get it down somewhere safe.");
+      setTimeout(assistantGoTo(function(){ showOnly('panel-journal'); }, 'navJournal'), 500);
+    }},
+    { label: "I'm feeling overwhelmed", onSelect: function(){
+      renderAssistantMessage('bob', "Okay. Let's slow things down together first.");
+      setTimeout(assistantGoTo(function(){ renderGroundingList(); showOnly('panel-grounding'); }, 'navBreathe'), 500);
+    }}
+  ]);
+}
 
 function findAssistantMatchingClient(nameGuess, callback){
   // Fuzzy-ish match against real clients (by profile name) and saved external contacts, for
@@ -3688,6 +3746,40 @@ function renderAssistantUserMessage(text){
 
 function processAssistantInput(text){
   renderAssistantUserMessage(text);
+
+  // Safety check first, unconditionally -- this is now a real place people type feelings into,
+  // not just navigation commands. If anything resembling crisis language shows up here, the
+  // same resources shown from journaling show here too, regardless of what else happens.
+  if(containsSelfHarmSignal(text)){
+    showCrisisResourceModal();
+  }
+
+  // If a clarifying question is pending, route the free-text reply to it instead of
+  // re-matching from scratch -- someone who types "professional" after being asked "what's
+  // this about" shouldn't need to repeat their whole original request.
+  if(assistantConversationState && assistantConversationState.step === 'awaiting_topic'){
+    assistantConversationState = null;
+    if(/professional|therapist|book|someone/i.test(text)){
+      renderAssistantMessage('kunnu', "Let's get you someone real to talk to.");
+      setTimeout(assistantGoTo(function(){ renderTeamList(); showOnly('panel-team'); }, 'navYou'), 500);
+    } else if(/write|journal|down/i.test(text)){
+      renderAssistantMessage('bob', "Then let's get it down somewhere safe.");
+      setTimeout(assistantGoTo(function(){ showOnly('panel-journal'); }, 'navJournal'), 500);
+    } else if(/overwhelm|calm|breathe|anxious/i.test(text)){
+      renderAssistantMessage('bob', "Okay. Let's slow things down together first.");
+      setTimeout(assistantGoTo(function(){ renderGroundingList(); showOnly('panel-grounding'); }, 'navBreathe'), 500);
+    } else {
+      renderAssistantMessage('bob', "Tell you what — let's start with whichever of these feels closest.");
+      assistantAskTopic();
+    }
+    return;
+  }
+
+  if(ASSISTANT_AMBIGUOUS_TRIGGERS.some(function(p){ return p.test(text); })){
+    assistantAskTopic();
+    return;
+  }
+
   var matched = ASSISTANT_COMMANDS.find(function(cmd){
     return cmd.patterns.some(function(p){ return p.test(text); });
   });
