@@ -1685,17 +1685,39 @@
     </div>
   </div>
 
-  <button id="assistantFabBtn" style="position:absolute;right:16px;bottom:86px;width:56px;height:56px;border-radius:50%;border:none;background:transparent;box-shadow:0 4px 14px rgba(0,0,0,0.2);cursor:pointer;z-index:55;display:flex;align-items:center;justify-content:center;padding:0;overflow:hidden;">
-    <img id="assistantFabImg" src="assistant-fab.gif" alt="Assistant" style="width:100%;height:100%;object-fit:cover;">
+  <button id="assistantFabBtn" style="position:absolute;right:16px;bottom:86px;width:52px;height:52px;border-radius:50%;border:none;background:#6690D6;box-shadow:0 4px 14px rgba(0,0,0,0.18);cursor:pointer;z-index:55;display:flex;align-items:center;justify-content:center;padding:0;">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFF8F0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
   </button>
 
   <div id="assistantModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.4);z-index:64;"></div>
-  <div id="assistantModal" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;height:70vh;background:#FFF8F0;border-radius:24px 24px 0 0;box-sizing:border-box;z-index:65;box-shadow:0 -10px 30px rgba(0,0,0,0.15);flex-direction:column;">
+  <div id="assistantModal" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;height:78vh;background:#FFF8F0;border-radius:24px 24px 0 0;box-sizing:border-box;z-index:65;box-shadow:0 -10px 30px rgba(0,0,0,0.15);flex-direction:column;">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px 10px;">
-      <p style="font-size:15px;font-weight:800;color:#2A2013;margin:0;">Ask for what you need</p>
+      <p style="font-size:15px;font-weight:800;color:#2A2013;margin:0;">Who do you want to talk to?</p>
       <button id="assistantCloseBtn" style="background:none;border:none;font-size:20px;color:#9AABCE;cursor:pointer;padding:0;line-height:1;">&times;</button>
     </div>
-    <p style="font-size:11px;color:#B0AA98;margin:0 20px 12px;">Bob, Kunnu, Po, and Cookie can take you places or do things directly — try "add a task", "log an appointment", "connect me with someone", or "how am I doing this week".</p>
+    <div id="assistantCharacterPicker" style="display:flex;gap:8px;padding:0 20px 12px;overflow-x:auto;">
+      <button class="assistant-char-card" data-char="bob" style="flex-shrink:0;width:82px;background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:8px 6px;text-align:center;cursor:pointer;">
+        <img src="bob.png" style="width:32px;height:32px;object-fit:contain;display:block;margin:0 auto 4px;">
+        <p style="font-size:10.5px;font-weight:800;color:#2A2013;margin:0;">Bob</p>
+        <p style="font-size:8.5px;color:#9AABCE;margin:0;line-height:1.3;">Check in, breathe</p>
+      </button>
+      <button class="assistant-char-card" data-char="kunnu" style="flex-shrink:0;width:82px;background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:8px 6px;text-align:center;cursor:pointer;">
+        <img src="kunnu.png" style="width:32px;height:32px;object-fit:contain;display:block;margin:0 auto 4px;">
+        <p style="font-size:10.5px;font-weight:800;color:#2A2013;margin:0;">Kunnu</p>
+        <p style="font-size:8.5px;color:#9AABCE;margin:0;line-height:1.3;">Connect, share</p>
+      </button>
+      <button class="assistant-char-card" data-char="po" style="flex-shrink:0;width:82px;background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:8px 6px;text-align:center;cursor:pointer;">
+        <img src="po.png" style="width:32px;height:32px;object-fit:contain;display:block;margin:0 auto 4px;">
+        <p style="font-size:10.5px;font-weight:800;color:#2A2013;margin:0;">Po</p>
+        <p style="font-size:8.5px;color:#9AABCE;margin:0;line-height:1.3;">Tasks, schedule</p>
+      </button>
+      <button class="assistant-char-card" data-char="cookie" style="flex-shrink:0;width:82px;background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:8px 6px;text-align:center;cursor:pointer;">
+        <img src="cookie.png" style="width:32px;height:32px;object-fit:contain;display:block;margin:0 auto 4px;">
+        <p style="font-size:10.5px;font-weight:800;color:#2A2013;margin:0;">Cookie</p>
+        <p style="font-size:8.5px;color:#9AABCE;margin:0;line-height:1.3;">Progress, hype</p>
+      </button>
+    </div>
+    <p style="font-size:11px;color:#B0AA98;margin:0 20px 12px;">Pick whoever fits, or just type what you need — try "add a task", "log an appointment", or "connect me with someone".</p>
     <div id="assistantMessages" style="flex:1;overflow-y:auto;padding:0 20px;"></div>
     <div style="display:flex;gap:8px;padding:12px 20px calc(12px + env(safe-area-inset-bottom));border-top:1px solid #F0E9D8;">
       <input type="text" id="assistantInput" placeholder="Type what you need..." style="flex:1;padding:12px;border-radius:14px;border:1px solid #EEE0C4;font-size:13px;font-family:inherit;box-sizing:border-box;">
@@ -1738,7 +1760,7 @@
 // the foreground -- not just on a cold launch -- so an update shows up the next time someone
 // glances at the app, not only after they've force-closed it.
 (function(){
-  var CURRENT_BUILD = '20260713215935';
+  var CURRENT_BUILD = '20260713221021';
   function checkForUpdate(){
     // Safety guard: reload AT MOST ONCE per session, no matter what. Without this, a mistake
     // where version.json and the HTML's own build ID get out of sync (e.g. one gets updated
@@ -3749,9 +3771,16 @@ function processAssistantInput(text){
 
   // Safety check first, unconditionally -- this is now a real place people type feelings into,
   // not just navigation commands. If anything resembling crisis language shows up here, the
-  // same resources shown from journaling show here too, regardless of what else happens.
+  // same resources shown from journaling show here too, regardless of what else happens. After
+  // the resources are shown, offer a real, caring next step (not risk falling through to a
+  // dismissive "I didn't understand that" right after someone says something this serious).
   if(containsSelfHarmSignal(text)){
     showCrisisResourceModal();
+    setTimeout(function(){
+      renderAssistantMessage('bob', "I also want to make sure you have somewhere real to land right now.");
+      assistantAskTopic();
+    }, 600);
+    return;
   }
 
   // If a clarifying question is pending, route the free-text reply to it instead of
@@ -3831,11 +3860,24 @@ document.getElementById('assistantFabBtn').onclick = function(){
   document.getElementById('assistantModalBackdrop').style.display = 'block';
   document.getElementById('assistantModal').style.display = 'flex';
   if(!document.getElementById('assistantMessages').dataset.greeted){
-    renderAssistantMessage('bob', "Hey — I'm here with Kunnu, Po, and Cookie. Tell me what you need and we'll get you there.");
+    renderAssistantMessage('bob', "Hey — pick whoever fits below, or just type what you need.");
     document.getElementById('assistantMessages').dataset.greeted = '1';
   }
   document.getElementById('assistantInput').focus();
 };
+var ASSISTANT_CHARACTER_INTROS = {
+  bob: "I'm Bob — come to me for a check-in, to breathe for a second, or just to land somewhere. What's going on?",
+  kunnu: "I'm Kunnu — I can get you connected with a real professional, help you share something, or find a support group. Who or what are you looking for?",
+  po: "I'm Po — tasks, your calendar, logging an appointment, scheduling. Tell me what needs doing.",
+  cookie: "I'm Cookie — want to see your progress, your credits, or how things are going this week? Just ask!"
+};
+document.querySelectorAll('.assistant-char-card').forEach(function(card){
+  card.onclick = function(){
+    var charKey = card.dataset.char;
+    renderAssistantMessage(charKey, ASSISTANT_CHARACTER_INTROS[charKey]);
+    document.getElementById('assistantInput').focus();
+  };
+});
 document.getElementById('assistantCloseBtn').onclick = function(){
   document.getElementById('assistantModalBackdrop').style.display = 'none';
   document.getElementById('assistantModal').style.display = 'none';
@@ -3966,6 +4008,16 @@ var SELF_HARM_SIGNAL_PATTERNS = [
   /won'?t\s+be\s+(here|around)\s+much\s+longer/i, /running\s+out\s+of\s+time/i,
   /(last|final)\s+(entry|time|goodbye|letter)/i, /giving\s+away\s+(my\s+)?(things|stuff|belongings)/i,
   // Hopelessness / absolutist language (research-backed marker even without explicit death mention)
+  // "hopeless" itself was a real, confirmed gap -- the word never actually appeared in this list
+  // despite this section's own comment calling hopelessness a marker. Verified via actual
+  // research (not assumption) that this is one of the most consistently documented terms across
+  // clinical literature (Lester & Leenaars' suicide-note linguistic analysis specifically flags
+  // hopelessness and defeat language), CDC-cited overt warning signs, and a 2024 JMIR study of
+  // 2.9 million Reddit posts finding "hopeless, desperation, resignation" as the dominant themes
+  // in r/SuicideWatch specifically, compared to other mental health subreddits.
+  /\bhopeless/i, /no\s+hope\s+(left|anymore)?/i, /lost\s+and\s+broken/i,
+  /wish\s+i\s+didn'?t\s+exist/i, /don'?t\s+see\s+(the\s+)?point\s+(of|in)\s+living/i,
+  /feel(ing)?\s+(like\s+)?(such\s+a\s+|a\s+)?burden/i,
   /nothing\s+will\s+ever\s+(get\s+better|change|matter)/i, /no\s+point\s+(in\s+)?(anymore|any\s?more|trying)/i,
   /no\s+reason\s+to\s+(live|keep\s+going|go\s+on)/i, /(no|can'?t\s+see\s+a)\s+way\s+out/i,
   /trapped\s+forever/i, /can'?t\s+go\s+on/i, /can'?t\s+(take|do)\s+this\s+any\s?more/i,
