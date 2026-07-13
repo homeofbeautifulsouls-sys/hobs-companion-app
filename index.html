@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>HOBS Companion — Mood Check-in [BUILD-CHECK-001]</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>HOBS Companion — Mood Check-in</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -1708,6 +1711,44 @@
 </div>
 
 <script>
+// ---- Auto-update check ----
+// The real problem this solves: this app loads live from GitHub Pages inside a Capacitor
+// WebView, and Android's WebView caches the page aggressively enough that even a fresh app
+// launch could still show a stale version -- only a full force-close seemed to reliably clear
+// enough cache to fetch new content. This checks a tiny, always-fresh version marker (bypassing
+// cache itself via a cache-busting query param) both on load AND whenever the app comes back to
+// the foreground -- not just on a cold launch -- so an update shows up the next time someone
+// glances at the app, not only after they've force-closed it.
+(function(){
+  var CURRENT_BUILD = '20260713211700';
+  function checkForUpdate(){
+    // Safety guard: reload AT MOST ONCE per session, no matter what. Without this, a mistake
+    // where version.json and the HTML's own build ID get out of sync (e.g. one gets updated
+    // and the other is forgotten on some future deploy) would reload the app forever in a loop
+    // -- completely unacceptable for a mental health app real people depend on. One missed
+    // update is a minor inconvenience; an infinite reload loop is not.
+    if(sessionStorage.getItem('hobs_already_checked_for_update')) return;
+    fetch('version.json?t=' + Date.now(), { cache: 'no-store' })
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if(data && data.build && data.build !== CURRENT_BUILD){
+          sessionStorage.setItem('hobs_already_checked_for_update', '1');
+          // Force a genuinely fresh fetch, not a cached reload -- appending a cache-busting
+          // param so the WebView can't serve this specific request from its HTTP cache either.
+          window.location.href = window.location.pathname + '?v=' + data.build;
+        }
+      })
+      .catch(function(){}); // best-effort -- never block the app loading over this
+  }
+  checkForUpdate();
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState === 'visible') checkForUpdate();
+  });
+  // Capacitor's own resume event fires reliably on Android when the app comes back to the
+  // foreground, which is a stronger signal than visibilitychange alone inside a WebView.
+  document.addEventListener('resume', checkForUpdate, false);
+})();
+
 // ---- Persisted app state (localStorage stands in for a real backend/account here) ----
 // ================= SUPABASE BACKEND CONNECTION =================
 var SUPABASE_URL = 'https://adjvptkzyckkvewbfmzf.supabase.co';
