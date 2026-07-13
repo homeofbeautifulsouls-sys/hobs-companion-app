@@ -869,6 +869,17 @@
       <button id="therapistDayEditorCloseBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:13px;font-weight:700;cursor:pointer;">Done</button>
     </div>
 
+    <div id="therapistScheduleEditBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.45);z-index:60;"></div>
+    <div id="therapistScheduleEditModal" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;background:#FFFFFF;border-radius:24px 24px 0 0;padding:24px 22px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;z-index:61;box-shadow:0 -10px 30px rgba(0,0,0,0.15);">
+      <p class="prompt-title" style="margin-bottom:4px;" id="therapistScheduleEditName">Edit schedule</p>
+      <p style="font-size:11px;color:#B0AA98;margin:0 0 16px;">Sets their next session time directly — same as logging an appointment, just from their profile instead of a specific day.</p>
+      <input type="date" id="therapistScheduleEditDate" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:13px;font-family:inherit;box-sizing:border-box;margin-bottom:6px;">
+      <input type="time" id="therapistScheduleEditTime" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:13px;font-family:inherit;box-sizing:border-box;margin-bottom:10px;">
+      <input type="text" id="therapistScheduleEditPaymentNote" placeholder="Payment note — optional" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:13px;font-family:inherit;box-sizing:border-box;margin-bottom:14px;">
+      <button id="therapistScheduleEditSaveBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:10px;">Save</button>
+      <button id="therapistScheduleEditCloseBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:13px;font-weight:700;cursor:pointer;">Cancel</button>
+    </div>
+
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:22px 0 10px;">My Profile</p>
     <p style="font-size:11px;color:#B0AA98;margin:0 0 10px;">This is what clients see about you on the Experts page.</p>
     <textarea id="therapistBioInput" placeholder="A short bio, in your own words..." rows="3" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;resize:vertical;"></textarea>
@@ -7778,7 +7789,7 @@ function renderTherapistClientsList(){
   var listEl = document.getElementById('therapistClientsList');
   listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">Loading...</p>';
   Promise.all([
-    sb.from('expert_bookings').select('user_id,status,session_date,created_at,is_external,external_client_name,external_client_contact').eq('expert_name', appState.therapistExpertName).in('status', ['active','change_requested']),
+    sb.from('expert_bookings').select('id,user_id,status,session_date,created_at,is_external,external_client_name,external_client_contact').eq('expert_name', appState.therapistExpertName).in('status', ['active','change_requested']),
     sb.from('profiles').select('user_id,name,email,therapist_expert_name')
   ]).then(function(results){
     var bookingsRes = results[0], profilesRes = results[1];
@@ -7822,7 +7833,7 @@ function renderTherapistClientsList(){
       var sessionText = info.latestSessionDate
         ? 'Next/latest session: ' + new Date(info.latestSessionDate).toLocaleDateString('en-IN', {day:'numeric', month:'short'})
         : (info.count + ' booking' + (info.count===1?'':'s') + ', no date set yet');
-      return '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:11px 13px;margin-bottom:7px;">'+
+      return '<div class="therapist-client-row" data-user-id="'+uid+'" data-session-date="'+(info.latestSessionDate||'')+'" data-name="'+(profile.name||'Unknown client')+'" style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:11px 13px;margin-bottom:7px;cursor:pointer;">'+
         '<p style="font-size:12.5px;font-weight:700;color:#2A2013;margin:0 0 2px;">'+(profile.name||'Unknown client')+'</p>'+
         '<p style="font-size:11px;color:#5C6B94;margin:0 0 2px;">'+(profile.email||'')+'</p>'+
         '<p style="font-size:10px;color:#9AABCE;margin:0;">'+sessionText+'</p>'+
@@ -7831,7 +7842,7 @@ function renderTherapistClientsList(){
 
     var externalClientsHtml = externalRows.map(function(b){
       var sessionText = b.session_date ? new Date(b.session_date).toLocaleString('en-IN', {day:'numeric', month:'short', hour:'numeric', minute:'2-digit'}) : 'no time set';
-      return '<div style="background:#FFF8F0;border:1px dashed #EEE0C4;border-radius:12px;padding:11px 13px;margin-bottom:7px;">'+
+      return '<div class="therapist-client-row" data-booking-id="'+b.id+'" data-session-date="'+(b.session_date||'')+'" data-name="'+(b.external_client_name||'Unnamed')+'" style="background:#FFF8F0;border:1px dashed #EEE0C4;border-radius:12px;padding:11px 13px;margin-bottom:7px;cursor:pointer;">'+
         '<p style="font-size:12.5px;font-weight:700;color:#2A2013;margin:0 0 2px;">'+(b.external_client_name||'Unnamed')+' <span style="font-size:9px;font-weight:700;color:#9AABCE;background:#F0EEE8;padding:2px 6px;border-radius:6px;">Outside app</span></p>'+
         (b.external_client_contact ? '<p style="font-size:11px;color:#5C6B94;margin:0 0 2px;">'+b.external_client_contact+'</p>' : '')+
         '<p style="font-size:10px;color:#9AABCE;margin:0;">'+sessionText+'</p>'+
@@ -7839,8 +7850,71 @@ function renderTherapistClientsList(){
     }).join('');
 
     listEl.innerHTML = appClientsHtml + externalClientsHtml;
+    listEl.querySelectorAll('.therapist-client-row').forEach(function(row){
+      row.onclick = function(){
+        openTherapistScheduleEdit(row.dataset.userId || null, row.dataset.bookingId || null, row.dataset.name, row.dataset.sessionDate || null);
+      };
+    });
   });
 }
+
+// Tapping a client's name in My Clients opens this -- lets a therapist directly set or change
+// that client's next session time, same underlying update Log Appointment does, just reached
+// from the client's own row instead of a specific calendar day.
+function openTherapistScheduleEdit(userId, bookingId, name, currentSessionDate){
+  document.getElementById('therapistScheduleEditName').textContent = 'Edit schedule — ' + name;
+  document.getElementById('therapistScheduleEditPaymentNote').value = '';
+  if(currentSessionDate){
+    var d = new Date(currentSessionDate);
+    document.getElementById('therapistScheduleEditDate').value = d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
+    document.getElementById('therapistScheduleEditTime').value = pad2(d.getHours())+':'+pad2(d.getMinutes());
+  } else {
+    document.getElementById('therapistScheduleEditDate').value = '';
+    document.getElementById('therapistScheduleEditTime').value = '';
+  }
+  document.getElementById('therapistScheduleEditSaveBtn').dataset.userId = userId || '';
+  document.getElementById('therapistScheduleEditSaveBtn').dataset.bookingId = bookingId || '';
+  document.getElementById('therapistScheduleEditBackdrop').style.display = 'block';
+  document.getElementById('therapistScheduleEditModal').style.display = 'block';
+}
+document.getElementById('therapistScheduleEditCloseBtn').onclick = function(){
+  document.getElementById('therapistScheduleEditBackdrop').style.display = 'none';
+  document.getElementById('therapistScheduleEditModal').style.display = 'none';
+};
+document.getElementById('therapistScheduleEditBackdrop').onclick = document.getElementById('therapistScheduleEditCloseBtn').onclick;
+document.getElementById('therapistScheduleEditSaveBtn').onclick = function(){
+  var dateVal = document.getElementById('therapistScheduleEditDate').value;
+  var timeVal = document.getElementById('therapistScheduleEditTime').value;
+  if(!dateVal || !timeVal){ showToast('Pick both a date and a time.'); return; }
+  var fullDate = new Date(dateVal + 'T' + timeVal);
+  var paymentNote = document.getElementById('therapistScheduleEditPaymentNote').value.trim() || null;
+  var userId = this.dataset.userId;
+  var bookingId = this.dataset.bookingId;
+  var btn = this;
+  btn.disabled = true;
+
+  var updatePayload = { session_date: fullDate.toISOString(), time_request_status: 'accepted', requested_session_date: null };
+  // Same session logic as Log Appointment -- changing the schedule re-opens payment for admin
+  // review rather than silently leaving whatever confirmation status was there before, since a
+  // changed time is effectively a new session.
+  if(paymentNote){
+    updatePayload.payment_confirmed = false;
+    updatePayload.payment_note = paymentNote;
+  }
+
+  var query = userId
+    ? sb.from('expert_bookings').update(updatePayload).eq('expert_name', appState.therapistExpertName).eq('user_id', userId).eq('status', 'active')
+    : sb.from('expert_bookings').update(updatePayload).eq('id', bookingId);
+
+  query.then(function(result){
+    btn.disabled = false;
+    if(result.error){ showToast('Could not save — please try again.'); return; }
+    document.getElementById('therapistScheduleEditBackdrop').style.display = 'none';
+    document.getElementById('therapistScheduleEditModal').style.display = 'none';
+    showToast('Schedule updated.');
+    renderTherapistClientsList();
+  });
+};
 
 function populateHomeworkClientSelect(){
   var sel = document.getElementById('homeworkClientSelect');
