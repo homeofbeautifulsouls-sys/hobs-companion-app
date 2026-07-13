@@ -1685,6 +1685,24 @@
     </div>
   </div>
 
+  <button id="assistantFabBtn" style="position:absolute;right:16px;bottom:86px;width:52px;height:52px;border-radius:50%;border:none;background:#6690D6;box-shadow:0 4px 14px rgba(0,0,0,0.2);cursor:pointer;z-index:55;display:flex;align-items:center;justify-content:center;padding:0;">
+    <img id="assistantFabImg" src="bob.png" alt="Assistant" style="width:34px;height:34px;object-fit:contain;">
+  </button>
+
+  <div id="assistantModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.4);z-index:64;"></div>
+  <div id="assistantModal" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;height:70vh;background:#FFF8F0;border-radius:24px 24px 0 0;box-sizing:border-box;z-index:65;box-shadow:0 -10px 30px rgba(0,0,0,0.15);flex-direction:column;">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px 10px;">
+      <p style="font-size:15px;font-weight:800;color:#2A2013;margin:0;">Ask for what you need</p>
+      <button id="assistantCloseBtn" style="background:none;border:none;font-size:20px;color:#9AABCE;cursor:pointer;padding:0;line-height:1;">&times;</button>
+    </div>
+    <p style="font-size:11px;color:#B0AA98;margin:0 20px 12px;">Bob, Kunnu, Po, and Cookie can take you places or do things directly — try "add a task", "log an appointment", "connect me with someone", or "how am I doing this week".</p>
+    <div id="assistantMessages" style="flex:1;overflow-y:auto;padding:0 20px;"></div>
+    <div style="display:flex;gap:8px;padding:12px 20px calc(12px + env(safe-area-inset-bottom));border-top:1px solid #F0E9D8;">
+      <input type="text" id="assistantInput" placeholder="Type what you need..." style="flex:1;padding:12px;border-radius:14px;border:1px solid #EEE0C4;font-size:13px;font-family:inherit;box-sizing:border-box;">
+      <button id="assistantSendBtn" style="background:#6690D6;border:none;border-radius:14px;padding:0 18px;color:#FFF8F0;font-weight:700;cursor:pointer;">Go</button>
+    </div>
+  </div>
+
   <div class="nav-footer">
     <div class="nav-item active" id="navHome">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3 2 11.5h3V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-8.5h3z"/></svg>
@@ -1720,7 +1738,7 @@
 // the foreground -- not just on a cold launch -- so an update shows up the next time someone
 // glances at the app, not only after they've force-closed it.
 (function(){
-  var CURRENT_BUILD = '20260713213521';
+  var CURRENT_BUILD = '20260713214139';
   function checkForUpdate(){
     // Safety guard: reload AT MOST ONCE per session, no matter what. Without this, a mistake
     // where version.json and the HTML's own build ID get out of sync (e.g. one gets updated
@@ -3549,6 +3567,198 @@ function setActiveNav(which){
   ['navHome','navTasks','navJournal','navBreathe','navYou'].forEach(function(id){ document.getElementById(id).classList.remove('active'); });
   document.getElementById(which).classList.add('active');
 }
+
+// ================= ASSISTANT: Bob, Kunnu, Po, Cookie =================
+// A rule-based command router, not an AI/LLM -- entirely free, entirely on-device, nothing
+// ever leaves the app. This is deliberate: navigation and simple actions have a right answer,
+// which pattern matching handles reliably and safely; open conversation (journaling, real
+// emotional support) is explicitly NOT what this replaces -- the reflective act of writing or
+// checking in is the point, not something to route around. Each character owns a real
+// functional domain, matched to who they are, not assigned arbitrarily:
+//   Bob (Robin Williams the person, not just his roles -- warmth that knows real pain) --
+//     the default/general face: mood, home, breathe, anything open-ended or unmatched.
+//   Kunnu (Kakeru from Orange, Finch from All the Bright Places, Charlie from Perks --
+//     magnetic, attuned to others, hides her own suffering) -- connection: booking a
+//     professional, sharing entries, support groups.
+//   Po (neurodivergent, queer -- Akash's own lived experience) -- the practical,
+//     get-it-done layer: tasks, calendar, scheduling, logging appointments. Direct, no fluff.
+//   Cookie (Naruto -- relentless belief in people, loyalty, hype) -- progress and motivation:
+//     stats, streaks, "how am I doing," admin numbers worth celebrating.
+var ASSISTANT_CHARACTERS = {
+  bob: { name: 'Bob', img: 'bob.png' },
+  kunnu: { name: 'Kunnu', img: 'kunnu.png' },
+  po: { name: 'Po', img: 'po.png' },
+  cookie: { name: 'Cookie', img: 'cookie.png' }
+};
+
+function assistantGoTo(panelFn, navId){
+  return function(){
+    document.getElementById('assistantModalBackdrop').style.display = 'none';
+    document.getElementById('assistantModal').style.display = 'none';
+    panelFn();
+    if(navId) setActiveNav(navId);
+  };
+}
+
+var ASSISTANT_COMMANDS = [
+  // ---- Bob: general / home / mood / breathe ----
+  { character: 'bob', patterns: [/\bmood\b/i, /how (am|are) i (feeling|doing)/i, /check.?in/i],
+    reply: "Let's see where you're at right now.", action: assistantGoTo(function(){ showOnly('panel-bubbles'); }, 'navHome') },
+  { character: 'bob', patterns: [/breathe/i, /\bcalm\b/i, /overwhelm/i, /ground/i],
+    reply: "Come breathe with me for a second.", action: assistantGoTo(function(){ renderGroundingList(); showOnly('panel-grounding'); }, 'navBreathe') },
+  { character: 'bob', patterns: [/\bhome\b/i],
+    reply: "Right here.", action: assistantGoTo(function(){ showOnly('panel-bubbles'); }, 'navHome') },
+
+  // ---- Kunnu: connection ----
+  { character: 'kunnu', patterns: [/connect/i, /\btherapist\b/i, /book.*(session|professional|someone)/i, /find.*(help|therapist|someone)/i],
+    reply: "Let's get you someone to actually talk to.", action: assistantGoTo(function(){ renderTeamList(); showOnly('panel-team'); }, 'navYou') },
+  { character: 'kunnu', patterns: [/\bshare\b/i, /entries/i],
+    reply: "Let's find what you want to share.", action: assistantGoTo(function(){ renderHistory(); showOnly('panel-history'); }, 'navJournal') },
+  { character: 'kunnu', patterns: [/support group/i, /group session/i],
+    reply: "You don't have to do this one alone either.", action: assistantGoTo(function(){ showOnly('panel-calendar'); renderCalendar(); }, 'navTasks') },
+
+  // ---- Po: practical / tasks / calendar / scheduling ----
+  { character: 'po', patterns: [/\bjournal\b/i, /\bwrite\b/i, /write.*(down|entry)/i],
+    reply: "Say less — here you go.", action: assistantGoTo(function(){ showOnly('panel-journal'); }, 'navJournal') },
+  { character: 'po', patterns: [/\btask\b/i, /\bcalendar\b/i, /\bschedule\b/i, /to.?do/i],
+    reply: "On it.", action: assistantGoTo(function(){ showOnly('panel-calendar'); renderCalendar(); }, 'navTasks') },
+  { character: 'po', patterns: [/log.*(appointment|session)/i],
+    reply: null, // handled specially below -- attempts to parse a name and time
+    action: 'LOG_APPOINTMENT' },
+  { character: 'po', patterns: [/my clients/i],
+    reply: "Here's everyone you've got.", action: assistantGoTo(function(){ openTherapistDashboard(); }, 'navYou') },
+  { character: 'po', patterns: [/time request/i, /waiting on (me|you)/i],
+    reply: "Let's clear those out.", action: assistantGoTo(function(){ openTherapistDashboard(); renderTherapistTimeRequests(); }, 'navYou') },
+  { character: 'po', patterns: [/admin/i, /booking dashboard/i],
+    reply: "Dashboard, coming up.", action: assistantGoTo(function(){ openAdminDashboard(); }, 'navYou') },
+  { character: 'po', patterns: [/unconfirmed/i, /unpaid/i, /waiting on payment/i],
+    reply: "Let's see what's still unpaid.", action: assistantGoTo(function(){ openAdminDashboard(); setTimeout(function(){ var t = document.querySelector('[data-stat="unconfirmed"]'); if(t) t.click(); }, 800); }, 'navYou') },
+
+  // ---- Cookie: progress / motivation / stats ----
+  { character: 'cookie', patterns: [/how am i doing/i, /this week/i, /progress/i, /credits/i],
+    reply: "Let's see how far you've come!", action: assistantGoTo(function(){ renderProfile(); showOnly('panel-profile'); }, 'navYou') },
+  { character: 'cookie', patterns: [/active users/i, /how many (users|people|signed up)/i],
+    reply: "LET'S GO — pulling up the numbers!", action: assistantGoTo(function(){ openAdminDashboard(); setTimeout(function(){ var t = document.querySelector('[data-stat="totalusers"]'); if(t) t.click(); }, 800); }, 'navYou') }
+];
+
+function findAssistantMatchingClient(nameGuess, callback){
+  // Fuzzy-ish match against real clients (by profile name) and saved external contacts, for
+  // the "log appointment for X" parsed flow -- exact match first, then a loose contains-match
+  // so "log appointment for aradhana" still finds "Aradhana Das".
+  var lower = nameGuess.trim().toLowerCase();
+  Promise.all([
+    sb.from('expert_bookings').select('user_id,status').eq('expert_name', appState.therapistExpertName).eq('status', 'active').eq('is_external', false),
+    sb.from('profiles').select('user_id,name'),
+    sb.from('therapist_external_clients').select('*').eq('therapist_expert_name', appState.therapistExpertName)
+  ]).then(function(results){
+    var nameByUserId = {};
+    (results[1].data || []).forEach(function(p){ nameByUserId[p.user_id] = p.name; });
+    var realMatch = (results[0].data || []).find(function(b){
+      var n = (nameByUserId[b.user_id] || '').toLowerCase();
+      return n && (n === lower || n.indexOf(lower) !== -1 || lower.indexOf(n) !== -1);
+    });
+    if(realMatch){ callback({ userId: realMatch.user_id, name: nameByUserId[realMatch.user_id] }); return; }
+    var extMatch = (results[2].data || []).find(function(e){
+      var n = (e.name || '').toLowerCase();
+      return n === lower || n.indexOf(lower) !== -1 || lower.indexOf(n) !== -1;
+    });
+    if(extMatch){ callback({ bookingSearchExternalId: extMatch.id, name: extMatch.name }); return; }
+    callback(null);
+  });
+}
+
+function renderAssistantMessage(character, text){
+  var wrap = document.getElementById('assistantMessages');
+  var char = ASSISTANT_CHARACTERS[character] || ASSISTANT_CHARACTERS.bob;
+  var row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:8px;align-items:flex-start;margin-bottom:12px;';
+  row.innerHTML = '<img src="'+char.img+'" style="width:30px;height:30px;object-fit:contain;flex-shrink:0;">'+
+    '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:9px 12px;font-size:12.5px;color:#2A2013;max-width:80%;"><strong style="display:block;font-size:10px;color:#9AABCE;margin-bottom:2px;">'+char.name+'</strong>'+text+'</div>';
+  wrap.appendChild(row);
+  wrap.scrollTop = wrap.scrollHeight;
+}
+function renderAssistantUserMessage(text){
+  var wrap = document.getElementById('assistantMessages');
+  var row = document.createElement('div');
+  row.style.cssText = 'display:flex;justify-content:flex-end;margin-bottom:12px;';
+  row.innerHTML = '<div style="background:#6690D6;color:#FFF8F0;border-radius:12px;padding:9px 12px;font-size:12.5px;max-width:80%;">'+text.replace(/</g,'&lt;')+'</div>';
+  wrap.appendChild(row);
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+function processAssistantInput(text){
+  renderAssistantUserMessage(text);
+  var matched = ASSISTANT_COMMANDS.find(function(cmd){
+    return cmd.patterns.some(function(p){ return p.test(text); });
+  });
+
+  if(!matched){
+    renderAssistantMessage('bob', "I'm not sure I caught that yet — try asking to go somewhere (like \"journal\" or \"calendar\"), or tell me what you're trying to do.");
+    return;
+  }
+
+  if(matched.action === 'LOG_APPOINTMENT'){
+    var nameMatch = text.match(/for\s+([a-zA-Z ]+?)\s+at\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)/i);
+    if(!nameMatch){
+      renderAssistantMessage('po', "Give me a name and a time — like \"log appointment for Aradhana at 3pm.\"");
+      return;
+    }
+    var guessName = nameMatch[1].trim();
+    var timeStr = nameMatch[2].trim();
+    renderAssistantMessage('po', "Looking for " + guessName + "...");
+    findAssistantMatchingClient(guessName, function(match){
+      if(!match){
+        renderAssistantMessage('po', "Couldn't find anyone named " + guessName + " in your clients or contacts — check the spelling, or add them directly from Log Appointment.");
+        return;
+      }
+      document.getElementById('assistantModalBackdrop').style.display = 'none';
+      document.getElementById('assistantModal').style.display = 'none';
+      openTherapistDashboard();
+      setTimeout(function(){
+        openTherapistScheduleEdit(match.userId || null, match.bookingSearchExternalId ? null : null, match.name, null);
+        // Best-effort prefill of the parsed time into the already-open editor -- still requires
+        // a tap to Save, which is the right amount of friction for something writing real data.
+        var parsedHour = parseInt(timeStr, 10);
+        var isPM = /pm/i.test(timeStr);
+        if(isPM && parsedHour < 12) parsedHour += 12;
+        var minuteMatch = timeStr.match(/:(\d{2})/);
+        var minutes = minuteMatch ? minuteMatch[1] : '00';
+        document.getElementById('therapistScheduleEditTime').value = pad2(parsedHour) + ':' + minutes;
+        var today = new Date();
+        document.getElementById('therapistScheduleEditDate').value = today.getFullYear()+'-'+pad2(today.getMonth()+1)+'-'+pad2(today.getDate());
+      }, 600);
+    });
+    return;
+  }
+
+  renderAssistantMessage(matched.character, matched.reply);
+  setTimeout(matched.action, 500);
+}
+
+document.getElementById('assistantFabBtn').onclick = function(){
+  document.getElementById('assistantModalBackdrop').style.display = 'block';
+  document.getElementById('assistantModal').style.display = 'flex';
+  if(!document.getElementById('assistantMessages').dataset.greeted){
+    renderAssistantMessage('bob', "Hey — I'm here with Kunnu, Po, and Cookie. Tell me what you need and we'll get you there.");
+    document.getElementById('assistantMessages').dataset.greeted = '1';
+  }
+  document.getElementById('assistantInput').focus();
+};
+document.getElementById('assistantCloseBtn').onclick = function(){
+  document.getElementById('assistantModalBackdrop').style.display = 'none';
+  document.getElementById('assistantModal').style.display = 'none';
+};
+document.getElementById('assistantModalBackdrop').onclick = document.getElementById('assistantCloseBtn').onclick;
+document.getElementById('assistantSendBtn').onclick = function(){
+  var input = document.getElementById('assistantInput');
+  var text = input.value.trim();
+  if(!text) return;
+  input.value = '';
+  processAssistantInput(text);
+};
+document.getElementById('assistantInput').addEventListener('keydown', function(e){
+  if(e.key === 'Enter'){ e.preventDefault(); document.getElementById('assistantSendBtn').click(); }
+});
 
 document.getElementById('navHome').onclick = function(){
   showOnly('panel-bubbles');
