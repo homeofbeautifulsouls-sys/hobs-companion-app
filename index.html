@@ -3770,13 +3770,21 @@ function renderHistory(){
       };
       actionsRow.appendChild(shareBtn);
     } else if(!e.sharedWithTherapist && !isConnected){
-      // Not showing anything here at all read as a bug (Akash reported "no share button" when
-      // this was actually correct behavior for an account with no active professional
-      // connection) -- an explanatory note makes it clear this is expected, not broken.
-      var noConnNote = document.createElement('span');
-      noConnNote.textContent = 'Connect with a professional to share entries with them';
-      noConnNote.style.cssText = 'font-size:10px;color:#B0AA98;font-style:italic;';
-      actionsRow.appendChild(noConnNote);
+      // This used to be a plain, non-interactive note. Per direct instruction, everyone should
+      // see an actual Share button regardless of connection status -- for someone not yet
+      // connected, tapping it starts the flow to get connected instead of just sharing (which
+      // isn't possible yet, since there's no one to share it TO), rather than silently doing
+      // nothing until they've gone and connected on their own first.
+      var connectBtn = document.createElement('button');
+      connectBtn.textContent = 'Share (connect with a professional first)';
+      connectBtn.style.cssText = 'background:none;border:none;color:#6690D6;font-size:10.5px;font-weight:700;cursor:pointer;padding:0;text-decoration:underline;';
+      connectBtn.onclick = function(){
+        renderTeamList();
+        showOnly('panel-team');
+        setActiveNav('navYou');
+        showToast('Pick someone to connect with — you can come back and share this once you\'re matched.');
+      };
+      actionsRow.appendChild(connectBtn);
     }
 
     if(e.type !== 'worksheet'){
