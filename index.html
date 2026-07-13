@@ -733,14 +733,16 @@
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Expert Availability</p>
     <select id="adminAvailabilityExpertSelect" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:8px;"></select>
     <div style="display:flex;gap:6px;margin-bottom:10px;">
-      <input type="datetime-local" id="adminNewSlotDate" style="flex:1;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;">
+      <input type="date" id="adminNewSlotDate" style="flex:1;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;">
+      <input type="time" id="adminNewSlotTime" style="flex:1;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;">
       <button id="adminAddSlotBtn" style="font-size:11px;font-weight:700;color:#fff;background:#6690D6;border:none;border-radius:10px;padding:10px 14px;cursor:pointer;white-space:nowrap;">Add Slot</button>
     </div>
     <div id="adminSlotsList" style="margin-bottom:22px;"></div>
 
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Support Group Sessions</p>
     <div style="display:flex;gap:6px;margin-bottom:10px;">
-      <input type="datetime-local" id="adminNewGroupSessionDate" style="flex:1;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;">
+      <input type="date" id="adminNewGroupSessionDate" style="flex:1;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;">
+      <input type="time" id="adminNewGroupSessionTime" style="flex:1;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;">
       <button id="adminAddGroupSessionBtn" style="font-size:11px;font-weight:700;color:#fff;background:#6690D6;border:none;border-radius:10px;padding:10px 14px;cursor:pointer;white-space:nowrap;">Add</button>
     </div>
     <div id="adminGroupSessionsList" style="margin-bottom:22px;"></div>
@@ -6422,12 +6424,15 @@ function renderAdminSlots(){
   });
 }
 document.getElementById('adminAddSlotBtn').onclick = function(){
-  var input = document.getElementById('adminNewSlotDate');
+  var dateInput = document.getElementById('adminNewSlotDate');
+  var timeInput = document.getElementById('adminNewSlotTime');
   var expertName = document.getElementById('adminAvailabilityExpertSelect').value;
-  if(!input.value) return;
-  sb.from('expert_availability_slots').insert({ expert_name: expertName, slot_date: new Date(input.value).toISOString(), is_booked: false }).then(function(result){
+  if(!dateInput.value || !timeInput.value) return;
+  var combined = new Date(dateInput.value + 'T' + timeInput.value);
+  sb.from('expert_availability_slots').insert({ expert_name: expertName, slot_date: combined.toISOString(), is_booked: false }).then(function(result){
     if(!result.error){
-      input.value = '';
+      dateInput.value = '';
+      timeInput.value = '';
       renderAdminSlots();
     }
   });
@@ -6458,11 +6463,14 @@ function renderAdminGroupSessions(){
   });
 }
 document.getElementById('adminAddGroupSessionBtn').onclick = function(){
-  var input = document.getElementById('adminNewGroupSessionDate');
-  if(!input.value) return;
-  sb.from('support_group_sessions').insert({ session_date: new Date(input.value).toISOString() }).then(function(result){
+  var dateInput = document.getElementById('adminNewGroupSessionDate');
+  var timeInput = document.getElementById('adminNewGroupSessionTime');
+  if(!dateInput.value || !timeInput.value) return;
+  var combined = new Date(dateInput.value + 'T' + timeInput.value);
+  sb.from('support_group_sessions').insert({ session_date: combined.toISOString() }).then(function(result){
     if(!result.error){
-      input.value = '';
+      dateInput.value = '';
+      timeInput.value = '';
       renderAdminGroupSessions();
     }
   });
