@@ -666,7 +666,7 @@
     </div>
 
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Overview</p>
-    <div id="adminAnalyticsRow" style="display:flex;gap:8px;margin-bottom:18px;"></div>
+    <div id="adminAnalyticsRow" style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;"></div>
 
     <div id="adminStatsRow" style="display:flex;gap:8px;margin-bottom:18px;"></div>
 
@@ -859,6 +859,8 @@
           <button id="therapistSaveExternalContactBtn" style="display:block;width:100%;padding:10px;border-radius:10px;border:1px solid #3B8F63;background:transparent;color:#3B8F63;font-size:12.5px;font-weight:700;cursor:pointer;">Save Contact &amp; Select</button>
         </div>
         <input type="time" id="therapistExternalTime" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:13px;font-family:inherit;box-sizing:border-box;margin-bottom:10px;">
+        <input type="text" id="therapistExternalPaymentNote" placeholder="Payment note — e.g. paid cash, UPI ref #1234 (optional)" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:13px;font-family:inherit;box-sizing:border-box;margin-bottom:10px;">
+        <p style="font-size:10px;color:#B0AA98;margin:-4px 0 10px;">This logs like any other session — payment shows as unconfirmed until an admin reviews it.</p>
         <button id="therapistLogExternalBtn" style="display:block;width:100%;padding:12px;border-radius:10px;border:1px solid #6690D6;background:transparent;color:#6690D6;font-size:13px;font-weight:700;cursor:pointer;">Log Appointment</button>
       </div>
 
@@ -935,12 +937,14 @@
 
   <div id="crisisResourceModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.5);z-index:70;"></div>
   <div id="crisisResourceModal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:calc(100% - 48px);max-width:380px;background:#FFFFFF;border-radius:20px;padding:26px 22px;box-sizing:border-box;z-index:71;box-shadow:0 10px 40px rgba(0,0,0,0.2);text-align:center;">
-    <p style="font-size:15px;font-weight:800;color:#2A2013;margin:0 0 10px;">Before you go —</p>
-    <p style="font-size:13px;color:#5C6B94;line-height:1.6;margin:0 0 18px;">What you wrote sounds like it might be about a really hard place — thoughts of harming yourself, or not wanting to be here. You don't have to sit with that alone.</p>
-    <div style="background:#FBF2F2;border-radius:14px;padding:14px;margin-bottom:18px;text-align:left;">
-      <p style="font-size:12.5px;color:#8A4A4A;margin:0;line-height:1.7;"><strong>iCall: 9152987821</strong><br>Mon–Sat, 10am–8pm<br><strong>112</strong> for immediate emergency help</p>
+    <img src="bob.png" alt="Bob" style="width:64px;height:64px;object-fit:contain;margin:0 auto 12px;display:block;">
+    <p style="font-size:15px;font-weight:800;color:#2A2013;margin:0 0 10px;">I'm right here with you</p>
+    <p style="font-size:13px;color:#5C6B94;line-height:1.65;margin:0 0 18px;">What you just wrote sounds like it's been really heavy to carry. I noticed, and I don't want you to sit with it alone — not for one more minute than you have to.</p>
+    <div style="background:#FBF2F2;border-radius:14px;padding:14px;margin-bottom:14px;text-align:left;">
+      <p style="font-size:12.5px;color:#8A4A4A;margin:0;line-height:1.7;"><strong>iCall: 9152987821</strong><br>Mon–Sat, 10am–8pm — a real person, ready to listen<br><strong>112</strong> for immediate emergency help</p>
     </div>
-    <button id="crisisResourceCloseBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:13.5px;font-weight:700;cursor:pointer;">Okay</button>
+    <p style="font-size:11.5px;color:#9AABCE;line-height:1.6;margin:0 0 18px;">Reaching out isn't weakness. It's one of the bravest things a person can do — and you deserve that kind of care.</p>
+    <button id="crisisResourceCloseBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:13.5px;font-weight:700;cursor:pointer;">Okay, thank you</button>
   </div>
 
   <div id="adminUserProfileModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.45);z-index:62;"></div>
@@ -7420,12 +7424,23 @@ function openAdminDashboard(){
     var uniqueClientsThisMonth = new Set(newClientBookingsThisMonth.map(function(b){ return b.user_id; })).size;
     var activeBookings = bookings.filter(function(b){ return b.status === 'active'; });
     var totalActiveClients = new Set(activeBookings.map(function(b){ return b.user_id; })).size;
+    // "Active Clients" only ever counted people with a live booking -- Akash was explicit that
+    // "active users" means everyone who has installed and signed up, not a booking-based subset.
+    // That's a fundamentally different count (total registered accounts, clients or not), so it
+    // gets its own tile rather than redefining what "Active Clients" already correctly means.
+    var allProfiles = profilesRes.data || [];
+    var totalUsersCount = allProfiles.length;
+    function profileRow(p){
+      return { primary: p.name || '(no name set)', secondary: p.email || '', tag: '', tagColor: '', userId: p.user_id };
+    }
 
     function bookingRow(b){
       var dateLabel = b.session_date ? new Date(b.session_date).toLocaleDateString('en-IN', {day:'numeric', month:'short'}) : 'no date set';
+      var secondary = (b.expert_name || 'Unknown expert') + ' · ' + dateLabel;
+      if(b.payment_note) secondary += ' · note: ' + b.payment_note;
       return {
         primary: nameByUserId[b.user_id] || 'Unknown client',
-        secondary: (b.expert_name || 'Unknown expert') + ' · ' + dateLabel,
+        secondary: secondary,
         tag: b.status + (b.payment_confirmed === false ? ' · unpaid' : ''),
         tagColor: b.status === 'active' ? '#3B8F63' : (b.status === 'cancelled' ? '#C77B7B' : '#9AABCE'),
         userId: b.user_id
@@ -7446,7 +7461,8 @@ function openAdminDashboard(){
     document.getElementById('adminAnalyticsRow').innerHTML =
       '<div class="admin-stat-tile" data-stat="revenue" style="cursor:pointer;flex:1;background:#EAF0FB;border-radius:12px;padding:10px;text-align:center;"><p style="font-size:16px;font-weight:800;color:#2E5090;margin:0;">₹'+monthRevenue+'</p><p style="font-size:9.5px;color:#5C6B94;margin:0;">This Month</p></div>'+
       '<div class="admin-stat-tile" data-stat="newclients" style="cursor:pointer;flex:1;background:#EAF0FB;border-radius:12px;padding:10px;text-align:center;"><p style="font-size:16px;font-weight:800;color:#2E5090;margin:0;">'+uniqueClientsThisMonth+'</p><p style="font-size:9.5px;color:#5C6B94;margin:0;">New This Month</p></div>'+
-      '<div class="admin-stat-tile" data-stat="activeclients" style="cursor:pointer;flex:1;background:#EAF0FB;border-radius:12px;padding:10px;text-align:center;"><p style="font-size:16px;font-weight:800;color:#2E5090;margin:0;">'+totalActiveClients+'</p><p style="font-size:9.5px;color:#5C6B94;margin:0;">Active Clients</p></div>';
+      '<div class="admin-stat-tile" data-stat="activeclients" style="cursor:pointer;flex:1;background:#EAF0FB;border-radius:12px;padding:10px;text-align:center;"><p style="font-size:16px;font-weight:800;color:#2E5090;margin:0;">'+totalActiveClients+'</p><p style="font-size:9.5px;color:#5C6B94;margin:0;">Active Clients</p></div>'+
+      '<div class="admin-stat-tile" data-stat="totalusers" style="cursor:pointer;flex:1;background:#F3F0E8;border-radius:12px;padding:10px;text-align:center;"><p style="font-size:16px;font-weight:800;color:#5C6B94;margin:0;">'+totalUsersCount+'</p><p style="font-size:9.5px;color:#5C6B94;margin:0;">Active Users</p></div>';
 
     var activeCount = activeBookings.length;
     var unconfirmedBookings = bookings.filter(function(b){ return b.status === 'active' && !b.payment_confirmed; });
@@ -7465,6 +7481,8 @@ function openAdminDashboard(){
           showAdminStatDetail('New This Month — ' + uniqueClientsThisMonth, 'Distinct clients who made at least one booking (of any status) during this calendar month.', clientSummaryRows(newClientBookingsThisMonth), 'No new bookings yet this month.');
         } else if(stat === 'activeclients'){
           showAdminStatDetail('Active Clients — ' + totalActiveClients, 'Distinct clients who currently have at least one active (non-cancelled) booking, counted across all time — not just this month.', clientSummaryRows(activeBookings), 'No active clients right now.');
+        } else if(stat === 'totalusers'){
+          showAdminStatDetail('Active Users — ' + totalUsersCount, 'Everyone who has installed and signed up for the app, whether or not they have ever booked a professional. This is the full registered user base, not just clients with bookings.', allProfiles.map(profileRow), 'No users signed up yet.');
         } else if(stat === 'active'){
           showAdminStatDetail('Active Bookings — ' + activeCount, 'Every booking currently marked active. Unlike "Active Clients," this counts each session separately — one client with 3 sessions counts as 3 here.', activeBookings.map(bookingRow), 'No active bookings right now.');
         } else if(stat === 'unconfirmed'){
@@ -8308,21 +8326,27 @@ document.getElementById('therapistLogExternalBtn').onclick = function(){
   var timeParts = timeVal.split(':').map(Number);
   var parts = therapistCalActiveDayKey.split('-').map(Number);
   var fullDate = new Date(parts[0], parts[1]-1, parts[2], timeParts[0], timeParts[1]);
+  var paymentNote = document.getElementById('therapistExternalPaymentNote').value.trim() || null;
   var btn = this;
   btn.disabled = true;
 
   if(whoValue.indexOf('client:') === 0){
     // A real client already assigned to this therapist -- update THEIR existing booking
     // directly rather than creating a duplicate row, since they're already a real connection.
+    // Per Akash's direct instruction, this now follows the same payment-confirmation logic as
+    // any other session instead of silently leaving payment status untouched: a note can be
+    // added, and payment_confirmed is left for admin to actually confirm, not assumed.
     var userId = whoValue.slice('client:'.length);
     sb.from('expert_bookings').update({
-      session_date: fullDate.toISOString(), time_request_status: 'accepted', requested_session_date: null
+      session_date: fullDate.toISOString(), time_request_status: 'accepted', requested_session_date: null,
+      payment_confirmed: false, payment_note: paymentNote
     }).eq('expert_name', appState.therapistExpertName).eq('user_id', userId).eq('status', 'active').then(function(result){
       btn.disabled = false;
       if(result.error){ showToast('Could not log — please try again.'); return; }
       document.getElementById('therapistExternalTime').value = '';
+      document.getElementById('therapistExternalPaymentNote').value = '';
       document.getElementById('therapistLogWhoSelect').value = '';
-      showToast('Logged — their session time is now set.');
+      showToast('Logged — payment will show as unconfirmed until an admin reviews it.');
       renderTherapistClientsList();
     });
   } else if(whoValue.indexOf('external:') === 0){
@@ -8332,17 +8356,22 @@ document.getElementById('therapistLogExternalBtn').onclick = function(){
       var contact = contactResult.data;
       sb.from('experts').select('role_category').eq('name', appState.therapistExpertName).limit(1).then(function(expertResult){
         var roleCategory = (expertResult.data && expertResult.data[0] && expertResult.data[0].role_category) || 'Therapist';
+        // payment_confirmed used to be hardcoded true here, silently skipping the same
+        // confirm-by-admin workflow every other booking goes through -- fixed so external
+        // appointments follow the identical logic, not a shortcut just because the client
+        // isn't a real app account.
         sb.from('expert_bookings').insert({
           user_id: null, is_external: true, external_client_id: contact.id,
           external_client_name: contact.name, external_client_contact: contact.contact || contact.email || null,
           expert_name: appState.therapistExpertName, role_category: roleCategory,
-          status: 'active', session_date: fullDate.toISOString(), payment_confirmed: true, cancellation_count: 0
+          status: 'active', session_date: fullDate.toISOString(), payment_confirmed: false, payment_note: paymentNote, cancellation_count: 0
         }).then(function(result){
           btn.disabled = false;
           if(result.error){ showToast('Could not log — please try again.'); return; }
           document.getElementById('therapistExternalTime').value = '';
+          document.getElementById('therapistExternalPaymentNote').value = '';
           document.getElementById('therapistLogWhoSelect').value = '';
-          showToast('Logged.');
+          showToast('Logged — payment will show as unconfirmed until an admin reviews it.');
           renderTherapistClientsList();
         });
       });
