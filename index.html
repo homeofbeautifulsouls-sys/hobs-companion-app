@@ -1720,7 +1720,7 @@
 // the foreground -- not just on a cold launch -- so an update shows up the next time someone
 // glances at the app, not only after they've force-closed it.
 (function(){
-  var CURRENT_BUILD = '20260713211700';
+  var CURRENT_BUILD = '20260713213521';
   function checkForUpdate(){
     // Safety guard: reload AT MOST ONCE per session, no matter what. Without this, a mistake
     // where version.json and the HTML's own build ID get out of sync (e.g. one gets updated
@@ -1744,9 +1744,14 @@
   document.addEventListener('visibilitychange', function(){
     if(document.visibilityState === 'visible') checkForUpdate();
   });
-  // Capacitor's own resume event fires reliably on Android when the app comes back to the
-  // foreground, which is a stronger signal than visibilitychange alone inside a WebView.
-  document.addEventListener('resume', checkForUpdate, false);
+  // This was the actual bug behind "still had to reopen the app" -- document.addEventListener
+  // ('resume', ...) is the old Cordova convention and does nothing at all in modern Capacitor
+  // (confirmed @capacitor/app v8 is what's actually installed here). The real API for this is
+  // through the Capacitor plugin bridge. window.Capacitor only exists when actually running
+  // inside the native shell (not in a plain browser), so this is guarded for that.
+  if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App){
+    window.Capacitor.Plugins.App.addListener('resume', checkForUpdate);
+  }
 })();
 
 // ---- Persisted app state (localStorage stands in for a real backend/account here) ----
