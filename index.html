@@ -4766,12 +4766,21 @@ function renderTaskListCal(){
   var completedEntries = [];
   tasks.forEach(function(task){
     var hasSubtasks = task.subtasks && task.subtasks.length > 0;
-    if(!hasSubtasks || task.done){
+    if(!hasSubtasks){
       (task.done ? completedEntries : remainingEntries).push({ task: task, subtasksToShow: null, isCompletedAppearance: task.done });
       return;
     }
+    // For tasks with subtasks, completion is always derived from the actual subtask states here
+    // -- never trusted blindly from task.done -- specifically so any already-inconsistent data
+    // (task.done true with a subtask still false, from before the toggle-cascade fix existed)
+    // displays correctly instead of showing a fully-"done" task with an unchecked subtask still
+    // inside it, which is exactly the bug a real screenshot showed.
     var doneSubs = task.subtasks.filter(function(s){ return s.done; });
     var incompleteSubs = task.subtasks.filter(function(s){ return !s.done; });
+    if(incompleteSubs.length === 0){
+      completedEntries.push({ task: task, subtasksToShow: null, isCompletedAppearance: true });
+      return;
+    }
     remainingEntries.push({ task: task, subtasksToShow: incompleteSubs.slice().sort(function(a,b){ return (a.sortOrder||0)-(b.sortOrder||0); }), isCompletedAppearance: false });
     if(doneSubs.length > 0){
       completedEntries.push({ task: task, subtasksToShow: doneSubs.slice().sort(function(a,b){ return (a.sortOrder||0)-(b.sortOrder||0); }), isCompletedAppearance: true });
@@ -4893,10 +4902,33 @@ function toggleSubtask(taskId, subId){
 }
 function toggleTaskCal(taskId){
   var task = getTasks(activeDayKey).find(function(t){ return t.id === taskId; });
-  task.done = !task.done; saveState(); renderTaskListCal();
+  task.done = !task.done;
+
+  // Real bug found from a live screenshot: this used to just flip task.done in isolation, with
+  // zero regard for subtask state. For a task with subtasks, that let task.done become true
+  // while a subtask was still false -- and the render logic (reasonably) trusts task.done to
+  // decide whether to show the WHOLE task under Completed with ALL subtasks, unfiltered. The
+  // result was exactly what the screenshot showed: a task sitting fully under Completed with
+  // an unchecked subtask still visible inside it. Fixed at the source: tapping the row on a
+  // task WITH subtasks now cascades the same done-value to every subtask too, so task.done can
+  // never again say something the subtasks don't actually agree with.
+  var cascadedSubtaskIds = [];
+  if(task.subtasks && task.subtasks.length > 0){
+    task.subtasks.forEach(function(s){
+      if(s.done !== task.done){ s.done = task.done; cascadedSubtaskIds.push(s.id); }
+    });
+  }
+
+  saveState(); renderTaskListCal();
   if(String(taskId).indexOf('temp_') !== 0){
     sb.from('tasks').update({ done: task.done }).eq('id', taskId).then(function(r){ if(r.error) console.error(r.error); });
   }
+  cascadedSubtaskIds.forEach(function(subId){
+    if(String(subId).indexOf('temp_') !== 0){
+      sb.from('subtasks').update({ done: task.done }).eq('id', subId).then(function(r){ if(r.error) console.error(r.error); });
+    }
+  });
+
   if(task.done){
     trackNotificationAction('completed_task');
     logAnalyticsEvent('task_completed');
@@ -5196,6 +5228,16 @@ function openEditTaskSheet(task, dateKey){
   document.getElementById('sheetImageUploadStatus').textContent = '';
   document.getElementById('addTaskSheetBackdrop').style.display = 'block';
   document.getElementById('addTaskSheet').style.display = 'block';
+  // Real bug found from a live screenshot: every pre-existing subtask's auto-grow height was
+  // being calculated above, while the sheet was still display:none -- scrollHeight can't be
+  // measured correctly on a hidden element (browsers report 0 or a stale value), so rows with
+  // longer text ended up too short for their own content, visually overflowing into the next
+  // row. Re-trigger the resize now that the sheet is actually visible and can be measured
+  // properly. Dispatching 'input' reuses the exact same auto-grow listener already attached to
+  // each textarea rather than duplicating that logic here.
+  document.querySelectorAll('#sheetSubtaskArea textarea').forEach(function(ta){
+    ta.dispatchEvent(new Event('input'));
+  });
 }
 
 function closeAddTaskSheet(){
@@ -5807,8 +5849,18 @@ document.getElementById('searchInput').addEventListener('input', function(){
 // the monthly cap remains.
 var MONTHLY_CREDIT_CAP = 300; // rs
 
+function isTaskGenuinelyDone(t){
+  // A task with subtasks is only genuinely done if every subtask actually is -- task.done alone
+  // isn't trustworthy on its own for a task with subtasks, since it can (or could, before the
+  // toggle-cascade fix) disagree with the subtasks. Used here and in the render/grouping logic
+  // so credits and what's shown as "Completed" never disagree with each other.
+  if(t.subtasks && t.subtasks.length > 0){
+    return t.subtasks.every(function(s){ return s.done; });
+  }
+  return !!t.done;
+}
 function completedTasksOnDate(key){
-  return (appState.tasksByDate[key] || []).filter(function(t){ return t.done; }).length;
+  return (appState.tasksByDate[key] || []).filter(isTaskGenuinelyDone).length;
 }
 function getCurrentMonthCredit(){
   var monthPrefix = TODAY_KEY.slice(0,7);
