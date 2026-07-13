@@ -760,9 +760,13 @@
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">All Users</p>
     <p style="font-size:11px;color:#B0AA98;margin:0 0 6px;">Every registered account — not just people who've booked a session. Tap anyone to see their full profile and assign a professional directly.</p>
     <input type="text" id="adminUserSearchInput" placeholder="Search by name or email..." style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:8px;box-sizing:border-box;">
-    <label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:#5C6B94;margin-bottom:10px;cursor:pointer;">
+    <label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:#5C6B94;margin-bottom:6px;cursor:pointer;">
       <input type="checkbox" id="adminUnassignedOnlyFilter" style="accent-color:#6690D6;">
       Show only clients with no professional connected yet
+    </label>
+    <label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:#5C6B94;margin-bottom:10px;cursor:pointer;">
+      <input type="checkbox" id="adminActiveOnlyFilter" style="accent-color:#6690D6;">
+      Show only users active in the last 3 days
     </label>
     <div id="adminAllUsersList" style="margin-bottom:22px;max-height:420px;overflow-y:auto;"></div>
 
@@ -932,6 +936,8 @@
     <p class="prompt-title" id="adminUserProfileName" style="margin-bottom:2px;">Name</p>
     <p style="font-size:11.5px;color:#9AABCE;margin:0 0 4px;" id="adminUserProfileEmail"></p>
     <p style="font-size:10.5px;color:#B0AA98;margin:0 0 16px;" id="adminUserProfileMeta"></p>
+    <div id="adminUserProfileTaskStats" style="margin-bottom:14px;"></div>
+    <div id="adminUserProfileSharedEntries" style="margin-bottom:14px;"></div>
     <div id="adminUserProfileProfessionalInfo" style="display:none;margin-bottom:14px;"></div>
     <div id="adminUserProfileConnections"></div>
     <div id="adminUserProfileConsentInfo" style="margin-top:14px;"></div>
@@ -1365,7 +1371,7 @@
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:24px 0 10px;">Upcoming Sessions</p>
     <div id="calendarUpcomingSessions"></div>
 
-    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:24px 0 10px;">Pending Tasks</p>
+    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:24px 0 10px;">Tasks</p>
     <div id="calendarPendingTasks"></div>
   </div>
   <div class="content" id="panel-day" style="display:none;">
@@ -2808,6 +2814,10 @@ sb.auth.getSession().then(function(result){
 // ================= LOAD REAL DATA FROM SUPABASE INTO appState =================
 function loadUserDataFromSupabase(){
   var uid = currentUser.id;
+  // Best-effort, fire-and-forget activity tracking -- this is what powers the "active users"
+  // signal in the admin dashboard, which didn't exist at all before (there was no timestamp
+  // anywhere tracking when someone last actually used the app).
+  sb.from('profiles').update({ last_active_at: new Date().toISOString() }).eq('user_id', uid).then(function(){}).catch(function(){});
   return Promise.all([
     sb.from('profiles').select('*').eq('user_id', uid).single(),
     sb.from('entries').select('*').eq('user_id', uid).order('created_at', {ascending:false}),
@@ -3706,13 +3716,20 @@ function renderHistory(){
         (e.sharedWithTherapist ? '<p style="font-size:10px;color:#6690D6;margin:8px 0 0;">Shared with your therapist</p>' : '');
     }
 
-    var isConnected = document.getElementById('demoHasTherapist').checked || appState.userHasTherapist;
+    // Was checking specifically for a Therapist-category connection only (appState.userHasTherapist),
+    // meaning someone connected to a Psychiatrist or Peer Caregiver but not a Therapist could
+    // never share an entry at all, even though sharing with whichever professional they're
+    // actually connected to makes just as much sense. Now checks for ANY active connection and
+    // uses whichever professional that actually is.
+    var activeConnection = (appState.expertBookings || []).find(function(b){ return b.status === 'active'; });
+    var isConnected = document.getElementById('demoHasTherapist').checked || !!activeConnection;
+    var connectedProfessionalName = activeConnection ? activeConnection.expert_name : appState.therapistName;
     var actionsRow = document.createElement('div');
     actionsRow.style.cssText = 'display:flex;gap:14px;margin-top:8px;align-items:center;flex-wrap:wrap;';
 
     if(!e.sharedWithTherapist && isConnected){
       var shareBtn = document.createElement('button');
-      shareBtn.textContent = 'Share with ' + (appState.therapistName || 'your therapist');
+      shareBtn.textContent = 'Share with ' + (connectedProfessionalName || 'your therapist');
       shareBtn.style.cssText = 'background:none;border:none;color:#6690D6;font-size:10.5px;font-weight:700;cursor:pointer;padding:0;text-decoration:underline;';
       shareBtn.onclick = function(){
         e.sharedWithTherapist = true;
@@ -4312,29 +4329,44 @@ function renderCalendarUpcomingSessions(){
 
 function renderCalendarPendingTasks(){
   var wrap = document.getElementById('calendarPendingTasks');
-  var pending = [];
+  var pending = [], completed = [];
   Object.keys(appState.tasksByDate || {}).forEach(function(dateKey){
     (appState.tasksByDate[dateKey] || []).forEach(function(t){
-      if(!t.done) pending.push({ task: t, dateKey: dateKey });
+      (isTaskGenuinelyDone(t) ? completed : pending).push({ task: t, dateKey: dateKey });
     });
   });
-  if(pending.length === 0){
-    wrap.innerHTML = '<p style="text-align:center;font-size:12px;color:#B0AA98;padding:10px 0;">Nothing pending — you\'re all caught up.</p>';
+  if(pending.length === 0 && completed.length === 0){
+    wrap.innerHTML = '<p style="text-align:center;font-size:12px;color:#B0AA98;padding:10px 0;">Nothing here yet.</p>';
     return;
   }
-  pending.sort(function(a, b){ return a.dateKey < b.dateKey ? -1 : 1; });
-  wrap.innerHTML = pending.map(function(item){
+  var buildRow = function(item, isDone){
     var parts = item.dateKey.split('-').map(Number);
     var dObj = new Date(parts[0], parts[1]-1, parts[2]);
     var dateLabel = dObj.toLocaleDateString('en-US', { month:'short', day:'numeric' });
     var homeworkBadge = item.task.assignedByTherapist
       ? '<div style="font-size:9.5px;font-weight:700;color:#6690D6;margin-top:3px;">📋 Homework from '+item.task.assignedByTherapist+'</div>'
       : '';
-    return '<div class="pending-task-row" data-key="'+item.dateKey+'" style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:#FFFFFF;border:1px solid '+(item.task.assignedByTherapist?'#D5E2F7':'#EEE0C4')+';border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer;">'+
-      '<div><span style="font-size:12.5px;color:#2A2013;font-weight:600;">'+item.task.title+'</span>'+homeworkBadge+'</div>'+
+    var titleStyle = isDone ? 'font-size:12.5px;color:#3B8F63;font-weight:700;' : 'font-size:12.5px;color:#2A2013;font-weight:600;';
+    return '<div class="pending-task-row" data-key="'+item.dateKey+'" style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:'+(isDone?'#EAF4EE':'#FFFFFF')+';border:1px solid '+(isDone?'#CFE8DA':(item.task.assignedByTherapist?'#D5E2F7':'#EEE0C4'))+';border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer;">'+
+      '<div><span style="'+titleStyle+'">'+item.task.title+'</span>'+homeworkBadge+'</div>'+
       '<span style="font-size:10.5px;color:#9AABCE;flex-shrink:0;">'+dateLabel+'</span>'+
     '</div>';
-  }).join('');
+  };
+
+  pending.sort(function(a, b){ return a.dateKey < b.dateKey ? -1 : 1; });
+  completed.sort(function(a, b){ return a.dateKey < b.dateKey ? -1 : 1; });
+
+  var html = '';
+  if(pending.length === 0){
+    html += '<p style="text-align:center;font-size:11.5px;color:#B0AA98;padding:6px 0 12px;">Nothing pending — you\'re all caught up.</p>';
+  } else {
+    html += pending.map(function(item){ return buildRow(item, false); }).join('');
+  }
+  if(completed.length > 0){
+    html += '<p style="font-size:10px;font-weight:700;color:#3B8F63;text-transform:uppercase;letter-spacing:0.04em;margin:16px 0 6px;">✓ Completed</p>';
+    html += completed.map(function(item){ return buildRow(item, true); }).join('');
+  }
+  wrap.innerHTML = html;
   wrap.querySelectorAll('.pending-task-row').forEach(function(row){
     row.onclick = function(){ openDay(row.dataset.key); };
   });
@@ -4597,9 +4629,10 @@ function buildTaskItemElement(task, opts){
   handle.style.cssText = 'color:#D9CFB8;font-size:15px;cursor:'+(isCompletedAppearance ? 'default' : 'grab')+';touch-action:none;'+(isCompletedAppearance ? 'opacity:0.3;' : '');
   handleWrap.appendChild(handle);
   row.appendChild(handleWrap);
-  var cb = document.createElement('div'); cb.className = 'task-checkbox' + ((task.done || isCompletedAppearance) ? ' done' : ''); cb.innerHTML = (task.done || isCompletedAppearance) ? '✓' : '';
-  cb.style.pointerEvents = 'none'; // decorative only -- the row itself (when actionable) handles the tap
-  row.appendChild(cb);
+  // The tick/checkbox element itself is removed entirely now, not just made non-interactive --
+  // per direct instruction, after "make it decorative" still wasn't the same as actually
+  // removing it. Done-state is already fully conveyed by the green background and bold green
+  // title text on the row, so nothing is lost by dropping the icon itself.
   if(task.priority){
     var pdot = document.createElement('span'); pdot.className = 'priority-dot'; pdot.style.background = PRIORITY_COLORS[task.priority];
     if(!isCompletedAppearance){
@@ -6495,31 +6528,21 @@ function renderAdminExpertsManageList(){
           '<button class="admin-link-expert-btn" data-id="'+e.id+'" data-name="'+e.name+'" style="flex:1;font-size:10.5px;font-weight:700;color:#3B8F63;background:#EAF4EE;border:none;border-radius:8px;padding:7px;cursor:pointer;">Link Account</button>'+
           '<button class="admin-delete-expert-btn" data-id="'+e.id+'" data-name="'+e.name+'" style="flex:1;font-size:10.5px;font-weight:700;color:#C77B7B;background:none;border:1px solid #F0C7C7;border-radius:8px;padding:7px;cursor:pointer;">Remove</button>'+
         '</div>'+
-        '<div class="admin-expert-view-panel" data-id="'+e.id+'" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid #F5F0E4;font-size:11.5px;color:#3A4A6A;line-height:1.6;"></div>'+
         '<div class="admin-expert-edit-form" data-id="'+e.id+'" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid #F5F0E4;"></div>'+
       '</div>';
     }).join('');
 
     listEl.querySelectorAll('.admin-view-expert-btn').forEach(function(btn){
       btn.onclick = function(){
-        var panelEl = listEl.querySelector('.admin-expert-view-panel[data-id="'+btn.dataset.id+'"]');
-        if(panelEl.style.display === 'block'){ panelEl.style.display = 'none'; return; }
-        panelEl.innerHTML = '<p style="color:#9AABCE;">Loading full profile…</p>';
-        panelEl.style.display = 'block';
-        sb.from('experts').select('*').eq('id', btn.dataset.id).single().then(function(result){
-          if(result.error || !result.data){ panelEl.innerHTML = '<p style="color:#C77B7B;">Could not load.</p>'; return; }
-          var ex = result.data;
-          var rows = [
-            ['Credential', ex.credential], ['Experience', ex.years],
-            ['Bio', ex.bio], ['Why this work', ex.why_therapist],
-            ['Qualifications (detail)', ex.qualifications_detail],
-            ['Approaches', ex.approaches], ['Specializations', ex.specializations],
-            ['Languages', ex.languages], ['Superpowers', ex.superpowers]
-          ];
-          panelEl.innerHTML = rows.filter(function(r){ return r[1]; }).map(function(r){
-            return '<p style="margin:0 0 8px;"><strong style="color:#2A2013;">'+r[0]+':</strong> '+r[1]+'</p>';
-          }).join('') || '<p style="color:#9AABCE;">No additional profile details filled in yet.</p>';
-        });
+        // This used to show a plain text dump of a few fields -- Akash was explicit that "View"
+        // should show the SAME actual profile a client sees on the real expert-detail page, not
+        // a simplified admin-only summary. Reusing that real page directly, rather than
+        // building and maintaining a second rendering of the same content, so the two can never
+        // drift out of sync with each other again.
+        var idx = TEAM_MEMBERS.findIndex(function(m){ return m.id === btn.dataset.id; });
+        if(idx === -1){ showToast('Could not find this profile — try reloading.'); return; }
+        expertDetailReturnToAdmin = true;
+        openExpertDetail(idx);
       };
     });
 
@@ -6803,7 +6826,7 @@ function renderAdminAllUsers(){
   var listEl = document.getElementById('adminAllUsersList');
   listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">Loading...</p>';
   Promise.all([
-    sb.from('profiles').select('user_id,name,email,is_admin,is_therapist,created_at,onboarding_complete').order('created_at', {ascending:false}),
+    sb.from('profiles').select('user_id,name,email,is_admin,is_therapist,created_at,onboarding_complete,last_active_at').order('created_at', {ascending:false}),
     sb.from('expert_bookings').select('user_id,status,role_category')
   ]).then(function(results){
     var profilesRes = results[0], bookingsRes = results[1];
@@ -6831,12 +6854,21 @@ function renderAdminAllUsersFiltered(query){
   if(!adminAllUsersCache) return;
   var q = (query || '').trim().toLowerCase();
   var unassignedOnly = document.getElementById('adminUnassignedOnlyFilter').checked;
+  var activeOnlyEl = document.getElementById('adminActiveOnlyFilter');
+  var activeOnly = activeOnlyEl && activeOnlyEl.checked;
+  var now = new Date();
+  var isRecentlyActive = function(u){
+    if(!u.last_active_at) return false;
+    var hoursSince = (now - new Date(u.last_active_at)) / (1000*60*60);
+    return hoursSince <= 72; // "active" = used the app within the last 3 days
+  };
   var users = adminAllUsersCache.users.filter(function(u){
     if(q && (u.name||'').toLowerCase().indexOf(q) === -1 && (u.email||'').toLowerCase().indexOf(q) === -1) return false;
     if(unassignedOnly){
       var connected = adminAllUsersCache.connectedCategories[u.user_id];
       if(connected && Object.keys(connected).length > 0) return false;
     }
+    if(activeOnly && !isRecentlyActive(u)) return false;
     return true;
   });
   if(users.length === 0){
@@ -6846,15 +6878,17 @@ function renderAdminAllUsersFiltered(query){
   listEl.innerHTML = '<p style="font-size:10.5px;color:#9AABCE;margin:0 0 8px;">'+users.length+' user'+(users.length===1?'':'s')+'</p>' + users.map(function(u){
     var counts = adminAllUsersCache.bookingCounts[u.user_id] || { total:0, active:0 };
     var badges = '';
+    if(isRecentlyActive(u)) badges += '<span style="font-size:9px;font-weight:700;color:#3B8F63;background:#EAF4EE;padding:2px 6px;border-radius:6px;margin-left:4px;">🟢 Active</span>';
     if(u.is_admin) badges += '<span style="font-size:9px;font-weight:700;color:#7B4F00;background:#FEF3D8;padding:2px 6px;border-radius:6px;margin-left:4px;">Admin</span>';
     if(u.is_therapist) badges += '<span style="font-size:9px;font-weight:700;color:#3B8F63;background:#EAF4EE;padding:2px 6px;border-radius:6px;margin-left:4px;">Therapist</span>';
     if(!u.onboarding_complete) badges += '<span style="font-size:9px;font-weight:700;color:#9AABCE;background:#F5F0E4;padding:2px 6px;border-radius:6px;margin-left:4px;">Onboarding incomplete</span>';
     var joined = u.created_at ? new Date(u.created_at).toLocaleDateString('en-IN', {day:'numeric', month:'short', year:'numeric'}) : 'unknown';
+    var lastActiveText = u.last_active_at ? ('Last active ' + new Date(u.last_active_at).toLocaleDateString('en-IN', {day:'numeric', month:'short'})) : 'Never opened the app';
     var bookingText = counts.total === 0 ? 'No bookings yet' : (counts.active + ' active, ' + counts.total + ' total booking' + (counts.total===1?'':'s'));
     return '<div class="admin-user-row" data-user-id="'+u.user_id+'" style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:11px 13px;margin-bottom:7px;cursor:pointer;">'+
       '<p style="font-size:12.5px;font-weight:700;color:#2A2013;margin:0 0 2px;">'+(u.name||'(no name set)')+badges+'</p>'+
       '<p style="font-size:11px;color:#5C6B94;margin:0 0 2px;">'+(u.email||'')+'</p>'+
-      '<p style="font-size:10px;color:#9AABCE;margin:0;">Joined '+joined+' · '+bookingText+'</p>'+
+      '<p style="font-size:10px;color:#9AABCE;margin:0;">Joined '+joined+' · '+lastActiveText+' · '+bookingText+'</p>'+
       '</div>';
   }).join('');
   listEl.querySelectorAll('.admin-user-row').forEach(function(row){
@@ -6865,6 +6899,9 @@ document.getElementById('adminUserSearchInput').oninput = function(){
   renderAdminAllUsersFiltered(this.value);
 };
 document.getElementById('adminUnassignedOnlyFilter').onchange = function(){
+  renderAdminAllUsersFiltered(document.getElementById('adminUserSearchInput').value);
+};
+document.getElementById('adminActiveOnlyFilter').onchange = function(){
   renderAdminAllUsersFiltered(document.getElementById('adminUserSearchInput').value);
 };
 
@@ -6880,6 +6917,8 @@ function showAdminUserProfile(userId){
   document.getElementById('adminUserProfileEmail').textContent = '';
   document.getElementById('adminUserProfileMeta').textContent = '';
   document.getElementById('adminUserProfileConnections').innerHTML = '';
+  document.getElementById('adminUserProfileTaskStats').innerHTML = '';
+  document.getElementById('adminUserProfileSharedEntries').innerHTML = '';
   document.getElementById('adminUserProfileModalBackdrop').style.display = 'block';
   document.getElementById('adminUserProfileModal').style.display = 'block';
 
@@ -6887,9 +6926,11 @@ function showAdminUserProfile(userId){
     sb.from('profiles').select('*').eq('user_id', userId).single(),
     sb.from('expert_bookings').select('*').eq('user_id', userId),
     sb.from('experts').select('*'),
-    sb.from('consent_agreements').select('*').eq('user_id', userId).order('created_at', {ascending:false}).limit(1)
+    sb.from('consent_agreements').select('*').eq('user_id', userId).order('created_at', {ascending:false}).limit(1),
+    sb.from('tasks').select('id,done').eq('user_id', userId),
+    sb.from('entries').select('id,type,text,worksheet_name,category_name,created_at').eq('user_id', userId).eq('shared_with_therapist', true).order('created_at', {ascending:false})
   ]).then(function(results){
-    var profileRes = results[0], bookingsRes = results[1], expertsRes = results[2], consentRes = results[3];
+    var profileRes = results[0], bookingsRes = results[1], expertsRes = results[2], consentRes = results[3], tasksRes = results[4], sharedEntriesRes = results[5];
     if(profileRes.error || !profileRes.data){
       document.getElementById('adminUserProfileName').textContent = 'Could not load this profile';
       return;
@@ -6903,6 +6944,33 @@ function showAdminUserProfile(userId){
     if(p.phone_number) metaParts.push(p.phone_number);
     if(p.pronouns) metaParts.push(p.pronouns);
     document.getElementById('adminUserProfileMeta').textContent = metaParts.join(' · ');
+
+    // "Complete profile" per Akash's direct request means more than just account fields --
+    // task activity and anything they've actually shared with a therapist, both genuinely
+    // useful for admin/clinical context, weren't shown here at all before.
+    if(!tasksRes.error && tasksRes.data){
+      var totalTasks = tasksRes.data.length;
+      var doneTasks = tasksRes.data.filter(function(t){ return t.done; }).length;
+      document.getElementById('adminUserProfileTaskStats').innerHTML =
+        '<p style="font-size:11px;font-weight:700;color:#9AABCE;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 6px;">Task Activity</p>'+
+        '<p style="font-size:12px;color:#3A4A6A;margin:0;">'+doneTasks+' completed of '+totalTasks+' total task'+(totalTasks===1?'':'s')+'</p>';
+    }
+    if(!sharedEntriesRes.error && sharedEntriesRes.data){
+      var shared = sharedEntriesRes.data;
+      var sharedEl = document.getElementById('adminUserProfileSharedEntries');
+      if(shared.length === 0){
+        sharedEl.innerHTML = '<p style="font-size:11px;font-weight:700;color:#9AABCE;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 6px;">Shared With Therapist</p><p style="font-size:11.5px;color:#B0AA98;margin:0;">Nothing shared yet.</p>';
+      } else {
+        sharedEl.innerHTML = '<p style="font-size:11px;font-weight:700;color:#9AABCE;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 6px;">Shared With Therapist ('+shared.length+')</p>'+
+          '<div style="background:#F3F6FC;border-radius:10px;padding:10px 12px;max-height:200px;overflow-y:auto;">'+
+          shared.map(function(e){
+            var when = new Date(e.created_at).toLocaleDateString('en-IN', {day:'numeric', month:'short'});
+            var label = e.type === 'worksheet' ? ('Worksheet: ' + (e.worksheet_name || e.category_name || 'Untitled')) : (e.text ? e.text.slice(0,60) + (e.text.length > 60 ? '…' : '') : '(no text)');
+            return '<p style="font-size:11px;color:#2A2013;margin:0 0 8px;"><strong style="color:#6690D6;">'+when+':</strong> '+label.replace(/</g,'&lt;')+'</p>';
+          }).join('')+
+          '</div>';
+      }
+    }
 
     // This account is a professional -- show the same rich profile a client would actually see
     // on their expert-detail page (bio, credential, approaches, specializations, etc.), not just
@@ -8517,7 +8585,15 @@ function openExpertDetail(idx){
 
   showOnly('panel-expert-detail');
 }
-document.getElementById('expertDetailBackBtn').onclick = function(){ showOnly('panel-team'); };
+var expertDetailReturnToAdmin = false; // set true when admin's "View" opened this page, so Back returns to the dashboard instead of the client-facing team list
+document.getElementById('expertDetailBackBtn').onclick = function(){
+  if(expertDetailReturnToAdmin){
+    expertDetailReturnToAdmin = false;
+    openAdminDashboard();
+  } else {
+    showOnly('panel-team');
+  }
+};
 function teamPhotoFallback(img, initials){
   if(img && img.parentElement) img.parentElement.textContent = initials;
 }
