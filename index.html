@@ -695,8 +695,11 @@
     </div>
 
     <div style="margin-bottom:22px;">
-      <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Notification History</p>
-      <div id="adminNotifHistoryList"></div>
+      <button id="adminNotifHistoryToggleBtn" style="width:100%;text-align:left;background:none;border:none;padding:0;margin:0 0 10px;cursor:pointer;display:flex;align-items:center;gap:6px;">
+        <span style="font-size:12px;font-weight:700;color:#9AABCE;">Notification History</span>
+        <span id="adminNotifHistoryToggleIcon" style="font-size:10px;color:#9AABCE;">▸ show</span>
+      </button>
+      <div id="adminNotifHistoryList" style="display:none;"></div>
     </div>
 
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Add New Expert &amp; Invite</p>
@@ -842,10 +845,19 @@
       <button id="therapistDayAddTimeBtn" style="display:block;width:100%;padding:12px;border-radius:10px;border:none;background:#3B8F63;color:#fff;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:14px;">Add Time</button>
 
       <div style="border-top:1px solid #F0E9D8;margin:6px 0 14px;padding-top:14px;">
-        <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 4px;">Log an appointment outside the app</p>
-        <p style="font-size:10.5px;color:#B0AA98;margin:0 0 10px;">For clients who aren't on HOBS Companion (e.g. iPhone users) — this just tracks it on your calendar, no app account needed for them.</p>
-        <input type="text" id="therapistExternalClientName" placeholder="Client name" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:13px;font-family:inherit;box-sizing:border-box;margin-bottom:6px;">
-        <input type="text" id="therapistExternalClientContact" placeholder="Contact (phone/email) — optional" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:13px;font-family:inherit;box-sizing:border-box;margin-bottom:6px;">
+        <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 4px;">Log an appointment</p>
+        <p style="font-size:10.5px;color:#B0AA98;margin:0 0 10px;">For a session you've already arranged directly — with a client already on HOBS, or someone who isn't (e.g. iPhone users). This tracks it on your calendar either way.</p>
+        <select id="therapistLogWhoSelect" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:13px;font-family:inherit;box-sizing:border-box;margin-bottom:8px;">
+          <option value="">Who is this appointment for?</option>
+        </select>
+        <div id="therapistNewExternalContactForm" style="display:none;margin-bottom:8px;">
+          <input type="text" id="therapistExternalClientName" placeholder="Their name" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:13px;font-family:inherit;box-sizing:border-box;margin-bottom:6px;">
+          <input type="text" id="therapistExternalClientEmail" placeholder="Email — optional" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:13px;font-family:inherit;box-sizing:border-box;margin-bottom:6px;">
+          <input type="text" id="therapistExternalClientContact" placeholder="Phone — optional" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:13px;font-family:inherit;box-sizing:border-box;margin-bottom:6px;">
+          <input type="text" id="therapistExternalEmergencyName" placeholder="Emergency contact name — optional" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:13px;font-family:inherit;box-sizing:border-box;margin-bottom:6px;">
+          <input type="text" id="therapistExternalEmergencyPhone" placeholder="Emergency contact phone — optional" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:13px;font-family:inherit;box-sizing:border-box;margin-bottom:6px;">
+          <button id="therapistSaveExternalContactBtn" style="display:block;width:100%;padding:10px;border-radius:10px;border:1px solid #3B8F63;background:transparent;color:#3B8F63;font-size:12.5px;font-weight:700;cursor:pointer;">Save Contact &amp; Select</button>
+        </div>
         <input type="time" id="therapistExternalTime" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:13px;font-family:inherit;box-sizing:border-box;margin-bottom:10px;">
         <button id="therapistLogExternalBtn" style="display:block;width:100%;padding:12px;border-radius:10px;border:1px solid #6690D6;background:transparent;color:#6690D6;font-size:13px;font-weight:700;cursor:pointer;">Log Appointment</button>
       </div>
@@ -2899,7 +2911,7 @@ function loadUserDataFromSupabase(){
     var subsByTask = {};
     (subtasksRes.data || []).forEach(function(s){
       if(!subsByTask[s.task_id]) subsByTask[s.task_id] = [];
-      subsByTask[s.task_id].push({ id: s.id, title: s.title, done: s.done, sortOrder: s.sort_order || 0 });
+      subsByTask[s.task_id].push({ id: s.id, title: s.title, done: s.done, sortOrder: s.sort_order || 0, image_url: s.image_url || null });
     });
     appState.tasksByDate = {};
     (tasksRes.data || []).forEach(function(t){
@@ -3751,6 +3763,14 @@ function renderHistory(){
         renderHistory();
       };
       actionsRow.appendChild(shareBtn);
+    } else if(!e.sharedWithTherapist && !isConnected){
+      // Not showing anything here at all read as a bug (Akash reported "no share button" when
+      // this was actually correct behavior for an account with no active professional
+      // connection) -- an explanatory note makes it clear this is expected, not broken.
+      var noConnNote = document.createElement('span');
+      noConnNote.textContent = 'Connect with a professional to share entries with them';
+      noConnNote.style.cssText = 'font-size:10px;color:#B0AA98;font-style:italic;';
+      actionsRow.appendChild(noConnNote);
     }
 
     if(e.type !== 'worksheet'){
@@ -4749,6 +4769,12 @@ function buildTaskItemElement(task, opts){
         };
       }
       subRow.appendChild(stitle);
+      if(sub.image_url){
+        var subThumb = document.createElement('img');
+        subThumb.src = sub.image_url;
+        subThumb.style.cssText = 'width:24px;height:24px;border-radius:6px;object-fit:cover;flex-shrink:0;margin:0 4px;';
+        subRow.appendChild(subThumb);
+      }
       var delBtn = document.createElement('button');
       delBtn.innerHTML = '&times;';
       delBtn.style.cssText = 'background:none;border:none;color:#C7BFA8;font-size:15px;cursor:pointer;padding:0 4px;line-height:1;';
@@ -5248,7 +5274,7 @@ function openEditTaskSheet(task, dateKey){
   if(existingSubtasks.length){
     document.getElementById('sheetBreakdownToggle').style.display = 'none';
     subtaskArea.style.display = 'block';
-    existingSubtasks.forEach(function(st){ addSheetSubtaskRow(st.title, st.id); });
+    existingSubtasks.forEach(function(st){ addSheetSubtaskRow(st.title, st.id, st.image_url); });
   } else {
     document.getElementById('sheetBreakdownToggle').style.display = 'block';
     subtaskArea.style.display = 'none';
@@ -5339,14 +5365,18 @@ document.getElementById('sheetBreakdownToggle').onclick = function(){
   addSheetSubtaskRow();
 };
 
-function addSheetSubtaskRow(prefillText, existingId){
+function addSheetSubtaskRow(prefillText, existingId, prefillImageUrl){
   var area = document.getElementById('sheetSubtaskArea');
   var existingAddBtn = document.getElementById('sheetAddStepBtn');
   if(existingAddBtn) existingAddBtn.remove();
   var stepNum = area.querySelectorAll('textarea').length + 1;
+  var wrapper = document.createElement('div');
+  wrapper.style.cssText = 'margin-bottom:6px;';
+  if(existingId) wrapper.dataset.subtaskId = existingId;
+  wrapper.dataset.imageUrl = prefillImageUrl || '';
+
   var row = document.createElement('div');
-  row.style.cssText = 'display:flex;gap:6px;margin-bottom:6px;align-items:flex-start;';
-  if(existingId) row.dataset.subtaskId = existingId;
+  row.style.cssText = 'display:flex;gap:6px;align-items:flex-start;';
   // This used to be a single-line <input>, which was a real, separate instance of the same bug
   // fixed elsewhere in the app: long text scrolls out of view instead of wrapping, even though
   // it's all still saved correctly. This is the sheet where subtasks actually get typed in the
@@ -5359,12 +5389,61 @@ function addSheetSubtaskRow(prefillText, existingId){
   var autoGrow = function(){ input.style.height = 'auto'; input.style.height = input.scrollHeight + 'px'; };
   input.addEventListener('input', autoGrow);
   row.appendChild(input);
+
+  var photoBtn = document.createElement('button');
+  photoBtn.innerHTML = '📷';
+  photoBtn.title = 'Add a photo to this step';
+  photoBtn.style.cssText = 'background:#F3F0E8;border:none;border-radius:8px;width:30px;height:30px;font-size:13px;cursor:pointer;flex-shrink:0;';
+  var fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = 'image/*';
+  fileInput.style.display = 'none';
+  photoBtn.onclick = function(){ fileInput.click(); };
+  row.appendChild(photoBtn);
+  row.appendChild(fileInput);
+
   var delBtn = document.createElement('button');
   delBtn.innerHTML = '&times;';
   delBtn.style.cssText = 'background:none;border:none;color:#C7BFA8;font-size:16px;cursor:pointer;padding:6px 4px 0;line-height:1;flex-shrink:0;';
-  delBtn.onclick = function(){ row.remove(); renumberSheetSteps(); };
+  delBtn.onclick = function(){ wrapper.remove(); renumberSheetSteps(); };
   row.appendChild(delBtn);
-  area.appendChild(row);
+  wrapper.appendChild(row);
+
+  var previewArea = document.createElement('div');
+  previewArea.style.cssText = 'display:'+(prefillImageUrl ? 'flex' : 'none')+';align-items:center;gap:8px;margin:6px 0 0 0;';
+  var previewImg = document.createElement('img');
+  previewImg.src = prefillImageUrl || '';
+  previewImg.style.cssText = 'width:44px;height:44px;border-radius:8px;object-fit:cover;border:1px solid #EEE0C4;';
+  var removePhotoBtn = document.createElement('button');
+  removePhotoBtn.textContent = 'Remove photo';
+  removePhotoBtn.style.cssText = 'background:none;border:none;color:#C77B7B;font-size:10.5px;font-weight:700;cursor:pointer;text-decoration:underline;';
+  removePhotoBtn.onclick = function(){
+    wrapper.dataset.imageUrl = '';
+    previewArea.style.display = 'none';
+    previewImg.src = '';
+    fileInput.value = '';
+  };
+  previewArea.appendChild(previewImg);
+  previewArea.appendChild(removePhotoBtn);
+  wrapper.appendChild(previewArea);
+
+  fileInput.onchange = function(){
+    var file = fileInput.files[0];
+    if(!file || !currentUser || !currentUser.id) return;
+    if(file.size > 5 * 1024 * 1024){ showToast('That photo is a bit too big (5MB max)'); return; }
+    var localUrl = URL.createObjectURL(file);
+    previewImg.src = localUrl;
+    previewArea.style.display = 'flex';
+    var ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    var path = currentUser.id + '/' + uidGen() + '.' + ext;
+    sb.storage.from('task-images').upload(path, file, { contentType: file.type }).then(function(result){
+      if(result.error){ showToast('Photo upload failed — try again'); return; }
+      var publicUrlResult = sb.storage.from('task-images').getPublicUrl(path);
+      wrapper.dataset.imageUrl = publicUrlResult.data.publicUrl;
+    });
+  };
+
+  area.appendChild(wrapper);
   var addMoreBtn = document.createElement('button');
   addMoreBtn.id = 'sheetAddStepBtn';
   addMoreBtn.textContent = '+ Add another step';
@@ -5373,7 +5452,7 @@ function addSheetSubtaskRow(prefillText, existingId){
   area.appendChild(addMoreBtn);
   if(prefillText) autoGrow(); // resize to fit pre-loaded text when editing an existing step
   if(!prefillText) input.focus(); // don't steal focus away when pre-populating existing steps for an edit
-  return row;
+  return wrapper;
 }
 function renumberSheetSteps(){
   var inputs = document.querySelectorAll('#sheetSubtaskArea textarea');
@@ -5400,16 +5479,16 @@ function commitSheetTaskIfDirty(){
     return commitTaskEdit(title, deadlineIso, subtaskRows);
   }
 
-  var subtaskTitles = [];
+  var subtaskData = [];
   subtaskRows.forEach(function(row){
     var inp = row.querySelector('textarea');
-    if(inp && inp.value.trim()) subtaskTitles.push(inp.value.trim());
+    if(inp && inp.value.trim()) subtaskData.push({ title: inp.value.trim(), imageUrl: row.dataset.imageUrl || null });
   });
 
   var localTask = {
     id: 'temp_' + uidGen(), title: title, duration: sheetDuration, repeat: sheetRepeat,
     priority: sheetPriority, deadline: deadlineIso, done: false, image_url: sheetTaskImageUrl,
-    subtasks: subtaskTitles.map(function(st){ return { id: 'temp_' + uidGen(), title: st, done:false }; })
+    subtasks: subtaskData.map(function(st){ return { id: 'temp_' + uidGen(), title: st.title, done:false, image_url: st.imageUrl }; })
   };
   getTasks(sheetTargetKey).push(localTask);
   saveState();
@@ -5422,8 +5501,8 @@ function commitSheetTaskIfDirty(){
     repeat: sheetRepeat, priority: sheetPriority, deadline: deadlineIso, done: false, image_url: sheetTaskImageUrl
   }, function(savedRow){
     localTask.id = savedRow.id; // swap temp ID for the real one
-    if(subtaskTitles.length && currentUser && currentUser.id){
-      var rows = subtaskTitles.map(function(st){ return { user_id: currentUser.id, task_id: savedRow.id, title: st, done:false }; });
+    if(subtaskData.length && currentUser && currentUser.id){
+      var rows = subtaskData.map(function(st){ return { user_id: currentUser.id, task_id: savedRow.id, title: st.title, done:false, image_url: st.imageUrl }; });
       sb.from('subtasks').insert(rows).select().then(function(subResult){
         if(!subResult.error){
           localTask.subtasks.forEach(function(st, i){ if(subResult.data[i]) st.id = subResult.data[i].id; });
@@ -5452,23 +5531,24 @@ function commitTaskEdit(title, deadlineIso, subtaskRows){
   task.subtasks = task.subtasks || [];
 
   var keptIds = [];
-  var newSubtaskTitles = [];
+  var newSubtaskData = [];
   var updatedSubtasks = [];
   subtaskRows.forEach(function(row){
     var inp = row.querySelector('textarea');
     var text = inp ? inp.value.trim() : '';
     if(!text) return; // blank row -- treated the same as removing that step
+    var imageUrl = row.dataset.imageUrl || null;
     var existingId = row.dataset.subtaskId;
     if(existingId){
       keptIds.push(existingId);
       var existingSub = task.subtasks.find(function(s){ return String(s.id) === existingId; });
-      if(existingSub){ existingSub.title = text; updatedSubtasks.push(existingSub); }
+      if(existingSub){ existingSub.title = text; existingSub.image_url = imageUrl; updatedSubtasks.push(existingSub); }
     } else {
-      newSubtaskTitles.push(text);
+      newSubtaskData.push({ title: text, imageUrl: imageUrl });
     }
   });
   var removedSubtasks = task.subtasks.filter(function(s){ return keptIds.indexOf(String(s.id)) === -1; });
-  var newSubtaskObjs = newSubtaskTitles.map(function(t){ return { id: 'temp_' + uidGen(), title: t, done:false }; });
+  var newSubtaskObjs = newSubtaskData.map(function(d){ return { id: 'temp_' + uidGen(), title: d.title, done:false, image_url: d.imageUrl }; });
   task.subtasks = task.subtasks.filter(function(s){ return keptIds.indexOf(String(s.id)) !== -1; }).concat(newSubtaskObjs);
 
   saveState();
@@ -5483,7 +5563,7 @@ function commitTaskEdit(title, deadlineIso, subtaskRows){
   }
   updatedSubtasks.forEach(function(s){
     if(String(s.id).indexOf('temp_') !== 0){
-      sb.from('subtasks').update({ title: s.title }).eq('id', s.id).then(function(){});
+      sb.from('subtasks').update({ title: s.title, image_url: s.image_url || null }).eq('id', s.id).then(function(){});
     }
   });
   removedSubtasks.forEach(function(s){
@@ -5492,7 +5572,7 @@ function commitTaskEdit(title, deadlineIso, subtaskRows){
     }
   });
   if(newSubtaskObjs.length && currentUser && currentUser.id){
-    var rows = newSubtaskObjs.map(function(s){ return { user_id: currentUser.id, task_id: taskId, title: s.title, done:false }; });
+    var rows = newSubtaskObjs.map(function(s){ return { user_id: currentUser.id, task_id: taskId, title: s.title, done:false, image_url: s.image_url || null }; });
     sb.from('subtasks').insert(rows).select().then(function(subResult){
       if(!subResult.error){
         newSubtaskObjs.forEach(function(s, i){ if(subResult.data[i]) s.id = subResult.data[i].id; });
@@ -6718,7 +6798,10 @@ function renderAdminDonationsList(){
       var when = new Date(d.created_at).toLocaleDateString('en-IN', {day:'numeric', month:'short'});
       return '<div style="display:flex;justify-content:space-between;align-items:center;background:#FFFFFF;border:1px solid #EEE0C4;border-radius:10px;padding:10px 12px;margin-bottom:6px;">'+
         '<span style="font-size:12px;color:#2A2013;"><strong>₹'+parseFloat(d.amount).toLocaleString('en-IN')+'</strong> — '+(d.donor_name||'Anonymous')+' · '+when+'</span>'+
-        '<button class="admin-confirm-donation-btn" data-id="'+d.id+'" style="font-size:10.5px;font-weight:700;color:#fff;background:#3B8F63;border:none;border-radius:8px;padding:6px 10px;cursor:pointer;">Confirm</button>'+
+        '<div style="display:flex;gap:6px;flex-shrink:0;">'+
+          '<button class="admin-confirm-donation-btn" data-id="'+d.id+'" style="font-size:10.5px;font-weight:700;color:#fff;background:#3B8F63;border:none;border-radius:8px;padding:6px 10px;cursor:pointer;">Confirm</button>'+
+          '<button class="admin-reject-donation-btn" data-id="'+d.id+'" style="font-size:10.5px;font-weight:700;color:#C77B7B;background:none;border:1px solid #F0C7C7;border-radius:8px;padding:6px 10px;cursor:pointer;">Reject</button>'+
+        '</div>'+
       '</div>';
     }).join('');
     listEl.querySelectorAll('.admin-confirm-donation-btn').forEach(function(btn){
@@ -6726,6 +6809,16 @@ function renderAdminDonationsList(){
         sb.from('donations').update({ payment_confirmed: true }).eq('id', btn.dataset.id).then(function(result){
           if(result.error){ showToast('Could not confirm — please try again.'); return; }
           showToast('Donation confirmed — thank them!');
+          renderAdminCampaign();
+        });
+      };
+    });
+    listEl.querySelectorAll('.admin-reject-donation-btn').forEach(function(btn){
+      btn.onclick = function(){
+        if(!confirm('Reject this pledge? This removes it entirely — use this for pledges that never actually got paid or were entered by mistake.')) return;
+        sb.from('donations').delete().eq('id', btn.dataset.id).then(function(result){
+          if(result.error){ showToast('Could not reject — please try again.'); return; }
+          showToast('Rejected.');
           renderAdminCampaign();
         });
       };
@@ -7118,6 +7211,14 @@ function directAssignUser(userId, category, expertName){
   });
 }
 
+document.getElementById('adminNotifHistoryToggleBtn').onclick = function(){
+  var listEl = document.getElementById('adminNotifHistoryList');
+  var iconEl = document.getElementById('adminNotifHistoryToggleIcon');
+  var showing = listEl.style.display === 'block';
+  listEl.style.display = showing ? 'none' : 'block';
+  iconEl.textContent = showing ? '▸ show' : '▾ hide';
+};
+
 function renderAdminNotifHistory(){
   var listEl = document.getElementById('adminNotifHistoryList');
   listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">Loading...</p>';
@@ -7207,13 +7308,28 @@ function showAdminStatDetail(title, definition, rows, emptyMessage){
   if(!rows || rows.length === 0){
     listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12px;">'+emptyMessage+'</p>';
   } else {
-    listEl.innerHTML = rows.map(function(row){
-      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #F5F0E4;">'+
-        '<div><p style="font-size:12.5px;font-weight:700;color:#2A2013;margin:0;">'+row.primary+'</p>'+
+    // These rows used to be plain, non-clickable text -- Akash was explicit that clicking a
+    // name anywhere in the dashboard should show their real profile, and this drill-down list
+    // (reached by tapping a stat tile like "Active Bookings") was a real gap where names were
+    // shown but led nowhere.
+    listEl.innerHTML = rows.map(function(row, i){
+      var clickable = !!row.userId;
+      return '<div class="admin-stat-detail-row" data-idx="'+i+'" style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #F5F0E4;'+(clickable?'cursor:pointer;':'')+'">'+
+        '<div><p style="font-size:12.5px;font-weight:700;color:'+(clickable?'#6690D6':'#2A2013')+';margin:0;'+(clickable?'text-decoration:underline;':'')+'">'+row.primary+'</p>'+
         (row.secondary ? '<p style="font-size:10.5px;color:#9AABCE;margin:0;">'+row.secondary+'</p>' : '')+'</div>'+
         (row.tag ? '<span style="font-size:10.5px;font-weight:700;color:'+(row.tagColor||'#6690D6')+';white-space:nowrap;margin-left:8px;">'+row.tag+'</span>' : '')+
         '</div>';
     }).join('');
+    listEl.querySelectorAll('.admin-stat-detail-row').forEach(function(rowEl){
+      var rowData = rows[parseInt(rowEl.dataset.idx, 10)];
+      if(rowData.userId){
+        rowEl.onclick = function(){
+          document.getElementById('adminStatDetailModalBackdrop').style.display = 'none';
+          document.getElementById('adminStatDetailModal').style.display = 'none';
+          showAdminUserProfile(rowData.userId);
+        };
+      }
+    });
   }
   document.getElementById('adminStatDetailModalBackdrop').style.display = 'block';
   document.getElementById('adminStatDetailModal').style.display = 'block';
@@ -7311,18 +7427,19 @@ function openAdminDashboard(){
         primary: nameByUserId[b.user_id] || 'Unknown client',
         secondary: (b.expert_name || 'Unknown expert') + ' · ' + dateLabel,
         tag: b.status + (b.payment_confirmed === false ? ' · unpaid' : ''),
-        tagColor: b.status === 'active' ? '#3B8F63' : (b.status === 'cancelled' ? '#C77B7B' : '#9AABCE')
+        tagColor: b.status === 'active' ? '#3B8F63' : (b.status === 'cancelled' ? '#C77B7B' : '#9AABCE'),
+        userId: b.user_id
       };
     }
     function clientSummaryRows(bookingList){
       var byClient = {};
       bookingList.forEach(function(b){
-        var name = nameByUserId[b.user_id] || 'Unknown client';
-        if(!byClient[name]) byClient[name] = 0;
-        byClient[name]++;
+        if(!byClient[b.user_id]) byClient[b.user_id] = 0;
+        byClient[b.user_id]++;
       });
-      return Object.keys(byClient).map(function(name){
-        return { primary: name, secondary: byClient[name] + ' booking' + (byClient[name] > 1 ? 's' : ''), tag: '', tagColor: '' };
+      return Object.keys(byClient).map(function(uid){
+        var count = byClient[uid];
+        return { primary: nameByUserId[uid] || 'Unknown client', secondary: count + ' booking' + (count > 1 ? 's' : ''), tag: '', tagColor: '', userId: uid };
       });
     }
 
@@ -8009,9 +8126,75 @@ function openTherapistDayEditor(dateKey){
   var dObj = new Date(parts[0], parts[1]-1, parts[2]);
   document.getElementById('therapistDayEditorTitle').textContent = dObj.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
   renderTherapistDaySlotsList();
+  populateTherapistLogWhoSelect();
   document.getElementById('therapistDayEditorBackdrop').style.display = 'block';
   document.getElementById('therapistDayEditor').style.display = 'block';
 }
+
+// Populates "Who is this appointment for?" with three kinds of options: real clients already
+// assigned to this therapist (selecting one updates THEIR existing booking directly, no
+// duplicate created), previously-saved external contacts (people not on the app, reusable
+// across sessions instead of re-typing every time), and an option to add a new external contact.
+function populateTherapistLogWhoSelect(){
+  var sel = document.getElementById('therapistLogWhoSelect');
+  sel.innerHTML = '<option value="">Loading…</option>';
+  Promise.all([
+    sb.from('expert_bookings').select('user_id,status').eq('expert_name', appState.therapistExpertName).eq('status', 'active').eq('is_external', false),
+    sb.from('profiles').select('user_id,name'),
+    sb.from('therapist_external_clients').select('*').eq('therapist_expert_name', appState.therapistExpertName).order('name')
+  ]).then(function(results){
+    var bookingsRes = results[0], profilesRes = results[1], externalRes = results[2];
+    var nameByUserId = {};
+    (profilesRes.data || []).forEach(function(p){ nameByUserId[p.user_id] = p.name; });
+    var clientOptions = (bookingsRes.data || [])
+      .map(function(b){ return { userId: b.user_id, name: nameByUserId[b.user_id] || 'Unnamed client' }; });
+    var externalOptions = externalRes.data || [];
+
+    var html = '<option value="">Who is this appointment for?</option>';
+    if(clientOptions.length > 0){
+      html += '<optgroup label="Your clients on HOBS">' + clientOptions.map(function(c){
+        return '<option value="client:'+c.userId+'">'+c.name+'</option>';
+      }).join('') + '</optgroup>';
+    }
+    if(externalOptions.length > 0){
+      html += '<optgroup label="Saved contacts (not on HOBS)">' + externalOptions.map(function(e){
+        return '<option value="external:'+e.id+'">'+e.name+'</option>';
+      }).join('') + '</optgroup>';
+    }
+    html += '<option value="__new__">+ Add a new contact (not on HOBS)</option>';
+    sel.innerHTML = html;
+  });
+}
+document.getElementById('therapistLogWhoSelect').onchange = function(){
+  document.getElementById('therapistNewExternalContactForm').style.display = (this.value === '__new__') ? 'block' : 'none';
+};
+document.getElementById('therapistSaveExternalContactBtn').onclick = function(){
+  var name = document.getElementById('therapistExternalClientName').value.trim();
+  if(!name){ showToast('Add at least a name.'); return; }
+  var payload = {
+    therapist_expert_name: appState.therapistExpertName, name: name,
+    email: document.getElementById('therapistExternalClientEmail').value.trim() || null,
+    contact: document.getElementById('therapistExternalClientContact').value.trim() || null,
+    emergency_contact_name: document.getElementById('therapistExternalEmergencyName').value.trim() || null,
+    emergency_contact_phone: document.getElementById('therapistExternalEmergencyPhone').value.trim() || null
+  };
+  sb.from('therapist_external_clients').insert(payload).select().single().then(function(result){
+    if(result.error){ showToast('Could not save — please try again.'); return; }
+    showToast('Contact saved.');
+    document.getElementById('therapistNewExternalContactForm').style.display = 'none';
+    document.getElementById('therapistExternalClientName').value = '';
+    document.getElementById('therapistExternalClientEmail').value = '';
+    document.getElementById('therapistExternalClientContact').value = '';
+    document.getElementById('therapistExternalEmergencyName').value = '';
+    document.getElementById('therapistExternalEmergencyPhone').value = '';
+    populateTherapistLogWhoSelect();
+    // Re-select the contact just created, once the dropdown finishes repopulating.
+    setTimeout(function(){
+      document.getElementById('therapistLogWhoSelect').value = 'external:' + result.data.id;
+    }, 400);
+  });
+};
+
 function renderTherapistDaySlotsList(){
   var slots = therapistCalSlotsByDay[therapistCalActiveDayKey] || [];
   var wrap = document.getElementById('therapistDaySlotsList');
@@ -8112,32 +8295,59 @@ document.getElementById('therapistDayAddTimeBtn').onclick = function(){
 // calendar and counts toward real booking history, just without a real user_id, since there's
 // no app account to link it to.
 document.getElementById('therapistLogExternalBtn').onclick = function(){
-  var name = document.getElementById('therapistExternalClientName').value.trim();
-  var contact = document.getElementById('therapistExternalClientContact').value.trim();
+  var whoValue = document.getElementById('therapistLogWhoSelect').value;
   var timeVal = document.getElementById('therapistExternalTime').value;
-  if(!name || !timeVal){
-    showToast('Add at least a client name and a time.');
+  if(!whoValue || whoValue === '__new__'){
+    showToast('Pick who this appointment is for first.');
+    return;
+  }
+  if(!timeVal){
+    showToast('Add a time.');
     return;
   }
   var timeParts = timeVal.split(':').map(Number);
   var parts = therapistCalActiveDayKey.split('-').map(Number);
   var fullDate = new Date(parts[0], parts[1]-1, parts[2], timeParts[0], timeParts[1]);
+  var btn = this;
+  btn.disabled = true;
 
-  sb.from('experts').select('role_category').eq('name', appState.therapistExpertName).limit(1).then(function(expertResult){
-    var roleCategory = (expertResult.data && expertResult.data[0] && expertResult.data[0].role_category) || 'Therapist';
-    sb.from('expert_bookings').insert({
-      user_id: null, is_external: true, external_client_name: name, external_client_contact: contact || null,
-      expert_name: appState.therapistExpertName, role_category: roleCategory,
-      status: 'active', session_date: fullDate.toISOString(), payment_confirmed: true, cancellation_count: 0
-    }).then(function(result){
+  if(whoValue.indexOf('client:') === 0){
+    // A real client already assigned to this therapist -- update THEIR existing booking
+    // directly rather than creating a duplicate row, since they're already a real connection.
+    var userId = whoValue.slice('client:'.length);
+    sb.from('expert_bookings').update({
+      session_date: fullDate.toISOString(), time_request_status: 'accepted', requested_session_date: null
+    }).eq('expert_name', appState.therapistExpertName).eq('user_id', userId).eq('status', 'active').then(function(result){
+      btn.disabled = false;
       if(result.error){ showToast('Could not log — please try again.'); return; }
-      document.getElementById('therapistExternalClientName').value = '';
-      document.getElementById('therapistExternalClientContact').value = '';
       document.getElementById('therapistExternalTime').value = '';
-      showToast('Logged.');
+      document.getElementById('therapistLogWhoSelect').value = '';
+      showToast('Logged — their session time is now set.');
       renderTherapistClientsList();
     });
-  });
+  } else if(whoValue.indexOf('external:') === 0){
+    var externalId = whoValue.slice('external:'.length);
+    sb.from('therapist_external_clients').select('*').eq('id', externalId).single().then(function(contactResult){
+      if(contactResult.error || !contactResult.data){ btn.disabled = false; showToast('Could not find this contact.'); return; }
+      var contact = contactResult.data;
+      sb.from('experts').select('role_category').eq('name', appState.therapistExpertName).limit(1).then(function(expertResult){
+        var roleCategory = (expertResult.data && expertResult.data[0] && expertResult.data[0].role_category) || 'Therapist';
+        sb.from('expert_bookings').insert({
+          user_id: null, is_external: true, external_client_id: contact.id,
+          external_client_name: contact.name, external_client_contact: contact.contact || contact.email || null,
+          expert_name: appState.therapistExpertName, role_category: roleCategory,
+          status: 'active', session_date: fullDate.toISOString(), payment_confirmed: true, cancellation_count: 0
+        }).then(function(result){
+          btn.disabled = false;
+          if(result.error){ showToast('Could not log — please try again.'); return; }
+          document.getElementById('therapistExternalTime').value = '';
+          document.getElementById('therapistLogWhoSelect').value = '';
+          showToast('Logged.');
+          renderTherapistClientsList();
+        });
+      });
+    });
+  }
 };
 document.getElementById('therapistDayEditorCloseBtn').onclick = function(){
   document.getElementById('therapistDayEditorBackdrop').style.display = 'none';
