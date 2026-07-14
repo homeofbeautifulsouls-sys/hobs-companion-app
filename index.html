@@ -822,16 +822,20 @@
     <button id="homeworkSendBtn" style="width:100%;padding:12px;border-radius:10px;border:none;background:#6690D6;color:#fff;font-size:12.5px;font-weight:700;cursor:pointer;margin-bottom:22px;">Send Homework</button>
 
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">My Availability</p>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-      <button id="therapistCalPrevBtn" style="background:none;border:none;cursor:pointer;color:#6690D6;font-size:16px;padding:4px 10px;">‹</button>
-      <p id="therapistCalMonthTitle" style="font-size:13px;font-weight:700;color:#2A2013;margin:0;"></p>
-      <button id="therapistCalNextBtn" style="background:none;border:none;cursor:pointer;color:#6690D6;font-size:16px;padding:4px 10px;">›</button>
-    </div>
-    <div class="weekday-row"><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div>
-    <div class="day-grid" id="therapistAvailabilityGrid" style="margin-bottom:18px;"></div>
-
     <p style="font-size:11px;font-weight:700;color:#9AABCE;margin:0 0 8px;">All Upcoming Slots</p>
-    <div id="therapistAllSlotsList" style="margin-bottom:22px;"></div>
+    <div id="therapistAllSlotsList" style="margin-bottom:14px;"></div>
+    <button id="therapistToggleCalendarBtn" style="width:100%;padding:11px;border-radius:10px;border:1px solid #EEE0C4;background:transparent;color:#6690D6;font-size:12.5px;font-weight:700;cursor:pointer;margin-bottom:18px;">+ Add or edit availability</button>
+
+    <div id="therapistCalendarEditorWrap" style="display:none;margin-bottom:22px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <button id="therapistCalPrevBtn" style="background:none;border:none;cursor:pointer;color:#6690D6;font-size:16px;padding:4px 10px;">‹</button>
+        <p id="therapistCalMonthTitle" style="font-size:13px;font-weight:700;color:#2A2013;margin:0;"></p>
+        <button id="therapistCalNextBtn" style="background:none;border:none;cursor:pointer;color:#6690D6;font-size:16px;padding:4px 10px;">›</button>
+      </div>
+      <p style="font-size:10.5px;color:#B0AA98;margin:0 0 8px;">Green dot = open slot that day. Blue dot = a booked session that day. Tap a day to add or edit.</p>
+      <div class="weekday-row"><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div>
+      <div class="day-grid" id="therapistAvailabilityGrid"></div>
+    </div>
 
     <div id="therapistDayEditorBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.45);z-index:60;"></div>
     <div id="therapistDayEditor" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;background:#FFFFFF;border-radius:24px 24px 0 0;padding:24px 22px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;z-index:61;box-shadow:0 -10px 30px rgba(0,0,0,0.15);max-height:80vh;overflow-y:auto;">
@@ -1347,7 +1351,7 @@
     </div>
     <div id="adminEntryCard" style="display:none;background:#FFFFFF;border:1px solid #EEE0C4;border-radius:16px;padding:16px;margin-top:14px;">
       <p style="font-size:12px;color:#9AABCE;margin:0 0 8px;font-weight:700;">Admin</p>
-      <button id="adminDashboardBtn" style="width:100%;padding:12px;border-radius:12px;border:1px solid #EEE0C4;background:transparent;color:#6690D6;font-size:13px;font-weight:700;cursor:pointer;">Booking &amp; Cancellation Dashboard</button>
+      <button id="adminDashboardBtn" style="width:100%;padding:12px;border-radius:12px;border:1px solid #EEE0C4;background:transparent;color:#6690D6;font-size:13px;font-weight:700;cursor:pointer;">Admin Panel</button>
     </div>
     <div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:16px;padding:16px;margin-top:14px;">
       <p style="font-size:12px;color:#9AABCE;margin:0 0 8px;font-weight:700;">Account</p>
@@ -1790,7 +1794,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260714202533';
+  var CURRENT_BUILD = '20260714205704';
   function checkForUpdate(){
     // Safety guard: reload AT MOST ONCE per session, no matter what. Without this, a mistake
     // where version.json and the HTML's own build ID get out of sync (e.g. one gets updated
@@ -9140,6 +9144,12 @@ function renderTherapistAllSlotsList(){
     };
   });
 }
+document.getElementById('therapistToggleCalendarBtn').onclick = function(){
+  var wrap = document.getElementById('therapistCalendarEditorWrap');
+  var isHidden = wrap.style.display === 'none';
+  wrap.style.display = isHidden ? 'block' : 'none';
+  this.textContent = isHidden ? '− Hide calendar' : '+ Add or edit availability';
+};
 document.getElementById('therapistCalPrevBtn').onclick = function(){
   therapistCalMonth--; if(therapistCalMonth < 0){ therapistCalMonth = 11; therapistCalYear--; }
   renderTherapistAvailabilityGrid();
