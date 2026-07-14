@@ -1759,7 +1759,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260714071902';
+  var CURRENT_BUILD = '20260714072807';
   function checkForUpdate(){
     // Safety guard: reload AT MOST ONCE per session, no matter what. Without this, a mistake
     // where version.json and the HTML's own build ID get out of sync (e.g. one gets updated
@@ -3791,8 +3791,18 @@ var ASSISTANT_AMBIGUOUS_TRIGGERS = [
   /(want|wanna|need).*(talk to|speak (to|with)).*(someone|somebody|person)/i,
   /\bneed (to talk|someone)\b/i,
   /someone to talk to/i,
-  /i'?m not (okay|ok|fine)/i,
-  /i (don'?t know what|need help) but/i
+  /i'?m not (okay|ok|fine|doing (okay|ok|fine|good|well))/i,
+  /i (don'?t know what|need help) but/i,
+  // General distress/help-seeking, confirmed as its own real category -- a real gap where
+  // simply typing "Help" or "I need help" with nothing else matched none of the above (they
+  // all require some additional surrounding phrase) and fell through to a flat "I didn't
+  // understand," which is a genuinely bad response to someone reaching out. A large-scale study
+  // of a real crisis text line (Shout/Mental Health Innovations, UK) explicitly names
+  // "expressing distress" as one of six core recognized behaviors in these conversations, not
+  // something that only matters once it escalates further -- worth responding to directly, not
+  // waiting for a more specific phrase.
+  /^help!*$/i, /i need help/i, /i\s?(am|'?m)\s+struggling/i, /i can'?t cope/i, /this is (too )?hard/i,
+  /i don'?t know what to do/i, /i\s?(am|'?m)\s+having\s+a\s+(hard|rough)\s+time/i
 ];
 
 function renderAssistantQuickReplies(options){
@@ -4119,6 +4129,12 @@ var SELF_HARM_SIGNAL_PATTERNS = [
   // journaling than the formal phrasing, which makes this the single most important fix here.
   /(want(ed|ing)?\s+to|wanna)\s+die/i, /wish(ed|ing)?\s+i\s+(was|were)\s+dead/i,
   /hurt(ing)?\s+myself/i, /harm(ing)?\s+myself/i, /self[\s-]?harm/i, /cut(ting)?\s+myself/i,
+  // Self-harm (non-suicidal self-injury) is genuinely distinct from suicidal ideation --
+  // confirmed via actual research: different intent (coping/relief/control/self-punishment,
+  // not wanting to die) and different language patterns. Burning and self-punishment phrasing
+  // specifically were gaps the earlier cutting-focused patterns didn't cover.
+  /burn(ing)?\s+myself/i, /punish(ing)?\s+myself/i, /want(ed|ing)?\s+to\s+(cut|burn)/i,
+  /feel(ing)?\s+numb/i, /(need|want)\s+to\s+feel\s+something/i,
   // Death-focus / wishful, not just literal "want to die"
   /don'?t\s+want\s+to\s+(be\s+here|live|exist|wake\s+up)/i, /wish\s+i\s+(could\s+)?disappear/i,
   /wonder(ing)?\s+what\s+it\s+(would\s+be\s+|'?s?\s+)?like\s+to\s+(just\s+)?(not\s+exist|die|be\s+dead)/i,
