@@ -997,6 +997,7 @@
     <div id="adminUserProfileSafetyInfo" style="margin-bottom:14px;"></div>
     <div id="adminUserProfileTaskStats" style="margin-bottom:14px;"></div>
     <div id="adminUserProfileSharedEntries" style="margin-bottom:14px;"></div>
+    <div id="adminUserProfileAppointmentHistory" style="margin-bottom:14px;"></div>
     <div id="adminUserProfileProfessionalInfo" style="display:none;margin-bottom:14px;"></div>
     <div id="adminUserProfileConnections"></div>
     <div id="adminUserProfileConsentInfo" style="margin-top:14px;"></div>
@@ -1789,7 +1790,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260714144258';
+  var CURRENT_BUILD = '20260714145101';
   function checkForUpdate(){
     // Safety guard: reload AT MOST ONCE per session, no matter what. Without this, a mistake
     // where version.json and the HTML's own build ID get out of sync (e.g. one gets updated
@@ -7823,6 +7824,30 @@ function showAdminUserProfile(userId){
       }
     }
 
+    // Real gap Akash flagged directly: appointment history wasn't shown anywhere on a client's
+    // profile -- bookingsRes was already being fetched (for the current-connection summary
+    // above) but never rendered as an actual history list. All sessions here, past ones first
+    // since that's what "history" means, current/upcoming still included for completeness.
+    var historyEl = document.getElementById('adminUserProfileAppointmentHistory');
+    var allBookings = (bookingsRes.data || []).slice().sort(function(a, b){
+      return new Date(b.session_date || b.created_at) - new Date(a.session_date || a.created_at);
+    });
+    if(allBookings.length === 0){
+      historyEl.innerHTML = '<p style="font-size:11px;font-weight:700;color:#9AABCE;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 6px;">Appointment History</p><p style="font-size:11.5px;color:#B0AA98;margin:0;">No appointments yet.</p>';
+    } else {
+      var nowTs = Date.now();
+      historyEl.innerHTML = '<p style="font-size:11px;font-weight:700;color:#9AABCE;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 6px;">Appointment History ('+allBookings.length+')</p>'+
+        '<div style="background:#F3F6FC;border-radius:10px;padding:10px 12px;max-height:220px;overflow-y:auto;">'+
+        allBookings.map(function(b){
+          var isPast = b.session_date && new Date(b.session_date).getTime() < nowTs;
+          var dateLabel = b.session_date ? new Date(b.session_date).toLocaleDateString('en-IN', {day:'numeric', month:'short', year:'numeric'}) + ' · ' + new Date(b.session_date).toLocaleTimeString('en-IN', {hour:'numeric', minute:'2-digit'}) : 'No date set';
+          var statusColor = b.status === 'cancelled' ? '#C77B7B' : (isPast ? '#9AABCE' : '#3B8F63');
+          var paymentTag = b.payment_confirmed === false ? ' · unpaid' : '';
+          return '<p style="font-size:11px;color:#2A2013;margin:0 0 8px;"><strong style="color:'+statusColor+';">'+dateLabel+'</strong><br><span style="color:#5C6B94;">'+(b.expert_name||'Unknown')+' · '+b.role_category+' · '+b.status+paymentTag+'</span></p>';
+        }).join('')+
+        '</div>';
+    }
+
     // This account is a professional -- show the same rich profile a client would actually see
     // on their expert-detail page (bio, credential, approaches, specializations, etc.), not just
     // generic account fields. Previously this modal looked identical whether you clicked a
@@ -8645,12 +8670,16 @@ function openTherapistClientDetail(userId, name){
   Promise.all([
     sb.from('profiles').select('photo_url,address,emergency_contact_name,emergency_contact_phone').eq('user_id', userId).single(),
     sb.from('entries').select('id,type,text,worksheet_name,category_name,worksheet_key,created_at').eq('user_id', userId).eq('shared_with_therapist', true).order('created_at', {ascending:false}),
-    sb.from('worksheet_responses').select('worksheet_key,category_key,answers').eq('user_id', userId).eq('shared_with_therapist', true)
+    sb.from('worksheet_responses').select('worksheet_key,category_key,answers').eq('user_id', userId).eq('shared_with_therapist', true),
+    // Scoped to appointments with THIS therapist specifically, not the client's history with
+    // other professionals -- matches the same privacy boundary as everything else here.
+    sb.from('expert_bookings').select('session_date,status,payment_confirmed,payment_note').eq('user_id', userId).eq('expert_name', appState.therapistExpertName).order('session_date', {ascending:false})
   ]).then(function(results){
     var profile = results[0].data || {};
     var shared = results[1].data || [];
     var sharedWorksheetAnswers = {};
     (results[2].data || []).forEach(function(w){ sharedWorksheetAnswers[w.worksheet_key] = w; });
+    var appointmentHistory = results[3].data || [];
     var html = '';
     if(profile.photo_url){
       html += '<div style="text-align:center;margin-bottom:14px;"><img src="'+profile.photo_url+'" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid #EEE0C4;"></div>';
@@ -8696,6 +8725,22 @@ function openTherapistClientDetail(userId, name){
           }
           var label = e.text ? e.text.slice(0,80) + (e.text.length > 80 ? '…' : '') : '(no text)';
           return '<p style="font-size:11.5px;color:#2A2013;margin:0 0 10px;"><strong style="color:#6690D6;">'+when+':</strong> '+label.replace(/</g,'&lt;')+'</p>';
+        }).join('')+
+        '</div>';
+    }
+
+    html += '<p style="font-size:11px;font-weight:700;color:#9AABCE;text-transform:uppercase;letter-spacing:0.03em;margin:16px 0 6px;">Appointment History ('+appointmentHistory.length+')</p>';
+    if(appointmentHistory.length === 0){
+      html += '<p style="font-size:11.5px;color:#B0AA98;margin:0;">No appointments with you yet.</p>';
+    } else {
+      var nowTs = Date.now();
+      html += '<div style="background:#F3F6FC;border-radius:10px;padding:10px 12px;max-height:220px;overflow-y:auto;">'+
+        appointmentHistory.map(function(b){
+          var isPast = b.session_date && new Date(b.session_date).getTime() < nowTs;
+          var dateLabel = b.session_date ? new Date(b.session_date).toLocaleDateString('en-IN', {day:'numeric', month:'short', year:'numeric'}) + ' · ' + new Date(b.session_date).toLocaleTimeString('en-IN', {hour:'numeric', minute:'2-digit'}) : 'No date set';
+          var statusColor = b.status === 'cancelled' ? '#C77B7B' : (isPast ? '#9AABCE' : '#3B8F63');
+          var paymentTag = b.payment_confirmed === false ? ' · unpaid' : '';
+          return '<p style="font-size:11px;color:#2A2013;margin:0 0 8px;"><strong style="color:'+statusColor+';">'+dateLabel+'</strong><br><span style="color:#5C6B94;">'+b.status+paymentTag+(b.payment_note ? ' · '+b.payment_note.replace(/</g,'&lt;') : '')+'</span></p>';
         }).join('')+
         '</div>';
     }
