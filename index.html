@@ -883,6 +883,13 @@
       <button id="therapistScheduleEditCloseBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:13px;font-weight:700;cursor:pointer;">Cancel</button>
     </div>
 
+    <div id="therapistClientDetailBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.45);z-index:60;"></div>
+    <div id="therapistClientDetailModal" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;max-height:80vh;overflow-y:auto;background:#FFFFFF;border-radius:24px 24px 0 0;padding:24px 22px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;z-index:61;box-shadow:0 -10px 30px rgba(0,0,0,0.15);">
+      <p class="prompt-title" style="margin-bottom:16px;" id="therapistClientDetailName">Client details</p>
+      <div id="therapistClientDetailBody"></div>
+      <button id="therapistClientDetailCloseBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:13px;font-weight:700;cursor:pointer;margin-top:16px;">Close</button>
+    </div>
+
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:22px 0 10px;">My Profile</p>
     <p style="font-size:11px;color:#B0AA98;margin:0 0 10px;">This is what clients see about you on the Experts page.</p>
     <textarea id="therapistBioInput" placeholder="A short bio, in your own words..." rows="3" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;resize:vertical;"></textarea>
@@ -904,6 +911,13 @@
     <p class="prompt-title" style="text-align:center;">Edit Profile</p>
     <p class="prompt-sub" style="text-align:center;margin-bottom:22px;">Keep your details up to date.</p>
 
+    <div style="text-align:center;margin-bottom:20px;">
+      <img id="epPhotoPreview" src="" style="display:none;width:88px;height:88px;border-radius:50%;object-fit:cover;margin:0 auto 10px;border:2px solid #EEE0C4;">
+      <div id="epPhotoPlaceholder" style="width:88px;height:88px;border-radius:50%;background:#F0EEE8;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;color:#B0AA98;font-size:11px;">No photo</div>
+      <input type="file" id="epPhotoInput" accept="image/*" style="display:none;">
+      <button id="epPhotoBtn" type="button" style="background:none;border:1px solid #EEE0C4;border-radius:10px;padding:6px 14px;font-size:11.5px;font-weight:700;color:#6690D6;cursor:pointer;">Add / change photo</button>
+    </div>
+
     <label style="font-size:12px;font-weight:700;color:#2A2013;margin-bottom:6px;display:block;">What would you like to be called?</label>
     <input id="epName" type="text" placeholder="Your name" style="width:100%;padding:14px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:14px;box-sizing:border-box;margin-bottom:20px;">
 
@@ -915,7 +929,14 @@
     <input id="epPhone" type="tel" placeholder="Your phone number" style="width:100%;padding:14px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:14px;box-sizing:border-box;margin-bottom:20px;">
 
     <label style="font-size:12px;font-weight:700;color:#2A2013;margin-bottom:6px;display:block;">Date of birth</label>
-    <input id="epDob" type="date" style="width:100%;padding:14px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:14px;box-sizing:border-box;margin-bottom:10px;">
+    <input id="epDob" type="date" style="width:100%;padding:14px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:14px;box-sizing:border-box;margin-bottom:20px;">
+
+    <label style="font-size:12px;font-weight:700;color:#2A2013;margin-bottom:6px;display:block;">Address <span style="font-weight:400;color:#B0AA98;">(only visible to your therapist and admin, for safety purposes)</span></label>
+    <textarea id="epAddress" placeholder="Your address" rows="2" style="width:100%;padding:14px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:14px;box-sizing:border-box;margin-bottom:20px;resize:vertical;"></textarea>
+
+    <label style="font-size:12px;font-weight:700;color:#2A2013;margin-bottom:6px;display:block;">Emergency contact <span style="font-weight:400;color:#B0AA98;">(only visible to your therapist and admin)</span></label>
+    <input id="epEmergencyName" type="text" placeholder="Name" style="width:100%;padding:14px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:14px;box-sizing:border-box;margin-bottom:10px;">
+    <input id="epEmergencyPhone" type="tel" placeholder="Phone number" style="width:100%;padding:14px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:14px;box-sizing:border-box;margin-bottom:10px;">
 
     <p id="epError" style="display:none;color:#C77B7B;font-size:12px;text-align:center;margin:8px 0 0;"></p>
     <button id="epSaveBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:15px;font-weight:700;cursor:pointer;margin-top:18px;">Save Changes</button>
@@ -968,6 +989,7 @@
     <p class="prompt-title" id="adminUserProfileName" style="margin-bottom:2px;">Name</p>
     <p style="font-size:11.5px;color:#9AABCE;margin:0 0 4px;" id="adminUserProfileEmail"></p>
     <p style="font-size:10.5px;color:#B0AA98;margin:0 0 16px;" id="adminUserProfileMeta"></p>
+    <div id="adminUserProfileSafetyInfo" style="margin-bottom:14px;"></div>
     <div id="adminUserProfileTaskStats" style="margin-bottom:14px;"></div>
     <div id="adminUserProfileSharedEntries" style="margin-bottom:14px;"></div>
     <div id="adminUserProfileProfessionalInfo" style="display:none;margin-bottom:14px;"></div>
@@ -1288,6 +1310,9 @@
   </div>
 
   <div class="content" id="panel-profile" style="display:none;">
+    <div style="text-align:center;margin-bottom:6px;">
+      <img id="profilePagePhoto" src="" style="display:none;width:72px;height:72px;border-radius:50%;object-fit:cover;margin:0 auto;border:2px solid #EEE0C4;">
+    </div>
     <p class="prompt-title" id="profilePageTitle" style="text-align:center;">You</p>
     <button id="profileSearchBtn" style="display:flex;align-items:center;gap:8px;width:100%;padding:12px 14px;border-radius:14px;border:1px solid #EEE0C4;background:#FFFFFF;color:#5C6B94;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:14px;">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
@@ -1759,7 +1784,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260714131351';
+  var CURRENT_BUILD = '20260714132905';
   function checkForUpdate(){
     // Safety guard: reload AT MOST ONCE per session, no matter what. Without this, a mistake
     // where version.json and the HTML's own build ID get out of sync (e.g. one gets updated
@@ -2597,8 +2622,20 @@ function openEditProfile(){
   document.getElementById('epName').value = appState.displayName || '';
   document.getElementById('epPhone').value = appState.phoneNumber || '';
   document.getElementById('epDob').value = appState.dateOfBirth || '';
+  document.getElementById('epAddress').value = appState.address || '';
+  document.getElementById('epEmergencyName').value = appState.emergencyContactName || '';
+  document.getElementById('epEmergencyPhone').value = appState.emergencyContactPhone || '';
   document.getElementById('epPronounCustom').style.display = 'none';
   document.getElementById('epPronounCustom').value = '';
+
+  if(appState.photoUrl){
+    document.getElementById('epPhotoPreview').src = appState.photoUrl;
+    document.getElementById('epPhotoPreview').style.display = 'block';
+    document.getElementById('epPhotoPlaceholder').style.display = 'none';
+  } else {
+    document.getElementById('epPhotoPreview').style.display = 'none';
+    document.getElementById('epPhotoPlaceholder').style.display = 'flex';
+  }
 
   var selectedPronoun = appState.pronouns || '';
   var chipsWrap = document.getElementById('epPronounChips');
@@ -2626,10 +2663,37 @@ function openEditProfile(){
 document.getElementById('editProfileBtn').onclick = openEditProfile;
 document.getElementById('editProfileBackBtn').onclick = function(){ showOnly('panel-profile'); };
 
+document.getElementById('epPhotoBtn').onclick = function(){ document.getElementById('epPhotoInput').click(); };
+document.getElementById('epPhotoInput').onchange = function(){
+  var file = this.files[0];
+  if(!file) return;
+  var btn = document.getElementById('epPhotoBtn');
+  btn.textContent = 'Uploading...'; btn.disabled = true;
+  var ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+  var path = 'profile-photos/' + currentUser.id + '/' + Date.now() + '.' + ext;
+  sb.storage.from('task-images').upload(path, file).then(function(result){
+    if(result.error){
+      btn.textContent = 'Add / change photo'; btn.disabled = false;
+      showToast('Could not upload photo — please try again.');
+      return;
+    }
+    var publicUrl = sb.storage.from('task-images').getPublicUrl(path).data.publicUrl;
+    document.getElementById('epPhotoPreview').src = publicUrl;
+    document.getElementById('epPhotoPreview').style.display = 'block';
+    document.getElementById('epPhotoPlaceholder').style.display = 'none';
+    document.getElementById('epPhotoPreview').dataset.pendingUrl = publicUrl;
+    btn.textContent = 'Add / change photo'; btn.disabled = false;
+  });
+};
+
 document.getElementById('epSaveBtn').onclick = function(){
   var name = document.getElementById('epName').value.trim();
   var phone = document.getElementById('epPhone').value.trim();
   var dob = document.getElementById('epDob').value;
+  var address = document.getElementById('epAddress').value.trim();
+  var emergencyName = document.getElementById('epEmergencyName').value.trim();
+  var emergencyPhone = document.getElementById('epEmergencyPhone').value.trim();
+  var pendingPhotoUrl = document.getElementById('epPhotoPreview').dataset.pendingUrl;
   var chipsWrap = document.getElementById('epPronounChips');
   var selected = chipsWrap.dataset.selected;
   var pronouns = selected === 'Self-describe' ? document.getElementById('epPronounCustom').value.trim() : selected;
@@ -2644,9 +2708,13 @@ document.getElementById('epSaveBtn').onclick = function(){
   var btn = document.getElementById('epSaveBtn');
   btn.textContent = 'Saving...'; btn.disabled = true;
 
-  sb.from('profiles').update({
-    name: name, pronouns: pronouns, phone_number: phone, date_of_birth: dob
-  }).eq('user_id', currentUser.id).then(function(result){
+  var updatePayload = {
+    name: name, pronouns: pronouns, phone_number: phone, date_of_birth: dob,
+    address: address || null, emergency_contact_name: emergencyName || null, emergency_contact_phone: emergencyPhone || null
+  };
+  if(pendingPhotoUrl) updatePayload.photo_url = pendingPhotoUrl;
+
+  sb.from('profiles').update(updatePayload).eq('user_id', currentUser.id).then(function(result){
     btn.textContent = 'Save Changes'; btn.disabled = false;
     if(result.error){
       errEl.textContent = 'Could not save — check your connection and try again.';
@@ -2657,6 +2725,10 @@ document.getElementById('epSaveBtn').onclick = function(){
     appState.pronouns = pronouns;
     appState.phoneNumber = phone;
     appState.dateOfBirth = dob;
+    appState.address = address;
+    appState.emergencyContactName = emergencyName;
+    appState.emergencyContactPhone = emergencyPhone;
+    if(pendingPhotoUrl) appState.photoUrl = pendingPhotoUrl;
     showToast('Profile updated.');
     renderHomeGreeting();
     showOnly('panel-profile');
@@ -2998,6 +3070,10 @@ function loadUserDataFromSupabase(){
       appState.displayName = profileRes.data.name || '';
       appState.pronouns = profileRes.data.pronouns || '';
       appState.phoneNumber = profileRes.data.phone_number || '';
+      appState.photoUrl = profileRes.data.photo_url || '';
+      appState.address = profileRes.data.address || '';
+      appState.emergencyContactName = profileRes.data.emergency_contact_name || '';
+      appState.emergencyContactPhone = profileRes.data.emergency_contact_phone || '';
       appState.dateOfBirth = profileRes.data.date_of_birth || '';
       appState.onboardingComplete = profileRes.data.onboarding_complete || false;
       appState.consentSigned = profileRes.data.consent_signed || false;
@@ -4402,6 +4478,12 @@ function toClearAndReselectMoodsForEdit(moods){
 function renderProfile(){
   var profileName = getDisplayName();
   document.getElementById('profilePageTitle').textContent = profileName || 'You';
+  if(appState.photoUrl){
+    document.getElementById('profilePagePhoto').src = appState.photoUrl;
+    document.getElementById('profilePagePhoto').style.display = 'block';
+  } else {
+    document.getElementById('profilePagePhoto').style.display = 'none';
+  }
   document.getElementById('profileAccountEmail').textContent = currentUser ? ('Signed in as ' + currentUser.email) : '';
   document.getElementById('adminEntryCard').style.display = appState.isAdmin ? 'block' : 'none';
   document.getElementById('therapistEntryCard').style.display = appState.isTherapist ? 'block' : 'none';
@@ -7651,6 +7733,17 @@ function showAdminUserProfile(userId){
     if(p.pronouns) metaParts.push(p.pronouns);
     document.getElementById('adminUserProfileMeta').textContent = metaParts.join(' · ');
 
+    var safetyEl = document.getElementById('adminUserProfileSafetyInfo');
+    if(p.address || p.emergency_contact_name){
+      safetyEl.innerHTML = '<p style="font-size:11px;font-weight:700;color:#9AABCE;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 6px;">Safety Information</p>'+
+        '<div style="background:#FBF2F2;border-radius:10px;padding:12px;">'+
+        (p.address ? '<p style="font-size:11.5px;color:#2A2013;margin:0 0 8px;"><strong>Address:</strong> '+p.address.replace(/</g,'&lt;')+'</p>' : '')+
+        (p.emergency_contact_name ? '<p style="font-size:11.5px;color:#2A2013;margin:0;"><strong>Emergency contact:</strong> '+p.emergency_contact_name.replace(/</g,'&lt;')+(p.emergency_contact_phone ? ' — '+p.emergency_contact_phone : '')+'</p>' : '')+
+        '</div>';
+    } else {
+      safetyEl.innerHTML = '';
+    }
+
     // "Complete profile" per Akash's direct request means more than just account fields --
     // task activity and anything they've actually shared with a therapist, both genuinely
     // useful for admin/clinical context, weren't shown here at all before.
@@ -8412,7 +8505,8 @@ function renderTherapistClientsList(){
       return '<div class="therapist-client-row" data-user-id="'+uid+'" data-session-date="'+(info.latestSessionDate||'')+'" data-name="'+(profile.name||'Unknown client')+'" style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:11px 13px;margin-bottom:7px;cursor:pointer;">'+
         '<p style="font-size:12.5px;font-weight:700;color:#2A2013;margin:0 0 2px;">'+(profile.name||'Unknown client')+'</p>'+
         '<p style="font-size:11px;color:#5C6B94;margin:0 0 2px;">'+(profile.email||'')+'</p>'+
-        '<p style="font-size:10px;color:#9AABCE;margin:0;">'+sessionText+'</p>'+
+        '<p style="font-size:10px;color:#9AABCE;margin:0 0 6px;">'+sessionText+'</p>'+
+        '<button class="therapist-client-view-details-btn" data-user-id="'+uid+'" data-name="'+(profile.name||'Unknown client')+'" style="font-size:10.5px;font-weight:700;color:#6690D6;background:none;border:1px solid #C7D2E8;border-radius:8px;padding:5px 10px;cursor:pointer;">View shared entries &amp; details</button>'+
         '</div>';
     }).join('');
 
@@ -8431,8 +8525,65 @@ function renderTherapistClientsList(){
         openTherapistScheduleEdit(row.dataset.userId || null, row.dataset.bookingId || null, row.dataset.name, row.dataset.sessionDate || null);
       };
     });
+    listEl.querySelectorAll('.therapist-client-view-details-btn').forEach(function(btn){
+      btn.onclick = function(e){
+        e.stopPropagation();
+        openTherapistClientDetail(btn.dataset.userId, btn.dataset.name);
+      };
+    });
   });
 }
+
+// Real fix for two things Akash raised together: therapists genuinely had no way to see what a
+// client has shared with them (this previously only existed in the ADMIN's user-profile view,
+// confirmed by checking -- there was no therapist-facing equivalent at all), and no visibility
+// into emergency contact/address for safety purposes. One view serves both, reusing the exact
+// same shared-entries query pattern the admin view already uses.
+function openTherapistClientDetail(userId, name){
+  document.getElementById('therapistClientDetailName').textContent = name;
+  document.getElementById('therapistClientDetailBody').innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12px;">Loading...</p>';
+  document.getElementById('therapistClientDetailBackdrop').style.display = 'block';
+  document.getElementById('therapistClientDetailModal').style.display = 'block';
+
+  Promise.all([
+    sb.from('profiles').select('photo_url,address,emergency_contact_name,emergency_contact_phone').eq('user_id', userId).single(),
+    sb.from('entries').select('id,type,text,worksheet_name,category_name,created_at').eq('user_id', userId).eq('shared_with_therapist', true).order('created_at', {ascending:false})
+  ]).then(function(results){
+    var profile = results[0].data || {};
+    var shared = results[1].data || [];
+    var html = '';
+    if(profile.photo_url){
+      html += '<div style="text-align:center;margin-bottom:14px;"><img src="'+profile.photo_url+'" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid #EEE0C4;"></div>';
+    }
+    html += '<p style="font-size:11px;font-weight:700;color:#9AABCE;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 6px;">Safety Information</p>';
+    if(profile.address || profile.emergency_contact_name){
+      html += '<div style="background:#FBF2F2;border-radius:10px;padding:12px;margin-bottom:16px;">';
+      if(profile.address) html += '<p style="font-size:11.5px;color:#2A2013;margin:0 0 8px;"><strong>Address:</strong> '+profile.address.replace(/</g,'&lt;')+'</p>';
+      if(profile.emergency_contact_name) html += '<p style="font-size:11.5px;color:#2A2013;margin:0;"><strong>Emergency contact:</strong> '+profile.emergency_contact_name.replace(/</g,'&lt;')+(profile.emergency_contact_phone ? ' — '+profile.emergency_contact_phone : '')+'</p>';
+      html += '</div>';
+    } else {
+      html += '<p style="font-size:11.5px;color:#B0AA98;margin:0 0 16px;">Not provided yet.</p>';
+    }
+    html += '<p style="font-size:11px;font-weight:700;color:#9AABCE;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 6px;">Shared With You ('+shared.length+')</p>';
+    if(shared.length === 0){
+      html += '<p style="font-size:11.5px;color:#B0AA98;margin:0;">Nothing shared yet.</p>';
+    } else {
+      html += '<div style="background:#F3F6FC;border-radius:10px;padding:10px 12px;max-height:280px;overflow-y:auto;">'+
+        shared.map(function(e){
+          var when = new Date(e.created_at).toLocaleDateString('en-IN', {day:'numeric', month:'short'});
+          var label = e.type === 'worksheet' ? ('Worksheet: ' + (e.worksheet_name || e.category_name || 'Untitled')) : (e.text ? e.text.slice(0,80) + (e.text.length > 80 ? '…' : '') : '(no text)');
+          return '<p style="font-size:11.5px;color:#2A2013;margin:0 0 10px;"><strong style="color:#6690D6;">'+when+':</strong> '+label.replace(/</g,'&lt;')+'</p>';
+        }).join('')+
+        '</div>';
+    }
+    document.getElementById('therapistClientDetailBody').innerHTML = html;
+  });
+}
+document.getElementById('therapistClientDetailCloseBtn').onclick = function(){
+  document.getElementById('therapistClientDetailBackdrop').style.display = 'none';
+  document.getElementById('therapistClientDetailModal').style.display = 'none';
+};
+document.getElementById('therapistClientDetailBackdrop').onclick = document.getElementById('therapistClientDetailCloseBtn').onclick;
 
 // Tapping a client's name in My Clients opens this -- lets a therapist directly set or change
 // that client's next session time, same underlying update Log Appointment does, just reached
