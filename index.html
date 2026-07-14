@@ -519,12 +519,6 @@
         <span class="mascot-figure-name">Po</span>
         <span class="mascot-figure-helps" id="mascotHelpsPo">Talking to a professional</span>
       </button>
-      <div class="comic-bubble" id="comicBubble" style="display:none;">
-        <button class="comic-bubble-close" id="comicBubbleClose">✕</button>
-        <p class="comic-bubble-name" id="comicBubbleName"></p>
-        <p class="comic-bubble-text" id="comicBubbleText"></p>
-        <button class="comic-bubble-action" id="comicBubbleAction"></button>
-      </div>
     </div>
 
     <button id="createTaskHighlightBtn" style="display:flex;flex-direction:column;align-items:center;width:100%;padding:20px 16px;border-radius:18px;border:none;background:linear-gradient(135deg,#7FA3E0,#4A6FB5);cursor:pointer;margin-bottom:22px;box-shadow:0 8px 18px rgba(74,111,181,0.3);">
@@ -1601,7 +1595,10 @@
       <button class="priority-chip" data-priority="high" style="background:#FBE9E9;color:#C77B7B;">High</button>
     </div>
     <button id="sheetDeadlineToggle" style="width:100%;margin-top:10px;padding:9px;border-radius:14px;border:1px dashed #D9C9A3;background:transparent;color:#9A7B3E;font-size:11.5px;font-weight:600;cursor:pointer;">+ Set a deadline (optional — skip if it'll feel like pressure)</button>
-    <input id="sheetDeadlineInput" type="datetime-local" style="display:none;width:100%;margin-top:8px;padding:10px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:13px;color:#2A2013;box-sizing:border-box;">
+    <div id="sheetDeadlineInputWrap" style="display:none;margin-top:8px;display:flex;gap:6px;">
+      <input id="sheetDeadlineDateInput" type="date" style="flex:1;padding:10px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:13px;color:#2A2013;box-sizing:border-box;">
+      <input id="sheetDeadlineTimeInput" type="time" style="flex:1;padding:10px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:13px;color:#2A2013;box-sizing:border-box;">
+    </div>
     <button id="sheetBreakdownToggle" style="width:100%;margin-top:8px;padding:9px;border-radius:14px;border:1px dashed #C7D2E8;background:transparent;color:#6690D6;font-size:11.5px;font-weight:600;cursor:pointer;">+ Break this into smaller steps</button>
     <div id="sheetSubtaskArea" style="display:none;margin-top:10px;"></div>
     <input type="file" id="sheetImageInput" accept="image/*" style="display:none;">
@@ -1824,7 +1821,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260714211425';
+  var CURRENT_BUILD = '20260714221552';
   function checkForUpdate(){
     // Safety guard: reload AT MOST ONCE per session, no matter what. Without this, a mistake
     // where version.json and the HTML's own build ID get out of sync (e.g. one gets updated
@@ -5964,8 +5961,9 @@ function openAddTaskSheet(dateKey){
   document.getElementById('sheetRepeatChip').style.color = '#9AABCE';
   document.querySelectorAll('.priority-chip').forEach(function(c){ c.style.outline = 'none'; c.style.boxShadow = 'none'; });
   document.getElementById('sheetDeadlineToggle').style.display = 'block';
-  document.getElementById('sheetDeadlineInput').style.display = 'none';
-  document.getElementById('sheetDeadlineInput').value = '';
+  document.getElementById('sheetDeadlineInputWrap').style.display = 'none';
+  document.getElementById('sheetDeadlineDateInput').value = '';
+  document.getElementById('sheetDeadlineTimeInput').value = '';
   document.getElementById('sheetBreakdownToggle').style.display = 'block';
   document.getElementById('sheetSubtaskArea').style.display = 'none';
   document.getElementById('sheetSubtaskArea').innerHTML = '';
@@ -6002,15 +6000,16 @@ function openEditTaskSheet(task, dateKey){
   });
   if(task.deadline){
     document.getElementById('sheetDeadlineToggle').style.display = 'none';
-    var dlInput = document.getElementById('sheetDeadlineInput');
-    dlInput.style.display = 'block';
+    document.getElementById('sheetDeadlineInputWrap').style.display = 'flex';
     var d = new Date(task.deadline);
     var pad = function(n){ return String(n).padStart(2,'0'); };
-    dlInput.value = d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+    document.getElementById('sheetDeadlineDateInput').value = d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
+    document.getElementById('sheetDeadlineTimeInput').value = pad(d.getHours()) + ':' + pad(d.getMinutes());
   } else {
     document.getElementById('sheetDeadlineToggle').style.display = 'block';
-    document.getElementById('sheetDeadlineInput').style.display = 'none';
-    document.getElementById('sheetDeadlineInput').value = '';
+    document.getElementById('sheetDeadlineInputWrap').style.display = 'none';
+    document.getElementById('sheetDeadlineDateInput').value = '';
+    document.getElementById('sheetDeadlineTimeInput').value = '';
   }
   var subtaskArea = document.getElementById('sheetSubtaskArea');
   subtaskArea.innerHTML = '';
@@ -6099,8 +6098,8 @@ document.querySelectorAll('.priority-chip').forEach(function(chip){
 
 document.getElementById('sheetDeadlineToggle').onclick = function(){
   this.style.display = 'none';
-  document.getElementById('sheetDeadlineInput').style.display = 'block';
-  document.getElementById('sheetDeadlineInput').focus();
+  document.getElementById('sheetDeadlineInputWrap').style.display = 'flex';
+  document.getElementById('sheetDeadlineDateInput').focus();
 };
 
 document.getElementById('sheetBreakdownToggle').onclick = function(){
@@ -6215,8 +6214,9 @@ function commitSheetTaskIfDirty(){
   var titleEl = document.getElementById('sheetTaskInput');
   var title = titleEl.value.trim();
   if(!title) return false;
-  var deadlineVal = document.getElementById('sheetDeadlineInput').value;
-  var deadlineIso = deadlineVal ? new Date(deadlineVal).toISOString() : null;
+  var deadlineDate = document.getElementById('sheetDeadlineDateInput').value;
+  var deadlineTime = document.getElementById('sheetDeadlineTimeInput').value;
+  var deadlineIso = (deadlineDate && deadlineTime) ? new Date(deadlineDate + 'T' + deadlineTime).toISOString() : null;
   var subtaskRows = Array.from(document.querySelectorAll('#sheetSubtaskArea > div'));
 
   if(sheetEditingTaskId){
@@ -6785,66 +6785,6 @@ function bobImgFallback(img){
   span.innerHTML = '<svg viewBox="0 0 40 40" style="width:60px;height:60px;"><ellipse cx="8" cy="16" rx="5" ry="8" fill="#8C9FBF"/><ellipse cx="32" cy="16" rx="5" ry="8" fill="#8C9FBF"/><ellipse cx="20" cy="22" rx="13" ry="12" fill="#8C9FBF"/><ellipse cx="15" cy="21" rx="2" ry="2.6" fill="#2A2013"/><ellipse cx="25" cy="21" rx="2" ry="2.6" fill="#2A2013"/><path d="M18 29q2 3 4 0" stroke="#2A2013" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg>';
   img.replaceWith(span.firstChild);
 }
-var MASCOTS = {
-  bob: {
-    name:'Bob', text:"Hi, I'm Bob. I'm here to really listen — tell me more, whenever you're ready. And if anxiety's been loud lately, I know a few things that help quiet it.",
-    actionLabel:'Show me calming exercises',
-    action: function(){ document.getElementById('comicBubble').style.display='none'; renderGroundingList(); showOnly('panel-grounding'); setActiveNav('navBreathe'); }
-  },
-  kunnu: {
-    name:'Kunnu', text:"Hey, I'm Kunnu. If you just want to feel less alone right now, our support group is a good place to land.",
-    actionLabel:'Take me to a support group',
-    action: function(){ document.getElementById('comicBubble').style.display='none'; showOnly('panel-support'); }
-  },
-  cookie: {
-    name:'Cookie', text:"I'm Cookie! Relationship stuff, old patterns, going in circles — I know a worksheet that can help untangle it.",
-    actionLabel:'Show me a worksheet',
-    action: function(){ document.getElementById('comicBubble').style.display='none'; renderWorksheetCategoryList(); showOnly('panel-worksheets'); }
-  },
-  po: {
-    name:'Po', text:"Hi, I'm Po. Sometimes the most useful thing is just talking to someone qualified. I can help you find them.",
-    actionLabel:'Help me find someone',
-    action: function(){
-      document.getElementById('comicBubble').style.display='none';
-      var connected = document.getElementById('demoHasTherapist').checked || appState.userHasTherapist;
-      if(connected){ showOnly('panel-booking'); }
-      else {
-        intakeReturnTo = 'bubbles';
-        document.getElementById('intakeForm').style.display = 'block';
-        document.getElementById('intakeThanks').style.display = 'none';
-        showOnly('panel-intake');
-      }
-    }
-  }
-};
-function showMascotBubble(key, btnId){
-  document.querySelectorAll('.mascot-figure').forEach(function(f){ f.classList.remove('zoomed'); });
-  var btn = document.getElementById(btnId);
-  btn.classList.add('zoomed');
-  setTimeout(function(){ positionMascotBubble(key, btnId); }, 320);
-}
-function positionMascotBubble(key, btnId){
-  var m = MASCOTS[key];
-  var bubble = document.getElementById('comicBubble');
-  var btn = document.getElementById(btnId);
-  document.getElementById('comicBubbleName').textContent = m.name;
-  document.getElementById('comicBubbleText').textContent = m.text;
-  var actionBtn = document.getElementById('comicBubbleAction');
-  actionBtn.textContent = m.actionLabel;
-  actionBtn.onclick = m.action;
-  bubble.style.display = 'block';
-  var lineup = document.getElementById('mascotLineup');
-  var lineupBox = lineup.getBoundingClientRect();
-  var btnBox = btn.getBoundingClientRect();
-  var left = btnBox.left - lineupBox.left + (btnBox.width/2) - 30;
-  left = Math.max(4, Math.min(left, lineupBox.width - bubble.offsetWidth - 4));
-  bubble.style.left = left + 'px';
-  bubble.style.bottom = (lineupBox.height - (btnBox.top - lineupBox.top) + 14) + 'px';
-  var tailOffset = (btnBox.left - lineupBox.left + btnBox.width/2 - left - 10);
-  var styleTag = document.getElementById('comicTailStyle');
-  if(!styleTag){ styleTag = document.createElement('style'); styleTag.id = 'comicTailStyle'; document.head.appendChild(styleTag); }
-  styleTag.textContent = '.comic-bubble::after, .comic-bubble::before { left: ' + tailOffset + 'px; }';
-}
 function openAssistantModal(charKey){
   document.getElementById('assistantModalBackdrop').style.display = 'block';
   document.getElementById('assistantModal').style.display = 'flex';
@@ -6859,20 +6799,6 @@ document.getElementById('meetPoBtn').onclick = function(){ openAssistantModal('p
 // section, not a replacement for it -- opens to whichever tab was last active (Bob by default),
 // same underlying modal either way.
 document.getElementById('assistantFabBtn').onclick = function(){ openAssistantModal(assistantActiveCharacter); };
-document.getElementById('comicBubbleClose').onclick = function(){
-  document.getElementById('comicBubble').style.display = 'none';
-  document.querySelectorAll('.mascot-figure').forEach(function(f){ f.classList.remove('zoomed'); });
-};
-document.addEventListener('click', function(e){
-  var bubble = document.getElementById('comicBubble');
-  if(bubble.style.display === 'none') return;
-  var isMascotFigure = e.target.closest && e.target.closest('.mascot-figure');
-  var isBubble = e.target.closest && e.target.closest('.comic-bubble');
-  if(!isMascotFigure && !isBubble){
-    bubble.style.display = 'none';
-    document.querySelectorAll('.mascot-figure').forEach(function(f){ f.classList.remove('zoomed'); });
-  }
-});
 var TEAM_MEMBERS = []; // populated live from Supabase via loadExpertsFromSupabase()
 
 function loadExpertsFromSupabase(){
@@ -8338,6 +8264,8 @@ function openAdminDashboard(){
       var statusColor = b.status === 'active' ? '#3B8F63' : '#7B4F00';
       var statusBg = b.status === 'active' ? '#EAF4EE' : '#FEF3D8';
       var currentSessionVal = b.session_date ? new Date(b.session_date).toISOString().slice(0,16) : '';
+      var currentSessionDateVal = currentSessionVal ? currentSessionVal.slice(0,10) : '';
+      var currentSessionTimeVal = currentSessionVal ? currentSessionVal.slice(11,16) : '';
       return '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:14px;padding:14px;margin-bottom:10px;">'+
         '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">'+
           '<p style="font-size:13px;font-weight:700;color:#2A2013;margin:0;">'+clientName+' → '+b.expert_name+'</p>'+
@@ -8361,7 +8289,8 @@ function openAdminDashboard(){
         )+
         (b.status === 'active' ?
           '<div style="display:flex;gap:6px;align-items:center;margin-top:8px;">'+
-            '<input type="datetime-local" class="admin-session-date-input" data-id="'+b.id+'" value="'+currentSessionVal+'" style="flex:1;padding:8px;border-radius:8px;border:1px solid #EEE0C4;font-size:11px;font-family:inherit;">'+
+            '<input type="date" class="admin-session-date-input" data-id="'+b.id+'" value="'+currentSessionDateVal+'" style="flex:1;padding:8px;border-radius:8px;border:1px solid #EEE0C4;font-size:11px;font-family:inherit;">'+
+            '<input type="time" class="admin-session-time-input" data-id="'+b.id+'" value="'+currentSessionTimeVal+'" style="flex:1;padding:8px;border-radius:8px;border:1px solid #EEE0C4;font-size:11px;font-family:inherit;">'+
             '<button class="admin-set-session-btn" data-id="'+b.id+'" style="font-size:10px;font-weight:700;color:#6690D6;background:none;border:1px solid #6690D6;border-radius:8px;padding:8px 10px;cursor:pointer;white-space:nowrap;">Set</button>'+
           '</div>' : ''
         )+
@@ -8419,9 +8348,10 @@ function openAdminDashboard(){
     document.querySelectorAll('.admin-set-session-btn').forEach(function(btn){
       btn.onclick = function(){
         var id = btn.dataset.id;
-        var input = document.querySelector('.admin-session-date-input[data-id="'+id+'"]');
-        if(!input.value) return;
-        var isoValue = new Date(input.value).toISOString();
+        var dateInput = document.querySelector('.admin-session-date-input[data-id="'+id+'"]');
+        var timeInput = document.querySelector('.admin-session-time-input[data-id="'+id+'"]');
+        if(!dateInput.value || !timeInput.value) return;
+        var isoValue = new Date(dateInput.value + 'T' + timeInput.value).toISOString();
         sb.from('expert_bookings').update({ session_date: isoValue }).eq('id', id).then(function(result){
           if(!result.error) showToast('Session date set.');
         });
@@ -8579,7 +8509,8 @@ function renderTherapistTimeRequests(){
           '<button class="therapist-reject-time-btn" data-id="'+r.id+'" data-uid="'+r.user_id+'" style="flex:1;font-size:10.5px;font-weight:700;color:#C77B7B;background:none;border:1px solid #F0C7C7;border-radius:8px;padding:8px;cursor:pointer;">Decline</button>'+
         '</div>'+
         '<div style="display:flex;gap:6px;">'+
-          '<input type="datetime-local" class="therapist-propose-time-input" data-id="'+r.id+'" style="flex:1;padding:8px;border-radius:8px;border:1px solid #EEE0C4;font-size:11px;font-family:inherit;">'+
+          '<input type="date" class="therapist-propose-date-input" data-id="'+r.id+'" style="flex:1;padding:8px;border-radius:8px;border:1px solid #EEE0C4;font-size:11px;font-family:inherit;">'+
+          '<input type="time" class="therapist-propose-time-input" data-id="'+r.id+'" style="flex:1;padding:8px;border-radius:8px;border:1px solid #EEE0C4;font-size:11px;font-family:inherit;">'+
           '<button class="therapist-propose-time-btn" data-id="'+r.id+'" data-uid="'+r.user_id+'" style="font-size:10.5px;font-weight:700;color:#6690D6;background:#E9F0FB;border:none;border-radius:8px;padding:8px 10px;cursor:pointer;white-space:nowrap;">Propose instead</button>'+
         '</div>'+
       '</div>';
@@ -8633,9 +8564,10 @@ function renderTherapistTimeRequests(){
 
     listEl.querySelectorAll('.therapist-propose-time-btn').forEach(function(btn){
       btn.onclick = function(){
-        var input = listEl.querySelector('.therapist-propose-time-input[data-id="'+btn.dataset.id+'"]');
-        if(!input || !input.value){ showToast('Pick a date and time first.'); return; }
-        var newDate = new Date(input.value).toISOString();
+        var dateInput = listEl.querySelector('.therapist-propose-date-input[data-id="'+btn.dataset.id+'"]');
+        var timeInput = listEl.querySelector('.therapist-propose-time-input[data-id="'+btn.dataset.id+'"]');
+        if(!dateInput || !dateInput.value || !timeInput || !timeInput.value){ showToast('Pick a date and time first.'); return; }
+        var newDate = new Date(dateInput.value + 'T' + timeInput.value).toISOString();
         sb.from('expert_bookings').update({
           session_date: newDate, time_request_status: 'accepted', requested_session_date: null
         }).eq('id', btn.dataset.id).then(function(result){
