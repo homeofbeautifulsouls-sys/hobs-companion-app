@@ -1685,6 +1685,10 @@
     </div>
   </div>
 
+  <button id="assistantFabBtn" style="position:absolute;right:16px;bottom:86px;width:52px;height:52px;border-radius:50%;border:none;background:#6690D6;box-shadow:0 4px 14px rgba(0,0,0,0.18);cursor:pointer;z-index:55;display:flex;align-items:center;justify-content:center;padding:0;">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFF8F0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+  </button>
+
   <div id="assistantModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.4);z-index:64;"></div>
   <div id="assistantModal" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;height:78vh;background:#FFF8F0;border-radius:24px 24px 0 0;box-sizing:border-box;z-index:65;box-shadow:0 -10px 30px rgba(0,0,0,0.15);flex-direction:column;">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px 8px;">
@@ -1755,7 +1759,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260714071033';
+  var CURRENT_BUILD = '20260714071902';
   function checkForUpdate(){
     // Safety guard: reload AT MOST ONCE per session, no matter what. Without this, a mistake
     // where version.json and the HTML's own build ID get out of sync (e.g. one gets updated
@@ -3674,23 +3678,13 @@ function assistantFunctionLineFor(charKey){
   return descriptions.map(function(d){ return d.text; }).join(' · ');
 }
 
-// Short, condensed versions for the tiny Home-page mascot labels (not enough room there for
-// the fuller sentence shown inside the modal) -- still reflects whatever this specific user's
-// role actually unlocks, not a one-size-fits-all label that doesn't match what they'll find.
-var ASSISTANT_HOME_LABEL_SHORT = {
-  bob: { client: 'Anxiety, calming down' },
-  kunnu: { client: 'Feeling alone, need an ear' },
-  po: { client: 'Talking to a professional', therapist: '+ appointments, clients', admin: '+ admin dashboard' },
-  cookie: { client: 'Relationships, patterns', admin: '+ org-wide stats' }
-};
+// The Home-page mascot cards keep their original, simple labels always -- this compact layout
+// was never designed to hold concatenated multi-tier text, and trying to cram all of an admin's
+// available tiers in here is exactly what broke the layout. The fuller, role-specific detail
+// still lives inside the modal's function line, where there's actually room for it.
 function updateMascotHelpsLabels(){
-  var myTiers = assistantUserTiers();
-  ['bob','kunnu','po','cookie'].forEach(function(charKey){
-    var el = document.getElementById('mascotHelps' + charKey.charAt(0).toUpperCase() + charKey.slice(1));
-    if(!el) return;
-    var parts = myTiers.map(function(t){ return ASSISTANT_HOME_LABEL_SHORT[charKey][t]; }).filter(Boolean);
-    el.textContent = parts.join(', ');
-  });
+  // Intentionally a no-op now -- kept as a named function (rather than removing every call site)
+  // since the Home-page labels are simple static text again, matching the original crew design.
 }
 
 function switchAssistantTab(charKey){
@@ -6669,6 +6663,10 @@ document.getElementById('meetBobBtn').onclick = function(){ openAssistantModal('
 document.getElementById('meetKunnuBtn').onclick = function(){ openAssistantModal('kunnu'); };
 document.getElementById('meetCookieBtn').onclick = function(){ openAssistantModal('cookie'); };
 document.getElementById('meetPoBtn').onclick = function(){ openAssistantModal('po'); };
+// The floating button is a second, quick-access entry point alongside the Home-page crew
+// section, not a replacement for it -- opens to whichever tab was last active (Bob by default),
+// same underlying modal either way.
+document.getElementById('assistantFabBtn').onclick = function(){ openAssistantModal(assistantActiveCharacter); };
 document.getElementById('comicBubbleClose').onclick = function(){
   document.getElementById('comicBubble').style.display = 'none';
   document.querySelectorAll('.mascot-figure').forEach(function(f){ f.classList.remove('zoomed'); });
