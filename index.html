@@ -805,6 +805,10 @@
     <p style="font-size:11px;color:#B0AA98;margin:0 0 10px;">Clients waiting on you to confirm, change, or decline a time they've asked for.</p>
     <div id="therapistTimeRequestsList" style="margin-bottom:22px;"></div>
 
+    <p style="font-size:12px;font-weight:700;color:#3B8F63;margin:0 0 10px;">📝 Shared With You</p>
+    <p style="font-size:11px;color:#B0AA98;margin:0 0 10px;">Journal entries and worksheets your clients have chosen to share, most recent first.</p>
+    <div id="therapistSharedFeedList" style="margin-bottom:22px;"></div>
+
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">My Clients</p>
     <p style="font-size:11px;color:#B0AA98;margin:0 0 10px;">Everyone currently connected to you as their therapist.</p>
     <div id="therapistClientsList" style="margin-bottom:22px;"></div>
@@ -1784,7 +1788,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260714140204';
+  var CURRENT_BUILD = '20260714141311';
   function checkForUpdate(){
     // Safety guard: reload AT MOST ONCE per session, no matter what. Without this, a mistake
     // where version.json and the HTML's own build ID get out of sync (e.g. one gets updated
@@ -8344,6 +8348,7 @@ function openTherapistDashboard(){
   renderTherapistSlots();
   renderTherapistTimeRequests();
   renderTherapistClientsList();
+  renderTherapistSharedFeed();
   populateHomeworkClientSelect();
   var myProfile = TEAM_MEMBERS.find(function(m){ return m.name === appState.therapistExpertName; });
   document.getElementById('therapistBioInput').value = myProfile ? (myProfile.bio||'') : '';
@@ -8353,6 +8358,50 @@ function openTherapistDashboard(){
   document.getElementById('therapistWhyInput').value = myProfile ? (myProfile.whyTherapist||'') : '';
   document.getElementById('therapistQualificationsInput').value = myProfile ? (myProfile.qualificationsDetail||'') : '';
   renderLanguageCheckboxes('therapistLanguagesCheckboxes', myProfile ? myProfile.languages : '');
+}
+
+// This is the real, visible section Akash asked for -- not a button tucked inside a client
+// card that's easy to miss, but its own dedicated area matching the same prominence as Session
+// Time Requests. Pulls shared content across ALL of this therapist's clients at once (RLS
+// naturally restricts the query to only their own clients' shared rows, so no per-client
+// looping needed), sorted newest first, each item clickable through to the full client detail.
+function renderTherapistSharedFeed(){
+  var listEl = document.getElementById('therapistSharedFeedList');
+  listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">Loading...</p>';
+  Promise.all([
+    sb.from('entries').select('id,user_id,type,text,worksheet_name,category_name,worksheet_key,created_at').eq('shared_with_therapist', true).order('created_at', {ascending:false}).limit(20),
+    sb.from('worksheet_responses').select('user_id,worksheet_key,category_key,answers,updated_at').eq('shared_with_therapist', true),
+    sb.from('profiles').select('user_id,name')
+  ]).then(function(results){
+    if(results[0].error){
+      listEl.innerHTML = '<p style="text-align:center;color:#C77B7B;font-size:12px;">Could not load shared content.</p>';
+      return;
+    }
+    var entries = results[0].data || [];
+    var nameByUserId = {};
+    (results[2].data || []).forEach(function(p){ nameByUserId[p.user_id] = p.name; });
+
+    if(entries.length === 0){
+      listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">Nothing shared with you yet.</p>';
+      return;
+    }
+
+    listEl.innerHTML = entries.map(function(e){
+      var when = new Date(e.created_at).toLocaleDateString('en-IN', {day:'numeric', month:'short'});
+      var clientName = nameByUserId[e.user_id] || 'A client';
+      var label = e.type === 'worksheet' ? ('Worksheet: ' + (e.worksheet_name || e.category_name || 'Untitled')) : (e.text ? e.text.slice(0,70) + (e.text.length > 70 ? '…' : '') : '(no text)');
+      return '<div class="therapist-shared-feed-item" data-user-id="'+e.user_id+'" data-name="'+clientName.replace(/"/g,'&quot;')+'" style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:11px 13px;margin-bottom:7px;cursor:pointer;">'+
+        '<p style="font-size:11px;font-weight:700;color:#3B8F63;margin:0 0 2px;">'+clientName.replace(/</g,'&lt;')+' · '+when+'</p>'+
+        '<p style="font-size:12px;color:#2A2013;margin:0;">'+label.replace(/</g,'&lt;')+'</p>'+
+        '</div>';
+    }).join('');
+
+    listEl.querySelectorAll('.therapist-shared-feed-item').forEach(function(item){
+      item.onclick = function(){
+        openTherapistClientDetail(item.dataset.userId, item.dataset.name);
+      };
+    });
+  });
 }
 
 function renderTherapistTimeRequests(){
