@@ -1784,7 +1784,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260714132905';
+  var CURRENT_BUILD = '20260714140204';
   function checkForUpdate(){
     // Safety guard: reload AT MOST ONCE per session, no matter what. Without this, a mistake
     // where version.json and the HTML's own build ID get out of sync (e.g. one gets updated
@@ -3097,7 +3097,8 @@ function loadUserDataFromSupabase(){
       return {
         id: row.id, date: row.created_at, moods: row.moods || [], text: row.text || '',
         type: row.type, worksheetName: row.worksheet_name, categoryName: row.category_name,
-        color: row.category_color, sharedWithTherapist: row.shared_with_therapist
+        color: row.category_color, sharedWithTherapist: row.shared_with_therapist,
+        worksheetKey: row.worksheet_key
       };
     });
 
@@ -4313,6 +4314,7 @@ function saveEntryToSupabase(entry){
       moods: entry.moods, text: entry.text || '',
       type: entry.type || 'journal', worksheet_name: entry.worksheetName || null,
       category_name: entry.categoryName || null, category_color: entry.color || null,
+      worksheet_key: entry.worksheetKey || null,
       shared_with_therapist: entry.sharedWithTherapist || false,
       created_at: entry.date || new Date().toISOString()
     }, function(savedRow){
@@ -4419,6 +4421,14 @@ function renderHistory(){
         // straight from the server, an entry marked "shared" here would never actually reach
         // them without this sync.
         if(e.id) sb.from('entries').update({ shared_with_therapist: true }).eq('id', e.id).then(function(){});
+        // Real gap found and fixed: a worksheet's actual field-by-field answers live in a
+        // completely separate table (worksheet_responses), not in this entries row at all --
+        // this row is really just a display label. Sharing only the label meant a therapist
+        // could see "Worksheet: X was shared" but never the actual content. Flip the same flag
+        // on the real answers record too, matched by worksheet_key.
+        if(e.type === 'worksheet' && e.worksheetKey && currentUser){
+          sb.from('worksheet_responses').update({ shared_with_therapist: true }).eq('user_id', currentUser.id).eq('worksheet_key', e.worksheetKey).then(function(){});
+        }
         renderHistory();
       };
       actionsRow.appendChild(shareBtn);
@@ -8547,10 +8557,13 @@ function openTherapistClientDetail(userId, name){
 
   Promise.all([
     sb.from('profiles').select('photo_url,address,emergency_contact_name,emergency_contact_phone').eq('user_id', userId).single(),
-    sb.from('entries').select('id,type,text,worksheet_name,category_name,created_at').eq('user_id', userId).eq('shared_with_therapist', true).order('created_at', {ascending:false})
+    sb.from('entries').select('id,type,text,worksheet_name,category_name,worksheet_key,created_at').eq('user_id', userId).eq('shared_with_therapist', true).order('created_at', {ascending:false}),
+    sb.from('worksheet_responses').select('worksheet_key,category_key,answers').eq('user_id', userId).eq('shared_with_therapist', true)
   ]).then(function(results){
     var profile = results[0].data || {};
     var shared = results[1].data || [];
+    var sharedWorksheetAnswers = {};
+    (results[2].data || []).forEach(function(w){ sharedWorksheetAnswers[w.worksheet_key] = w; });
     var html = '';
     if(profile.photo_url){
       html += '<div style="text-align:center;margin-bottom:14px;"><img src="'+profile.photo_url+'" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid #EEE0C4;"></div>';
@@ -8568,10 +8581,33 @@ function openTherapistClientDetail(userId, name){
     if(shared.length === 0){
       html += '<p style="font-size:11.5px;color:#B0AA98;margin:0;">Nothing shared yet.</p>';
     } else {
-      html += '<div style="background:#F3F6FC;border-radius:10px;padding:10px 12px;max-height:280px;overflow-y:auto;">'+
+      html += '<div style="background:#F3F6FC;border-radius:10px;padding:10px 12px;max-height:340px;overflow-y:auto;">'+
         shared.map(function(e){
           var when = new Date(e.created_at).toLocaleDateString('en-IN', {day:'numeric', month:'short'});
-          var label = e.type === 'worksheet' ? ('Worksheet: ' + (e.worksheet_name || e.category_name || 'Untitled')) : (e.text ? e.text.slice(0,80) + (e.text.length > 80 ? '…' : '') : '(no text)');
+          if(e.type === 'worksheet'){
+            var label = 'Worksheet: ' + (e.worksheet_name || e.category_name || 'Untitled');
+            var answersHtml = '';
+            // Real fix: the worksheet label alone used to be all a therapist could see -- the
+            // actual field-by-field answers live in a separate table entirely and were never
+            // linked or shown here at all. Now shown inline when the underlying answers record
+            // is itself marked shared (matched by worksheet_key).
+            var wsRow = e.worksheet_key ? sharedWorksheetAnswers[e.worksheet_key] : null;
+            if(wsRow && wsRow.answers){
+              var catDef = WORKSHEET_CATEGORIES[wsRow.category_key];
+              var fieldDefs = (catDef && catDef.worksheets[wsRow.worksheet_key]) ? catDef.worksheets[wsRow.worksheet_key].fields : null;
+              answersHtml = '<div style="margin:6px 0 0 8px;border-left:2px solid #C7D2E8;padding-left:8px;">'+
+                Object.keys(wsRow.answers).map(function(fieldKey){
+                  var val = wsRow.answers[fieldKey];
+                  if(!val || !val.trim()) return '';
+                  var fieldLabel = fieldKey;
+                  if(fieldDefs){ var fd = fieldDefs.find(function(f){ return f.key === fieldKey; }); if(fd) fieldLabel = fd.label; }
+                  return '<p style="font-size:11px;color:#5C6B94;margin:0 0 6px;"><em>'+fieldLabel.replace(/</g,'&lt;')+':</em> '+val.replace(/</g,'&lt;')+'</p>';
+                }).join('')+
+                '</div>';
+            }
+            return '<p style="font-size:11.5px;color:#2A2013;margin:0 0 10px;"><strong style="color:#6690D6;">'+when+':</strong> '+label.replace(/</g,'&lt;')+'</p>'+answersHtml;
+          }
+          var label = e.text ? e.text.slice(0,80) + (e.text.length > 80 ? '…' : '') : '(no text)';
           return '<p style="font-size:11.5px;color:#2A2013;margin:0 0 10px;"><strong style="color:#6690D6;">'+when+':</strong> '+label.replace(/</g,'&lt;')+'</p>';
         }).join('')+
         '</div>';
@@ -11241,6 +11277,7 @@ function commitWorksheetIfDirty(){
   var entry = {
     date: new Date().toISOString(), type:'worksheet', moods:[], text:'',
     worksheetName: w.name, categoryName: cat.name, color: cat.color,
+    worksheetKey: currentWorksheetKey,
     sharedWithTherapist: false
   };
   appState.entries.push(entry);
@@ -11298,6 +11335,7 @@ document.getElementById('worksheetSaveBtn').onclick = function(){
   var entry = {
     date: new Date().toISOString(), type:'worksheet', moods:[], text:'',
     worksheetName: w.name, categoryName: cat.name, color: cat.color,
+    worksheetKey: currentWorksheetKey,
     sharedWithTherapist: false
   };
   appState.entries.push(entry);
