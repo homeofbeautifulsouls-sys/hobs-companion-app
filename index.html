@@ -1691,38 +1691,35 @@
 
   <div id="assistantModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.4);z-index:64;"></div>
   <div id="assistantModal" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;height:78vh;background:#FFF8F0;border-radius:24px 24px 0 0;box-sizing:border-box;z-index:65;box-shadow:0 -10px 30px rgba(0,0,0,0.15);flex-direction:column;">
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px 10px;">
-      <p style="font-size:15px;font-weight:800;color:#2A2013;margin:0;">Who do you want to talk to?</p>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px 8px;">
+      <p style="font-size:15px;font-weight:800;color:#2A2013;margin:0;" id="assistantModalTitle">Bob</p>
       <button id="assistantCloseBtn" style="background:none;border:none;font-size:20px;color:#9AABCE;cursor:pointer;padding:0;line-height:1;">&times;</button>
     </div>
-    <div id="assistantCharacterPicker" style="display:flex;gap:8px;padding:0 20px 12px;overflow-x:auto;">
-      <button class="assistant-char-card" data-char="bob" style="flex-shrink:0;width:82px;background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:8px 6px;text-align:center;cursor:pointer;">
-        <img src="bob.png" style="width:32px;height:32px;object-fit:contain;display:block;margin:0 auto 4px;">
-        <p style="font-size:10.5px;font-weight:800;color:#2A2013;margin:0;">Bob</p>
-        <p style="font-size:8.5px;color:#9AABCE;margin:0;line-height:1.3;">Check in, breathe</p>
+    <div id="assistantTabBar" style="display:flex;gap:6px;padding:0 20px 12px;border-bottom:1px solid #F0E9D8;">
+      <button class="assistant-tab" data-char="bob" style="flex:1;background:#6690D6;border:none;border-radius:10px;padding:8px 4px;text-align:center;cursor:pointer;">
+        <img src="bob.png" style="width:26px;height:26px;object-fit:contain;display:block;margin:0 auto 2px;">
+        <p style="font-size:10px;font-weight:800;color:#FFF8F0;margin:0;">Bob</p>
       </button>
-      <button class="assistant-char-card" data-char="kunnu" style="flex-shrink:0;width:82px;background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:8px 6px;text-align:center;cursor:pointer;">
-        <img src="kunnu.png" style="width:32px;height:32px;object-fit:contain;display:block;margin:0 auto 4px;">
-        <p style="font-size:10.5px;font-weight:800;color:#2A2013;margin:0;">Kunnu</p>
-        <p style="font-size:8.5px;color:#9AABCE;margin:0;line-height:1.3;">Connect, share</p>
+      <button class="assistant-tab" data-char="kunnu" style="flex:1;background:transparent;border:none;border-radius:10px;padding:8px 4px;text-align:center;cursor:pointer;">
+        <img src="kunnu.png" style="width:26px;height:26px;object-fit:contain;display:block;margin:0 auto 2px;">
+        <p style="font-size:10px;font-weight:800;color:#9AABCE;margin:0;">Kunnu</p>
       </button>
-      <button class="assistant-char-card" data-char="po" style="flex-shrink:0;width:82px;background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:8px 6px;text-align:center;cursor:pointer;">
-        <img src="po.png" style="width:32px;height:32px;object-fit:contain;display:block;margin:0 auto 4px;">
-        <p style="font-size:10.5px;font-weight:800;color:#2A2013;margin:0;">Po</p>
-        <p style="font-size:8.5px;color:#9AABCE;margin:0;line-height:1.3;">Tasks, schedule</p>
+      <button class="assistant-tab" data-char="po" style="flex:1;background:transparent;border:none;border-radius:10px;padding:8px 4px;text-align:center;cursor:pointer;">
+        <img src="po.png" style="width:26px;height:26px;object-fit:contain;display:block;margin:0 auto 2px;">
+        <p style="font-size:10px;font-weight:800;color:#9AABCE;margin:0;">Po</p>
       </button>
-      <button class="assistant-char-card" data-char="cookie" style="flex-shrink:0;width:82px;background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:8px 6px;text-align:center;cursor:pointer;">
-        <img src="cookie.png" style="width:32px;height:32px;object-fit:contain;display:block;margin:0 auto 4px;">
-        <p style="font-size:10.5px;font-weight:800;color:#2A2013;margin:0;">Cookie</p>
-        <p style="font-size:8.5px;color:#9AABCE;margin:0;line-height:1.3;">Progress, hype</p>
+      <button class="assistant-tab" data-char="cookie" style="flex:1;background:transparent;border:none;border-radius:10px;padding:8px 4px;text-align:center;cursor:pointer;">
+        <img src="cookie.png" style="width:26px;height:26px;object-fit:contain;display:block;margin:0 auto 2px;">
+        <p style="font-size:10px;font-weight:800;color:#9AABCE;margin:0;">Cookie</p>
       </button>
     </div>
-    <p style="font-size:11px;color:#B0AA98;margin:0 20px 12px;">Pick whoever fits, or just type what you need — try "add a task", "log an appointment", or "connect me with someone".</p>
+    <p style="font-size:10.5px;color:#B0AA98;margin:8px 20px 4px;" id="assistantTabFunctionLine">Check-ins, breathing, or anything open-ended.</p>
     <div id="assistantMessages" style="flex:1;overflow-y:auto;padding:0 20px;"></div>
     <div style="display:flex;gap:8px;padding:12px 20px calc(12px + env(safe-area-inset-bottom));border-top:1px solid #F0E9D8;">
       <input type="text" id="assistantInput" placeholder="Type what you need..." style="flex:1;padding:12px;border-radius:14px;border:1px solid #EEE0C4;font-size:13px;font-family:inherit;box-sizing:border-box;">
       <button id="assistantSendBtn" style="background:#6690D6;border:none;border-radius:14px;padding:0 18px;color:#FFF8F0;font-weight:700;cursor:pointer;">Go</button>
     </div>
+  </div>
   </div>
 
   <div class="nav-footer">
@@ -1755,12 +1752,15 @@
 // The real problem this solves: this app loads live from GitHub Pages inside a Capacitor
 // WebView, and Android's WebView caches the page aggressively enough that even a fresh app
 // launch could still show a stale version -- only a full force-close seemed to reliably clear
-// enough cache to fetch new content. This checks a tiny, always-fresh version marker (bypassing
-// cache itself via a cache-busting query param) both on load AND whenever the app comes back to
-// the foreground -- not just on a cold launch -- so an update shows up the next time someone
-// glances at the app, not only after they've force-closed it.
+// enough cache to fetch new content.
+//
+// This has been fixed twice before and still didn't work in practice on a real device, which
+// means the honest conclusion is: don't trust any single event to fire reliably in this
+// WebView, no matter how correct the API looks on paper. This version stops betting on one
+// signal and layers several independent ones, including a plain timer that doesn't depend on
+// any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260713221021';
+  var CURRENT_BUILD = '20260713221952';
   function checkForUpdate(){
     // Safety guard: reload AT MOST ONCE per session, no matter what. Without this, a mistake
     // where version.json and the HTML's own build ID get out of sync (e.g. one gets updated
@@ -1780,18 +1780,40 @@
       })
       .catch(function(){}); // best-effort -- never block the app loading over this
   }
-  checkForUpdate();
+
+  checkForUpdate(); // cold launch / fresh load
+
   document.addEventListener('visibilitychange', function(){
     if(document.visibilityState === 'visible') checkForUpdate();
   });
-  // This was the actual bug behind "still had to reopen the app" -- document.addEventListener
-  // ('resume', ...) is the old Cordova convention and does nothing at all in modern Capacitor
-  // (confirmed @capacitor/app v8 is what's actually installed here). The real API for this is
-  // through the Capacitor plugin bridge. window.Capacitor only exists when actually running
-  // inside the native shell (not in a plain browser), so this is guarded for that.
-  if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App){
-    window.Capacitor.Plugins.App.addListener('resume', checkForUpdate);
-  }
+  window.addEventListener('focus', checkForUpdate);
+  window.addEventListener('pageshow', checkForUpdate);
+
+  // The previous fix corrected document.addEventListener('resume', ...) (wrong, old Cordova
+  // convention) to window.Capacitor.Plugins.App.addListener('resume', ...) (the real API) --
+  // and it still reportedly didn't work on a real device. The most likely remaining cause:
+  // this whole script block runs synchronously as the page parses, and window.Capacitor may
+  // not be injected and ready THAT exact moment yet for remotely-loaded content specifically
+  // (as opposed to bundled local content, where Capacitor's timing guarantees are stronger).
+  // A single one-time check at parse time would silently and permanently miss the listener
+  // registration if that race goes the wrong way, with no second chance. Polling for a few
+  // seconds removes that race entirely instead of hoping the timing works out.
+  var capacitorPollAttempts = 0;
+  var capacitorPollTimer = setInterval(function(){
+    capacitorPollAttempts++;
+    if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App){
+      window.Capacitor.Plugins.App.addListener('resume', checkForUpdate);
+      clearInterval(capacitorPollTimer);
+    } else if(capacitorPollAttempts > 20){ // ~10 seconds at 500ms -- give up gracefully, the other signals below still cover this
+      clearInterval(capacitorPollTimer);
+    }
+  }, 500);
+
+  // Final backstop that doesn't depend on ANY event, Capacitor or otherwise, firing correctly:
+  // just check periodically while the app is open. This is the one signal that can't be broken
+  // by a WebView quirk or a missed event -- it only needs setInterval to keep running, which it
+  // will as long as the app's JS context is alive at all.
+  setInterval(checkForUpdate, 60000);
 })();
 
 // ---- Persisted app state (localStorage stands in for a real backend/account here) ----
@@ -3607,11 +3629,17 @@ function setActiveNav(which){
 //   Cookie (Naruto -- relentless belief in people, loyalty, hype) -- progress and motivation:
 //     stats, streaks, "how am I doing," admin numbers worth celebrating.
 var ASSISTANT_CHARACTERS = {
-  bob: { name: 'Bob', img: 'bob.png' },
-  kunnu: { name: 'Kunnu', img: 'kunnu.png' },
-  po: { name: 'Po', img: 'po.png' },
-  cookie: { name: 'Cookie', img: 'cookie.png' }
+  bob: { name: 'Bob', img: 'bob.png', functionLine: 'Check-ins, breathing, or anything open-ended.', greeting: "Hey — I'm Bob. Come to me for a check-in, to breathe for a second, or just to land somewhere. What's going on?" },
+  kunnu: { name: 'Kunnu', img: 'kunnu.png', functionLine: 'Connecting with a professional, sharing entries, support groups.', greeting: "I'm Kunnu. I can get you connected with someone real, help you share something, or find a support group. Who or what are you looking for?" },
+  po: { name: 'Po', img: 'po.png', functionLine: 'Tasks, calendar, scheduling, logging appointments.', greeting: "I'm Po. Tasks, your calendar, logging an appointment — tell me what needs doing." },
+  cookie: { name: 'Cookie', img: 'cookie.png', functionLine: 'Your progress, streaks, and the numbers worth celebrating.', greeting: "I'm Cookie! Want to see your progress, your credits, or how this week's going? Just ask!" }
 };
+
+// Each character keeps their OWN separate conversation, not one shared scrolling thread where
+// everyone's messages get mixed together -- per direct instruction that mascots should act
+// like different tabs, not one single chat. Switching tabs shows that character's own history.
+var assistantConversations = { bob: [], kunnu: [], po: [], cookie: [] };
+var assistantActiveCharacter = 'bob';
 
 // Tracks a pending clarifying question so a reply can be routed correctly, instead of every
 // message being matched independently with no memory of what was just asked. Reset once the
@@ -3625,6 +3653,37 @@ function assistantGoTo(panelFn, navId){
     panelFn();
     if(navId) setActiveNav(navId);
   };
+}
+
+function switchAssistantTab(charKey){
+  assistantActiveCharacter = charKey;
+  var char = ASSISTANT_CHARACTERS[charKey];
+  document.getElementById('assistantModalTitle').textContent = char.name;
+  document.getElementById('assistantTabFunctionLine').textContent = char.functionLine;
+  document.querySelectorAll('.assistant-tab').forEach(function(tab){
+    var isActive = tab.dataset.char === charKey;
+    tab.style.background = isActive ? '#6690D6' : 'transparent';
+    tab.querySelector('p').style.color = isActive ? '#FFF8F0' : '#9AABCE';
+  });
+  // Restore this character's own history rather than the shared thread -- if they've never
+  // been talked to yet in this session, greet with their own voice as the first message.
+  if(assistantConversations[charKey].length === 0){
+    assistantConversations[charKey].push({ who: charKey, text: char.greeting });
+  }
+  renderAssistantConversation(charKey);
+}
+
+function renderAssistantConversation(charKey){
+  var wrap = document.getElementById('assistantMessages');
+  wrap.innerHTML = '';
+  assistantConversations[charKey].forEach(function(msg){
+    if(msg.who === 'user'){
+      appendAssistantUserMessageDom(msg.text);
+    } else {
+      appendAssistantMessageDom(msg.who, msg.text);
+    }
+  });
+  wrap.scrollTop = wrap.scrollHeight;
 }
 
 var ASSISTANT_COMMANDS = [
@@ -3747,7 +3806,7 @@ function findAssistantMatchingClient(nameGuess, callback){
   });
 }
 
-function renderAssistantMessage(character, text){
+function appendAssistantMessageDom(character, text){
   var wrap = document.getElementById('assistantMessages');
   var char = ASSISTANT_CHARACTERS[character] || ASSISTANT_CHARACTERS.bob;
   var row = document.createElement('div');
@@ -3757,13 +3816,24 @@ function renderAssistantMessage(character, text){
   wrap.appendChild(row);
   wrap.scrollTop = wrap.scrollHeight;
 }
-function renderAssistantUserMessage(text){
+function appendAssistantUserMessageDom(text){
   var wrap = document.getElementById('assistantMessages');
   var row = document.createElement('div');
   row.style.cssText = 'display:flex;justify-content:flex-end;margin-bottom:12px;';
   row.innerHTML = '<div style="background:#6690D6;color:#FFF8F0;border-radius:12px;padding:9px 12px;font-size:12.5px;max-width:80%;">'+text.replace(/</g,'&lt;')+'</div>';
   wrap.appendChild(row);
   wrap.scrollTop = wrap.scrollHeight;
+}
+// These are what the rest of the assistant logic actually calls -- they persist into whichever
+// character's conversation is currently active, so switching tabs and back preserves it,
+// instead of everything living in one shared, un-scoped thread.
+function renderAssistantMessage(character, text){
+  assistantConversations[assistantActiveCharacter].push({ who: character, text: text });
+  appendAssistantMessageDom(character, text);
+}
+function renderAssistantUserMessage(text){
+  assistantConversations[assistantActiveCharacter].push({ who: 'user', text: text });
+  appendAssistantUserMessageDom(text);
 }
 
 function processAssistantInput(text){
@@ -3809,13 +3879,31 @@ function processAssistantInput(text){
     return;
   }
 
+  // Scoped to whichever tab is actually open first -- since each character is now their own
+  // separate space, a match belonging to a DIFFERENT character shouldn't just silently execute
+  // from inside the wrong tab. If nothing in the active tab's own domain matches, check if
+  // someone else handles it and hand off explicitly, rather than blurring the boundary between
+  // tabs back into one shared chat again.
   var matched = ASSISTANT_COMMANDS.find(function(cmd){
-    return cmd.patterns.some(function(p){ return p.test(text); });
+    return cmd.character === assistantActiveCharacter && cmd.patterns.some(function(p){ return p.test(text); });
   });
+  var handoff = false;
+  if(!matched){
+    matched = ASSISTANT_COMMANDS.find(function(cmd){
+      return cmd.patterns.some(function(p){ return p.test(text); });
+    });
+    if(matched) handoff = true;
+  }
 
   if(!matched){
-    renderAssistantMessage('bob', "I'm not sure I caught that yet — try asking to go somewhere (like \"journal\" or \"calendar\"), or tell me what you're trying to do.");
+    var activeChar = ASSISTANT_CHARACTERS[assistantActiveCharacter];
+    renderAssistantMessage(assistantActiveCharacter, "I'm not sure I caught that yet — try asking to go somewhere (like \"journal\" or \"calendar\"), or tell me what you're trying to do.");
     return;
+  }
+
+  if(handoff){
+    renderAssistantMessage(assistantActiveCharacter, "That's actually more a " + ASSISTANT_CHARACTERS[matched.character].name + " thing — switching you over.");
+    switchAssistantTab(matched.character);
   }
 
   if(matched.action === 'LOG_APPOINTMENT'){
@@ -3859,24 +3947,11 @@ function processAssistantInput(text){
 document.getElementById('assistantFabBtn').onclick = function(){
   document.getElementById('assistantModalBackdrop').style.display = 'block';
   document.getElementById('assistantModal').style.display = 'flex';
-  if(!document.getElementById('assistantMessages').dataset.greeted){
-    renderAssistantMessage('bob', "Hey — pick whoever fits below, or just type what you need.");
-    document.getElementById('assistantMessages').dataset.greeted = '1';
-  }
+  switchAssistantTab(assistantActiveCharacter); // reopen on whichever tab was last active, showing that character's own history
   document.getElementById('assistantInput').focus();
 };
-var ASSISTANT_CHARACTER_INTROS = {
-  bob: "I'm Bob — come to me for a check-in, to breathe for a second, or just to land somewhere. What's going on?",
-  kunnu: "I'm Kunnu — I can get you connected with a real professional, help you share something, or find a support group. Who or what are you looking for?",
-  po: "I'm Po — tasks, your calendar, logging an appointment, scheduling. Tell me what needs doing.",
-  cookie: "I'm Cookie — want to see your progress, your credits, or how things are going this week? Just ask!"
-};
-document.querySelectorAll('.assistant-char-card').forEach(function(card){
-  card.onclick = function(){
-    var charKey = card.dataset.char;
-    renderAssistantMessage(charKey, ASSISTANT_CHARACTER_INTROS[charKey]);
-    document.getElementById('assistantInput').focus();
-  };
+document.querySelectorAll('.assistant-tab').forEach(function(tab){
+  tab.onclick = function(){ switchAssistantTab(tab.dataset.char); };
 });
 document.getElementById('assistantCloseBtn').onclick = function(){
   document.getElementById('assistantModalBackdrop').style.display = 'none';
