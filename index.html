@@ -1788,7 +1788,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260714141311';
+  var CURRENT_BUILD = '20260714143356';
   function checkForUpdate(){
     // Safety guard: reload AT MOST ONCE per session, no matter what. Without this, a mistake
     // where version.json and the HTML's own build ID get out of sync (e.g. one gets updated
@@ -8963,13 +8963,29 @@ function renderTherapistSlots(){
 
 function renderTherapistAvailabilityGrid(){
   document.getElementById('therapistCalMonthTitle').textContent = MONTH_NAMES[therapistCalMonth] + ' ' + therapistCalYear;
-  sb.from('expert_availability_slots').select('*').eq('expert_name', appState.therapistExpertName).order('slot_date', {ascending:true}).then(function(result){
+  Promise.all([
+    sb.from('expert_availability_slots').select('*').eq('expert_name', appState.therapistExpertName).order('slot_date', {ascending:true}),
+    // The calendar's dot indicator used to only reflect open availability slots, completely
+    // ignoring actual logged/booked sessions -- meaning a real appointment logged for a past (or
+    // any) day showed no visual sign of it on the calendar at all, even though it was correctly
+    // saved and visible in My Clients. That's the real reason logged past sessions "looked like
+    // nothing happened." Now both are tracked together.
+    sb.from('expert_bookings').select('session_date').eq('expert_name', appState.therapistExpertName).eq('status', 'active').not('session_date', 'is', null)
+  ]).then(function(results){
+    var result = results[0];
+    var bookingsResult = results[1];
     therapistCalSlotsByDay = {};
     (result.error ? [] : result.data || []).forEach(function(s){
       var d = new Date(s.slot_date);
       var key = d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
       if(!therapistCalSlotsByDay[key]) therapistCalSlotsByDay[key] = [];
       therapistCalSlotsByDay[key].push({ id: s.id, time: d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}), rawDate: s.slot_date, is_booked: s.is_booked, duration: s.duration_minutes || 45 });
+    });
+    var therapistCalBookedDays = {};
+    (bookingsResult.error ? [] : bookingsResult.data || []).forEach(function(b){
+      var d = new Date(b.session_date);
+      var key = d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
+      therapistCalBookedDays[key] = true;
     });
 
     var grid = document.getElementById('therapistAvailabilityGrid');
@@ -8987,8 +9003,10 @@ function renderTherapistAvailabilityGrid(){
         var cell = document.createElement('div');
         cell.className = 'day-cell' + (isToday ? ' today' : '');
         var count = (therapistCalSlotsByDay[key] || []).length;
+        var hasBooking = !!therapistCalBookedDays[key];
         cell.innerHTML = '<span style="font-size:12px;font-weight:600;">'+day+'</span>' +
-          (count > 0 ? '<span style="width:5px;height:5px;border-radius:50%;background:#3B8F63;"></span>' : '');
+          (count > 0 ? '<span style="width:5px;height:5px;border-radius:50%;background:#3B8F63;"></span>' : '') +
+          (hasBooking ? '<span style="width:5px;height:5px;border-radius:50%;background:#6690D6;margin-left:2px;"></span>' : '');
         cell.onclick = function(){ openTherapistDayEditor(key); };
         grid.appendChild(cell);
       })(day);
