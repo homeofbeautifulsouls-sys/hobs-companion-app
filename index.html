@@ -756,7 +756,8 @@
     <input type="text" id="adminCampaignTitle" placeholder="Campaign title" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;">
     <textarea id="adminCampaignDescription" placeholder="Description — what this campaign is for" style="width:100%;min-height:60px;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;resize:vertical;"></textarea>
     <input type="number" id="adminCampaignGoal" placeholder="Goal amount (₹)" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;">
-    <button id="adminCampaignSaveBtn" style="width:100%;padding:11px;border-radius:10px;border:none;background:#6690D6;color:#FFF8F0;font-size:12.5px;font-weight:700;cursor:pointer;margin-bottom:14px;">Save Campaign</button>
+    <button id="adminCampaignSaveBtn" style="width:100%;padding:11px;border-radius:10px;border:none;background:#6690D6;color:#FFF8F0;font-size:12.5px;font-weight:700;cursor:pointer;margin-bottom:8px;">Save Campaign</button>
+    <button id="adminCampaignArchiveBtn" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;background:transparent;color:#C77B7B;font-size:11.5px;font-weight:700;cursor:pointer;margin-bottom:14px;">Hide this campaign &amp; start a new one</button>
 
     <p style="font-size:11px;font-weight:700;color:#7B4F00;margin:0 0 10px;">Pledged donations awaiting confirmation</p>
     <div id="adminDonationsList" style="margin-bottom:22px;"></div>
@@ -1788,7 +1789,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260714143356';
+  var CURRENT_BUILD = '20260714143833';
   function checkForUpdate(){
     // Safety guard: reload AT MOST ONCE per session, no matter what. Without this, a mistake
     // where version.json and the HTML's own build ID get out of sync (e.g. one gets updated
@@ -7460,6 +7461,30 @@ function renderAdminCampaign(){
   });
   renderAdminDonationsList();
 }
+
+document.getElementById('adminCampaignArchiveBtn').onclick = function(){
+  if(!adminActiveCampaignId){
+    showToast('No active campaign to hide right now.');
+    return;
+  }
+  // "Save" always edits the current campaign in place -- there was no way to actually retire
+  // one and start a genuinely separate new one (with its own fresh raised-amount tracking)
+  // without silently overwriting the old campaign's title/goal, losing that history. This
+  // explicitly archives (is_active: false, so it stops showing anywhere public) rather than
+  // deleting -- past donations tied to it stay intact.
+  var btn = this;
+  btn.disabled = true;
+  sb.from('donation_campaigns').update({ is_active: false }).eq('id', adminActiveCampaignId).then(function(result){
+    btn.disabled = false;
+    if(result.error){ showToast('Could not hide the campaign — please try again.'); return; }
+    adminActiveCampaignId = null;
+    document.getElementById('adminCampaignTitle').value = '';
+    document.getElementById('adminCampaignDescription').value = '';
+    document.getElementById('adminCampaignGoal').value = '';
+    showToast('Previous campaign hidden. Fill in the fields below to start a new one.');
+    renderAdminCampaign();
+  });
+};
 
 document.getElementById('adminCampaignSaveBtn').onclick = function(){
   var title = document.getElementById('adminCampaignTitle').value.trim();
