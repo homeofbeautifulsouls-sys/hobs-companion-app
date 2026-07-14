@@ -502,22 +502,22 @@
       <button class="mascot-figure" id="meetBobBtn">
         <img src="bob.png" alt="Bob the elephant" id="bobHomeImg" onerror="if(window.bobImgFallback){bobImgFallback(this);}else{this.style.display='none';}">
         <span class="mascot-figure-name">Bob</span>
-        <span class="mascot-figure-helps">Anxiety, calming down</span>
+        <span class="mascot-figure-helps" id="mascotHelpsBob">Anxiety, calming down</span>
       </button>
       <button class="mascot-figure" id="meetKunnuBtn">
         <img src="kunnu.png" alt="Kunnu the cat" onerror="this.style.display='none'">
         <span class="mascot-figure-name">Kunnu</span>
-        <span class="mascot-figure-helps">Feeling alone, need an ear</span>
+        <span class="mascot-figure-helps" id="mascotHelpsKunnu">Feeling alone, need an ear</span>
       </button>
       <button class="mascot-figure" id="meetCookieBtn">
         <img src="cookie.png" alt="Cookie the golden retriever" onerror="this.style.display='none'">
         <span class="mascot-figure-name">Cookie</span>
-        <span class="mascot-figure-helps">Relationships, patterns</span>
+        <span class="mascot-figure-helps" id="mascotHelpsCookie">Relationships, patterns</span>
       </button>
       <button class="mascot-figure" id="meetPoBtn">
         <img src="po.png" alt="Po the panda" onerror="this.style.display='none'">
         <span class="mascot-figure-name">Po</span>
-        <span class="mascot-figure-helps">Talking to a professional</span>
+        <span class="mascot-figure-helps" id="mascotHelpsPo">Talking to a professional</span>
       </button>
       <div class="comic-bubble" id="comicBubble" style="display:none;">
         <button class="comic-bubble-close" id="comicBubbleClose">✕</button>
@@ -1685,10 +1685,6 @@
     </div>
   </div>
 
-  <button id="assistantFabBtn" style="position:absolute;right:16px;bottom:86px;width:52px;height:52px;border-radius:50%;border:none;background:#6690D6;box-shadow:0 4px 14px rgba(0,0,0,0.18);cursor:pointer;z-index:55;display:flex;align-items:center;justify-content:center;padding:0;">
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFF8F0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-  </button>
-
   <div id="assistantModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.4);z-index:64;"></div>
   <div id="assistantModal" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;height:78vh;background:#FFF8F0;border-radius:24px 24px 0 0;box-sizing:border-box;z-index:65;box-shadow:0 -10px 30px rgba(0,0,0,0.15);flex-direction:column;">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px 8px;">
@@ -1759,7 +1755,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260714065733';
+  var CURRENT_BUILD = '20260714071033';
   function checkForUpdate(){
     // Safety guard: reload AT MOST ONCE per session, no matter what. Without this, a mistake
     // where version.json and the HTML's own build ID get out of sync (e.g. one gets updated
@@ -3007,6 +3003,7 @@ function loadUserDataFromSupabase(){
       appState.isTherapist = profileRes.data.is_therapist || false;
       appState.therapistExpertName = profileRes.data.therapist_expert_name || '';
       appState.notificationsEnabled = profileRes.data.notifications_enabled !== false;
+      updateMascotHelpsLabels();
     }
 
     // Rescue any journal entries sitting ONLY in local storage that were never actually synced
@@ -3627,12 +3624,27 @@ function setActiveNav(which){
 //     get-it-done layer: tasks, calendar, scheduling, logging appointments. Direct, no fluff.
 //   Cookie (Naruto -- relentless belief in people, loyalty, hype) -- progress and motivation:
 //     stats, streaks, "how am I doing," admin numbers worth celebrating.
+// Base identities match the established Home-page "crew" section (Bob=anxiety/calming,
+// Kunnu=feeling alone/support, Cookie=relationships&patterns/worksheets, Po=talking to a
+// professional) -- these were already live and presumably reviewed, so they're the canonical
+// starting point rather than the separate mapping this modal had drifted to on its own.
+// Per direct instruction: every user gets the client-tier functions; a therapist is ALSO a
+// user, so they get client + therapist tiers; an admin gets all three. Same characters, same
+// core identity throughout -- what expands is which actions are available under that identity.
 var ASSISTANT_CHARACTERS = {
-  bob: { name: 'Bob', img: 'bob.png', functionLine: 'Check-ins, breathing, or anything open-ended.', greeting: "Hey — I'm Bob. Come to me for a check-in, to breathe for a second, or just to land somewhere. What's going on?" },
-  kunnu: { name: 'Kunnu', img: 'kunnu.png', functionLine: 'Connecting with a professional, sharing entries, support groups.', greeting: "I'm Kunnu. I can get you connected with someone real, help you share something, or find a support group. Who or what are you looking for?" },
-  po: { name: 'Po', img: 'po.png', functionLine: 'Tasks, calendar, scheduling, logging appointments.', greeting: "I'm Po. Tasks, your calendar, logging an appointment — tell me what needs doing." },
-  cookie: { name: 'Cookie', img: 'cookie.png', functionLine: 'Your progress, streaks, and the numbers worth celebrating.', greeting: "I'm Cookie! Want to see your progress, your credits, or how this week's going? Just ask!" }
+  bob: { name: 'Bob', img: 'bob.png', greeting: "Hey — I'm Bob. Come to me for a check-in, to breathe for a second, or just to land somewhere. What's going on?" },
+  kunnu: { name: 'Kunnu', img: 'kunnu.png', greeting: "I'm Kunnu. If you want to feel less alone right now, or want to share something with a professional, I'm here for that." },
+  po: { name: 'Po', img: 'po.png', greeting: "I'm Po. Talking to a professional, tasks, your calendar — tell me what needs doing." },
+  cookie: { name: 'Cookie', img: 'cookie.png', greeting: "I'm Cookie! Relationship stuff, old patterns, your progress — what's on your mind?" }
 };
+
+function assistantUserTiers(){
+  // Cumulative, not exclusive -- an admin is also a therapist-eligible and always a user.
+  var tiers = ['client'];
+  if(appState.isTherapist || appState.isAdmin) tiers.push('therapist');
+  if(appState.isAdmin) tiers.push('admin');
+  return tiers;
+}
 
 // Each character keeps their OWN separate conversation, not one shared scrolling thread where
 // everyone's messages get mixed together -- per direct instruction that mascots should act
@@ -3654,11 +3666,38 @@ function assistantGoTo(panelFn, navId){
   };
 }
 
+var ASSISTANT_TIER_LABELS = { client: '', therapist: ' (as a professional)', admin: ' (as admin)' };
+
+function assistantFunctionLineFor(charKey){
+  var myTiers = assistantUserTiers();
+  var descriptions = ASSISTANT_TIER_DESCRIPTIONS[charKey].filter(function(d){ return myTiers.indexOf(d.tier) !== -1; });
+  return descriptions.map(function(d){ return d.text; }).join(' · ');
+}
+
+// Short, condensed versions for the tiny Home-page mascot labels (not enough room there for
+// the fuller sentence shown inside the modal) -- still reflects whatever this specific user's
+// role actually unlocks, not a one-size-fits-all label that doesn't match what they'll find.
+var ASSISTANT_HOME_LABEL_SHORT = {
+  bob: { client: 'Anxiety, calming down' },
+  kunnu: { client: 'Feeling alone, need an ear' },
+  po: { client: 'Talking to a professional', therapist: '+ appointments, clients', admin: '+ admin dashboard' },
+  cookie: { client: 'Relationships, patterns', admin: '+ org-wide stats' }
+};
+function updateMascotHelpsLabels(){
+  var myTiers = assistantUserTiers();
+  ['bob','kunnu','po','cookie'].forEach(function(charKey){
+    var el = document.getElementById('mascotHelps' + charKey.charAt(0).toUpperCase() + charKey.slice(1));
+    if(!el) return;
+    var parts = myTiers.map(function(t){ return ASSISTANT_HOME_LABEL_SHORT[charKey][t]; }).filter(Boolean);
+    el.textContent = parts.join(', ');
+  });
+}
+
 function switchAssistantTab(charKey){
   assistantActiveCharacter = charKey;
   var char = ASSISTANT_CHARACTERS[charKey];
   document.getElementById('assistantModalTitle').textContent = char.name;
-  document.getElementById('assistantTabFunctionLine').textContent = char.functionLine;
+  document.getElementById('assistantTabFunctionLine').textContent = assistantFunctionLineFor(charKey);
   document.querySelectorAll('.assistant-tab').forEach(function(tab){
     var isActive = tab.dataset.char === charKey;
     tab.style.background = isActive ? '#6690D6' : 'transparent';
@@ -3685,44 +3724,66 @@ function renderAssistantConversation(charKey){
   wrap.scrollTop = wrap.scrollHeight;
 }
 
+// Short summaries shown in the function line under each tab, one per tier, concatenated for
+// whichever tiers this specific logged-in user actually has access to.
+var ASSISTANT_TIER_DESCRIPTIONS = {
+  bob: [
+    { tier: 'client', text: 'Check-ins, breathing, anything open-ended' }
+  ],
+  kunnu: [
+    { tier: 'client', text: 'Support groups, sharing entries with a professional' }
+  ],
+  po: [
+    { tier: 'client', text: 'Talking to a professional, tasks, calendar' },
+    { tier: 'therapist', text: 'logging appointments, your clients, time requests' },
+    { tier: 'admin', text: 'the booking dashboard, unconfirmed payments' }
+  ],
+  cookie: [
+    { tier: 'client', text: 'Worksheets, relationship patterns, your progress' },
+    { tier: 'admin', text: 'active users, org-wide stats' }
+  ]
+};
+
 var ASSISTANT_COMMANDS = [
-  // ---- Bob: general / home / mood / breathe ----
-  { character: 'bob', patterns: [/\bmood\b/i, /how (am|are) i (feeling|doing)/i, /check.?in/i, /log (my|a) mood/i],
+  // ---- Bob: general / home / mood / breathe (client tier -- universal, same for everyone) ----
+  { character: 'bob', tier: 'client', patterns: [/\bmood\b/i, /how (am|are) i (feeling|doing)/i, /check.?in/i, /log (my|a) mood/i],
     reply: "Let's see where you're at right now.", action: assistantGoTo(function(){ showOnly('panel-bubbles'); }, 'navHome') },
-  { character: 'bob', patterns: [/breathe/i, /\bcalm\b/i, /overwhelm/i, /\bground/i, /(need|want).*(relax|breather)/i],
+  { character: 'bob', tier: 'client', patterns: [/breathe/i, /\bcalm\b/i, /overwhelm/i, /\bground/i, /(need|want).*(relax|breather)/i],
     reply: "Come breathe with me for a second.", action: assistantGoTo(function(){ renderGroundingList(); showOnly('panel-grounding'); }, 'navBreathe') },
-  { character: 'bob', patterns: [/\bhome\b/i, /^(go\s+)?back$/i],
+  { character: 'bob', tier: 'client', patterns: [/\bhome\b/i, /^(go\s+)?back$/i],
     reply: "Right here.", action: assistantGoTo(function(){ showOnly('panel-bubbles'); }, 'navHome') },
 
-  // ---- Kunnu: connection ----
-  { character: 'kunnu', patterns: [/connect/i, /\btherapist\b/i, /book.*(session|professional|someone|appointment)/i, /find.*(help|therapist|someone)/i, /(i want|i need|i'?d like).*(psychiatrist|counsel|professional)/i],
-    reply: "Let's get you someone to actually talk to.", action: assistantGoTo(function(){ renderTeamList(); showOnly('panel-team'); }, 'navYou') },
-  { character: 'kunnu', patterns: [/\bshare\b.*(entry|entries|journal|therapist)/i, /show.*(entries|journal)/i],
+  // ---- Kunnu: feeling alone / support / sharing with a professional (client tier -- universal) ----
+  { character: 'kunnu', tier: 'client', patterns: [/support group/i, /group session/i, /feel(ing)? alone/i, /need (an ear|someone to listen)/i],
+    reply: "You don't have to do this one alone.", action: assistantGoTo(function(){ showOnly('panel-support'); }, 'navHome') },
+  { character: 'kunnu', tier: 'client', patterns: [/\bshare\b.*(entry|entries|journal|therapist|professional)/i, /show.*(entries|journal)/i],
     reply: "Let's find what you want to share.", action: assistantGoTo(function(){ renderHistory(); showOnly('panel-history'); }, 'navJournal') },
-  { character: 'kunnu', patterns: [/support group/i, /group session/i],
-    reply: "You don't have to do this one alone either.", action: assistantGoTo(function(){ showOnly('panel-calendar'); renderCalendar(); }, 'navTasks') },
 
-  // ---- Po: practical / tasks / calendar / scheduling ----
-  { character: 'po', patterns: [/\bjournal\b/i, /(want|need|let'?s|gonna).*write/i, /write.*(down|entry|about)/i, /new entry/i],
+  // ---- Po: client tier is "talking to a professional" (the established identity) + tasks/calendar; expands with role ----
+  { character: 'po', tier: 'client', patterns: [/connect/i, /\btherapist\b/i, /book.*(session|professional|someone|appointment)/i, /find.*(help|therapist|someone)/i, /(i want|i need|i'?d like).*(psychiatrist|counsel|professional)/i, /talk.*(professional|someone qualified)/i],
+    reply: "Let's get you someone real to talk to.", action: assistantGoTo(function(){ renderTeamList(); showOnly('panel-team'); }, 'navYou') },
+  { character: 'po', tier: 'client', patterns: [/\bjournal\b/i, /(want|need|let'?s|gonna).*write/i, /write.*(down|entry|about)/i, /new entry/i],
     reply: "Say less — here you go.", action: assistantGoTo(function(){ showOnly('panel-journal'); }, 'navJournal') },
-  { character: 'po', patterns: [/\btask/i, /\bcalendar\b/i, /\bschedule\b/i, /to.?do/i, /add.*(step|thing)/i],
+  { character: 'po', tier: 'client', patterns: [/\btask/i, /\bcalendar\b/i, /\bschedule\b/i, /to.?do/i, /add.*(step|thing)/i],
     reply: "On it.", action: assistantGoTo(function(){ showOnly('panel-calendar'); renderCalendar(); }, 'navTasks') },
-  { character: 'po', patterns: [/log.*(appointment|session)/i],
+  { character: 'po', tier: 'therapist', patterns: [/log.*(appointment|session)/i],
     reply: null, // handled specially below -- attempts to parse a name and time
     action: 'LOG_APPOINTMENT' },
-  { character: 'po', patterns: [/my clients/i],
+  { character: 'po', tier: 'therapist', patterns: [/my clients/i],
     reply: "Here's everyone you've got.", action: assistantGoTo(function(){ openTherapistDashboard(); }, 'navYou') },
-  { character: 'po', patterns: [/time request/i, /waiting on (me|you)/i],
+  { character: 'po', tier: 'therapist', patterns: [/time request/i, /waiting on (me|you)/i],
     reply: "Let's clear those out.", action: assistantGoTo(function(){ openTherapistDashboard(); renderTherapistTimeRequests(); }, 'navYou') },
-  { character: 'po', patterns: [/\badmin\b/i, /booking dashboard/i],
+  { character: 'po', tier: 'admin', patterns: [/\badmin\b/i, /booking dashboard/i],
     reply: "Dashboard, coming up.", action: assistantGoTo(function(){ openAdminDashboard(); }, 'navYou') },
-  { character: 'po', patterns: [/unconfirmed/i, /unpaid/i, /waiting on payment/i],
+  { character: 'po', tier: 'admin', patterns: [/unconfirmed/i, /unpaid/i, /waiting on payment/i],
     reply: "Let's see what's still unpaid.", action: assistantGoTo(function(){ openAdminDashboard(); setTimeout(function(){ var t = document.querySelector('[data-stat="unconfirmed"]'); if(t) t.click(); }, 800); }, 'navYou') },
 
-  // ---- Cookie: progress / motivation / stats ----
-  { character: 'cookie', patterns: [/how am i doing/i, /this week/i, /\bprogress\b/i, /\bcredits\b/i],
+  // ---- Cookie: relationships/patterns/worksheets (client tier, established identity); progress/stats also client; org stats admin-only ----
+  { character: 'cookie', tier: 'client', patterns: [/worksheet/i, /relationship/i, /old pattern/i, /going in circles/i],
+    reply: "I know a worksheet that can help untangle it.", action: assistantGoTo(function(){ renderWorksheetCategoryList(); showOnly('panel-worksheets'); }, 'navHome') },
+  { character: 'cookie', tier: 'client', patterns: [/how am i doing/i, /this week/i, /\bprogress\b/i, /\bcredits\b/i],
     reply: "Let's see how far you've come!", action: assistantGoTo(function(){ renderProfile(); showOnly('panel-profile'); }, 'navYou') },
-  { character: 'cookie', patterns: [/active users/i, /how many (users|people|signed up)/i],
+  { character: 'cookie', tier: 'admin', patterns: [/active users/i, /how many (users|people|signed up)/i],
     reply: "LET'S GO — pulling up the numbers!", action: assistantGoTo(function(){ openAdminDashboard(); setTimeout(function(){ var t = document.querySelector('[data-stat="totalusers"]'); if(t) t.click(); }, 800); }, 'navYou') }
 ];
 
@@ -3882,13 +3943,17 @@ function processAssistantInput(text){
   // separate space, a match belonging to a DIFFERENT character shouldn't just silently execute
   // from inside the wrong tab. If nothing in the active tab's own domain matches, check if
   // someone else handles it and hand off explicitly, rather than blurring the boundary between
-  // tabs back into one shared chat again.
-  var matched = ASSISTANT_COMMANDS.find(function(cmd){
+  // tabs back into one shared chat again. Every match is also filtered by this user's actual
+  // role tiers first -- a client can't trigger a therapist- or admin-only action even if a
+  // phrase happens to match, since that command simply isn't in their available set at all.
+  var myTiers = assistantUserTiers();
+  var availableCommands = ASSISTANT_COMMANDS.filter(function(cmd){ return myTiers.indexOf(cmd.tier) !== -1; });
+  var matched = availableCommands.find(function(cmd){
     return cmd.character === assistantActiveCharacter && cmd.patterns.some(function(p){ return p.test(text); });
   });
   var handoff = false;
   if(!matched){
-    matched = ASSISTANT_COMMANDS.find(function(cmd){
+    matched = availableCommands.find(function(cmd){
       return cmd.patterns.some(function(p){ return p.test(text); });
     });
     if(matched) handoff = true;
@@ -3943,12 +4008,6 @@ function processAssistantInput(text){
   setTimeout(matched.action, 500);
 }
 
-document.getElementById('assistantFabBtn').onclick = function(){
-  document.getElementById('assistantModalBackdrop').style.display = 'block';
-  document.getElementById('assistantModal').style.display = 'flex';
-  switchAssistantTab(assistantActiveCharacter); // reopen on whichever tab was last active, showing that character's own history
-  document.getElementById('assistantInput').focus();
-};
 document.querySelectorAll('.assistant-tab').forEach(function(tab){
   tab.onclick = function(){ switchAssistantTab(tab.dataset.char); };
 });
@@ -6600,10 +6659,16 @@ function positionMascotBubble(key, btnId){
   if(!styleTag){ styleTag = document.createElement('style'); styleTag.id = 'comicTailStyle'; document.head.appendChild(styleTag); }
   styleTag.textContent = '.comic-bubble::after, .comic-bubble::before { left: ' + tailOffset + 'px; }';
 }
-document.getElementById('meetBobBtn').onclick = function(){ showMascotBubble('bob','meetBobBtn'); };
-document.getElementById('meetKunnuBtn').onclick = function(){ showMascotBubble('kunnu','meetKunnuBtn'); };
-document.getElementById('meetCookieBtn').onclick = function(){ showMascotBubble('cookie','meetCookieBtn'); };
-document.getElementById('meetPoBtn').onclick = function(){ showMascotBubble('po','meetPoBtn'); };
+function openAssistantModal(charKey){
+  document.getElementById('assistantModalBackdrop').style.display = 'block';
+  document.getElementById('assistantModal').style.display = 'flex';
+  switchAssistantTab(charKey);
+  document.getElementById('assistantInput').focus();
+}
+document.getElementById('meetBobBtn').onclick = function(){ openAssistantModal('bob'); };
+document.getElementById('meetKunnuBtn').onclick = function(){ openAssistantModal('kunnu'); };
+document.getElementById('meetCookieBtn').onclick = function(){ openAssistantModal('cookie'); };
+document.getElementById('meetPoBtn').onclick = function(){ openAssistantModal('po'); };
 document.getElementById('comicBubbleClose').onclick = function(){
   document.getElementById('comicBubble').style.display = 'none';
   document.querySelectorAll('.mascot-figure').forEach(function(f){ f.classList.remove('zoomed'); });
