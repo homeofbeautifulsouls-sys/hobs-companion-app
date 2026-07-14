@@ -661,6 +661,15 @@
     <p class="prompt-title" style="text-align:center;">Admin Panel</p>
     <p class="prompt-sub" style="text-align:center;margin-bottom:18px;">Every booking, change request, and cancellation across all clients.</p>
 
+    <div id="adminDashTabBar" style="display:flex;gap:5px;margin-bottom:18px;overflow-x:auto;">
+      <button class="admin-dash-tab" data-tab="overview" style="flex-shrink:0;background:#6690D6;border:none;border-radius:10px;padding:9px 12px;text-align:center;cursor:pointer;font-size:11.5px;font-weight:700;color:#FFF8F0;">Overview</button>
+      <button class="admin-dash-tab" data-tab="experts" style="flex-shrink:0;background:transparent;border:1px solid #EEE0C4;border-radius:10px;padding:9px 12px;text-align:center;cursor:pointer;font-size:11.5px;font-weight:700;color:#9AABCE;">Experts</button>
+      <button class="admin-dash-tab" data-tab="requests" style="flex-shrink:0;background:transparent;border:1px solid #EEE0C4;border-radius:10px;padding:9px 12px;text-align:center;cursor:pointer;font-size:11.5px;font-weight:700;color:#9AABCE;">Requests &amp; Bookings</button>
+      <button class="admin-dash-tab" data-tab="organization" style="flex-shrink:0;background:transparent;border:1px solid #EEE0C4;border-radius:10px;padding:9px 12px;text-align:center;cursor:pointer;font-size:11.5px;font-weight:700;color:#9AABCE;">Organization</button>
+      <button class="admin-dash-tab" data-tab="system" style="flex-shrink:0;background:transparent;border:1px solid #EEE0C4;border-radius:10px;padding:9px 12px;text-align:center;cursor:pointer;font-size:11.5px;font-weight:700;color:#9AABCE;">System</button>
+    </div>
+
+    <div id="adminDashTab-overview" class="admin-dash-tab-content">
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Policy Updates</p>
     <div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:14px;padding:14px;margin-bottom:18px;">
       <p style="font-size:11.5px;color:#5C6B94;margin:0 0 10px;">Notify everyone who's already signed the therapy consent that the Terms of Service / Privacy Policy have been updated (currently: the new "Upcoming Features" section covering the SOS button and automated email communications).</p>
@@ -672,11 +681,6 @@
     <div id="adminAnalyticsRow" style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;"></div>
 
     <div id="adminStatsRow" style="display:flex;gap:8px;margin-bottom:18px;"></div>
-
-    <div id="adminChangeRequestsSection" style="display:none;margin-bottom:22px;">
-      <p style="font-size:12px;font-weight:700;color:#C77B7B;margin:0 0 10px;">⚠ Pending Change Requests</p>
-      <div id="adminChangeRequestsList"></div>
-    </div>
 
     <div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:16px;padding:16px;margin-bottom:22px;">
       <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Send a Notification</p>
@@ -704,7 +708,9 @@
       </button>
       <div id="adminNotifHistoryList" style="display:none;"></div>
     </div>
+    </div>
 
+    <div id="adminDashTab-experts" class="admin-dash-tab-content" style="display:none;">
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Add New Expert &amp; Invite</p>
     <input type="text" id="newExpertName" placeholder="Full name" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;">
     <input type="text" id="newExpertRole" placeholder="Role (e.g. Clinical Psychologist)" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;">
@@ -741,15 +747,23 @@
       <button id="adminAddSlotBtn" style="font-size:11px;font-weight:700;color:#fff;background:#6690D6;border:none;border-radius:10px;padding:10px 14px;cursor:pointer;white-space:nowrap;">Add Slot</button>
     </div>
     <div id="adminSlotsList" style="margin-bottom:22px;"></div>
-
-    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Support Group Sessions</p>
-    <div style="display:flex;gap:6px;margin-bottom:10px;">
-      <input type="date" id="adminNewGroupSessionDate" style="flex:1;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;">
-      <input type="time" id="adminNewGroupSessionTime" style="flex:1;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;">
-      <button id="adminAddGroupSessionBtn" style="font-size:11px;font-weight:700;color:#fff;background:#6690D6;border:none;border-radius:10px;padding:10px 14px;cursor:pointer;white-space:nowrap;">Add</button>
     </div>
-    <div id="adminGroupSessionsList" style="margin-bottom:22px;"></div>
 
+    <div id="adminDashTab-requests" class="admin-dash-tab-content" style="display:none;">
+    <div id="adminChangeRequestsSection" style="display:none;margin-bottom:22px;">
+      <p style="font-size:12px;font-weight:700;color:#C77B7B;margin:0 0 10px;">⚠ Pending Change Requests</p>
+      <div id="adminChangeRequestsList"></div>
+    </div>
+
+    <p style="font-size:12px;font-weight:700;color:#C77B7B;margin:0 0 10px;">⚠ Pending Session Requests</p>
+    <p style="font-size:11px;color:#B0AA98;margin:0 0 10px;">Clients waiting to be matched with a professional. Assign someone to move them forward.</p>
+    <div id="adminPendingRequestsList" style="margin-bottom:22px;"></div>
+
+    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">All Bookings</p>
+    <div id="adminBookingsList"></div>
+    </div>
+
+    <div id="adminDashTab-organization" class="admin-dash-tab-content" style="display:none;">
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Donation Campaign</p>
     <p style="font-size:11px;color:#B0AA98;margin:0 0 10px;">Shown on every professional's profile in the app, plus a public page anyone can share outside it.</p>
     <div id="adminCampaignCurrentInfo" style="margin-bottom:10px;"></div>
@@ -762,9 +776,13 @@
     <p style="font-size:11px;font-weight:700;color:#7B4F00;margin:0 0 10px;">Pledged donations awaiting confirmation</p>
     <div id="adminDonationsList" style="margin-bottom:22px;"></div>
 
-    <p style="font-size:12px;font-weight:700;color:#C77B7B;margin:0 0 10px;">⚠ Pending Session Requests</p>
-    <p style="font-size:11px;color:#B0AA98;margin:0 0 10px;">Clients waiting to be matched with a professional. Assign someone to move them forward.</p>
-    <div id="adminPendingRequestsList" style="margin-bottom:22px;"></div>
+    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Support Group Sessions</p>
+    <div style="display:flex;gap:6px;margin-bottom:10px;">
+      <input type="date" id="adminNewGroupSessionDate" style="flex:1;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;">
+      <input type="time" id="adminNewGroupSessionTime" style="flex:1;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;">
+      <button id="adminAddGroupSessionBtn" style="font-size:11px;font-weight:700;color:#fff;background:#6690D6;border:none;border-radius:10px;padding:10px 14px;cursor:pointer;white-space:nowrap;">Add</button>
+    </div>
+    <div id="adminGroupSessionsList" style="margin-bottom:22px;"></div>
 
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">All Users</p>
     <p style="font-size:11px;color:#B0AA98;margin:0 0 6px;">Every registered account — not just people who've booked a session. Tap anyone to see their full profile and assign a professional directly.</p>
@@ -778,13 +796,13 @@
       Show only users active in the last 3 days
     </label>
     <div id="adminAllUsersList" style="margin-bottom:22px;max-height:420px;overflow-y:auto;"></div>
+    </div>
 
-    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">All Bookings</p>
-    <div id="adminBookingsList"></div>
-
-    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:22px 0 10px;">Recent App Errors</p>
+    <div id="adminDashTab-system" class="admin-dash-tab-content" style="display:none;">
+    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Recent App Errors</p>
     <p style="font-size:11px;color:#B0AA98;margin:0 0 10px;">Real errors users have actually hit, most recent first.</p>
     <div id="adminErrorLogsList"></div>
+    </div>
   </div>
 
   <div class="content" id="panel-therapist-dashboard" style="display:none;">
@@ -795,6 +813,13 @@
     <p class="prompt-title" style="text-align:center;">My Client Schedule</p>
     <p class="prompt-sub" style="text-align:center;margin-bottom:18px;" id="therapistDashboardSubtitle"></p>
 
+    <div id="therapistDashTabBar" style="display:flex;gap:6px;margin-bottom:18px;">
+      <button class="therapist-dash-tab" data-tab="clients" style="flex:1;background:#6690D6;border:none;border-radius:10px;padding:10px 4px;text-align:center;cursor:pointer;font-size:12px;font-weight:700;color:#FFF8F0;">Clients</button>
+      <button class="therapist-dash-tab" data-tab="schedule" style="flex:1;background:transparent;border:1px solid #EEE0C4;border-radius:10px;padding:10px 4px;text-align:center;cursor:pointer;font-size:12px;font-weight:700;color:#9AABCE;">Schedule</button>
+      <button class="therapist-dash-tab" data-tab="profile" style="flex:1;background:transparent;border:1px solid #EEE0C4;border-radius:10px;padding:10px 4px;text-align:center;cursor:pointer;font-size:12px;font-weight:700;color:#9AABCE;">Profile</button>
+    </div>
+
+    <div id="therapistDashTab-clients" class="therapist-dash-tab-content">
     <button id="therapistSummaryTile" style="display:block;width:100%;text-align:left;background:linear-gradient(165deg,#8FB0EA 0%,#6690D6 60%,#5372B8 100%);border:none;border-radius:16px;padding:18px;margin-bottom:16px;cursor:pointer;">
       <p id="therapistSummaryCount" style="font-size:20px;font-weight:800;color:#fff;margin:0 0 2px;">0 sessions this month</p>
       <p id="therapistSummaryIncome" style="font-size:13px;color:rgba(255,255,255,0.9);margin:0;">₹0 confirmed income</p>
@@ -820,7 +845,9 @@
     <input type="text" id="homeworkTitleInput" placeholder="What would you like them to try?" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:8px;box-sizing:border-box;">
     <input type="date" id="homeworkDeadlineInput" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:8px;">
     <button id="homeworkSendBtn" style="width:100%;padding:12px;border-radius:10px;border:none;background:#6690D6;color:#fff;font-size:12.5px;font-weight:700;cursor:pointer;margin-bottom:22px;">Send Homework</button>
+    </div>
 
+    <div id="therapistDashTab-schedule" class="therapist-dash-tab-content" style="display:none;">
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">My Availability</p>
     <p style="font-size:11px;font-weight:700;color:#9AABCE;margin:0 0 8px;">All Upcoming Slots</p>
     <div id="therapistAllSlotsList" style="margin-bottom:14px;"></div>
@@ -835,6 +862,7 @@
       <p style="font-size:10.5px;color:#B0AA98;margin:0 0 8px;">Green dot = open slot that day. Blue dot = a booked session that day. Tap a day to add or edit.</p>
       <div class="weekday-row"><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div>
       <div class="day-grid" id="therapistAvailabilityGrid"></div>
+    </div>
     </div>
 
     <div id="therapistDayEditorBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.45);z-index:60;"></div>
@@ -899,6 +927,7 @@
       <button id="therapistClientDetailCloseBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:13px;font-weight:700;cursor:pointer;margin-top:16px;">Close</button>
     </div>
 
+    <div id="therapistDashTab-profile" class="therapist-dash-tab-content" style="display:none;">
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:22px 0 10px;">My Profile</p>
     <p style="font-size:11px;color:#B0AA98;margin:0 0 10px;">This is what clients see about you on the Experts page.</p>
     <textarea id="therapistBioInput" placeholder="A short bio, in your own words..." rows="3" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;resize:vertical;"></textarea>
@@ -910,6 +939,7 @@
     <p style="font-size:11px;color:#9AABCE;font-weight:700;margin:0 0 6px;">Languages you can work in</p>
     <div id="therapistLanguagesCheckboxes" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;"></div>
     <button id="therapistSaveProfileBtn" style="width:100%;padding:12px;border-radius:10px;border:none;background:#3B8F63;color:#fff;font-size:12.5px;font-weight:700;cursor:pointer;">Save My Profile</button>
+    </div>
   </div>
 
   <div class="content" id="panel-edit-profile" style="display:none;">
@@ -1794,7 +1824,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260714205704';
+  var CURRENT_BUILD = '20260714211425';
   function checkForUpdate(){
     // Safety guard: reload AT MOST ONCE per session, no matter what. Without this, a mistake
     // where version.json and the HTML's own build ID get out of sync (e.g. one gets updated
@@ -8132,8 +8162,28 @@ document.getElementById('adminStatDetailModalBackdrop').onclick = function(){
   document.getElementById('adminStatDetailModal').style.display = 'none';
 };
 
+// Same structural fix as the therapist dashboard, applied to the larger admin surface: five
+// tabs grouped by what each section actually IS -- Overview (the pulse of things), Experts
+// (who's on the platform), Requests & Bookings (what needs action), Organization (campaigns,
+// groups, the full user base), System (technical/error visibility) -- instead of one long
+// scroll through 14+ stacked sections with no grouping at all.
+function switchAdminDashTab(tabKey){
+  ['overview','experts','requests','organization','system'].forEach(function(key){
+    document.getElementById('adminDashTab-'+key).style.display = (key === tabKey) ? 'block' : 'none';
+  });
+  document.querySelectorAll('.admin-dash-tab').forEach(function(tab){
+    var isActive = tab.dataset.tab === tabKey;
+    tab.style.background = isActive ? '#6690D6' : 'transparent';
+    tab.style.color = isActive ? '#FFF8F0' : '#9AABCE';
+  });
+}
+document.querySelectorAll('.admin-dash-tab').forEach(function(tab){
+  tab.onclick = function(){ switchAdminDashTab(tab.dataset.tab); };
+});
+
 function openAdminDashboard(){
   showOnly('panel-admin');
+  switchAdminDashTab('overview');
   document.getElementById('adminBookingsList').innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">Loading...</p>';
   renderAdminGroupSessions();
   populateAdminAvailabilitySelect();
@@ -8433,7 +8483,26 @@ function openTherapistDashboard(){
   document.getElementById('therapistWhyInput').value = myProfile ? (myProfile.whyTherapist||'') : '';
   document.getElementById('therapistQualificationsInput').value = myProfile ? (myProfile.qualificationsDetail||'') : '';
   renderLanguageCheckboxes('therapistLanguagesCheckboxes', myProfile ? myProfile.languages : '');
+  switchTherapistDashTab('clients');
 }
+
+// Real structural fix per direct feedback: this was one long scroll of every section stacked
+// on top of each other with no organization at all. Split into three tabs by what the section
+// actually IS (who it's about, when it happens, or the therapist's own profile) rather than an
+// arbitrary grouping -- Clients, Schedule, Profile.
+function switchTherapistDashTab(tabKey){
+  ['clients','schedule','profile'].forEach(function(key){
+    document.getElementById('therapistDashTab-'+key).style.display = (key === tabKey) ? 'block' : 'none';
+  });
+  document.querySelectorAll('.therapist-dash-tab').forEach(function(tab){
+    var isActive = tab.dataset.tab === tabKey;
+    tab.style.background = isActive ? '#6690D6' : 'transparent';
+    tab.style.color = isActive ? '#FFF8F0' : '#9AABCE';
+  });
+}
+document.querySelectorAll('.therapist-dash-tab').forEach(function(tab){
+  tab.onclick = function(){ switchTherapistDashTab(tab.dataset.tab); };
+});
 
 // This is the real, visible section Akash asked for -- not a button tucked inside a client
 // card that's easy to miss, but its own dedicated area matching the same prominence as Session
