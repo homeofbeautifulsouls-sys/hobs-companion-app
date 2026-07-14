@@ -1789,7 +1789,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260714143833';
+  var CURRENT_BUILD = '20260714144258';
   function checkForUpdate(){
     // Safety guard: reload AT MOST ONCE per session, no matter what. Without this, a mistake
     // where version.json and the HTML's own build ID get out of sync (e.g. one gets updated
@@ -1988,12 +1988,25 @@ if (IS_NATIVE_APP && window.Capacitor?.Plugins?.App) {
       { backdrop: 'adminUserProfileModalBackdrop', modal: 'adminUserProfileModal' },
       { backdrop: 'crisisResourceModalBackdrop', modal: 'crisisResourceModal' },
       { backdrop: 'donateModalBackdrop', modal: 'donateModal' },
-      { backdrop: 'dayMoodSheetBackdrop', modal: 'dayMoodSheet' }
+      { backdrop: 'dayMoodSheetBackdrop', modal: 'dayMoodSheet' },
+      // These three were built later in the same project and never added here -- the real
+      // cause of "back button issues with the latest features": pressing back while any of
+      // these was open fell straight through to full panel navigation (or exiting the app
+      // entirely) instead of just closing the modal, since this list is what the handler
+      // actually checks and these were simply missing from it.
+      { backdrop: 'assistantModalBackdrop', modal: 'assistantModal' },
+      { backdrop: 'therapistClientDetailBackdrop', modal: 'therapistClientDetailModal' },
+      { backdrop: 'therapistScheduleEditBackdrop', modal: 'therapistScheduleEditModal' }
     ];
     for(var i=0; i<openModals.length; i++){
       var m = openModals[i];
       var modalEl = document.getElementById(m.modal);
-      if(modalEl && modalEl.style.display === 'block'){
+      // Was strictly checking for display:block, which silently never matched the assistant
+      // modal specifically (it uses display:flex, being a flex-column layout internally) --
+      // real, confirmed cause of the back button not closing it. Checking for "visible at all"
+      // instead of one specific display value works correctly for every modal regardless of
+      // which display mode it uses.
+      if(modalEl && modalEl.style.display !== 'none' && modalEl.style.display !== ''){
         modalEl.style.display = 'none';
         var backdropEl = document.getElementById(m.backdrop);
         if(backdropEl) backdropEl.style.display = 'none';
