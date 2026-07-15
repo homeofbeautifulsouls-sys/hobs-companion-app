@@ -104,6 +104,21 @@
   .task-indicator.done { background:#3B8F63; }
   .day-date-title { font-size:16px; font-weight:700; color:#2E3A5A; margin:0 0 14px; }
   .mood-chip-row { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:16px; }
+  /* Vintage paper texture for the actual journal-writing areas specifically -- per direct
+     request: reads as old paper, but tuned so it never competes with text legibility. Base is
+     a warm aged-cream (distinct from the app's plain white default), a fine SVG grain layer at
+     low opacity gives genuine fiber-like texture rather than a flat gradient, and a soft
+     vignette darkens just the edges the way real aged paper does. Contrast-checked against the
+     app's own ink color (#2A2013): 13.55:1, well past WCAG AAA (7:1) -- the texture sits well
+     behind the text in visual weight, so it can never be mistaken for reducing readability.
+  */
+  .vintage-paper {
+    background-color: #F3ECD9;
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.35  0 0 0 0 0.28  0 0 0 0 0.15  0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+      radial-gradient(ellipse at center, transparent 50%, rgba(120,95,50,0.09) 100%);
+    border-color: #D9C9A0 !important;
+  }
   .mood-chip-cal { display:flex; align-items:center; gap:5px; padding:5px 10px; border-radius:20px; font-size:11px; font-weight:600; color:#2A2013; }
   .empty-mood { font-size:11px; color:#B0AA98; margin-bottom:16px; }
   .task-item { background:#FFFFFF; border:1px solid #EEE0C4; border-radius:14px; padding:12px 14px; margin-bottom:8px; transition:background 0.2s; }
@@ -1206,7 +1221,7 @@
     <p style="color:#B0AA98;font-size:11px;margin:0 0 20px;">Private by default.</p>
     </div>
     <div style="position:relative;">
-      <textarea id="journalText" placeholder="Type here, or use the mic..." style="width:100%;min-height:100px;border-radius:16px;border:1px solid #EEE0C4;background:#FFFFFF;padding:14px 40px 14px 14px;font-size:14px;color:#2A2013;font-family:inherit;box-sizing:border-box;resize:none;margin-bottom:16px;transition:min-height .25s;"></textarea>
+      <textarea id="journalText" class="vintage-paper" placeholder="Type here, or use the mic..." style="width:100%;min-height:100px;border-radius:16px;border:1px solid #EEE0C4;padding:14px 40px 14px 14px;font-size:14px;color:#2A2013;font-family:inherit;box-sizing:border-box;resize:none;margin-bottom:16px;transition:min-height .25s;"></textarea>
       <button id="expandBtn" title="Expand" style="position:absolute;top:10px;right:10px;width:26px;height:26px;border-radius:8px;border:none;background:#F3F6FC;color:#6690D6;cursor:pointer;display:flex;align-items:center;justify-content:center;">
         <svg id="expandIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m11-5v3a2 2 0 0 1-2 2h-3"/></svg>
       </button>
@@ -1317,7 +1332,7 @@
     <p class="prompt-sub" style="text-align:center;margin-bottom:16px;">Pick as many as fit.</p>
     <div id="quickJournalMoodChips" style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:22px;"></div>
     <p class="prompt-title" style="text-align:center;font-size:15px;margin-bottom:10px;">What's on your mind?</p>
-    <textarea id="quickJournalText" placeholder="Write as much or as little as you want..." style="width:100%;min-height:140px;border-radius:16px;border:1px solid #EEE0C4;padding:16px;font-size:14px;font-family:inherit;box-sizing:border-box;resize:vertical;margin-bottom:14px;"></textarea>
+    <textarea id="quickJournalText" class="vintage-paper" placeholder="Write as much or as little as you want..." style="width:100%;min-height:140px;border-radius:16px;border:1px solid #EEE0C4;padding:16px;font-size:14px;font-family:inherit;box-sizing:border-box;resize:vertical;margin-bottom:14px;color:#2A2013;"></textarea>
     <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#5C6B94;margin-bottom:18px;">
       <input type="checkbox" id="quickJournalShareCheck"> Also share this with my therapist
     </label>
@@ -1822,7 +1837,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260715124025';
+  var CURRENT_BUILD = '20260715125056';
   function checkForUpdate(){
     // Safety guard: reload AT MOST ONCE per session, no matter what. Without this, a mistake
     // where version.json and the HTML's own build ID get out of sync (e.g. one gets updated
