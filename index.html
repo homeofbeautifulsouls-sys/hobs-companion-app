@@ -1822,7 +1822,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260714222816';
+  var CURRENT_BUILD = '20260715121203';
   function checkForUpdate(){
     // Safety guard: reload AT MOST ONCE per session, no matter what. Without this, a mistake
     // where version.json and the HTML's own build ID get out of sync (e.g. one gets updated
@@ -3984,7 +3984,7 @@ function renderAssistantQuickReplies(options){
 }
 
 function assistantAskTopic(){
-  assistantConversationState = { step: 'awaiting_topic' };
+  assistantConversationState = { step: 'awaiting_topic', setAt: Date.now() };
   renderAssistantMessage('bob', "I hear you. What's this about, roughly?");
   renderAssistantQuickReplies([
     { label: 'Talk to a professional', onSelect: function(){
@@ -4078,7 +4078,14 @@ function processAssistantInput(text){
   // If a clarifying question is pending, route the free-text reply to it instead of
   // re-matching from scratch -- someone who types "professional" after being asked "what's
   // this about" shouldn't need to repeat their whole original request.
-  if(assistantConversationState && assistantConversationState.step === 'awaiting_topic'){
+  // Real bug fixed here: this used to have no expiry at all. If someone closed the crisis
+  // modal without directly answering "what's this about," the flag stayed set indefinitely --
+  // meaning their NEXT message, possibly a totally unrelated one much later, got silently
+  // swallowed by this branch instead of being processed normally. Capped at 2 minutes: long
+  // enough for someone to actually read and answer the question, short enough that it can't
+  // reach into a later, disconnected conversation.
+  var topicStateIsFresh = assistantConversationState && assistantConversationState.step === 'awaiting_topic' && (Date.now() - assistantConversationState.setAt) < 120000;
+  if(topicStateIsFresh){
     assistantConversationState = null;
     if(/professional|therapist|book|someone/i.test(text)){
       renderAssistantMessage('kunnu', "Let's get you someone real to talk to.");
@@ -4176,6 +4183,10 @@ document.querySelectorAll('.assistant-tab').forEach(function(tab){
 document.getElementById('assistantCloseBtn').onclick = function(){
   document.getElementById('assistantModalBackdrop').style.display = 'none';
   document.getElementById('assistantModal').style.display = 'none';
+  // Extra safety net alongside the 2-minute expiry above: closing the modal is itself a clear
+  // signal the conversation is over, so don't let a pending clarifying-question state survive
+  // into whatever the person asks next time they open the assistant.
+  assistantConversationState = null;
 };
 document.getElementById('assistantModalBackdrop').onclick = document.getElementById('assistantCloseBtn').onclick;
 document.getElementById('assistantSendBtn').onclick = function(){
@@ -5712,15 +5723,6 @@ function renderTaskListCal(){
     }
     renderTaskListCal();
   });
-}
-function toggleSubtaskForm(container, taskId){
-  var existing = container.querySelector('.subtask-add');
-  if(existing){ existing.remove(); return; }
-  var wrap = document.createElement('div'); wrap.className = 'subtask-add';
-  wrap.innerHTML = '<input type="text" placeholder="Break this into a smaller step..."><button>Add</button>';
-  var input = wrap.querySelector('input'), btn = wrap.querySelector('button');
-  btn.onclick = function(){ if(!input.value.trim()) return; addSubtask(taskId, input.value.trim()); wrap.remove(); };
-  container.appendChild(wrap); input.focus();
 }
 function addSubtask(taskId, title){
   var task = getTasks(activeDayKey).find(function(t){ return t.id === taskId; });
@@ -9643,7 +9645,7 @@ function renderTeamList(){
       actionHtml = '<button class="book-session-btn" data-idx="'+idx+'" style="display:block;width:100%;margin-top:6px;padding:11px;border-radius:12px;border:1.5px solid #6690D6;background:transparent;color:#6690D6;font-size:12.5px;font-weight:700;cursor:pointer;">Book Session</button>';
     }
 
-    return '<div class="team-list-card" style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:18px;padding:14px;margin-bottom:12px;">'+
+    return '<div class="team-list-card" data-idx="'+idx+'" style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:18px;padding:14px;margin-bottom:12px;cursor:pointer;">'+
       '<div style="display:flex;gap:14px;">'+
         '<div style="flex:0 0 100px;position:relative;">'+
           '<div class="team-card" data-idx="'+idx+'" style="width:100px;height:126px;border-radius:14px;overflow:hidden;cursor:pointer;">'+photoInner+'</div>'+
@@ -9662,27 +9664,38 @@ function renderTeamList(){
       actionHtml+
     '</div>';
   }).join('');
+  // Real fix: previously only the small 100x126px thumbnail was clickable to view a profile --
+  // the much larger name/role/details text beside it did nothing when clicked, a dead-click
+  // area right where someone deciding whether to book would naturally click. Whole card is now
+  // clickable, matching the pattern already used correctly elsewhere (My Clients, All Users);
+  // stopPropagation on each inner action button so those keep their own distinct behavior
+  // instead of also opening the profile detail underneath them.
+  wrap.querySelectorAll('.team-list-card').forEach(function(cardRow){
+    cardRow.onclick = function(){ openExpertDetail(parseInt(cardRow.dataset.idx)); };
+  });
   wrap.querySelectorAll('.team-card').forEach(function(card){
-    card.onclick = function(){ openExpertDetail(parseInt(card.dataset.idx)); };
+    card.onclick = function(e){ e.stopPropagation(); openExpertDetail(parseInt(card.dataset.idx)); };
   });
   wrap.querySelectorAll('.book-session-btn').forEach(function(btn){
-    btn.onclick = function(){ bookExpert(TEAM_MEMBERS[parseInt(btn.dataset.idx)]); };
+    btn.onclick = function(e){ e.stopPropagation(); bookExpert(TEAM_MEMBERS[parseInt(btn.dataset.idx)]); };
   });
   wrap.querySelectorAll('.pick-time-btn').forEach(function(btn){
-    btn.onclick = function(){
+    btn.onclick = function(e){
+      e.stopPropagation();
       var m = TEAM_MEMBERS[parseInt(btn.dataset.idx)];
       var booking = getActiveBookingForCategory(m.roleCategory);
       if(booking) pickSessionTimeForBooking(booking, m);
     };
   });
   wrap.querySelectorAll('.request-change-btn').forEach(function(btn){
-    btn.onclick = function(){
+    btn.onclick = function(e){
+      e.stopPropagation();
       var m = TEAM_MEMBERS[parseInt(btn.dataset.idx)];
       requestExpertChange(m, m.name);
     };
   });
   wrap.querySelectorAll('.cancel-session-btn').forEach(function(btn){
-    btn.onclick = function(){ cancelSession(TEAM_MEMBERS[parseInt(btn.dataset.idx)]); };
+    btn.onclick = function(e){ e.stopPropagation(); cancelSession(TEAM_MEMBERS[parseInt(btn.dataset.idx)]); };
   });
 }
 
