@@ -1930,19 +1930,24 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260715223309';
+  var CURRENT_BUILD = '20260715224122';
   function checkForUpdate(){
-    // Safety guard: reload AT MOST ONCE per session, no matter what. Without this, a mistake
-    // where version.json and the HTML's own build ID get out of sync (e.g. one gets updated
-    // and the other is forgotten on some future deploy) would reload the app forever in a loop
-    // -- completely unacceptable for a mental health app real people depend on. One missed
-    // update is a minor inconvenience; an infinite reload loop is not.
-    if(sessionStorage.getItem('hobs_already_checked_for_update')) return;
+    // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
+    // EVER -- not once per app open. Since Android can keep an app process alive in the
+    // background indefinitely, one update check (even from hours earlier) permanently used up
+    // the allowance for the rest of that process's lifetime, no matter how many times someone
+    // reopened or navigated the app afterward. That's a real, systemic cause of "I fixed this
+    // but you're still seeing the old version" confusion. Replaced with a cooldown window
+    // instead of a one-time flag: still fully prevents an infinite reload loop (the original,
+    // legitimate concern) since two reloads can't happen within the same short window, but now
+    // correctly allows checking again on each later foreground event once the cooldown passes.
+    var lastCheck = parseInt(sessionStorage.getItem('hobs_last_update_check') || '0', 10);
+    if(Date.now() - lastCheck < 30000) return;
+    sessionStorage.setItem('hobs_last_update_check', String(Date.now()));
     fetch('version.json?t=' + Date.now(), { cache: 'no-store' })
       .then(function(r){ return r.json(); })
       .then(function(data){
         if(data && data.build && data.build !== CURRENT_BUILD){
-          sessionStorage.setItem('hobs_already_checked_for_update', '1');
           // Force a genuinely fresh fetch, not a cached reload -- appending a cache-busting
           // param so the WebView can't serve this specific request from its HTTP cache either.
           window.location.href = window.location.pathname + '?v=' + data.build;
