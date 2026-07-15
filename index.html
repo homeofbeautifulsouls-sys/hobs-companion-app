@@ -1928,7 +1928,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260715181808';
+  var CURRENT_BUILD = '20260715182538';
   function checkForUpdate(){
     // Safety guard: reload AT MOST ONCE per session, no matter what. Without this, a mistake
     // where version.json and the HTML's own build ID get out of sync (e.g. one gets updated
@@ -3542,37 +3542,23 @@ function enterJournalSection(){
     cover.classList.add('opening');
     setTimeout(function(){ stage.style.display = 'none'; }, 1300);
   };
-  // Real, confirmed bug in the previous version: listeners were only attached to the small
-  // inner cover panel (max-width 340px), not the full-screen backdrop around it -- a swipe
-  // starting even slightly outside that exact panel (very easy on a real device) registered
-  // nothing at all. Now attached to the full-screen stage instead. Threshold lowered (60px ->
-  // 36px) and a tap-with-negligible-movement is now ALSO accepted as a fallback open trigger,
-  // prioritizing this actually working reliably over strict swipe-only purity, given repeated
-  // reports that neither gesture was working.
-  var startX = null, startY = null, startTime = 0;
-  var onStart = function(ev){
-    var t = ev.touches ? ev.touches[0] : ev;
-    startX = t.clientX; startY = t.clientY; startTime = Date.now();
-  };
-  var onMove = function(ev){
-    if(startX === null || opened) return;
-    var t = ev.touches ? ev.touches[0] : ev;
-    if(t.clientX - startX > 36 && Math.abs(t.clientY - startY) < 60) openCover();
-  };
-  var onEnd = function(ev){
-    if(startX === null || opened) return;
-    // Fallback: a quick tap with negligible movement also opens it, so this works even if the
-    // swipe itself wasn't detected cleanly for any reason.
-    var t = (ev.changedTouches && ev.changedTouches[0]) || ev;
-    var moved = Math.abs((t.clientX||startX) - startX);
-    if(moved < 10 && (Date.now() - startTime) < 500) openCover();
-    startX = null;
+  // Real, confirmed gap found after repeated failures: the swipe check required vertical
+  // movement to stay under 60px, but a genuine swipe motion often arcs more than that -- when
+  // it did, it failed BOTH the swipe check AND the tap-fallback (which only accepted under 10px
+  // of movement), producing a dead zone where a clearly deliberate gesture did nothing at all.
+  // Given how many attempts this has taken, precisely distinguishing "swipe vs tap" is no
+  // longer the goal -- reliability is. Any touch-and-release on the cover now opens it, full
+  // stop, no distance or direction requirement whatsoever. The visual swipe hint stays for
+  // discoverability, but the actual trigger can no longer fail based on gesture shape.
+  var touchStarted = false;
+  var onStart = function(){ touchStarted = true; };
+  var onEnd = function(){
+    if(!touchStarted || opened) return;
+    openCover();
   };
   stage.addEventListener('touchstart', onStart, {passive:true});
-  stage.addEventListener('touchmove', onMove, {passive:true});
   stage.addEventListener('touchend', onEnd);
   stage.addEventListener('pointerdown', onStart);
-  stage.addEventListener('pointermove', onMove);
   stage.addEventListener('pointerup', onEnd);
 }
 document.getElementById('continueBtn').onclick = function(){
