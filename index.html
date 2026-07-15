@@ -29,7 +29,7 @@
     display: flex; align-items: center; justify-content: space-between;
     padding: 16px 18px 14px; background: linear-gradient(135deg, #6690D6, #7FA3E0);
   }
-  .logo-img { height: 30px; width: 62px; aspect-ratio: 1024/495; object-fit: contain; display: block; background: #FFF8F0; border-radius: 8px; padding: 3px 6px; }
+  .logo-img { height: 30px; width: auto; object-fit: contain; display: block; background: #FFF8F0; border-radius: 8px; padding: 3px 6px; }
   .header-icons { display: flex; align-items: center; gap: 10px; }
   .icon-circle {
     width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.3);
@@ -167,6 +167,20 @@
     100% { transform: perspective(1000px) rotateY(0deg); opacity: 1; }
   }
   #panel-journal.page-flip-in, #panel-history.page-flip-in { animation: pageFlipIn 0.6s cubic-bezier(.22,.61,.36,1); transform-origin: left center; }
+  /* Real book-index visual per direct feedback -- a proper dotted leader line between each
+     entry's title and its date, the classic "Title .......... 12" look, built as a flexible
+     dotted border-bottom spacer so it correctly fills whatever space is left regardless of
+     title length. Plus tactile press feedback and a gentle staggered entrance so the list
+     reads as something with presence, not a flat static block. */
+  .index-leader-row { display: flex; align-items: baseline; gap: 6px; }
+  .index-leader-title { font-family: Georgia, serif; font-size: 13.5px; color: #4A3A1E; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%; flex-shrink: 0; }
+  .index-leader-dots { flex: 1 1 auto; border-bottom: 1.5px dotted #A8935F; margin-bottom: 3px; min-width: 10px; }
+  .index-leader-page { font-family: Georgia, serif; font-size: 11.5px; color: #6B5017; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
+  .index-entry-row:active { background-color: rgba(201,162,39,0.14); transform: scale(0.99); }
+  @keyframes indexEntryIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  @media (prefers-reduced-motion: reduce) {
+    .index-entry-row { animation: none !important; }
+  }
   .mood-chip-cal { display:flex; align-items:center; gap:5px; padding:5px 10px; border-radius:20px; font-size:11px; font-weight:600; color:#2A2013; }
   .empty-mood { font-size:11px; color:#B0AA98; margin-bottom:16px; }
   .task-item { background:#FFFFFF; border:1px solid #EEE0C4; border-radius:14px; padding:12px 14px; margin-bottom:8px; transition:background 0.2s; }
@@ -1403,7 +1417,12 @@
   </div>
 
   <div class="content vintage-paper" id="panel-history" style="display:none;">
-    <p style="font-family:Georgia,serif;font-size:23px;color:#2A2013;text-align:center;letter-spacing:0.05em;margin:4px 0 2px;">Index</p>
+    <p style="font-family:Georgia,serif;font-size:24px;color:#2A2013;text-align:center;letter-spacing:0.06em;margin:4px 0 6px;">Index</p>
+    <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:8px;">
+      <span style="height:1px;width:36px;background:rgba(139,115,60,0.4);"></span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8A7448" stroke-width="1"><circle cx="12" cy="12" r="9"/><path d="M12 7l1.6 3.4L17 12l-3.4 1.6L12 17l-1.6-3.4L7 12l3.4-1.6z" fill="#8A7448" stroke="none"/></svg>
+      <span style="height:1px;width:36px;background:rgba(139,115,60,0.4);"></span>
+    </div>
     <p style="text-align:center;font-size:11.5px;color:#6B5B3A;font-style:italic;margin:0 0 20px;">Whatever you've put down, whenever you were ready.</p>
     <button id="journalAddNewBtn" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;border-radius:10px;border:1px solid #C9A227;background:rgba(255,255,255,0.35);color:#6B5017;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:20px;font-family:Georgia,serif;letter-spacing:0.03em;">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
@@ -1900,7 +1919,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260715171652';
+  var CURRENT_BUILD = '20260715173413';
   function checkForUpdate(){
     // Safety guard: reload AT MOST ONCE per session, no matter what. Without this, a mistake
     // where version.json and the HTML's own build ID get out of sync (e.g. one gets updated
@@ -3485,17 +3504,17 @@ document.getElementById('therapistSelectBackBtn').onclick = function(){
 // leather "Treasures of [Name]" cover that opens like a book. Per direct correction: this
 // belongs on the Journal SECTION entry point (the bottom-nav Journal tab, landing on the
 // redesigned index of past entries), not on the quick mood-bubble-to-writing flow reached from
-// Home -- that one stays completely normal, no book styling at all. Kept skippable (tap
-// anywhere) and prefers-reduced-motion bypasses it completely, landing straight on the index.
-var journalCoverShownThisSession = false;
+// Home -- that one stays completely normal, no book styling at all. Per direct correction:
+// shows every time the Journal tab is tapped, not just once per session -- removed the earlier
+// once-per-session gating. Still tap-anywhere, and prefers-reduced-motion still bypasses it
+// completely, landing straight on the index -- that part wasn't in question.
 function enterJournalSection(){
   showOnly('panel-history');
   renderHistory();
   setActiveNav('navJournal');
-  if(journalCoverShownThisSession || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)){
+  if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches){
     return;
   }
-  journalCoverShownThisSession = true;
   document.getElementById('journalCoverName').textContent = getDisplayName() || 'You';
   var stage = document.getElementById('journalCoverStage');
   var cover = document.getElementById('journalCoverPanel');
@@ -3521,6 +3540,7 @@ document.getElementById('continueBtn').onclick = function(){
   });
   document.getElementById('panel-bubbles').style.display = 'none';
   document.getElementById('panel-journal').style.display = 'block';
+  document.getElementById('startingEntryBanner').style.display = 'none';
   if(journalBubblesEntryContext === 'journalAdd'){
     var panel = document.getElementById('panel-journal');
     panel.classList.remove('page-flip-in');
@@ -4347,10 +4367,18 @@ document.getElementById('choiceJournalBtn').onclick = function(){
   // brand new page instead. Reuses the same mood-bubble picker Home already uses (that part
   // stays "completely normal" either way), just tagging which entry point this came from so
   // the eventual transition into the writing page can apply the flip-open animation.
+  //
+  // Real bug found afterward: panel-bubbles IS the Home page's own content -- showing it here
+  // with no other change looked exactly like being sent to Home, since visually it's the
+  // identical screen. There's an existing (previously unused) startingEntryBanner built for
+  // exactly this situation -- activating it here, plus correctly keeping the bottom nav on
+  // Journal instead of leaving it wherever it was.
   journalBubblesEntryContext = 'journalAdd';
   selected.slice().forEach(function(b){ if(b.el) b.el.click(); }); // clear any previous mood selection
   document.getElementById('continueBtn').style.display = 'none';
+  document.getElementById('startingEntryBanner').style.display = 'flex';
   showOnly('panel-bubbles');
+  setActiveNav('navJournal');
 };
 document.getElementById('quickJournalBackBtn').onclick = function(){
   var saved = commitQuickJournalIfDirty();
@@ -4569,33 +4597,35 @@ function renderHistory(){
     list.appendChild(empty);
     return;
   }
-  appState.entries.forEach(function(e){
+  appState.entries.forEach(function(e, idx){
     var card = document.createElement('div');
-    card.style.cssText = 'background:rgba(255,255,255,0.4);border-bottom:1px solid rgba(201,162,39,0.35);padding:13px 4px;margin-bottom:2px;cursor:pointer;';
+    card.className = 'index-entry-row';
+    card.style.cssText = 'padding:12px 6px;cursor:pointer;border-radius:6px;transition:background-color 0.15s, transform 0.1s;animation:indexEntryIn 0.35s ease-out both;animation-delay:'+Math.min(idx*0.04, 0.4)+'s;';
     var dateStr = new Date(e.date).toLocaleDateString(undefined, {month:'short', day:'numeric'});
 
     if(e.type === 'worksheet'){
       card.innerHTML =
-        '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;">'+
-          '<p style="font-family:Georgia,serif;font-size:13.5px;color:#4A3A1E;margin:0;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+e.worksheetName+' <span style="font-size:10.5px;color:#8A7448;font-style:italic;">— '+e.categoryName+' worksheet</span></p>'+
-          '<span style="font-size:10.5px;color:#8A7448;white-space:nowrap;">'+dateStr+'</span>'+
+        '<div class="index-leader-row">'+
+          '<span class="index-leader-title">'+e.worksheetName+' <em style="font-size:10.5px;color:#8A7448;">— '+e.categoryName+'</em></span>'+
+          '<span class="index-leader-dots"></span>'+
+          '<span class="index-leader-page">'+dateStr+'</span>'+
         '</div>'+
         (e.sharedWithTherapist ? '<p style="font-size:9.5px;color:#6690D6;margin:4px 0 0;">Shared with your therapist</p>' : '');
       card.onclick = function(){ renderWorksheetCategoryList(); showOnly('panel-worksheets'); };
     } else {
-      // Compact "index" treatment per direct request -- the full entry used to render inline
-      // here; now this is just a snippet (one line, truncated) with the whole row clickable to
-      // open that specific page, flip transition included, rather than showing everything in
-      // the list itself.
+      // Real "book index" treatment per direct feedback that the first pass didn't actually
+      // look like one: a proper dotted leader line between the entry title and its date (the
+      // classic book-index visual, "Title .......... 12"), built with a flexible dotted
+      // border-bottom spacer between two fixed-width text elements so the dots always fill
+      // whatever space is left, rather than a plain flex row with a gap.
       var snippet = e.text ? e.text.replace(/\s+/g,' ').trim() : '';
-      if(snippet.length > 64) snippet = snippet.slice(0, 64) + '…';
+      if(snippet.length > 40) snippet = snippet.slice(0, 40) + '…';
       var moodStr = e.moods.map(function(m){ return m.label; }).join(', ');
       card.innerHTML =
-        '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;">'+
-          '<p style="font-family:Georgia,serif;font-size:13.5px;color:#4A3A1E;margin:0;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+
-            (snippet ? snippet.replace(/</g,'&lt;') : '<span style="font-style:italic;color:#A89468;">No note added</span>')+
-          '</p>'+
-          '<span style="font-size:10.5px;color:#8A7448;white-space:nowrap;">'+dateStr+'</span>'+
+        '<div class="index-leader-row">'+
+          '<span class="index-leader-title">'+(snippet ? snippet.replace(/</g,'&lt;') : '<em style="color:#A89468;">No note added</em>')+'</span>'+
+          '<span class="index-leader-dots"></span>'+
+          '<span class="index-leader-page">'+dateStr+'</span>'+
         '</div>'+
         (moodStr ? '<p style="font-size:10px;color:#8A7448;margin:3px 0 0;font-style:italic;">'+moodStr+'</p>' : '')+
         (e.sharedWithTherapist ? '<p style="font-size:9.5px;color:#6690D6;margin:3px 0 0;">Shared with your therapist</p>' : '');
