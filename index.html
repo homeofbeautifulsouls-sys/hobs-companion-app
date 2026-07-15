@@ -1822,7 +1822,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260715121203';
+  var CURRENT_BUILD = '20260715122229';
   function checkForUpdate(){
     // Safety guard: reload AT MOST ONCE per session, no matter what. Without this, a mistake
     // where version.json and the HTML's own build ID get out of sync (e.g. one gets updated
@@ -11543,6 +11543,26 @@ function commitWorksheetIfDirty(){
   });
   if(!hasContent) return false;
   appState.worksheetEntries[currentWorksheetKey] = data;
+  // Real bug found in a later audit: worksheet_responses (the actual answers) was already
+  // correctly fixed to upsert by worksheet_key, but this entries-side "journal history" label
+  // row was never given the same treatment -- it always pushed a brand new row via the
+  // insert-only syncToSupabase helper, so re-saving the same worksheet a second time created a
+  // duplicate "Worksheet: X" card in the journal history instead of updating the existing one.
+  // Now checks for an existing local entry with the same worksheetKey first; if found, updates
+  // that row directly (preserving its existing sharedWithTherapist status, matching the same
+  // preserve-on-conflict behavior already used for the answers) rather than creating a new one.
+  var existingEntry = appState.entries.find(function(e){ return e.type === 'worksheet' && e.worksheetKey === currentWorksheetKey; });
+  if(existingEntry){
+    existingEntry.date = new Date().toISOString();
+    saveState();
+    if(existingEntry.id && currentUser && currentUser.id){
+      sb.from('entries').update({ created_at: existingEntry.date }).eq('id', existingEntry.id).then(function(result){
+        if(result.error) console.error('worksheet entry update failed:', result.error);
+      });
+    }
+    upsertWorksheetResponse(currentWorksheetKey, currentWorksheetCategory, data);
+    return true;
+  }
   var entry = {
     date: new Date().toISOString(), type:'worksheet', moods:[], text:'',
     worksheetName: w.name, categoryName: cat.name, color: cat.color,
@@ -11601,15 +11621,29 @@ document.getElementById('worksheetSaveBtn').onclick = function(){
   var data = {};
   w.fields.forEach(function(f){ data[f.key] = document.getElementById('wf_'+f.key).value; });
   appState.worksheetEntries[currentWorksheetKey] = data;
-  var entry = {
-    date: new Date().toISOString(), type:'worksheet', moods:[], text:'',
-    worksheetName: w.name, categoryName: cat.name, color: cat.color,
-    worksheetKey: currentWorksheetKey,
-    sharedWithTherapist: false
-  };
-  appState.entries.push(entry);
-  saveState();
-  saveEntryToSupabase(entry);
+  // Same real bug as commitWorksheetIfDirty above, fixed the same way -- this Save button has
+  // its own separate save implementation that had the identical unconditional-push duplicate
+  // issue. Check for an existing entry by worksheetKey first; update in place if found.
+  var existingEntry = appState.entries.find(function(e){ return e.type === 'worksheet' && e.worksheetKey === currentWorksheetKey; });
+  if(existingEntry){
+    existingEntry.date = new Date().toISOString();
+    saveState();
+    if(existingEntry.id && currentUser && currentUser.id){
+      sb.from('entries').update({ created_at: existingEntry.date }).eq('id', existingEntry.id).then(function(result){
+        if(result.error) console.error('worksheet entry update failed:', result.error);
+      });
+    }
+  } else {
+    var entry = {
+      date: new Date().toISOString(), type:'worksheet', moods:[], text:'',
+      worksheetName: w.name, categoryName: cat.name, color: cat.color,
+      worksheetKey: currentWorksheetKey,
+      sharedWithTherapist: false
+    };
+    appState.entries.push(entry);
+    saveState();
+    saveEntryToSupabase(entry);
+  }
   upsertWorksheetResponse(currentWorksheetKey, currentWorksheetCategory, data);
   showToast('Saved');
   openWorksheetCategory(currentWorksheetCategory);
