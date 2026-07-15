@@ -1919,7 +1919,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260715173413';
+  var CURRENT_BUILD = '20260715174418';
   function checkForUpdate(){
     // Safety guard: reload AT MOST ONCE per session, no matter what. Without this, a mistake
     // where version.json and the HTML's own build ID get out of sync (e.g. one gets updated
@@ -3504,10 +3504,12 @@ document.getElementById('therapistSelectBackBtn').onclick = function(){
 // leather "Treasures of [Name]" cover that opens like a book. Per direct correction: this
 // belongs on the Journal SECTION entry point (the bottom-nav Journal tab, landing on the
 // redesigned index of past entries), not on the quick mood-bubble-to-writing flow reached from
-// Home -- that one stays completely normal, no book styling at all. Per direct correction:
-// shows every time the Journal tab is tapped, not just once per session -- removed the earlier
-// once-per-session gating. Still tap-anywhere, and prefers-reduced-motion still bypasses it
-// completely, landing straight on the index -- that part wasn't in question.
+// Home -- that one stays completely normal, no book styling at all. Shows every time the
+// Journal tab is tapped, per direct correction (no longer once-per-session). Interaction is a
+// swipe open (left-to-right, like actually opening a cover) rather than a tap, per direct
+// correction -- tracked via pointer events so it works the same for touch and mouse. A generous
+// threshold (60px) so it doesn't need to be a perfect, deliberate gesture. prefers-reduced-
+// motion still bypasses the cover completely, landing straight on the index.
 function enterJournalSection(){
   showOnly('panel-history');
   renderHistory();
@@ -3517,7 +3519,11 @@ function enterJournalSection(){
   }
   document.getElementById('journalCoverName').textContent = getDisplayName() || 'You';
   var stage = document.getElementById('journalCoverStage');
-  var cover = document.getElementById('journalCoverPanel');
+  var oldCover = document.getElementById('journalCoverPanel');
+  // Runs every time now (no longer once-per-session), so the cover's listeners would otherwise
+  // accumulate on repeat visits -- cloning strips any previously-attached listeners cleanly.
+  var cover = oldCover.cloneNode(true);
+  oldCover.parentNode.replaceChild(cover, oldCover);
   cover.classList.remove('opening');
   stage.style.display = 'flex';
   var opened = false;
@@ -3527,8 +3533,20 @@ function enterJournalSection(){
     cover.classList.add('opening');
     setTimeout(function(){ stage.style.display = 'none'; }, 1300);
   };
-  cover.onclick = openCover;
-  stage.onclick = openCover;
+  var swipeStartX = null;
+  var onPointerDown = function(ev){ swipeStartX = (ev.touches ? ev.touches[0].clientX : ev.clientX); };
+  var onPointerMove = function(ev){
+    if(swipeStartX === null || opened) return;
+    var currentX = (ev.touches ? ev.touches[0].clientX : ev.clientX);
+    if(currentX - swipeStartX > 60) openCover();
+  };
+  var onPointerUp = function(){ swipeStartX = null; };
+  cover.addEventListener('touchstart', onPointerDown, {passive:true});
+  cover.addEventListener('touchmove', onPointerMove, {passive:true});
+  cover.addEventListener('touchend', onPointerUp);
+  cover.addEventListener('pointerdown', onPointerDown);
+  cover.addEventListener('pointermove', onPointerMove);
+  cover.addEventListener('pointerup', onPointerUp);
 }
 document.getElementById('continueBtn').onclick = function(){
   var dots = document.getElementById('journalDots');
@@ -3541,6 +3559,8 @@ document.getElementById('continueBtn').onclick = function(){
   document.getElementById('panel-bubbles').style.display = 'none';
   document.getElementById('panel-journal').style.display = 'block';
   document.getElementById('startingEntryBanner').style.display = 'none';
+  document.querySelector('.home-hero').style.display = '';
+  document.getElementById('homeUpdatesBanner').style.display = '';
   if(journalBubblesEntryContext === 'journalAdd'){
     var panel = document.getElementById('panel-journal');
     panel.classList.remove('page-flip-in');
@@ -4339,6 +4359,8 @@ document.getElementById('navHome').onclick = function(){
   showOnly('panel-bubbles');
   setActiveNav('navHome');
   document.getElementById('startingEntryBanner').style.display = 'none';
+  document.querySelector('.home-hero').style.display = '';
+  document.getElementById('homeUpdatesBanner').style.display = '';
 };
 
 document.getElementById('navTasks').onclick = function(){
@@ -4368,15 +4390,18 @@ document.getElementById('choiceJournalBtn').onclick = function(){
   // stays "completely normal" either way), just tagging which entry point this came from so
   // the eventual transition into the writing page can apply the flip-open animation.
   //
-  // Real bug found afterward: panel-bubbles IS the Home page's own content -- showing it here
-  // with no other change looked exactly like being sent to Home, since visually it's the
-  // identical screen. There's an existing (previously unused) startingEntryBanner built for
-  // exactly this situation -- activating it here, plus correctly keeping the bottom nav on
-  // Journal instead of leaving it wherever it was.
+  // Real bug found afterward (and confirmed still broken on a second report -- the banner
+  // alone wasn't the actual fix): panel-bubbles IS the Home page's own content, including the
+  // big hero image, greeting, and Book a Session button -- adding a banner ON TOP of all that
+  // didn't stop the rest of Home's content from still being fully visible underneath, so it
+  // still looked like Home. Now actually hides the hero block itself, not just decorating
+  // around it, and restores it when leaving this flow (continueBtn below, and normal Home nav).
   journalBubblesEntryContext = 'journalAdd';
   selected.slice().forEach(function(b){ if(b.el) b.el.click(); }); // clear any previous mood selection
   document.getElementById('continueBtn').style.display = 'none';
   document.getElementById('startingEntryBanner').style.display = 'flex';
+  document.querySelector('.home-hero').style.display = 'none';
+  document.getElementById('homeUpdatesBanner').style.display = 'none';
   showOnly('panel-bubbles');
   setActiveNav('navJournal');
 };
