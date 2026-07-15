@@ -1440,6 +1440,7 @@
       Add a new page
     </button>
     <div id="historyList" style="max-height:420px;overflow-y:auto;"></div>
+    <button id="historyArchiveToggleBtn" style="display:none;width:100%;margin-top:14px;padding:11px;border-radius:10px;border:1px solid #D9C9A0;background:transparent;color:#6B5017;font-size:12px;font-weight:700;cursor:pointer;font-family:Georgia,serif;"></button>
   </div>
 
   <div id="journalAddChoiceOverlay" class="share-overlay" style="display:none;">
@@ -1930,7 +1931,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260715224122';
+  var CURRENT_BUILD = '20260715225327';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -3292,7 +3293,7 @@ function loadUserDataFromSupabase(){
         id: row.id, date: row.created_at, moods: row.moods || [], text: row.text || '',
         type: row.type, worksheetName: row.worksheet_name, categoryName: row.category_name,
         color: row.category_color, sharedWithTherapist: row.shared_with_therapist,
-        worksheetKey: row.worksheet_key
+        worksheetKey: row.worksheet_key, archived: row.archived || false
       };
     });
 
@@ -4396,6 +4397,10 @@ document.getElementById('navJournal').onclick = function(){
   enterJournalSection();
 };
 
+document.getElementById('historyArchiveToggleBtn').onclick = function(){
+  historyShowingArchived = !historyShowingArchived;
+  renderHistory();
+};
 document.getElementById('journalAddNewBtn').onclick = function(){
   document.getElementById('journalAddChoiceOverlay').style.display = 'flex';
 };
@@ -4406,27 +4411,20 @@ var quickJournalSelected = [];
 var journalBubblesEntryContext = 'home';
 document.getElementById('choiceJournalBtn').onclick = function(){
   document.getElementById('journalAddChoiceOverlay').style.display = 'none';
-  // Real fix: "Add a new page" used to lead to Quick Journal, not the actual full writing
-  // experience (vintage paper, mood picker) -- per direct correction, this should flip open a
-  // brand new page instead. Reuses the same mood-bubble picker Home already uses (that part
-  // stays "completely normal" either way), just tagging which entry point this came from so
-  // the eventual transition into the writing page can apply the flip-open animation.
-  //
-  // Real bug found afterward (and confirmed still broken on a second report -- the banner
-  // alone wasn't the actual fix): panel-bubbles IS the Home page's own content, including the
-  // big hero image, greeting, and Book a Session button -- adding a banner ON TOP of all that
-  // didn't stop the rest of Home's content from still being fully visible underneath, so it
-  // still looked like Home. Now actually hides the hero block itself, not just decorating
-  // around it, and restores it when leaving this flow (continueBtn below, and normal Home nav).
-  journalBubblesEntryContext = 'journalAdd';
-  selected.slice().forEach(function(b){ if(b.el) b.el.click(); }); // clear any previous mood selection
-  document.getElementById('continueBtn').style.display = 'none';
-  document.getElementById('startingEntryBanner').style.display = 'flex';
-  document.querySelector('.home-hero').style.display = 'none';
-  document.getElementById('homeExtraContent').style.display = 'none';
-  document.getElementById('homeUpdatesBanner').style.display = 'none';
-  showOnly('panel-bubbles');
+  // Per direct correction: bubbles shouldn't show at all for this flow -- go directly to the
+  // writing page, full stop. Mood-picking here was adding a step nobody asked for; the Home
+  // mood-check-in flow (bubbles -> Continue) is untouched and still exists on its own for
+  // anyone who wants that ritual specifically.
+  editingEntryRef = null;
+  document.getElementById('journalDots').innerHTML = '';
+  document.getElementById('journalText').value = '';
+  document.getElementById('saveNoteBtn').textContent = 'Save entry';
+  showOnly('panel-journal');
   setActiveNav('navJournal');
+  var panel = document.getElementById('panel-journal');
+  panel.classList.remove('page-flip-in');
+  void panel.offsetWidth;
+  panel.classList.add('page-flip-in');
 };
 document.getElementById('quickJournalBackBtn').onclick = function(){
   var saved = commitQuickJournalIfDirty();
@@ -4635,17 +4633,25 @@ document.getElementById('navYou').onclick = function(){
   setActiveNav('navYou');
 };
 
+var historyShowingArchived = false;
 function renderHistory(){
   var list = document.getElementById('historyList');
   list.innerHTML = '';
-  if(appState.entries.length === 0){
+  var visibleEntries = appState.entries.filter(function(e){ return !!e.archived === historyShowingArchived; });
+  var toggleBtn = document.getElementById('historyArchiveToggleBtn');
+  if(toggleBtn){
+    var archivedCount = appState.entries.filter(function(e){ return e.archived; }).length;
+    toggleBtn.textContent = historyShowingArchived ? '← Back to entries' : 'Show archived entries ('+archivedCount+')';
+    toggleBtn.style.display = (historyShowingArchived || archivedCount > 0) ? 'block' : 'none';
+  }
+  if(visibleEntries.length === 0){
     var empty = document.createElement('p');
     empty.style.cssText = 'text-align:center;color:#9AABCE;font-size:13px;margin-top:40px;';
-    empty.textContent = "Nothing here yet — your entries will show up once you save one.";
+    empty.textContent = historyShowingArchived ? "No archived entries." : "Nothing here yet — your entries will show up once you save one.";
     list.appendChild(empty);
     return;
   }
-  appState.entries.forEach(function(e, idx){
+  visibleEntries.forEach(function(e, idx){
     var card = document.createElement('div');
     card.className = 'index-entry-row';
     card.style.cssText = 'padding:12px 6px;cursor:pointer;border-radius:6px;transition:background-color 0.15s, transform 0.1s;animation:indexEntryIn 0.35s ease-out both;animation-delay:'+Math.min(idx*0.04, 0.4)+'s;';
@@ -4747,6 +4753,24 @@ function renderHistory(){
       };
       actionsRow.appendChild(shareImageBtn);
     }
+
+    // Archive instead of delete, per direct request -- archived entries move out of the main
+    // index but stay fully recoverable via the toggle button below, rather than being
+    // permanently destroyed. Works for both journal entries and worksheets.
+    var archiveBtn = document.createElement('button');
+    archiveBtn.textContent = historyShowingArchived ? 'Unarchive' : 'Archive';
+    archiveBtn.style.cssText = 'background:none;border:none;color:'+(historyShowingArchived ? '#3B8F63' : '#C77B7B')+';font-size:10px;font-weight:700;cursor:pointer;padding:0;text-decoration:underline;';
+    archiveBtn.onclick = function(ev){
+      ev.stopPropagation();
+      e.archived = !historyShowingArchived;
+      saveState();
+      if(e.id) sb.from('entries').update({ archived: e.archived }).eq('id', e.id).then(function(result){
+        if(result.error){ e.archived = !e.archived; saveState(); showToast("Couldn't update — please try again"); renderHistory(); }
+      });
+      showToast(historyShowingArchived ? 'Entry restored' : 'Entry archived');
+      renderHistory();
+    };
+    actionsRow.appendChild(archiveBtn);
 
     if(actionsRow.children.length > 0) card.appendChild(actionsRow);
     list.appendChild(card);
@@ -4966,6 +4990,13 @@ function sendTestPushNotification(){
 }
 
 // ---- Real voice-to-text via the browser's Speech Recognition API (free, but Chrome/Android-reliable only) ----
+// Real, confirmed cause of "mic doesn't work": the Web Speech API (SpeechRecognition /
+// webkitSpeechRecognition) that this used exclusively before is not implemented in Android's
+// WebView at all -- it only works in the standalone Chrome browser app, not inside a Capacitor
+// WebView, which is what this app actually runs in on a real phone. Added the real native
+// plugin (@capacitor-community/speech-recognition, which uses Android's actual on-device
+// SpeechRecognizer) for the native app, keeping the old Web Speech API path only as a fallback
+// for desktop/browser testing where it does work.
 var SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
 var recognition = null;
 var isRecording = false;
@@ -4991,6 +5022,45 @@ if(SpeechRec){
 }
 
 document.getElementById('micBtn').onclick = function(){
+  var btn = this;
+  var NativeSpeech = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SpeechRecognition;
+  if(IS_NATIVE_APP && NativeSpeech){
+    if(isRecording){
+      NativeSpeech.stop();
+      isRecording = false;
+      btn.style.opacity = '1';
+      return;
+    }
+    NativeSpeech.available().then(function(result){
+      if(!result.available){
+        showToast("Voice input isn't available on this device.");
+        return;
+      }
+      return NativeSpeech.requestPermissions().then(function(perm){
+        if(perm.speechRecognition !== 'granted'){
+          showToast('Microphone permission is needed for voice input — check your phone Settings.');
+          return;
+        }
+        NativeSpeech.removeAllListeners().then(function(){
+          NativeSpeech.addListener('partialResults', function(data){
+            if(!data.matches || !data.matches.length) return;
+            var ta = document.getElementById('journalText');
+            ta.value = (ta.value ? ta.value.replace(/\s*$/, ' ') : '') + data.matches[0];
+          });
+          isRecording = true;
+          btn.style.opacity = '0.6';
+          NativeSpeech.start({ language: 'en-US', partialResults: true, popup: false }).catch(function(){
+            isRecording = false;
+            btn.style.opacity = '1';
+            showToast("Couldn't start voice input — please try again");
+          });
+        });
+      });
+    }).catch(function(){
+      showToast("Couldn't start voice input on this device");
+    });
+    return;
+  }
   if(!SpeechRec){
     alert("Voice input isn't supported in this browser — try Chrome on Android, or type instead.");
     return;
