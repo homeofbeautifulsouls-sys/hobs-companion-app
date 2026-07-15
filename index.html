@@ -119,6 +119,43 @@
       radial-gradient(ellipse at center, transparent 50%, rgba(120,95,50,0.09) 100%);
     border-color: #D9C9A0 !important;
   }
+  /* "Treasures of [Name]" leather book cover -- shown once per session before the main journal
+     writing page, per direct request. Tap anywhere to open; the whole cover rotates away like a
+     book door swinging open (perspective + rotateY on the parent), landing on the actual
+     writing page underneath. Kept short and interruptible: the transition itself is under a
+     second, and prefers-reduced-motion skips straight to the writing page with no cover at all,
+     since an unskippable flourish is exactly the kind of friction this app tries to avoid.
+  */
+  #journalCoverStage { perspective: 1400px; }
+  #journalCoverPanel {
+    background: radial-gradient(ellipse at 30% 20%, #3E2A1C 0%, #2A1B10 55%, #1C1109 100%);
+    border-radius: 6px;
+    box-shadow: 0 18px 40px rgba(0,0,0,0.45), inset 0 0 60px rgba(0,0,0,0.5);
+    transform-origin: left center;
+    transition: transform 0.7s cubic-bezier(.61,.06,.4,.99), opacity 0.7s ease;
+    cursor: pointer;
+  }
+  #journalCoverPanel.opening { transform: rotateY(-100deg); opacity: 0; }
+  .cover-border {
+    border: 1.5px solid #C9A227; border-radius: 4px; position: absolute; inset: 14px;
+    pointer-events: none;
+  }
+  .cover-border::before {
+    content: ''; position: absolute; inset: 6px; border: 1px solid rgba(201,162,39,0.5); border-radius: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #journalCoverPanel { transition: none !important; }
+    #panel-journal.page-flip-in { animation: none !important; }
+  }
+  /* Short flip transition when opening a specific past entry to edit -- deliberately NOT the
+     full cover animation (that's only for a brand new entry), and deliberately not a literal
+     flip-through-every-intervening-page effect either, since that gets slow and gimmicky the
+     further back an entry is. Just a quick "turned to this page" feel, ~350ms. */
+  @keyframes pageFlipIn {
+    0% { transform: perspective(1000px) rotateY(-12deg); opacity: 0.4; }
+    100% { transform: perspective(1000px) rotateY(0deg); opacity: 1; }
+  }
+  #panel-journal.page-flip-in { animation: pageFlipIn 0.35s ease-out; transform-origin: left center; }
   .mood-chip-cal { display:flex; align-items:center; gap:5px; padding:5px 10px; border-radius:20px; font-size:11px; font-weight:600; color:#2A2013; }
   .empty-mood { font-size:11px; color:#B0AA98; margin-bottom:16px; }
   .task-item { background:#FFFFFF; border:1px solid #EEE0C4; border-radius:14px; padding:12px 14px; margin-bottom:8px; transition:background 0.2s; }
@@ -1208,6 +1245,21 @@
     <button id="worksheetSaveBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:15px;font-weight:700;cursor:pointer;margin-top:10px;">Save</button>
   </div>
 
+  <div id="journalCoverStage" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:75;background:#1C1109;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;">
+    <div id="journalCoverPanel" style="width:100%;max-width:340px;aspect-ratio:3/4;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px;box-sizing:border-box;">
+      <div class="cover-border"></div>
+      <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#C9A227" stroke-width="1" style="margin-bottom:18px;">
+        <circle cx="12" cy="12" r="9"/>
+        <path d="M12 3v3M12 18v3M3 12h3M18 12h3" stroke-width="1.2"/>
+        <path d="M12 7l2.2 4.8L19 14l-4.8 2.2L12 21l-2.2-4.8L5 14l4.8-2.2z" fill="#C9A227" stroke="none"/>
+      </svg>
+      <p style="font-family:Georgia,serif;letter-spacing:0.14em;font-size:19px;color:#D9BE72;margin:0;text-align:center;">TREASURES</p>
+      <p style="font-family:Georgia,serif;letter-spacing:0.2em;font-size:12px;color:#B89A56;margin:6px 0 14px;">OF</p>
+      <p id="journalCoverName" style="font-family:Georgia,serif;font-size:16px;color:#F0DFA8;margin:0;text-align:center;border-bottom:1px solid rgba(201,162,39,0.5);padding-bottom:8px;min-width:60%;"></p>
+      <p style="position:absolute;bottom:26px;font-size:10px;color:#8A7448;letter-spacing:0.08em;">tap to open</p>
+    </div>
+  </div>
+
   <div class="content" id="panel-journal" style="display:none;">
     <button id="backBtn" style="background:none;border:none;cursor:pointer;padding:0;margin-bottom:14px;color:#5C6B94;display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600;">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
@@ -1837,7 +1889,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260715132008';
+  var CURRENT_BUILD = '20260715133638';
   function checkForUpdate(){
     // Safety guard: reload AT MOST ONCE per session, no matter what. Without this, a mistake
     // where version.json and the HTML's own build ID get out of sync (e.g. one gets updated
@@ -3418,6 +3470,33 @@ document.getElementById('therapistSelectBackBtn').onclick = function(){
   if(therapistSelectReturnTo === 'profile'){ setActiveNav('navYou'); } else { setActiveNav('navHome'); }
 };
 
+// Shown once per session, right before the actual writing page -- per direct request, a
+// leather "Treasures of [Name]" cover that opens like a book. Kept deliberately short and
+// always skippable (tap anywhere), and prefers-reduced-motion bypasses it completely, landing
+// straight on the writing page -- an unskippable flourish would work against exactly the kind
+// of low-friction access this app otherwise protects.
+var journalCoverShownThisSession = false;
+function revealJournalPanel(){
+  showOnly('panel-journal');
+  if(journalCoverShownThisSession || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)){
+    return;
+  }
+  journalCoverShownThisSession = true;
+  document.getElementById('journalCoverName').textContent = getDisplayName() || 'You';
+  var stage = document.getElementById('journalCoverStage');
+  var cover = document.getElementById('journalCoverPanel');
+  cover.classList.remove('opening');
+  stage.style.display = 'flex';
+  var opened = false;
+  var openCover = function(){
+    if(opened) return;
+    opened = true;
+    cover.classList.add('opening');
+    setTimeout(function(){ stage.style.display = 'none'; }, 720);
+  };
+  cover.onclick = openCover;
+  stage.onclick = openCover;
+}
 document.getElementById('continueBtn').onclick = function(){
   var dots = document.getElementById('journalDots');
   dots.innerHTML = '';
@@ -3426,8 +3505,7 @@ document.getElementById('continueBtn').onclick = function(){
     d.style.cssText = 'width:26px;height:26px;border-radius:50%;background:'+b.base+';border:2px solid #F0E9D8;';
     dots.appendChild(d);
   });
-  document.getElementById('panel-bubbles').style.display = 'none';
-  document.getElementById('panel-journal').style.display = 'block';
+  revealJournalPanel();
 };
 
 document.getElementById('backBtn').onclick = function(){
@@ -3930,7 +4008,7 @@ var ASSISTANT_COMMANDS = [
   { character: 'po', tier: 'client', patterns: [/connect/i, /\btherapist\b/i, /book.*(session|professional|someone|appointment)/i, /find.*(help|therapist|someone)/i, /(i want|i need|i'?d like).*(psychiatrist|counsel|professional)/i, /talk.*(professional|someone qualified)/i],
     reply: "Let's get you someone real to talk to.", action: assistantGoTo(function(){ renderTeamList(); showOnly('panel-team'); }, 'navYou') },
   { character: 'po', tier: 'client', patterns: [/\bjournal\b/i, /(want|need|let'?s|gonna).*write/i, /write.*(down|entry|about)/i, /new entry/i],
-    reply: "Say less — here you go.", action: assistantGoTo(function(){ showOnly('panel-journal'); }, 'navJournal') },
+    reply: "Say less — here you go.", action: assistantGoTo(function(){ revealJournalPanel(); }, 'navJournal') },
   { character: 'po', tier: 'client', patterns: [/\btask/i, /\bcalendar\b/i, /\bschedule\b/i, /to.?do/i, /add.*(step|thing)/i],
     reply: "On it.", action: assistantGoTo(function(){ showOnly('panel-calendar'); renderCalendar(); }, 'navTasks') },
   { character: 'po', tier: 'therapist', patterns: [/log.*(appointment|session)/i],
@@ -4008,7 +4086,7 @@ function assistantAskTopic(){
     }},
     { label: 'I just need to write it out', onSelect: function(){
       renderAssistantMessage('bob', "Then let's get it down somewhere safe.");
-      setTimeout(assistantGoTo(function(){ showOnly('panel-journal'); }, 'navJournal'), 500);
+      setTimeout(assistantGoTo(function(){ revealJournalPanel(); }, 'navJournal'), 500);
     }},
     { label: "I'm feeling overwhelmed", onSelect: function(){
       renderAssistantMessage('bob', "Okay. Let's slow things down together first.");
@@ -4107,7 +4185,7 @@ function processAssistantInput(text){
       setTimeout(assistantGoTo(function(){ renderTeamList(); showOnly('panel-team'); }, 'navYou'), 500);
     } else if(/write|journal|down/i.test(text)){
       renderAssistantMessage('bob', "Then let's get it down somewhere safe.");
-      setTimeout(assistantGoTo(function(){ showOnly('panel-journal'); }, 'navJournal'), 500);
+      setTimeout(assistantGoTo(function(){ revealJournalPanel(); }, 'navJournal'), 500);
     } else if(/overwhelm|calm|breathe|anxious/i.test(text)){
       renderAssistantMessage('bob', "Okay. Let's slow things down together first.");
       setTimeout(assistantGoTo(function(){ renderGroundingList(); showOnly('panel-grounding'); }, 'navBreathe'), 500);
@@ -4610,7 +4688,13 @@ function openEditEntrySheet(entry){
   document.getElementById('journalText').value = entry.text || '';
   toClearAndReselectMoodsForEdit(entry.moods || []);
   document.getElementById('saveNoteBtn').textContent = 'Save changes';
+  // Opening a specific past entry skips the cover entirely (the book is already "open" at this
+  // point) and instead gets a quick flip transition -- a short "turned to this page" feel.
   showOnly('panel-journal');
+  var panel = document.getElementById('panel-journal');
+  panel.classList.remove('page-flip-in');
+  void panel.offsetWidth; // force reflow so the animation reliably restarts on repeated edits
+  panel.classList.add('page-flip-in');
 }
 function toClearAndReselectMoodsForEdit(moods){
   // Clear whatever's currently selected in the mood picker, then re-select to match this entry.
