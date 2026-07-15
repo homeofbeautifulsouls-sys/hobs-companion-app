@@ -119,12 +119,16 @@
       radial-gradient(ellipse at center, transparent 50%, rgba(120,95,50,0.09) 100%);
     border-color: #D9C9A0 !important;
   }
-  /* "Treasures of [Name]" leather book cover -- shown once per session before the main journal
-     writing page, per direct request. Tap anywhere to open; the whole cover rotates away like a
-     book door swinging open (perspective + rotateY on the parent), landing on the actual
-     writing page underneath. Kept short and interruptible: the transition itself is under a
-     second, and prefers-reduced-motion skips straight to the writing page with no cover at all,
-     since an unskippable flourish is exactly the kind of friction this app tries to avoid.
+  /* "Treasures of [Name]" leather book cover -- shown once per session before the journal
+     section's index page. Tap anywhere to open. Rebuilt after direct feedback that the first
+     version's quick rotate felt like "an uncomfortable blink" rather than a book actually
+     opening -- real covers have weight, so this uses a multi-stage keyframe animation instead
+     of a flat transition: a brief moment of resistance as it first lifts, then it swings
+     through, then settles rather than stopping abruptly. Slower now (1.3s vs the original
+     0.7s) specifically to read as deliberate rather than rushed, while staying well short of
+     anything that risks feeling like a wait. Still fully interruptible in spirit (a single tap
+     starts it and it can't be re-triggered mid-flight), and prefers-reduced-motion skips it
+     completely, landing straight on the index page.
   */
   #journalCoverStage { perspective: 1400px; }
   #journalCoverPanel {
@@ -132,10 +136,15 @@
     border-radius: 6px;
     box-shadow: 0 18px 40px rgba(0,0,0,0.45), inset 0 0 60px rgba(0,0,0,0.5);
     transform-origin: left center;
-    transition: transform 0.7s cubic-bezier(.61,.06,.4,.99), opacity 0.7s ease;
     cursor: pointer;
   }
-  #journalCoverPanel.opening { transform: rotateY(-100deg); opacity: 0; }
+  @keyframes coverOpen {
+    0%   { transform: rotateY(0deg);   box-shadow: 0 18px 40px rgba(0,0,0,0.45), inset 0 0 60px rgba(0,0,0,0.5); }
+    12%  { transform: rotateY(-6deg);  box-shadow: 0 22px 50px rgba(0,0,0,0.5), inset 0 0 60px rgba(0,0,0,0.5); }
+    75%  { transform: rotateY(-98deg); opacity: 0.2; box-shadow: 0 6px 20px rgba(0,0,0,0.2), inset 0 0 60px rgba(0,0,0,0.5); }
+    100% { transform: rotateY(-100deg); opacity: 0; }
+  }
+  #journalCoverPanel.opening { animation: coverOpen 1.3s cubic-bezier(.5,.02,.4,1) forwards; }
   .cover-border {
     border: 1.5px solid #C9A227; border-radius: 4px; position: absolute; inset: 14px;
     pointer-events: none;
@@ -144,18 +153,20 @@
     content: ''; position: absolute; inset: 6px; border: 1px solid rgba(201,162,39,0.5); border-radius: 2px;
   }
   @media (prefers-reduced-motion: reduce) {
-    #journalCoverPanel { transition: none !important; }
-    #panel-journal.page-flip-in { animation: none !important; }
+    #journalCoverPanel.opening { animation: none !important; }
+    #panel-journal.page-flip-in, #panel-history.page-flip-in { animation: none !important; }
   }
-  /* Short flip transition when opening a specific past entry to edit -- deliberately NOT the
-     full cover animation (that's only for a brand new entry), and deliberately not a literal
-     flip-through-every-intervening-page effect either, since that gets slow and gimmicky the
-     further back an entry is. Just a quick "turned to this page" feel, ~350ms. */
+  /* Flip transition for opening a specific past entry, or flipping open a brand new page from
+     the index -- same "no blink" fix applied here too: slowed from 0.35s to 0.6s and given a
+     bit more rotation depth so it reads as an actual page turning, not a flicker. Deliberately
+     still short relative to the cover-open animation, since this one repeats far more often
+     (every entry, every new page) and stacking two heavy animations back to back would tip
+     back into feeling slow rather than deliberate. */
   @keyframes pageFlipIn {
-    0% { transform: perspective(1000px) rotateY(-12deg); opacity: 0.4; }
+    0%   { transform: perspective(1000px) rotateY(-18deg); opacity: 0.3; }
     100% { transform: perspective(1000px) rotateY(0deg); opacity: 1; }
   }
-  #panel-journal.page-flip-in { animation: pageFlipIn 0.35s ease-out; transform-origin: left center; }
+  #panel-journal.page-flip-in, #panel-history.page-flip-in { animation: pageFlipIn 0.6s cubic-bezier(.22,.61,.36,1); transform-origin: left center; }
   .mood-chip-cal { display:flex; align-items:center; gap:5px; padding:5px 10px; border-radius:20px; font-size:11px; font-weight:600; color:#2A2013; }
   .empty-mood { font-size:11px; color:#B0AA98; margin-bottom:16px; }
   .task-item { background:#FFFFFF; border:1px solid #EEE0C4; border-radius:14px; padding:12px 14px; margin-bottom:8px; transition:background 0.2s; }
@@ -1391,12 +1402,12 @@
     <button id="quickJournalSaveBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:15px;font-weight:700;cursor:pointer;">Save Entry</button>
   </div>
 
-  <div class="content" id="panel-history" style="display:none;">
-    <p class="prompt-title" style="text-align:center;">Your entries</p>
-    <p class="prompt-sub" style="text-align:center;margin-bottom:16px;">Whatever you've put down, whenever you were ready.</p>
-    <button id="journalAddNewBtn" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:13.5px;font-weight:700;cursor:pointer;margin-bottom:16px;">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-      Add new
+  <div class="content vintage-paper" id="panel-history" style="display:none;">
+    <p style="font-family:Georgia,serif;font-size:23px;color:#2A2013;text-align:center;letter-spacing:0.05em;margin:4px 0 2px;">Index</p>
+    <p style="text-align:center;font-size:11.5px;color:#6B5B3A;font-style:italic;margin:0 0 20px;">Whatever you've put down, whenever you were ready.</p>
+    <button id="journalAddNewBtn" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;border-radius:10px;border:1px solid #C9A227;background:rgba(255,255,255,0.35);color:#6B5017;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:20px;font-family:Georgia,serif;letter-spacing:0.03em;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+      Add a new page
     </button>
     <div id="historyList" style="max-height:420px;overflow-y:auto;"></div>
   </div>
@@ -1889,7 +1900,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260715133638';
+  var CURRENT_BUILD = '20260715171652';
   function checkForUpdate(){
     // Safety guard: reload AT MOST ONCE per session, no matter what. Without this, a mistake
     // where version.json and the HTML's own build ID get out of sync (e.g. one gets updated
@@ -3471,13 +3482,16 @@ document.getElementById('therapistSelectBackBtn').onclick = function(){
 };
 
 // Shown once per session, right before the actual writing page -- per direct request, a
-// leather "Treasures of [Name]" cover that opens like a book. Kept deliberately short and
-// always skippable (tap anywhere), and prefers-reduced-motion bypasses it completely, landing
-// straight on the writing page -- an unskippable flourish would work against exactly the kind
-// of low-friction access this app otherwise protects.
+// leather "Treasures of [Name]" cover that opens like a book. Per direct correction: this
+// belongs on the Journal SECTION entry point (the bottom-nav Journal tab, landing on the
+// redesigned index of past entries), not on the quick mood-bubble-to-writing flow reached from
+// Home -- that one stays completely normal, no book styling at all. Kept skippable (tap
+// anywhere) and prefers-reduced-motion bypasses it completely, landing straight on the index.
 var journalCoverShownThisSession = false;
-function revealJournalPanel(){
-  showOnly('panel-journal');
+function enterJournalSection(){
+  showOnly('panel-history');
+  renderHistory();
+  setActiveNav('navJournal');
   if(journalCoverShownThisSession || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)){
     return;
   }
@@ -3492,7 +3506,7 @@ function revealJournalPanel(){
     if(opened) return;
     opened = true;
     cover.classList.add('opening');
-    setTimeout(function(){ stage.style.display = 'none'; }, 720);
+    setTimeout(function(){ stage.style.display = 'none'; }, 1300);
   };
   cover.onclick = openCover;
   stage.onclick = openCover;
@@ -3505,7 +3519,15 @@ document.getElementById('continueBtn').onclick = function(){
     d.style.cssText = 'width:26px;height:26px;border-radius:50%;background:'+b.base+';border:2px solid #F0E9D8;';
     dots.appendChild(d);
   });
-  revealJournalPanel();
+  document.getElementById('panel-bubbles').style.display = 'none';
+  document.getElementById('panel-journal').style.display = 'block';
+  if(journalBubblesEntryContext === 'journalAdd'){
+    var panel = document.getElementById('panel-journal');
+    panel.classList.remove('page-flip-in');
+    void panel.offsetWidth;
+    panel.classList.add('page-flip-in');
+    journalBubblesEntryContext = 'home';
+  }
 };
 
 document.getElementById('backBtn').onclick = function(){
@@ -4008,7 +4030,7 @@ var ASSISTANT_COMMANDS = [
   { character: 'po', tier: 'client', patterns: [/connect/i, /\btherapist\b/i, /book.*(session|professional|someone|appointment)/i, /find.*(help|therapist|someone)/i, /(i want|i need|i'?d like).*(psychiatrist|counsel|professional)/i, /talk.*(professional|someone qualified)/i],
     reply: "Let's get you someone real to talk to.", action: assistantGoTo(function(){ renderTeamList(); showOnly('panel-team'); }, 'navYou') },
   { character: 'po', tier: 'client', patterns: [/\bjournal\b/i, /(want|need|let'?s|gonna).*write/i, /write.*(down|entry|about)/i, /new entry/i],
-    reply: "Say less — here you go.", action: assistantGoTo(function(){ revealJournalPanel(); }, 'navJournal') },
+    reply: "Say less — here you go.", action: assistantGoTo(function(){ showOnly('panel-journal'); }, 'navJournal') },
   { character: 'po', tier: 'client', patterns: [/\btask/i, /\bcalendar\b/i, /\bschedule\b/i, /to.?do/i, /add.*(step|thing)/i],
     reply: "On it.", action: assistantGoTo(function(){ showOnly('panel-calendar'); renderCalendar(); }, 'navTasks') },
   { character: 'po', tier: 'therapist', patterns: [/log.*(appointment|session)/i],
@@ -4086,7 +4108,7 @@ function assistantAskTopic(){
     }},
     { label: 'I just need to write it out', onSelect: function(){
       renderAssistantMessage('bob', "Then let's get it down somewhere safe.");
-      setTimeout(assistantGoTo(function(){ revealJournalPanel(); }, 'navJournal'), 500);
+      setTimeout(assistantGoTo(function(){ showOnly('panel-journal'); }, 'navJournal'), 500);
     }},
     { label: "I'm feeling overwhelmed", onSelect: function(){
       renderAssistantMessage('bob', "Okay. Let's slow things down together first.");
@@ -4185,7 +4207,7 @@ function processAssistantInput(text){
       setTimeout(assistantGoTo(function(){ renderTeamList(); showOnly('panel-team'); }, 'navYou'), 500);
     } else if(/write|journal|down/i.test(text)){
       renderAssistantMessage('bob', "Then let's get it down somewhere safe.");
-      setTimeout(assistantGoTo(function(){ revealJournalPanel(); }, 'navJournal'), 500);
+      setTimeout(assistantGoTo(function(){ showOnly('panel-journal'); }, 'navJournal'), 500);
     } else if(/overwhelm|calm|breathe|anxious/i.test(text)){
       renderAssistantMessage('bob', "Okay. Let's slow things down together first.");
       setTimeout(assistantGoTo(function(){ renderGroundingList(); showOnly('panel-grounding'); }, 'navBreathe'), 500);
@@ -4307,9 +4329,7 @@ document.getElementById('navTasks').onclick = function(){
 document.getElementById('calendarBackBtn').onclick = function(){ showOnly('panel-bubbles'); setActiveNav('navHome'); };
 
 document.getElementById('navJournal').onclick = function(){
-  renderHistory();
-  showOnly('panel-history');
-  setActiveNav('navJournal');
+  enterJournalSection();
 };
 
 document.getElementById('journalAddNewBtn').onclick = function(){
@@ -4319,26 +4339,18 @@ document.getElementById('choiceCancelBtn').onclick = function(){
   document.getElementById('journalAddChoiceOverlay').style.display = 'none';
 };
 var quickJournalSelected = [];
+var journalBubblesEntryContext = 'home';
 document.getElementById('choiceJournalBtn').onclick = function(){
   document.getElementById('journalAddChoiceOverlay').style.display = 'none';
-  quickJournalSelected = [];
-  document.getElementById('quickJournalText').value = '';
-  document.getElementById('quickJournalShareCheck').checked = false;
-  var chipsWrap = document.getElementById('quickJournalMoodChips');
-  chipsWrap.innerHTML = '';
-  moods.forEach(function(m){
-    var color = 'hsl('+m.h+','+m.s+'%,'+m.l+'%)';
-    var chip = document.createElement('button');
-    chip.textContent = m.label;
-    chip.style.cssText = 'padding:10px 16px;border-radius:20px;border:2px solid '+color+';background:#FFFFFF;color:#2A2013;font-size:13px;font-weight:600;cursor:pointer;';
-    chip.onclick = function(){
-      var idx = quickJournalSelected.indexOf(m.label);
-      if(idx === -1){ quickJournalSelected.push(m.label); chip.style.background = color; chip.style.color = '#fff'; }
-      else { quickJournalSelected.splice(idx,1); chip.style.background = '#FFFFFF'; chip.style.color = '#2A2013'; }
-    };
-    chipsWrap.appendChild(chip);
-  });
-  showOnly('panel-quick-journal');
+  // Real fix: "Add a new page" used to lead to Quick Journal, not the actual full writing
+  // experience (vintage paper, mood picker) -- per direct correction, this should flip open a
+  // brand new page instead. Reuses the same mood-bubble picker Home already uses (that part
+  // stays "completely normal" either way), just tagging which entry point this came from so
+  // the eventual transition into the writing page can apply the flip-open animation.
+  journalBubblesEntryContext = 'journalAdd';
+  selected.slice().forEach(function(b){ if(b.el) b.el.click(); }); // clear any previous mood selection
+  document.getElementById('continueBtn').style.display = 'none';
+  showOnly('panel-bubbles');
 };
 document.getElementById('quickJournalBackBtn').onclick = function(){
   var saved = commitQuickJournalIfDirty();
@@ -4559,58 +4571,52 @@ function renderHistory(){
   }
   appState.entries.forEach(function(e){
     var card = document.createElement('div');
-    card.style.cssText = 'background:#FFFFFF;border:1px solid #EEE0C4;border-radius:14px;padding:14px;margin-bottom:10px;';
-    var dateStr = new Date(e.date).toLocaleDateString(undefined, {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'});
+    card.style.cssText = 'background:rgba(255,255,255,0.4);border-bottom:1px solid rgba(201,162,39,0.35);padding:13px 4px;margin-bottom:2px;cursor:pointer;';
+    var dateStr = new Date(e.date).toLocaleDateString(undefined, {month:'short', day:'numeric'});
 
     if(e.type === 'worksheet'){
       card.innerHTML =
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'+
-          '<span style="font-size:10px;font-weight:800;color:'+e.color+';text-transform:uppercase;letter-spacing:0.03em;">'+e.categoryName+' worksheet</span>'+
-          '<span style="font-size:10px;color:#B8A67A;">'+dateStr+'</span>'+
+        '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;">'+
+          '<p style="font-family:Georgia,serif;font-size:13.5px;color:#4A3A1E;margin:0;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+e.worksheetName+' <span style="font-size:10.5px;color:#8A7448;font-style:italic;">— '+e.categoryName+' worksheet</span></p>'+
+          '<span style="font-size:10.5px;color:#8A7448;white-space:nowrap;">'+dateStr+'</span>'+
         '</div>'+
-        '<p style="font-size:13px;color:#2A2013;font-weight:700;margin:0 0 4px;">'+e.worksheetName+'</p>'+
-        '<p style="font-size:11px;color:#9AABCE;margin:0;">Completed — tap Worksheets to review or update it.</p>'+
-        (e.sharedWithTherapist ? '<p style="font-size:10px;color:#6690D6;margin:8px 0 0;">Shared with your therapist</p>' : '');
+        (e.sharedWithTherapist ? '<p style="font-size:9.5px;color:#6690D6;margin:4px 0 0;">Shared with your therapist</p>' : '');
+      card.onclick = function(){ renderWorksheetCategoryList(); showOnly('panel-worksheets'); };
     } else {
-      var dotsHtml = e.moods.map(function(m){ return '<span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:'+m.color+';margin-right:4px;"></span>'; }).join('');
-      var labelsHtml = e.moods.map(function(m){ return m.label; }).join(', ');
+      // Compact "index" treatment per direct request -- the full entry used to render inline
+      // here; now this is just a snippet (one line, truncated) with the whole row clickable to
+      // open that specific page, flip transition included, rather than showing everything in
+      // the list itself.
+      var snippet = e.text ? e.text.replace(/\s+/g,' ').trim() : '';
+      if(snippet.length > 64) snippet = snippet.slice(0, 64) + '…';
+      var moodStr = e.moods.map(function(m){ return m.label; }).join(', ');
       card.innerHTML =
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'+
-          '<div>'+dotsHtml+'</div>'+
-          '<span style="font-size:10px;color:#B8A67A;">'+dateStr+'</span>'+
+        '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;">'+
+          '<p style="font-family:Georgia,serif;font-size:13.5px;color:#4A3A1E;margin:0;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+
+            (snippet ? snippet.replace(/</g,'&lt;') : '<span style="font-style:italic;color:#A89468;">No note added</span>')+
+          '</p>'+
+          '<span style="font-size:10.5px;color:#8A7448;white-space:nowrap;">'+dateStr+'</span>'+
         '</div>'+
-        (labelsHtml ? '<p style="font-size:11px;color:#9AABCE;margin:0 0 6px;">'+labelsHtml+'</p>' : '')+
-        (e.text ? '<p style="font-size:13px;color:#2A2013;margin:0;white-space:pre-wrap;">'+e.text.replace(/</g,'&lt;')+'</p>' : '<p style="font-size:12px;color:#C7BFA8;margin:0;font-style:italic;">No note added</p>')+
-        (e.sharedWithTherapist ? '<p style="font-size:10px;color:#6690D6;margin:8px 0 0;">Shared with your therapist</p>' : '');
+        (moodStr ? '<p style="font-size:10px;color:#8A7448;margin:3px 0 0;font-style:italic;">'+moodStr+'</p>' : '')+
+        (e.sharedWithTherapist ? '<p style="font-size:9.5px;color:#6690D6;margin:3px 0 0;">Shared with your therapist</p>' : '');
+      card.onclick = function(){ openEditEntrySheet(e); };
     }
 
-    // Was checking specifically for a Therapist-category connection only (appState.userHasTherapist),
-    // meaning someone connected to a Psychiatrist or Peer Caregiver but not a Therapist could
-    // never share an entry at all, even though sharing with whichever professional they're
-    // actually connected to makes just as much sense. Now checks for ANY active connection and
-    // uses whichever professional that actually is.
     var activeConnection = (appState.expertBookings || []).find(function(b){ return b.status === 'active'; });
     var isConnected = document.getElementById('demoHasTherapist').checked || !!activeConnection;
     var connectedProfessionalName = activeConnection ? activeConnection.expert_name : appState.therapistName;
     var actionsRow = document.createElement('div');
-    actionsRow.style.cssText = 'display:flex;gap:14px;margin-top:8px;align-items:center;flex-wrap:wrap;';
+    actionsRow.style.cssText = 'display:flex;gap:14px;margin-top:6px;align-items:center;flex-wrap:wrap;';
 
     if(!e.sharedWithTherapist && isConnected){
       var shareBtn = document.createElement('button');
       shareBtn.textContent = 'Share with ' + (connectedProfessionalName || 'your therapist');
-      shareBtn.style.cssText = 'background:none;border:none;color:#6690D6;font-size:10.5px;font-weight:700;cursor:pointer;padding:0;text-decoration:underline;';
-      shareBtn.onclick = function(){
+      shareBtn.style.cssText = 'background:none;border:none;color:#6690D6;font-size:10px;font-weight:700;cursor:pointer;padding:0;text-decoration:underline;';
+      shareBtn.onclick = function(ev){
+        ev.stopPropagation();
         e.sharedWithTherapist = true;
         saveState();
-        // This used to only update local state -- since a therapist reads shared entries
-        // straight from the server, an entry marked "shared" here would never actually reach
-        // them without this sync.
         if(e.id) sb.from('entries').update({ shared_with_therapist: true }).eq('id', e.id).then(function(){});
-        // Real gap found and fixed: a worksheet's actual field-by-field answers live in a
-        // completely separate table (worksheet_responses), not in this entries row at all --
-        // this row is really just a display label. Sharing only the label meant a therapist
-        // could see "Worksheet: X was shared" but never the actual content. Flip the same flag
-        // on the real answers record too, matched by worksheet_key.
         if(e.type === 'worksheet' && e.worksheetKey && currentUser){
           sb.from('worksheet_responses').update({ shared_with_therapist: true }).eq('user_id', currentUser.id).eq('worksheet_key', e.worksheetKey).then(function(){});
         }
@@ -4618,15 +4624,11 @@ function renderHistory(){
       };
       actionsRow.appendChild(shareBtn);
     } else if(!e.sharedWithTherapist && !isConnected){
-      // This used to be a plain, non-interactive note. Per direct instruction, everyone should
-      // see an actual Share button regardless of connection status -- for someone not yet
-      // connected, tapping it starts the flow to get connected instead of just sharing (which
-      // isn't possible yet, since there's no one to share it TO), rather than silently doing
-      // nothing until they've gone and connected on their own first.
       var connectBtn = document.createElement('button');
       connectBtn.textContent = 'Share (connect with a professional first)';
-      connectBtn.style.cssText = 'background:none;border:none;color:#6690D6;font-size:10.5px;font-weight:700;cursor:pointer;padding:0;text-decoration:underline;';
-      connectBtn.onclick = function(){
+      connectBtn.style.cssText = 'background:none;border:none;color:#6690D6;font-size:10px;font-weight:700;cursor:pointer;padding:0;text-decoration:underline;';
+      connectBtn.onclick = function(ev){
+        ev.stopPropagation();
         renderTeamList();
         showOnly('panel-team');
         setActiveNav('navYou');
@@ -4636,37 +4638,17 @@ function renderHistory(){
     }
 
     if(e.type !== 'worksheet'){
-      var editBtn = document.createElement('button');
-      editBtn.textContent = 'Edit';
-      editBtn.style.cssText = 'background:none;border:none;color:#9AABCE;font-size:10.5px;font-weight:700;cursor:pointer;padding:0;text-decoration:underline;';
-      editBtn.onclick = function(){ openEditEntrySheet(e); };
-      actionsRow.appendChild(editBtn);
-
-      // Real ask: sharing a journal entry OUTSIDE the app as an image (WhatsApp, saving to
-      // photos, etc.), not just the in-app share-with-therapist flow above -- a genuinely
-      // different audience and purpose. Reuses the same html2canvas pattern already working
-      // for the progress-celebration screenshot elsewhere in the app.
       var shareImageBtn = document.createElement('button');
       shareImageBtn.textContent = 'Share as image';
-      shareImageBtn.style.cssText = 'background:none;border:none;color:#9AABCE;font-size:10.5px;font-weight:700;cursor:pointer;padding:0;text-decoration:underline;';
-      shareImageBtn.onclick = function(){
+      shareImageBtn.style.cssText = 'background:none;border:none;color:#9AABCE;font-size:10px;font-weight:700;cursor:pointer;padding:0;text-decoration:underline;';
+      shareImageBtn.onclick = function(ev){
+        ev.stopPropagation();
         if(typeof html2canvas === 'undefined'){ showToast("Screenshot library didn't load — check your connection"); return; }
-        // Hide the interactive buttons for the capture only -- a screenshot with "Edit" and
-        // "Share with therapist" buttons in it would look unfinished once it leaves the app.
         var wasDisplay = actionsRow.style.display;
         actionsRow.style.display = 'none';
         html2canvas(card, { backgroundColor:'#FFFFFF', scale:2 }).then(function(canvas){
           actionsRow.style.display = wasDisplay;
-          canvas.toBlob(function(blob){
-            var file = new File([blob], 'hobs-journal-entry.png', { type:'image/png' });
-            if(navigator.canShare && navigator.canShare({ files:[file] })){
-              navigator.share({ files:[file], title:'My journal entry' }).catch(function(){});
-              return;
-            }
-            var url = URL.createObjectURL(blob);
-            var a = document.createElement('a'); a.href = url; a.download = 'hobs-journal-entry.png'; a.click();
-            showToast('Image saved to your device');
-          }, 'image/png');
+          shareImageFromCanvas(canvas, 'hobs-journal-entry.png', 'My journal entry');
         }).catch(function(){
           actionsRow.style.display = wasDisplay;
           showToast("Couldn't capture image right now");
@@ -5970,22 +5952,65 @@ document.querySelectorAll('.share-opt').forEach(function(btn){
   btn.onclick = function(){ handleShare(btn.getAttribute('data-target')); };
 });
 document.getElementById('moreShareBtn').onclick = function(){ handleShare('more'); };
+// Shared by every "share as image" feature (journal entries, progress screenshot). Replaces a
+// real, confirmed bug: the old code's fallback path was a plain browser download link, which
+// does nothing on native Android inside a Capacitor WebView without the Filesystem/Share
+// plugins -- it was showing "Image saved to your device" regardless of whether anything
+// actually happened, which it usually didn't (confirmed: the app had no storage permission and
+// neither plugin installed at all). This now tries, in order: (1) the real native path via
+// Capacitor's Filesystem + Share plugins, which writes to the app's own cache and opens the
+// native share sheet -- no broad storage permission needed, since sharing via intent doesn't
+// touch public gallery storage directly; (2) the Web Share API for file sharing, for browsers
+// that support it; (3) a plain download link, ONLY as an actual desktop-browser fallback, and
+// even then the toast says "Downloaded" rather than presuming it landed in any specific place.
+// Never claims success without actually confirming the relevant API accepted the file.
+function shareImageFromCanvas(canvas, filename, shareTitle){
+  filename = filename || 'hobs-image.png';
+  shareTitle = shareTitle || 'Shared from HOBS Companion';
+  canvas.toBlob(function(blob){
+    if(!blob){ showToast("Couldn't prepare the image right now"); return; }
+
+    var Filesystem = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem;
+    var Share = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share;
+    if(IS_NATIVE_APP && Filesystem && Share){
+      var reader = new FileReader();
+      reader.onloadend = function(){
+        var base64Data = reader.result.split(',')[1];
+        Filesystem.writeFile({ path: filename, data: base64Data, directory: 'CACHE' }).then(function(writeResult){
+          return Share.share({ title: shareTitle, url: writeResult.uri, dialogTitle: 'Share image' });
+        }).then(function(){
+          // Share sheet opened successfully -- whether the person actually picked Save, WhatsApp,
+          // or cancelled is up to them from here, so no further toast claiming a specific outcome.
+        }).catch(function(err){
+          console.error('Native image share failed:', err);
+          showToast("Couldn't open the share sheet — please try again");
+        });
+      };
+      reader.readAsDataURL(blob);
+      return;
+    }
+
+    var file = new File([blob], filename, { type:'image/png' });
+    if(navigator.canShare && navigator.canShare({ files:[file] })){
+      navigator.share({ files:[file], title: shareTitle }).catch(function(){});
+      return;
+    }
+    if(IS_NATIVE_APP){
+      showToast("Couldn't share the image on this device right now");
+      return;
+    }
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+    showToast('Downloaded');
+  }, 'image/png');
+}
 function handleShare(target){
   document.getElementById('shareOverlay').style.display = 'none';
   if(target === 'therapist'){ showToast('Sent to ' + (appState.therapistName || 'your therapist') + ' ✓'); return; }
   if(target === 'group'){ showToast('Posted to your body doubling group ✓'); return; }
   if(typeof html2canvas === 'undefined'){ showToast("Screenshot library didn't load — check your connection"); return; }
   html2canvas(document.getElementById('celebrationCard'), { backgroundColor:'#FFF8F0', scale:2 }).then(function(canvas){
-    canvas.toBlob(function(blob){
-      var file = new File([blob], 'hobs-progress.png', { type:'image/png' });
-      if(navigator.canShare && navigator.canShare({ files:[file] })){
-        navigator.share({ files:[file], title:'My progress today', text:'Sharing my progress from HOBS Companion' }).catch(function(){});
-        return;
-      }
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement('a'); a.href = url; a.download = 'hobs-progress.png'; a.click();
-      showToast(target==='whatsapp' ? 'Image saved — attach it in WhatsApp' : target==='instagram' ? 'Image saved — add it to your Story' : 'Image saved to your device');
-    }, 'image/png');
+    shareImageFromCanvas(canvas, 'hobs-progress.png', 'My progress today');
   }).catch(function(){ showToast("Couldn't capture image right now"); });
 }
 
