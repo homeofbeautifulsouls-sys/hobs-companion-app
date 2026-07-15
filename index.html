@@ -154,9 +154,12 @@
   .cover-border::before {
     content: ''; position: absolute; inset: 6px; border: 1px solid rgba(201,162,39,0.5); border-radius: 2px;
   }
+  @keyframes swipeHintNudge { 0%, 100% { transform: translateX(0); opacity: 0.6; } 50% { transform: translateX(5px); opacity: 1; } }
+  #journalCoverSwipeHint { animation: swipeHintNudge 1.4s ease-in-out infinite; }
   @media (prefers-reduced-motion: reduce) {
     #journalCoverPanel.opening { animation: none !important; }
     #panel-journal.page-flip-in, #panel-history.page-flip-in { animation: none !important; }
+    #journalCoverSwipeHint { animation: none !important; }
   }
   /* Flip transition for opening a specific past entry, or flipping open a brand new page from
      the index -- same "no blink" fix applied here too: slowed from 0.35s to 0.6s and given a
@@ -1283,7 +1286,10 @@
       <p style="font-family:Georgia,serif;letter-spacing:0.14em;font-size:19px;color:#D9BE72;margin:0;text-align:center;">TREASURES</p>
       <p style="font-family:Georgia,serif;letter-spacing:0.2em;font-size:12px;color:#B89A56;margin:6px 0 14px;">OF</p>
       <p id="journalCoverName" style="font-family:Georgia,serif;font-size:16px;color:#F0DFA8;margin:0;text-align:center;border-bottom:1px solid rgba(201,162,39,0.5);padding-bottom:8px;min-width:60%;"></p>
-      <p style="position:absolute;bottom:26px;font-size:10px;color:#8A7448;letter-spacing:0.08em;">tap to open</p>
+      <div style="position:absolute;bottom:26px;display:flex;align-items:center;gap:6px;">
+        <span style="font-size:10px;color:#8A7448;letter-spacing:0.08em;">swipe to open</span>
+        <svg id="journalCoverSwipeHint" width="14" height="10" viewBox="0 0 24 16" fill="none" stroke="#C9A227" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8h18M14 2l6 6-6 6"/></svg>
+      </div>
     </div>
   </div>
 
@@ -1921,7 +1927,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260715180152';
+  var CURRENT_BUILD = '20260715181105';
   function checkForUpdate(){
     // Safety guard: reload AT MOST ONCE per session, no matter what. Without this, a mistake
     // where version.json and the HTML's own build ID get out of sync (e.g. one gets updated
