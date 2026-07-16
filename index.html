@@ -182,9 +182,13 @@
   .cover-border::before {
     content: ''; position: absolute; inset: 6px; border: 1px solid rgba(201,162,39,0.5); border-radius: 2px;
   }
+  @keyframes micPulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.35; transform: scale(0.8); } }
+  #micPulseDot { animation: micPulse 1s ease-in-out infinite; }
+  #micBtn.mic-active { background: rgba(199,123,123,0.18) !important; border-color: #C77B7B !important; color: #C77B7B !important; }
   @media (prefers-reduced-motion: reduce) {
     #journalCoverPanel.opening { animation: none !important; }
     #panel-journal.page-flip-in, #panel-history.page-flip-in { animation: none !important; }
+    #micPulseDot { animation: none !important; }
   }
   /* Flip transition for opening a specific past entry, or flipping open a brand new page from
      the index -- same "no blink" fix applied here too: slowed from 0.35s to 0.6s and given a
@@ -1335,9 +1339,13 @@
       </button>
     </div>
     <div id="journalChromeBottom">
-    <button id="micBtn" style="width:52px;height:52px;border-radius:50%;border:1.5px solid #C9A227;background:rgba(255,255,255,0.35);color:#6B5017;font-size:18px;cursor:pointer;margin-bottom:20px;">
+    <button id="micBtn" style="width:52px;height:52px;border-radius:50%;border:1.5px solid #C9A227;background:rgba(255,255,255,0.35);color:#6B5017;font-size:18px;cursor:pointer;margin-bottom:6px;">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="display:block;margin:0 auto;"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z"/><path d="M19 11a7 7 0 0 1-14 0H3a9 9 0 0 0 8 8.94V22h2v-2.06A9 9 0 0 0 21 11z"/></svg>
     </button>
+    <p id="micListeningIndicator" style="display:none;align-items:center;justify-content:center;gap:6px;font-size:11px;color:#C77B7B;font-weight:700;margin:0 0 14px;">
+      <span id="micPulseDot" style="width:8px;height:8px;border-radius:50%;background:#C77B7B;display:inline-block;"></span>
+      Listening…
+    </p>
     </div>
 
     <button id="saveNoteBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:1px solid #C9A227;background:rgba(255,255,255,0.35);color:#6B5017;font-size:15px;font-weight:700;font-family:Georgia,serif;letter-spacing:0.03em;cursor:pointer;">Save entry</button>
@@ -1951,7 +1959,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260716092521';
+  var CURRENT_BUILD = '20260716144328';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -5007,6 +5015,7 @@ function sendTestPushNotification(){
 var SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
 var recognition = null;
 var isRecording = false;
+var userWantsRecording = false;
 if(SpeechRec){
   recognition = new SpeechRec();
   recognition.continuous = true;
@@ -5021,7 +5030,8 @@ if(SpeechRec){
   };
   recognition.onerror = function(){
     isRecording = false;
-    document.getElementById('micBtn').style.opacity = '1';
+    document.getElementById('micBtn').classList.remove('mic-active');
+    document.getElementById('micListeningIndicator').style.display = 'none';
   };
   recognition.onend = function(){
     if(isRecording){ recognition.start(); } // keep listening until user stops it
@@ -5030,12 +5040,17 @@ if(SpeechRec){
 
 document.getElementById('micBtn').onclick = function(){
   var btn = this;
+  var indicator = document.getElementById('micListeningIndicator');
   var NativeSpeech = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SpeechRecognition;
   if(IS_NATIVE_APP && NativeSpeech){
     if(isRecording){
+      // User explicitly stopping -- userWantsRecording=false tells the listeningState handler
+      // below not to auto-restart when the resulting 'stopped' event arrives.
+      userWantsRecording = false;
       NativeSpeech.stop();
       isRecording = false;
-      btn.style.opacity = '1';
+      btn.classList.remove('mic-active');
+      indicator.style.display = 'none';
       return;
     }
     NativeSpeech.available().then(function(result){
@@ -5054,11 +5069,33 @@ document.getElementById('micBtn').onclick = function(){
             var ta = document.getElementById('journalText');
             ta.value = (ta.value ? ta.value.replace(/\s*$/, ' ') : '') + data.matches[0];
           });
+          // Real, confirmed cause of "only records for 5 seconds": Android's underlying
+          // SpeechRecognizer stops a listening session after a short silence gap by design --
+          // this is a well-documented platform limitation (the same issue is reported against
+          // several similar plugins), not something a single start() call can avoid. The fix
+          // is to treat each session as one segment of a longer recording: listen for the
+          // plugin's own listeningState event, and if it reports 'stopped' while the person
+          // still wants to be recording (hasn't tapped the mic to stop), silently start a new
+          // session right away so it feels continuous instead of cutting off.
+          NativeSpeech.addListener('listeningState', function(data){
+            if(data.status === 'stopped' && userWantsRecording){
+              NativeSpeech.start({ language: 'en-US', partialResults: true, popup: false }).catch(function(){
+                userWantsRecording = false;
+                isRecording = false;
+                btn.classList.remove('mic-active');
+                indicator.style.display = 'none';
+              });
+            }
+          });
+          userWantsRecording = true;
           isRecording = true;
-          btn.style.opacity = '0.6';
+          btn.classList.add('mic-active');
+          indicator.style.display = 'flex';
           NativeSpeech.start({ language: 'en-US', partialResults: true, popup: false }).catch(function(){
+            userWantsRecording = false;
             isRecording = false;
-            btn.style.opacity = '1';
+            btn.classList.remove('mic-active');
+            indicator.style.display = 'none';
             showToast("Couldn't start voice input — please try again");
           });
         });
@@ -5073,7 +5110,8 @@ document.getElementById('micBtn').onclick = function(){
     return;
   }
   isRecording = !isRecording;
-  this.style.opacity = isRecording ? '0.6' : '1';
+  btn.classList.toggle('mic-active', isRecording);
+  indicator.style.display = isRecording ? 'flex' : 'none';
   if(isRecording){ recognition.start(); } else { recognition.stop(); }
 };
 // ---- WHO-5 bi-weekly follow-up (validated instrument recalls "the last two weeks" - bi-weekly cadence matches its actual clinical window, more accurate than a 7-day lock) ----
