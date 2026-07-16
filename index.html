@@ -155,12 +155,9 @@
   .cover-border::before {
     content: ''; position: absolute; inset: 6px; border: 1px solid rgba(201,162,39,0.5); border-radius: 2px;
   }
-  @keyframes swipeHintNudge { 0%, 100% { transform: translateX(0); opacity: 0.6; } 50% { transform: translateX(5px); opacity: 1; } }
-  #journalCoverSwipeHint { animation: swipeHintNudge 1.4s ease-in-out infinite; }
   @media (prefers-reduced-motion: reduce) {
     #journalCoverPanel.opening { animation: none !important; }
     #panel-journal.page-flip-in, #panel-history.page-flip-in { animation: none !important; }
-    #journalCoverSwipeHint { animation: none !important; }
   }
   /* Flip transition for opening a specific past entry, or flipping open a brand new page from
      the index -- same "no blink" fix applied here too: slowed from 0.35s to 0.6s and given a
@@ -1289,10 +1286,6 @@
       <p style="font-family:Georgia,serif;letter-spacing:0.14em;font-size:19px;color:#D9BE72;margin:0;text-align:center;">TREASURES</p>
       <p style="font-family:Georgia,serif;letter-spacing:0.2em;font-size:12px;color:#B89A56;margin:6px 0 14px;">OF</p>
       <p id="journalCoverName" style="font-family:Georgia,serif;font-size:16px;color:#F0DFA8;margin:0;text-align:center;border-bottom:1px solid rgba(201,162,39,0.5);padding-bottom:8px;min-width:60%;"></p>
-      <div style="position:absolute;bottom:26px;display:flex;align-items:center;gap:6px;">
-        <span style="font-size:10px;color:#8A7448;letter-spacing:0.08em;">swipe to open</span>
-        <svg id="journalCoverSwipeHint" width="14" height="10" viewBox="0 0 24 16" fill="none" stroke="#C9A227" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8h18M14 2l6 6-6 6"/></svg>
-      </div>
     </div>
   </div>
 
@@ -1898,13 +1891,13 @@
       <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3 2 11.5h3V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-8.5h3z"/></svg>
       <span class="nav-label">Home</span>
     </div>
-    <div class="nav-item" id="navTasks">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M7 2v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2V2h-2v2H9V2zm-2 8h14v10H5z"/></svg>
-      <span class="nav-label">Calendar</span>
-    </div>
     <div class="nav-item" id="navJournal">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 2h13a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2zM6.5 4A0.5 0.5 0 0 0 6 4.5v13.55A2.49 2.49 0 0 1 6.5 18H18V4z"/><rect x="8" y="7" width="7" height="1.6" rx="0.6"/><rect x="8" y="10.5" width="7" height="1.6" rx="0.6"/></svg>
       <span class="nav-label">Journal</span>
+    </div>
+    <div class="nav-item" id="navTasks">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M7 2v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2V2h-2v2H9V2zm-2 8h14v10H5z"/></svg>
+      <span class="nav-label">Tasklist</span>
     </div>
     <div class="nav-item" id="navBreathe">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg>
@@ -1931,7 +1924,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260715225327';
+  var CURRENT_BUILD = '20260716085443';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -3550,24 +3543,11 @@ function enterJournalSection(){
     cover.classList.add('opening');
     setTimeout(function(){ stage.style.display = 'none'; }, 1300);
   };
-  // Real, confirmed gap found after repeated failures: the swipe check required vertical
-  // movement to stay under 60px, but a genuine swipe motion often arcs more than that -- when
-  // it did, it failed BOTH the swipe check AND the tap-fallback (which only accepted under 10px
-  // of movement), producing a dead zone where a clearly deliberate gesture did nothing at all.
-  // Given how many attempts this has taken, precisely distinguishing "swipe vs tap" is no
-  // longer the goal -- reliability is. Any touch-and-release on the cover now opens it, full
-  // stop, no distance or direction requirement whatsoever. The visual swipe hint stays for
-  // discoverability, but the actual trigger can no longer fail based on gesture shape.
-  var touchStarted = false;
-  var onStart = function(){ touchStarted = true; };
-  var onEnd = function(){
-    if(!touchStarted || opened) return;
-    openCover();
-  };
-  stage.addEventListener('touchstart', onStart, {passive:true});
-  stage.addEventListener('touchend', onEnd);
-  stage.addEventListener('pointerdown', onStart);
-  stage.addEventListener('pointerup', onEnd);
+  // Per direct request: the cover now opens automatically, no swipe or tap needed at all --
+  // same exact opening animation as before, just triggered on a short timer instead of
+  // waiting for a gesture. 900ms gives enough time to actually register seeing the cover
+  // (the name, the moment of it) before it opens on its own.
+  setTimeout(openCover, 900);
 }
 document.getElementById('continueBtn').onclick = function(){
   var dots = document.getElementById('journalDots');
