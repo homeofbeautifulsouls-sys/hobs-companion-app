@@ -1955,6 +1955,31 @@
     </div>
   </div>
 
+  <div class="content" id="panel-chat-create-group" style="display:none;">
+    <button id="chatCreateGroupBackBtn" style="background:none;border:none;cursor:pointer;padding:0;margin-bottom:14px;color:#5C6B94;display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      Back
+    </button>
+    <p class="prompt-title" style="text-align:center;">New support group</p>
+    <input type="text" id="chatGroupNameInput" placeholder="Group name" style="width:100%;padding:13px;border-radius:12px;border:1px solid #EEE0C4;font-size:14px;font-family:inherit;box-sizing:border-box;margin-bottom:16px;">
+    <p style="font-size:11.5px;color:#9AABCE;margin:0 0 8px;">Add members — choose Invite (they accept before joining) or Add directly (they're in immediately).</p>
+    <input type="text" id="chatGroupMemberSearch" placeholder="Search people..." style="width:100%;padding:11px;border-radius:12px;border:1px solid #EEE0C4;font-size:13px;font-family:inherit;box-sizing:border-box;margin-bottom:12px;">
+    <div id="chatGroupMemberResults" style="max-height:200px;overflow-y:auto;margin-bottom:12px;"></div>
+    <div id="chatGroupSelectedMembers" style="margin-bottom:20px;"></div>
+    <button id="chatCreateGroupSubmitBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:14.5px;font-weight:700;cursor:pointer;">Create group</button>
+  </div>
+
+  <div class="content" id="panel-chat-room-info" style="display:none;">
+    <button id="chatRoomInfoBackBtn" style="background:none;border:none;cursor:pointer;padding:0;margin-bottom:14px;color:#5C6B94;display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      Back
+    </button>
+    <p class="prompt-title" style="text-align:center;" id="chatRoomInfoTitle">Group info</p>
+    <button id="chatRoomInfoAddMemberBtn" style="display:none;width:100%;padding:12px;border-radius:12px;border:1px dashed #C7D2E8;background:transparent;color:#6690D6;font-size:12.5px;font-weight:700;cursor:pointer;margin-bottom:16px;">+ Add members</button>
+    <p style="font-size:11px;color:#9AABCE;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 8px;">Members</p>
+    <div id="chatRoomInfoMembersList"></div>
+  </div>
+
   <div class="nav-footer">
     <div class="nav-item active" id="navHome">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3 2 11.5h3V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-8.5h3z"/></svg>
@@ -1993,7 +2018,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260716222349';
+  var CURRENT_BUILD = '20260716223318';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -3971,7 +3996,7 @@ document.getElementById('intakeDoneBtn').onclick = function(){
 };
 
 // ---- Bottom nav: Home / Journal / You ----
-var allPanels = ['panel-bubbles','panel-journal','panel-quick-journal','panel-saved','panel-support','panel-therapist-select','panel-intake','panel-booking','panel-history','panel-profile','panel-mood-tracker','panel-who5','panel-who5-results','panel-calendar','panel-day','panel-celebration','panel-bodydouble','panel-tips','panel-calmroom','panel-progress','panel-achievements','panel-rewards','panel-search','panel-team','panel-expert-detail','panel-admin','panel-therapist-dashboard','panel-edit-profile','panel-my-bookings','panel-tests','panel-test-detail','panel-test-results','panel-grounding','panel-grounding-detail','panel-worksheets','panel-worksheet-category','panel-worksheet-detail','panel-chat-list','panel-chat-room'];
+var allPanels = ['panel-bubbles','panel-journal','panel-quick-journal','panel-saved','panel-support','panel-therapist-select','panel-intake','panel-booking','panel-history','panel-profile','panel-mood-tracker','panel-who5','panel-who5-results','panel-calendar','panel-day','panel-celebration','panel-bodydouble','panel-tips','panel-calmroom','panel-progress','panel-achievements','panel-rewards','panel-search','panel-team','panel-expert-detail','panel-admin','panel-therapist-dashboard','panel-edit-profile','panel-my-bookings','panel-tests','panel-test-detail','panel-test-results','panel-grounding','panel-grounding-detail','panel-worksheets','panel-worksheet-category','panel-worksheet-detail','panel-chat-list','panel-chat-room','panel-chat-create-group','panel-chat-room-info'];
 var panelHistoryStack = ['panel-bubbles'];
 function showOnly(panelId){
   allPanels.forEach(function(id){ document.getElementById(id).style.display = (id === panelId) ? 'block' : 'none'; });
@@ -4700,8 +4725,8 @@ async function renderChatList(){
   document.getElementById('chatNewGroupBtn').style.display = appState.isAdmin ? 'block' : 'none';
 
   var { data: memberships, error } = await sb.from('chat_room_members')
-    .select('room_id, role, chat_rooms(id, type, name, client_id, archived)')
-    .eq('user_id', currentUser.id).eq('status', 'joined');
+    .select('room_id, role, status, chat_rooms(id, type, name, client_id, archived)')
+    .eq('user_id', currentUser.id).in('status', ['joined', 'invited']);
 
   if(error){ list.innerHTML = '<p style="text-align:center;color:#C77B7B;font-size:13px;">Could not load chats.</p>'; return; }
 
@@ -4715,16 +4740,34 @@ async function renderChatList(){
   for(var i = 0; i < rooms.length; i++){
     (function(m){
       var room = m.chat_rooms;
+      var isInvited = m.status === 'invited';
       var card = document.createElement('div');
-      card.style.cssText = 'background:#FFFFFF;border:1px solid #EEE0C4;border-radius:14px;padding:14px;margin-bottom:10px;cursor:pointer;display:flex;align-items:center;gap:12px;';
+      card.style.cssText = 'background:'+(isInvited ? '#FEF3D8' : '#FFFFFF')+';border:1px solid '+(isInvited ? '#EFD9A0' : '#EEE0C4')+';border-radius:14px;padding:14px;margin-bottom:10px;'+(isInvited ? '' : 'cursor:pointer;')+'display:flex;align-items:center;gap:12px;';
       var iconBg = room.type === 'support_group' ? '#6690D6' : room.type === 'coordination' ? '#C9A227' : '#9AABCE';
       card.innerHTML =
         '<div style="width:42px;height:42px;border-radius:50%;background:'+iconBg+'22;display:flex;align-items:center;justify-content:center;flex-shrink:0;">'+
           '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="'+iconBg+'" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>'+
         '</div>'+
         '<div style="flex:1;min-width:0;"><p class="chat-card-title" style="font-weight:700;font-size:14px;color:#2A2013;margin:0;">…</p>'+
-        '<p style="font-size:11px;color:#9AABCE;margin:2px 0 0;">'+(room.type === 'support_group' ? 'Support group' : room.type === 'coordination' ? 'Care coordination' : 'Direct message')+'</p></div>';
-      card.onclick = function(){ openChatRoom(room.id); };
+        '<p style="font-size:11px;color:'+(isInvited ? '#7B4F00' : '#9AABCE')+';margin:2px 0 0;">'+(isInvited ? "You're invited — " : '')+(room.type === 'support_group' ? 'Support group' : room.type === 'coordination' ? 'Care coordination' : 'Direct message')+'</p></div>';
+
+      if(isInvited){
+        var actionsWrap = document.createElement('div');
+        actionsWrap.style.cssText = 'display:flex;gap:6px;flex-shrink:0;';
+        var acceptBtn = document.createElement('button');
+        acceptBtn.textContent = 'Accept';
+        acceptBtn.style.cssText = 'font-size:11px;font-weight:700;color:#FFF8F0;background:#3B8F63;border:none;border-radius:8px;padding:7px 10px;cursor:pointer;';
+        acceptBtn.onclick = function(){ respondToGroupInvite(room.id, true); };
+        var declineBtn = document.createElement('button');
+        declineBtn.textContent = 'Decline';
+        declineBtn.style.cssText = 'font-size:11px;font-weight:700;color:#C77B7B;background:none;border:1px solid #EFC7C7;border-radius:8px;padding:7px 10px;cursor:pointer;';
+        declineBtn.onclick = function(){ respondToGroupInvite(room.id, false); };
+        actionsWrap.appendChild(acceptBtn);
+        actionsWrap.appendChild(declineBtn);
+        card.appendChild(actionsWrap);
+      } else {
+        card.onclick = function(){ openChatRoom(room.id); };
+      }
       list.appendChild(card);
 
       // Resolve the display title asynchronously (group name is immediate; direct/coordination
@@ -4743,6 +4786,16 @@ async function renderChatList(){
       }
     })(rooms[i]);
   }
+}
+
+async function respondToGroupInvite(roomId, accept){
+  var { error } = await sb.from('chat_room_members')
+    .update({ status: accept ? 'joined' : 'declined', joined_at: accept ? new Date().toISOString() : null })
+    .eq('room_id', roomId).eq('user_id', currentUser.id);
+  if(error){ showToast("Couldn't update — please try again"); return; }
+  showToast(accept ? 'Joined the group' : 'Invite declined');
+  renderChatList();
+  if(accept) openChatRoom(roomId);
 }
 
 async function openChatRoom(roomId){
@@ -7266,10 +7319,178 @@ function openSearch(){
   document.getElementById('searchInput').focus();
 }
 document.getElementById('headerSearchBtn').onclick = openSearch;
+
 document.getElementById('headerChatBtn').onclick = function(){
   showOnly('panel-chat-list');
   renderChatList();
 };
+
+// ===== SUPPORT GROUP CREATION (admin only) =====
+var chatGroupSelectedUsers = {};
+var chatCreateGroupSubmitBtn_addMode = false;
+
+document.getElementById('chatNewGroupBtn').onclick = function(){
+  chatGroupSelectedUsers = {};
+  chatCreateGroupSubmitBtn_addMode = false;
+  document.getElementById('chatGroupNameInput').style.display = 'block';
+  document.getElementById('chatGroupNameInput').value = '';
+  document.getElementById('chatGroupMemberSearch').value = '';
+  document.getElementById('chatGroupMemberResults').innerHTML = '';
+  document.getElementById('chatCreateGroupSubmitBtn').textContent = 'Create group';
+  renderSelectedGroupMembers();
+  showOnly('panel-chat-create-group');
+};
+document.getElementById('chatCreateGroupBackBtn').onclick = function(){
+  if(chatCreateGroupSubmitBtn_addMode){ openChatRoomInfo(); }
+  else { showOnly('panel-chat-list'); renderChatList(); }
+};
+
+document.getElementById('chatGroupMemberSearch').oninput = function(){
+  var q = this.value.trim();
+  var resultsEl = document.getElementById('chatGroupMemberResults');
+  if(q.length < 2){ resultsEl.innerHTML = ''; return; }
+  sb.from('profiles').select('user_id, name, email').ilike('name', '%'+q+'%').limit(10).then(function(res){
+    resultsEl.innerHTML = '';
+    (res.data || []).forEach(function(u){
+      if(u.user_id === currentUser.id || chatGroupSelectedUsers[u.user_id]) return;
+      var row = document.createElement('div');
+      row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:9px 4px;border-bottom:1px solid #F0E9D8;cursor:pointer;';
+      row.innerHTML = '<span style="font-size:13px;">'+(u.name||'Unnamed')+'</span><span style="font-size:11px;color:#6690D6;font-weight:700;">+ Add</span>';
+      row.onclick = function(){
+        chatGroupSelectedUsers[u.user_id] = { name: u.name || 'Unnamed', mode: 'direct' };
+        renderSelectedGroupMembers();
+        resultsEl.innerHTML = '';
+        document.getElementById('chatGroupMemberSearch').value = '';
+      };
+      resultsEl.appendChild(row);
+    });
+  });
+};
+
+function renderSelectedGroupMembers(){
+  var el = document.getElementById('chatGroupSelectedMembers');
+  var ids = Object.keys(chatGroupSelectedUsers);
+  if(ids.length === 0){ el.innerHTML = ''; return; }
+  el.innerHTML = '<p style="font-size:11px;color:#9AABCE;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 8px;">Selected ('+ids.length+')</p>';
+  ids.forEach(function(uid){
+    var u = chatGroupSelectedUsers[uid];
+    var row = document.createElement('div');
+    row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:#FFFFFF;border:1px solid #EEE0C4;border-radius:10px;margin-bottom:6px;';
+    row.innerHTML =
+      '<span style="font-size:13px;font-weight:600;color:#2A2013;">'+u.name+'</span>'+
+      '<div style="display:flex;gap:6px;align-items:center;">'+
+        '<select data-uid="'+uid+'" class="group-member-mode-select" style="font-size:11px;border-radius:8px;border:1px solid #EEE0C4;padding:4px 6px;">'+
+          '<option value="direct"'+(u.mode==='direct'?' selected':'')+'>Add directly</option>'+
+          '<option value="invite"'+(u.mode==='invite'?' selected':'')+'>Invite</option>'+
+        '</select>'+
+        '<button data-uid="'+uid+'" class="group-member-remove-btn" style="background:none;border:none;color:#C77B7B;cursor:pointer;font-size:18px;line-height:1;">×</button>'+
+      '</div>';
+    el.appendChild(row);
+  });
+  el.querySelectorAll('.group-member-mode-select').forEach(function(sel){
+    sel.onchange = function(){ chatGroupSelectedUsers[this.dataset.uid].mode = this.value; };
+  });
+  el.querySelectorAll('.group-member-remove-btn').forEach(function(btn){
+    btn.onclick = function(){ delete chatGroupSelectedUsers[this.dataset.uid]; renderSelectedGroupMembers(); };
+  });
+}
+
+document.getElementById('chatCreateGroupSubmitBtn').onclick = async function(){
+  var ids = Object.keys(chatGroupSelectedUsers);
+  if(ids.length === 0){ showToast('Add at least one member'); return; }
+
+  if(chatCreateGroupSubmitBtn_addMode){
+    var addRows = ids.map(function(uid){
+      var u = chatGroupSelectedUsers[uid];
+      return {
+        room_id: currentChatRoomId, user_id: uid, role: 'member',
+        status: u.mode === 'direct' ? 'joined' : 'invited',
+        joined_at: u.mode === 'direct' ? new Date().toISOString() : null,
+        invited_by: currentUser.id
+      };
+    });
+    var { error: addError } = await sb.from('chat_room_members').insert(addRows);
+    if(addError){ showToast("Couldn't add members"); console.error(addError); return; }
+    showToast('Members added');
+    openChatRoomInfo();
+    return;
+  }
+
+  var name = document.getElementById('chatGroupNameInput').value.trim();
+  if(!name){ showToast('Give the group a name first'); return; }
+
+  var { data: room, error } = await sb.from('chat_rooms').insert({ type: 'support_group', name: name, created_by: currentUser.id }).select().single();
+  if(error){ showToast("Couldn't create group"); console.error(error); return; }
+
+  var memberRows = [{ room_id: room.id, user_id: currentUser.id, role: 'admin', status: 'joined', joined_at: new Date().toISOString() }];
+  ids.forEach(function(uid){
+    var u = chatGroupSelectedUsers[uid];
+    memberRows.push({
+      room_id: room.id, user_id: uid, role: 'member',
+      status: u.mode === 'direct' ? 'joined' : 'invited',
+      joined_at: u.mode === 'direct' ? new Date().toISOString() : null,
+      invited_by: currentUser.id
+    });
+  });
+  var { error: memberError } = await sb.from('chat_room_members').insert(memberRows);
+  if(memberError){ showToast("Group created, but adding members failed — try adding them from group info"); console.error(memberError); }
+  else { showToast('Group created'); }
+  openChatRoom(room.id);
+};
+
+// ===== GROUP INFO / MEMBER MANAGEMENT =====
+async function openChatRoomInfo(){
+  showOnly('panel-chat-room-info');
+  var listEl = document.getElementById('chatRoomInfoMembersList');
+  listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12px;">Loading…</p>';
+
+  var { data: myMembership } = await sb.from('chat_room_members').select('role').eq('room_id', currentChatRoomId).eq('user_id', currentUser.id).single();
+  var iAmGroupAdmin = appState.isAdmin || (myMembership && (myMembership.role === 'admin' || myMembership.role === 'co_admin'));
+  document.getElementById('chatRoomInfoAddMemberBtn').style.display = iAmGroupAdmin ? 'block' : 'none';
+
+  var { data: members } = await sb.from('chat_room_members').select('user_id, role, status').eq('room_id', currentChatRoomId).neq('status', 'declined');
+  listEl.innerHTML = '';
+  for(var m of (members || [])){
+    var name = await resolveUserName(m.user_id);
+    var row = document.createElement('div');
+    row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#FFFFFF;border:1px solid #EEE0C4;border-radius:10px;margin-bottom:6px;';
+    var roleLabel = m.role === 'admin' ? 'Admin' : m.role === 'co_admin' ? 'Co-admin' : '';
+    var statusLabel = m.status === 'invited' ? ' · Invited' : '';
+    row.innerHTML =
+      '<div><span style="font-size:13px;font-weight:600;color:#2A2013;">'+name+'</span>'+
+      (roleLabel ? ' <span style="font-size:10px;color:#6690D6;font-weight:700;">'+roleLabel+'</span>' : '')+
+      '<span style="font-size:10.5px;color:#9AABCE;">'+statusLabel+'</span></div>';
+    if(iAmGroupAdmin && m.role === 'member' && m.status === 'joined' && m.user_id !== currentUser.id){
+      var promoteBtn = document.createElement('button');
+      promoteBtn.textContent = 'Make co-admin';
+      promoteBtn.style.cssText = 'font-size:10.5px;font-weight:700;color:#6690D6;background:none;border:1px solid #C7D2E8;border-radius:8px;padding:5px 9px;cursor:pointer;';
+      promoteBtn.onclick = function(uid){ return function(){ promoteToCoAdmin(uid); }; }(m.user_id);
+      row.appendChild(promoteBtn);
+    }
+    listEl.appendChild(row);
+  }
+}
+
+async function promoteToCoAdmin(userId){
+  var { error } = await sb.from('chat_room_members').update({ role: 'co_admin' }).eq('room_id', currentChatRoomId).eq('user_id', userId);
+  if(error){ showToast("Couldn't update role"); return; }
+  showToast('Promoted to co-admin');
+  openChatRoomInfo();
+}
+
+document.getElementById('chatRoomInfoBtn').onclick = openChatRoomInfo;
+document.getElementById('chatRoomInfoBackBtn').onclick = function(){ openChatRoom(currentChatRoomId); };
+document.getElementById('chatRoomInfoAddMemberBtn').onclick = function(){
+  chatGroupSelectedUsers = {};
+  document.getElementById('chatGroupNameInput').style.display = 'none';
+  document.getElementById('chatGroupMemberSearch').value = '';
+  document.getElementById('chatGroupMemberResults').innerHTML = '';
+  renderSelectedGroupMembers();
+  chatCreateGroupSubmitBtn_addMode = true;
+  document.getElementById('chatCreateGroupSubmitBtn').textContent = 'Add to group';
+  showOnly('panel-chat-create-group');
+};
+
 document.getElementById('profileSearchBtn').onclick = openSearch;
 document.getElementById('searchBackBtn').onclick = function(){ showOnly('panel-bubbles'); setActiveNav('navHome'); };
 
