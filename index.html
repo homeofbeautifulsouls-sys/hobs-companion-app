@@ -114,12 +114,36 @@
      app's own ink color (#2A2013): 13.55:1, well past WCAG AAA (7:1) -- the texture sits well
      behind the text in visual weight, so it can never be mistaken for reducing readability.
   */
+  /* Real photographed vintage paper (cropped from Akash's reference image) instead of the
+     earlier CSS-synthesized texture -- per direct request, using a different crop for each
+     screen rather than one texture repeated everywhere. A soft semi-transparent cream wash
+     sits over the photo specifically to protect text contrast, since a real photographed
+     texture has more local tonal variation than the earlier synthetic noise did -- the wash
+     keeps the photo's character visible while guaranteeing the same reliable contrast
+     everywhere text sits on top of it.
+  */
   .vintage-paper {
     background-color: #F3ECD9;
     background-image:
       url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.35  0 0 0 0 0.28  0 0 0 0 0.15  0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
       radial-gradient(ellipse at center, transparent 50%, rgba(120,95,50,0.09) 100%);
     border-color: #D9C9A0 !important;
+  }
+  #panel-history.vintage-paper {
+    background-image:
+      linear-gradient(rgba(250,246,238,0.92), rgba(250,246,238,0.92)),
+      url("vintage-bg-index.jpg");
+    background-size: cover;
+    background-position: top center;
+    background-repeat: no-repeat;
+  }
+  #panel-journal.vintage-paper {
+    background-image:
+      linear-gradient(rgba(250,246,238,0.92), rgba(250,246,238,0.92)),
+      url("vintage-bg-journal.jpg");
+    background-size: cover;
+    background-position: top center;
+    background-repeat: no-repeat;
   }
   /* "Treasures of [Name]" leather book cover -- shown once per session before the journal
      section's index page. Tap anywhere to open. Rebuilt after direct feedback that the first
@@ -134,17 +158,20 @@
   */
   #journalCoverStage { perspective: 1400px; touch-action: none; }
   #journalCoverPanel {
-    background: radial-gradient(ellipse at 30% 20%, #3E2A1C 0%, #2A1B10 55%, #1C1109 100%);
+    background-color: #E9DFC4;
+    background-image: linear-gradient(rgba(245,238,216,0.15), rgba(245,238,216,0.15)), url("vintage-bg-cover.jpg");
+    background-size: cover;
+    background-position: center;
     border-radius: 6px;
-    box-shadow: 0 18px 40px rgba(0,0,0,0.45), inset 0 0 60px rgba(0,0,0,0.5);
+    box-shadow: 0 18px 40px rgba(0,0,0,0.45);
     transform-origin: left center;
     cursor: pointer;
     touch-action: none;
   }
   @keyframes coverOpen {
-    0%   { transform: rotateY(0deg);   box-shadow: 0 18px 40px rgba(0,0,0,0.45), inset 0 0 60px rgba(0,0,0,0.5); }
-    12%  { transform: rotateY(-6deg);  box-shadow: 0 22px 50px rgba(0,0,0,0.5), inset 0 0 60px rgba(0,0,0,0.5); }
-    75%  { transform: rotateY(-98deg); opacity: 0.2; box-shadow: 0 6px 20px rgba(0,0,0,0.2), inset 0 0 60px rgba(0,0,0,0.5); }
+    0%   { transform: rotateY(0deg);   box-shadow: 0 18px 40px rgba(0,0,0,0.45); }
+    12%  { transform: rotateY(-6deg);  box-shadow: 0 22px 50px rgba(0,0,0,0.5); }
+    75%  { transform: rotateY(-98deg); opacity: 0.2; box-shadow: 0 6px 20px rgba(0,0,0,0.2); }
     100% { transform: rotateY(-100deg); opacity: 0; }
   }
   #journalCoverPanel.opening { animation: coverOpen 1.3s cubic-bezier(.5,.02,.4,1) forwards; }
@@ -1275,17 +1302,17 @@
     <button id="worksheetSaveBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:15px;font-weight:700;cursor:pointer;margin-top:10px;">Save</button>
   </div>
 
-  <div id="journalCoverStage" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:75;background:#1C1109;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;">
+  <div id="journalCoverStage" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:75;background:#2A2013;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;">
     <div id="journalCoverPanel" style="width:100%;max-width:340px;aspect-ratio:3/4;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px;box-sizing:border-box;">
       <div class="cover-border"></div>
-      <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#C9A227" stroke-width="1" style="margin-bottom:18px;">
+      <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#6B5017" stroke-width="1" style="margin-bottom:18px;">
         <circle cx="12" cy="12" r="9"/>
         <path d="M12 3v3M12 18v3M3 12h3M18 12h3" stroke-width="1.2"/>
-        <path d="M12 7l2.2 4.8L19 14l-4.8 2.2L12 21l-2.2-4.8L5 14l4.8-2.2z" fill="#C9A227" stroke="none"/>
+        <path d="M12 7l2.2 4.8L19 14l-4.8 2.2L12 21l-2.2-4.8L5 14l4.8-2.2z" fill="#6B5017" stroke="none"/>
       </svg>
-      <p style="font-family:Georgia,serif;letter-spacing:0.14em;font-size:19px;color:#D9BE72;margin:0;text-align:center;">TREASURES</p>
-      <p style="font-family:Georgia,serif;letter-spacing:0.2em;font-size:12px;color:#B89A56;margin:6px 0 14px;">OF</p>
-      <p id="journalCoverName" style="font-family:Georgia,serif;font-size:16px;color:#F0DFA8;margin:0;text-align:center;border-bottom:1px solid rgba(201,162,39,0.5);padding-bottom:8px;min-width:60%;"></p>
+      <p style="font-family:Georgia,serif;letter-spacing:0.14em;font-size:19px;color:#3A2E18;margin:0;text-align:center;">TREASURES</p>
+      <p style="font-family:Georgia,serif;letter-spacing:0.2em;font-size:12px;color:#6B5B3A;margin:6px 0 14px;">OF</p>
+      <p id="journalCoverName" style="font-family:Georgia,serif;font-size:16px;color:#2A2013;margin:0;text-align:center;border-bottom:1px solid rgba(107,80,23,0.5);padding-bottom:8px;min-width:60%;"></p>
     </div>
   </div>
 
@@ -1302,7 +1329,7 @@
     <p style="color:#8A7448;font-size:11px;margin:0 0 20px;">Private by default.</p>
     </div>
     <div style="position:relative;">
-      <textarea id="journalText" placeholder="Type here, or use the mic..." style="width:100%;min-height:100px;border-radius:16px;border:1px solid #D9C9A0;background:rgba(255,255,255,0.3);padding:14px 40px 14px 14px;font-size:14px;font-family:Georgia,serif;color:#2A2013;box-sizing:border-box;resize:none;margin-bottom:16px;transition:min-height .25s;"></textarea>
+      <textarea id="journalText" placeholder="Type here, or use the mic..." style="width:100%;min-height:calc(100vh - 480px);border-radius:16px;border:1px solid #D9C9A0;background:rgba(255,255,255,0.3);padding:14px 40px 14px 14px;font-size:14px;font-family:Georgia,serif;color:#2A2013;box-sizing:border-box;resize:none;margin-bottom:16px;transition:min-height .25s;"></textarea>
       <button id="expandBtn" title="Expand" style="position:absolute;top:10px;right:10px;width:28px;height:28px;border-radius:8px;border:1px solid #D9C9A0;background:#FFFFFF;color:#6B5017;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(42,32,19,0.18);">
         <svg id="expandIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m11-5v3a2 2 0 0 1-2 2h-3"/></svg>
       </button>
@@ -1924,7 +1951,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260716085443';
+  var CURRENT_BUILD = '20260716092521';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -3466,7 +3493,7 @@ document.getElementById('expandBtn').onclick = function(){
   var ta = document.getElementById('journalText');
   document.getElementById('journalChromeTop').style.display = isExpanded ? 'none' : 'block';
   document.getElementById('journalChromeBottom').style.display = isExpanded ? 'none' : 'block';
-  ta.style.minHeight = isExpanded ? '360px' : '100px';
+  ta.style.minHeight = isExpanded ? 'calc(100vh - 220px)' : 'calc(100vh - 480px)';
   document.getElementById('expandIcon').innerHTML = isExpanded
     ? '<path d="M9 3v4a2 2 0 0 1-2 2H3m18 0h-4a2 2 0 0 1-2-2V3M3 15h4a2 2 0 0 1 2 2v4m6-6h4a2 2 0 0 1 2 2v4"/>'
     : '<path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m11-5v3a2 2 0 0 1-2 2h-3"/>';
