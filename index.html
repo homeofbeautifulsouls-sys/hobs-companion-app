@@ -7,6 +7,9 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&family=Caveat:wght@600;700&display=swap" rel="stylesheet">
 <title>HOBS Companion — Mood Check-in</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -131,7 +134,7 @@
   }
   #panel-history.vintage-paper {
     background-image:
-      linear-gradient(rgba(250,246,238,0.92), rgba(250,246,238,0.92)),
+      linear-gradient(rgba(250,246,238,0.25), rgba(250,246,238,0.25)),
       url("vintage-bg-index.jpg");
     background-size: cover;
     background-position: top center;
@@ -139,7 +142,7 @@
   }
   #panel-journal.vintage-paper {
     background-image:
-      linear-gradient(rgba(250,246,238,0.92), rgba(250,246,238,0.92)),
+      linear-gradient(rgba(250,246,238,0.25), rgba(250,246,238,0.25)),
       url("vintage-bg-journal.jpg");
     background-size: cover;
     background-position: top center;
@@ -207,9 +210,9 @@
      title length. Plus tactile press feedback and a gentle staggered entrance so the list
      reads as something with presence, not a flat static block. */
   .index-leader-row { display: flex; align-items: baseline; gap: 6px; }
-  .index-leader-title { font-family: Georgia, serif; font-size: 13.5px; color: #4A3A1E; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%; flex-shrink: 0; }
-  .index-leader-dots { flex: 1 1 auto; border-bottom: 1.5px dotted #A8935F; margin-bottom: 3px; min-width: 10px; }
-  .index-leader-page { font-family: Georgia, serif; font-size: 11.5px; color: #6B5017; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
+  .index-leader-title { font-family: 'Kalam', cursive; font-weight: 700; font-size: 16px; color: #150D06; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%; flex-shrink: 0; }
+  .index-leader-dots { flex: 1 1 auto; border-bottom: 1.5px dotted #5C4826; margin-bottom: 3px; min-width: 10px; }
+  .index-leader-page { font-family: 'Kalam', cursive; font-weight: 700; font-size: 14px; color: #150D06; white-space: nowrap; flex-shrink: 0; }
   .index-entry-row:active { background-color: rgba(201,162,39,0.14); transform: scale(0.99); }
   @keyframes indexEntryIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
   @media (prefers-reduced-motion: reduce) {
@@ -1321,34 +1324,34 @@
   </div>
 
   <div class="content vintage-paper" id="panel-journal" style="display:none;">
-    <button id="backBtn" style="background:none;border:none;cursor:pointer;padding:0;margin-bottom:14px;color:#6B5017;display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600;font-family:Georgia,serif;">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    <div id="backBtn" style="cursor:pointer;padding:0;margin-bottom:14px;color:#150D06;display:flex;align-items:center;gap:4px;font-family:'Kalam',cursive;font-weight:700;font-size:15px;width:fit-content;">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
       Back
-    </button>
+    </div>
     <div style="text-align:center;">
     <div id="journalChromeTop">
-    <div id="journalDots" style="display:flex;justify-content:center;gap:6px;margin:0 auto 18px;"></div>
-    <p style="font-family:Georgia,serif;font-size:22px;color:#2A2013;margin:0 0 6px;" id="journalTitle">What's on your mind?</p>
-    <p style="font-family:Georgia,serif;font-style:italic;font-size:12.5px;color:#6B5B3A;max-width:280px;margin:0 auto 8px;" id="journalSub">Only if you'd like. Write it messy, half-finished, whatever comes — there's no right way to say it.</p>
-    <p style="color:#8A7448;font-size:11px;margin:0 0 20px;">Private by default.</p>
+    <div id="journalDots" style="display:flex;justify-content:center;gap:6px;margin:0 auto 14px;"></div>
+    <p style="font-family:'Caveat',cursive;font-weight:700;font-size:32px;color:#150D06;margin:0 0 4px;" id="journalTitle">What's on your mind?</p>
+    <p style="font-family:'Kalam',cursive;font-size:14px;color:#3C2D14;max-width:280px;margin:0 auto 6px;" id="journalSub">Only if you'd like. Write it messy, half-finished, whatever comes — there's no right way to say it.</p>
+    <p style="font-family:'Kalam',cursive;color:#5C4826;font-size:12px;margin:0 0 18px;">Private by default.</p>
     </div>
     <div style="position:relative;">
-      <textarea id="journalText" placeholder="Type here, or use the mic..." style="width:100%;min-height:calc(100vh - 480px);border-radius:16px;border:1px solid #D9C9A0;background:rgba(255,255,255,0.3);padding:14px 40px 14px 14px;font-size:14px;font-family:Georgia,serif;color:#2A2013;box-sizing:border-box;resize:none;margin-bottom:16px;transition:min-height .25s;"></textarea>
-      <button id="expandBtn" title="Expand" style="position:absolute;top:10px;right:10px;width:28px;height:28px;border-radius:8px;border:1px solid #D9C9A0;background:#FFFFFF;color:#6B5017;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(42,32,19,0.18);">
-        <svg id="expandIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m11-5v3a2 2 0 0 1-2 2h-3"/></svg>
-      </button>
+      <textarea id="journalText" placeholder="Type here, or use the mic..." style="width:100%;min-height:calc(100vh - 480px);border-radius:4px;border:none;background:transparent;padding:6px 34px 14px 4px;font-size:19px;line-height:1.5;font-family:'Kalam',cursive;color:#150D06;box-sizing:border-box;resize:none;margin-bottom:10px;transition:min-height .25s;"></textarea>
+      <div id="expandBtn" title="Expand" style="position:absolute;top:6px;right:2px;color:#5C4826;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0.6;">
+        <svg id="expandIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m11-5v3a2 2 0 0 1-2 2h-3"/></svg>
+      </div>
     </div>
     <div id="journalChromeBottom">
-    <button id="micBtn" style="width:52px;height:52px;border-radius:50%;border:1.5px solid #C9A227;background:rgba(255,255,255,0.35);color:#6B5017;font-size:18px;cursor:pointer;margin-bottom:6px;">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="display:block;margin:0 auto;"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z"/><path d="M19 11a7 7 0 0 1-14 0H3a9 9 0 0 0 8 8.94V22h2v-2.06A9 9 0 0 0 21 11z"/></svg>
-    </button>
-    <p id="micListeningIndicator" style="display:none;align-items:center;justify-content:center;gap:6px;font-size:11px;color:#C77B7B;font-weight:700;margin:0 0 14px;">
-      <span id="micPulseDot" style="width:8px;height:8px;border-radius:50%;background:#C77B7B;display:inline-block;"></span>
+    <div id="micBtn" style="width:44px;height:44px;color:#150D06;cursor:pointer;margin:0 auto 6px;display:flex;align-items:center;justify-content:center;">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" style="display:block;"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z"/><path d="M19 11a7 7 0 0 1-14 0H3a9 9 0 0 0 8 8.94V22h2v-2.06A9 9 0 0 0 21 11z"/></svg>
+    </div>
+    <p id="micListeningIndicator" style="display:none;align-items:center;justify-content:center;gap:6px;font-family:'Kalam',cursive;font-size:13px;color:#9A4A4A;font-weight:700;margin:0 0 14px;">
+      <span id="micPulseDot" style="width:8px;height:8px;border-radius:50%;background:#9A4A4A;display:inline-block;"></span>
       Listening…
     </p>
     </div>
 
-    <button id="saveNoteBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:1px solid #C9A227;background:rgba(255,255,255,0.35);color:#6B5017;font-size:15px;font-weight:700;font-family:Georgia,serif;letter-spacing:0.03em;cursor:pointer;">Save entry</button>
+    <div id="saveNoteBtn" style="display:inline-block;width:100%;box-sizing:border-box;padding:10px 0;border-bottom:1.5px solid rgba(60,45,20,0.4);color:#150D06;font-family:'Kalam',cursive;font-weight:700;font-size:18px;cursor:pointer;">Save entry</div>
     </div>
   </div>
 
@@ -1456,19 +1459,18 @@
   </div>
 
   <div class="content vintage-paper" id="panel-history" style="display:none;">
-    <p style="font-family:Georgia,serif;font-size:24px;color:#2A2013;text-align:center;letter-spacing:0.06em;margin:4px 0 6px;">Index</p>
-    <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:8px;">
-      <span style="height:1px;width:36px;background:rgba(139,115,60,0.4);"></span>
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8A7448" stroke-width="1"><circle cx="12" cy="12" r="9"/><path d="M12 7l1.6 3.4L17 12l-3.4 1.6L12 17l-1.6-3.4L7 12l3.4-1.6z" fill="#8A7448" stroke="none"/></svg>
-      <span style="height:1px;width:36px;background:rgba(139,115,60,0.4);"></span>
+    <p style="font-family:'Caveat',cursive;font-weight:700;font-size:34px;color:#150D06;text-align:center;letter-spacing:0.02em;margin:4px 0 0;">Index</p>
+    <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:6px;">
+      <span style="height:1px;width:36px;background:rgba(60,45,20,0.35);"></span>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5C4826" stroke-width="1"><circle cx="12" cy="12" r="9"/><path d="M12 7l1.6 3.4L17 12l-3.4 1.6L12 17l-1.6-3.4L7 12l3.4-1.6z" fill="#5C4826" stroke="none"/></svg>
+      <span style="height:1px;width:36px;background:rgba(60,45,20,0.35);"></span>
     </div>
-    <p style="text-align:center;font-size:11.5px;color:#6B5B3A;font-style:italic;margin:0 0 20px;">Whatever you've put down, whenever you were ready.</p>
-    <button id="journalAddNewBtn" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;border-radius:10px;border:1px solid #C9A227;background:rgba(255,255,255,0.35);color:#6B5017;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:20px;font-family:Georgia,serif;letter-spacing:0.03em;">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-      Add a new page
-    </button>
+    <p style="text-align:center;font-family:'Kalam',cursive;font-size:14px;color:#3C2D14;margin:0 0 18px;">Whatever you've put down, whenever you were ready.</p>
+    <div id="journalAddNewBtn" style="text-align:center;padding:8px 0 16px;cursor:pointer;font-family:'Kalam',cursive;font-weight:700;font-size:17px;color:#150D06;border-bottom:1.5px solid rgba(60,45,20,0.4);margin-bottom:20px;display:inline-block;width:100%;box-sizing:border-box;">
+      + Add a new page
+    </div>
     <div id="historyList" style="max-height:420px;overflow-y:auto;"></div>
-    <button id="historyArchiveToggleBtn" style="display:none;width:100%;margin-top:14px;padding:11px;border-radius:10px;border:1px solid #D9C9A0;background:transparent;color:#6B5017;font-size:12px;font-weight:700;cursor:pointer;font-family:Georgia,serif;"></button>
+    <p id="historyArchiveToggleBtn" style="display:none;text-align:center;margin-top:16px;padding:6px 0;font-family:'Kalam',cursive;font-size:13px;color:#5C4826;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;"></p>
   </div>
 
   <div id="journalAddChoiceOverlay" class="share-overlay" style="display:none;">
@@ -1959,7 +1961,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260716160033';
+  var CURRENT_BUILD = '20260716163745';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -4679,7 +4681,7 @@ function renderHistory(){
           '<span class="index-leader-dots"></span>'+
           '<span class="index-leader-page">'+dateStr+'</span>'+
         '</div>'+
-        (e.sharedWithTherapist ? '<p style="font-size:9.5px;color:#6690D6;margin:4px 0 0;">Shared with your therapist</p>' : '');
+        (e.sharedWithTherapist ? '<p style="font-family:Kalam,cursive;font-size:12px;color:#3A5C99;margin:3px 0 0;">Shared with your therapist</p>' : '');
       card.onclick = function(){ renderWorksheetCategoryList(); showOnly('panel-worksheets'); };
     } else {
       // Real "book index" treatment per direct feedback that the first pass didn't actually
@@ -4696,8 +4698,8 @@ function renderHistory(){
           '<span class="index-leader-dots"></span>'+
           '<span class="index-leader-page">'+dateStr+'</span>'+
         '</div>'+
-        (moodStr ? '<p style="font-size:10px;color:#8A7448;margin:3px 0 0;font-style:italic;">'+moodStr+'</p>' : '')+
-        (e.sharedWithTherapist ? '<p style="font-size:9.5px;color:#6690D6;margin:3px 0 0;">Shared with your therapist</p>' : '');
+        (moodStr ? '<p style="font-family:Kalam,cursive;font-size:12px;color:#5C4826;margin:2px 0 0;">'+moodStr+'</p>' : '')+
+        (e.sharedWithTherapist ? '<p style="font-family:Kalam,cursive;font-size:12px;color:#3A5C99;margin:2px 0 0;">Shared with your therapist</p>' : '');
       card.onclick = function(){ openEditEntrySheet(e); };
     }
 
@@ -4710,7 +4712,7 @@ function renderHistory(){
     if(!e.sharedWithTherapist && isConnected){
       var shareBtn = document.createElement('button');
       shareBtn.textContent = 'Share with ' + (connectedProfessionalName || 'your therapist');
-      shareBtn.style.cssText = 'background:none;border:none;color:#6690D6;font-size:10px;font-weight:700;cursor:pointer;padding:0;text-decoration:underline;';
+      shareBtn.style.cssText = 'background:none;border:none;color:#3A5C99;font-family:Kalam,cursive;font-size:13px;font-weight:700;cursor:pointer;padding:0;text-decoration:underline;text-decoration-style:dotted;';
       shareBtn.onclick = function(ev){
         ev.stopPropagation();
         e.sharedWithTherapist = true;
@@ -4725,7 +4727,7 @@ function renderHistory(){
     } else if(!e.sharedWithTherapist && !isConnected){
       var connectBtn = document.createElement('button');
       connectBtn.textContent = 'Share (connect with a professional first)';
-      connectBtn.style.cssText = 'background:none;border:none;color:#6690D6;font-size:10px;font-weight:700;cursor:pointer;padding:0;text-decoration:underline;';
+      connectBtn.style.cssText = 'background:none;border:none;color:#3A5C99;font-family:Kalam,cursive;font-size:13px;font-weight:700;cursor:pointer;padding:0;text-decoration:underline;text-decoration-style:dotted;';
       connectBtn.onclick = function(ev){
         ev.stopPropagation();
         renderTeamList();
@@ -4739,7 +4741,7 @@ function renderHistory(){
     if(e.type !== 'worksheet'){
       var shareImageBtn = document.createElement('button');
       shareImageBtn.textContent = 'Share as image';
-      shareImageBtn.style.cssText = 'background:none;border:none;color:#9AABCE;font-size:10px;font-weight:700;cursor:pointer;padding:0;text-decoration:underline;';
+      shareImageBtn.style.cssText = 'background:none;border:none;color:#6B5B3A;font-family:Kalam,cursive;font-size:13px;font-weight:700;cursor:pointer;padding:0;text-decoration:underline;text-decoration-style:dotted;';
       shareImageBtn.onclick = function(ev){
         ev.stopPropagation();
         if(typeof html2canvas === 'undefined'){ showToast("Screenshot library didn't load — check your connection"); return; }
@@ -4774,7 +4776,7 @@ function renderHistory(){
     // permanently destroyed. Works for both journal entries and worksheets.
     var archiveBtn = document.createElement('button');
     archiveBtn.textContent = historyShowingArchived ? 'Unarchive' : 'Archive';
-    archiveBtn.style.cssText = 'background:none;border:none;color:'+(historyShowingArchived ? '#3B8F63' : '#C77B7B')+';font-size:10px;font-weight:700;cursor:pointer;padding:0;text-decoration:underline;';
+    archiveBtn.style.cssText = 'background:none;border:none;color:'+(historyShowingArchived ? '#2E6B47' : '#9A4A4A')+';font-family:Kalam,cursive;font-size:13px;font-weight:700;cursor:pointer;padding:0;text-decoration:underline;text-decoration-style:dotted;';
     archiveBtn.onclick = function(ev){
       ev.stopPropagation();
       e.archived = !historyShowingArchived;
