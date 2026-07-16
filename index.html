@@ -1959,7 +1959,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260716144328';
+  var CURRENT_BUILD = '20260716160033';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -5012,107 +5012,97 @@ function sendTestPushNotification(){
 // plugin (@capacitor-community/speech-recognition, which uses Android's actual on-device
 // SpeechRecognizer) for the native app, keeping the old Web Speech API path only as a fallback
 // for desktop/browser testing where it does work.
-var SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-var recognition = null;
+// Real fix, not a patch: record-then-transcribe instead of live speech recognition. The
+// earlier approaches (Web Speech API, then the native Android plugin) both hit the same root
+// limitation -- Android's on-device speech engine only listens in short segments and cuts off
+// after a silence gap, which no client-side trick can fully avoid. MediaRecorder has no such
+// limitation at all -- it just captures audio, for as long as needed, identically on native
+// and in a browser -- so this replaces the whole live-recognition approach with: record the
+// full thing, then transcribe it once at the end via a real transcription API.
+var mediaRecorder = null;
+var recordedChunks = [];
 var isRecording = false;
-var userWantsRecording = false;
-if(SpeechRec){
-  recognition = new SpeechRec();
-  recognition.continuous = true;
-  recognition.interimResults = false;
-  recognition.onresult = function(event){
-    var ta = document.getElementById('journalText');
-    var transcript = '';
-    for(var i = event.resultIndex; i < event.results.length; i++){
-      transcript += event.results[i][0].transcript;
-    }
-    ta.value = (ta.value ? ta.value + ' ' : '') + transcript.trim();
-  };
-  recognition.onerror = function(){
-    isRecording = false;
-    document.getElementById('micBtn').classList.remove('mic-active');
-    document.getElementById('micListeningIndicator').style.display = 'none';
-  };
-  recognition.onend = function(){
-    if(isRecording){ recognition.start(); } // keep listening until user stops it
-  };
+
+function stopMicUI(){
+  isRecording = false;
+  document.getElementById('micBtn').classList.remove('mic-active');
+  document.getElementById('micListeningIndicator').style.display = 'none';
 }
 
 document.getElementById('micBtn').onclick = function(){
   var btn = this;
   var indicator = document.getElementById('micListeningIndicator');
-  var NativeSpeech = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SpeechRecognition;
-  if(IS_NATIVE_APP && NativeSpeech){
-    if(isRecording){
-      // User explicitly stopping -- userWantsRecording=false tells the listeningState handler
-      // below not to auto-restart when the resulting 'stopped' event arrives.
-      userWantsRecording = false;
-      NativeSpeech.stop();
-      isRecording = false;
-      btn.classList.remove('mic-active');
-      indicator.style.display = 'none';
-      return;
-    }
-    NativeSpeech.available().then(function(result){
-      if(!result.available){
-        showToast("Voice input isn't available on this device.");
-        return;
-      }
-      return NativeSpeech.requestPermissions().then(function(perm){
-        if(perm.speechRecognition !== 'granted'){
-          showToast('Microphone permission is needed for voice input — check your phone Settings.');
-          return;
-        }
-        NativeSpeech.removeAllListeners().then(function(){
-          NativeSpeech.addListener('partialResults', function(data){
-            if(!data.matches || !data.matches.length) return;
-            var ta = document.getElementById('journalText');
-            ta.value = (ta.value ? ta.value.replace(/\s*$/, ' ') : '') + data.matches[0];
-          });
-          // Real, confirmed cause of "only records for 5 seconds": Android's underlying
-          // SpeechRecognizer stops a listening session after a short silence gap by design --
-          // this is a well-documented platform limitation (the same issue is reported against
-          // several similar plugins), not something a single start() call can avoid. The fix
-          // is to treat each session as one segment of a longer recording: listen for the
-          // plugin's own listeningState event, and if it reports 'stopped' while the person
-          // still wants to be recording (hasn't tapped the mic to stop), silently start a new
-          // session right away so it feels continuous instead of cutting off.
-          NativeSpeech.addListener('listeningState', function(data){
-            if(data.status === 'stopped' && userWantsRecording){
-              NativeSpeech.start({ language: 'en-US', partialResults: true, popup: false }).catch(function(){
-                userWantsRecording = false;
-                isRecording = false;
-                btn.classList.remove('mic-active');
-                indicator.style.display = 'none';
-              });
-            }
-          });
-          userWantsRecording = true;
-          isRecording = true;
-          btn.classList.add('mic-active');
-          indicator.style.display = 'flex';
-          NativeSpeech.start({ language: 'en-US', partialResults: true, popup: false }).catch(function(){
-            userWantsRecording = false;
-            isRecording = false;
-            btn.classList.remove('mic-active');
-            indicator.style.display = 'none';
-            showToast("Couldn't start voice input — please try again");
-          });
+  var indicatorText = indicator.querySelector('span:last-child') || indicator;
+
+  if(isRecording){
+    indicator.innerHTML = '<span id="micPulseDot" style="width:8px;height:8px;border-radius:50%;background:#C77B7B;display:inline-block;"></span> Transcribing…';
+    mediaRecorder.stop();
+    return;
+  }
+
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    alert("Voice input isn't supported on this device — try typing instead.");
+    return;
+  }
+
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream){
+    recordedChunks = [];
+    var mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm'
+                 : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4'
+                 : '';
+    mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType: mimeType }) : new MediaRecorder(stream);
+
+    mediaRecorder.ondataavailable = function(e){
+      if(e.data && e.data.size > 0) recordedChunks.push(e.data);
+    };
+
+    mediaRecorder.onstop = function(){
+      stream.getTracks().forEach(function(track){ track.stop(); });
+      stopMicUI();
+      if(recordedChunks.length === 0){ return; }
+
+      indicator.innerHTML = '<span id="micPulseDot" style="width:8px;height:8px;border-radius:50%;background:#C77B7B;display:inline-block;"></span> Transcribing…';
+      indicator.style.display = 'flex';
+
+      var blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+      var reader = new FileReader();
+      reader.onloadend = function(){
+        var base64Audio = reader.result.split(',')[1];
+        sb.functions.invoke('transcribe-audio', {
+          body: { audio: base64Audio, mimeType: mediaRecorder.mimeType || 'audio/webm' }
+        }).then(function(result){
+          indicator.style.display = 'none';
+          if(result.error || !result.data || result.data.error){
+            showToast((result.data && result.data.error) || "Couldn't transcribe that — please try again");
+            return;
+          }
+          var ta = document.getElementById('journalText');
+          var newText = (result.data.text || '').trim();
+          if(newText){
+            ta.value = (ta.value ? ta.value.replace(/\s*$/, ' ') : '') + newText;
+          } else {
+            showToast("Didn't catch any speech in that recording");
+          }
+        }).catch(function(){
+          indicator.style.display = 'none';
+          showToast("Couldn't reach transcription right now — check your connection");
         });
-      });
-    }).catch(function(){
-      showToast("Couldn't start voice input on this device");
-    });
-    return;
-  }
-  if(!SpeechRec){
-    alert("Voice input isn't supported in this browser — try Chrome on Android, or type instead.");
-    return;
-  }
-  isRecording = !isRecording;
-  btn.classList.toggle('mic-active', isRecording);
-  indicator.style.display = isRecording ? 'flex' : 'none';
-  if(isRecording){ recognition.start(); } else { recognition.stop(); }
+      };
+      reader.readAsDataURL(blob);
+    };
+
+    mediaRecorder.start();
+    isRecording = true;
+    btn.classList.add('mic-active');
+    indicator.innerHTML = '<span id="micPulseDot" style="width:8px;height:8px;border-radius:50%;background:#C77B7B;display:inline-block;"></span> Recording — tap to stop';
+    indicator.style.display = 'flex';
+  }).catch(function(err){
+    if(err && err.name === 'NotAllowedError'){
+      showToast('Microphone permission is needed for voice input — check your phone Settings.');
+    } else {
+      showToast("Couldn't access the microphone right now");
+    }
+  });
 };
 // ---- WHO-5 bi-weekly follow-up (validated instrument recalls "the last two weeks" - bi-weekly cadence matches its actual clinical window, more accurate than a 7-day lock) ----
 if(!appState.who5Entries){ appState.who5Entries = []; }
