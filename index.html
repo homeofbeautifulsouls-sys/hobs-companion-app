@@ -2018,7 +2018,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260716223318';
+  var CURRENT_BUILD = '20260716224323';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -4798,6 +4798,10 @@ async function respondToGroupInvite(roomId, accept){
   if(accept) openChatRoom(roomId);
 }
 
+var currentChatRoomType = null;
+var currentRoomViewerCanSeeRealNames = false;
+var chatMemberAliasCache = {};
+
 async function openChatRoom(roomId){
   currentChatRoomId = roomId;
   showOnly('panel-chat-room');
@@ -4806,6 +4810,18 @@ async function openChatRoom(roomId){
   var { data: room } = await sb.from('chat_rooms').select('type, name, client_id').eq('id', roomId).single();
   var titleEl = document.getElementById('chatRoomTitle');
   var subEl = document.getElementById('chatRoomSubtitle');
+  currentChatRoomType = room ? room.type : null;
+
+  // Real names are always visible to the platform admin and to this specific room's own
+  // admin/co-admin (the professional facilitating the group needs genuine oversight for
+  // safety) -- everyone else sees aliases in a support group, per direct instruction that this
+  // protects identity specifically among peers, not from the people running it.
+  currentRoomViewerCanSeeRealNames = true;
+  if(room && room.type === 'support_group' && !appState.isAdmin){
+    var { data: myMembership } = await sb.from('chat_room_members').select('role').eq('room_id', roomId).eq('user_id', currentUser.id).single();
+    currentRoomViewerCanSeeRealNames = !!(myMembership && (myMembership.role === 'admin' || myMembership.role === 'co_admin'));
+  }
+
   if(room){
     subEl.textContent = room.type === 'support_group' ? 'Support group' : room.type === 'coordination' ? 'Care coordination' : '';
     document.getElementById('chatRoomInfoBtn').style.display = room.type === 'support_group' ? 'block' : 'none';
@@ -4822,6 +4838,28 @@ async function openChatRoom(roomId){
   subscribeToChatRoom(roomId);
 }
 
+// Resolves the name to actually SHOW for a given sender in the current room -- their own real
+// name if they're viewing themselves, an alias if this is a support group and the viewer isn't
+// entitled to real names, otherwise the real name as normal.
+async function resolveDisplayNameForCurrentRoom(userId){
+  if(userId === currentUser.id) return 'You';
+  if(currentChatRoomType !== 'support_group' || currentRoomViewerCanSeeRealNames){
+    return resolveUserName(userId);
+  }
+  // The facilitator's own identity isn't something being protected here -- only shows an alias
+  // if THEY chose to set one for themselves, same as anyone else could, not by default.
+  var cacheKey = currentChatRoomId + ':role:' + userId;
+  if(chatMemberAliasCache[cacheKey] === undefined){
+    var { data: targetMembership } = await sb.from('chat_room_members').select('role, display_alias').eq('room_id', currentChatRoomId).eq('user_id', userId).single();
+    chatMemberAliasCache[cacheKey] = targetMembership || {};
+  }
+  var target = chatMemberAliasCache[cacheKey];
+  if(target.role === 'admin' || target.role === 'co_admin'){
+    return target.display_alias || resolveUserName(userId);
+  }
+  return target.display_alias || 'A group member';
+}
+
 async function renderChatMessages(){
   var list = document.getElementById('chatMessagesList');
   var { data: messages, error } = await sb.from('chat_messages')
@@ -4831,20 +4869,29 @@ async function renderChatMessages(){
 
   list.innerHTML = '';
   for(var msg of (messages || [])){
-    appendChatMessageBubble(msg);
+    await appendChatMessageBubble(msg);
   }
   list.scrollTop = list.scrollHeight;
 }
 
-function appendChatMessageBubble(msg){
+async function appendChatMessageBubble(msg){
   var list = document.getElementById('chatMessagesList');
   var isMine = msg.sender_id === currentUser.id;
   var bubble = document.createElement('div');
   bubble.style.cssText = 'display:flex;'+(isMine ? 'justify-content:flex-end;' : 'justify-content:flex-start;')+'margin-bottom:8px;';
   var timeStr = new Date(msg.created_at).toLocaleTimeString(undefined, {hour:'numeric', minute:'2-digit'});
   var text = msg.deleted ? '<em>Message deleted</em>' : (msg.text || '').replace(/</g,'&lt;');
+  // Sender name shown for group chats only (obvious who's who in a 1-on-1) -- respects the
+  // alias resolution above, so a support group correctly hides real identity in exactly this
+  // label, which is the one place it would otherwise leak.
+  var senderLabel = '';
+  if(currentChatRoomType === 'support_group' && !isMine){
+    var name = await resolveDisplayNameForCurrentRoom(msg.sender_id);
+    senderLabel = '<p style="margin:0 0 2px;font-size:10.5px;font-weight:700;color:#6690D6;">'+name+'</p>';
+  }
   bubble.innerHTML =
     '<div style="max-width:75%;background:'+(isMine ? '#6690D6' : '#FFFFFF')+';color:'+(isMine ? '#FFF8F0' : '#2A2013')+';border-radius:16px;padding:9px 13px;box-shadow:0 1px 3px rgba(42,32,19,0.08);">'+
+      senderLabel+
       '<p style="margin:0;font-size:13.5px;white-space:pre-wrap;">'+text+'</p>'+
       '<p style="margin:3px 0 0;font-size:9.5px;opacity:0.7;text-align:right;">'+timeStr+'</p>'+
     '</div>';
@@ -7444,14 +7491,36 @@ async function openChatRoomInfo(){
   var listEl = document.getElementById('chatRoomInfoMembersList');
   listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12px;">Loading…</p>';
 
-  var { data: myMembership } = await sb.from('chat_room_members').select('role').eq('room_id', currentChatRoomId).eq('user_id', currentUser.id).single();
+  var { data: myMembership } = await sb.from('chat_room_members').select('role, display_alias').eq('room_id', currentChatRoomId).eq('user_id', currentUser.id).single();
   var iAmGroupAdmin = appState.isAdmin || (myMembership && (myMembership.role === 'admin' || myMembership.role === 'co_admin'));
   document.getElementById('chatRoomInfoAddMemberBtn').style.display = iAmGroupAdmin ? 'block' : 'none';
+
+  // Real names always visible to platform admin and this group's own admin/co-admin -- per
+  // direct instruction, identity protection here is specifically from other members, not from
+  // the people running the group.
+  var canSeeRealNames = currentRoomViewerCanSeeRealNames;
+
+  var editAliasRow = document.getElementById('chatMyAliasRow');
+  if(editAliasRow) editAliasRow.remove();
+  if(currentChatRoomType === 'support_group'){
+    var aliasRow = document.createElement('div');
+    aliasRow.id = 'chatMyAliasRow';
+    aliasRow.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#FEF3D8;border:1px solid #EFD9A0;border-radius:10px;margin-bottom:14px;';
+    aliasRow.innerHTML =
+      '<div><p style="font-size:11px;color:#7B4F00;margin:0 0 2px;">Your name in this group</p>'+
+      '<p style="font-size:13.5px;font-weight:700;color:#2A2013;margin:0;">'+((myMembership && myMembership.display_alias) || 'Not set — showing as "A group member"')+'</p></div>';
+    var editBtn = document.createElement('button');
+    editBtn.textContent = 'Edit';
+    editBtn.style.cssText = 'font-size:11px;font-weight:700;color:#7B4F00;background:none;border:1px solid #EFD9A0;border-radius:8px;padding:5px 10px;cursor:pointer;';
+    editBtn.onclick = editMyGroupAlias;
+    aliasRow.appendChild(editBtn);
+    listEl.parentNode.insertBefore(aliasRow, listEl);
+  }
 
   var { data: members } = await sb.from('chat_room_members').select('user_id, role, status').eq('room_id', currentChatRoomId).neq('status', 'declined');
   listEl.innerHTML = '';
   for(var m of (members || [])){
-    var name = await resolveUserName(m.user_id);
+    var name = (m.user_id === currentUser.id) ? 'You' : (canSeeRealNames ? await resolveUserName(m.user_id) : await resolveDisplayNameForCurrentRoom(m.user_id));
     var row = document.createElement('div');
     row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#FFFFFF;border:1px solid #EEE0C4;border-radius:10px;margin-bottom:6px;';
     var roleLabel = m.role === 'admin' ? 'Admin' : m.role === 'co_admin' ? 'Co-admin' : '';
@@ -7469,6 +7538,19 @@ async function openChatRoomInfo(){
     }
     listEl.appendChild(row);
   }
+}
+
+async function editMyGroupAlias(){
+  var current = document.getElementById('chatMyAliasRow').querySelector('p:nth-child(2)').textContent;
+  var newAlias = prompt('What name should other members in this group see instead of your real name?', current.indexOf('Not set') === 0 ? '' : current);
+  if(newAlias === null) return;
+  newAlias = newAlias.trim();
+  if(!newAlias){ showToast('Name cannot be empty'); return; }
+  var { error } = await sb.from('chat_room_members').update({ display_alias: newAlias }).eq('room_id', currentChatRoomId).eq('user_id', currentUser.id);
+  if(error){ showToast("Couldn't save — please try again"); return; }
+  chatMemberAliasCache[currentChatRoomId + ':' + currentUser.id] = newAlias;
+  showToast('Updated');
+  openChatRoomInfo();
 }
 
 async function promoteToCoAdmin(userId){
