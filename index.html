@@ -1946,6 +1946,7 @@
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
       </button>
     </div>
+    <div id="chatPinnedBanner" style="display:none;padding:8px 14px;background:#FEF3D8;border-bottom:1px solid #EFD9A0;font-size:11.5px;color:#7B4F00;cursor:pointer;"></div>
     <div id="chatMessagesList" style="flex:1;overflow-y:auto;padding:14px 14px 6px;background:#FBF7ED;"></div>
     <div style="display:flex;gap:8px;padding:10px 14px calc(10px + env(safe-area-inset-bottom));border-top:1px solid #EEE0C4;background:#FFFFFF;">
       <input type="text" id="chatMessageInput" placeholder="Message..." style="flex:1;padding:11px 14px;border-radius:20px;border:1px solid #EEE0C4;font-size:13.5px;font-family:inherit;box-sizing:border-box;">
@@ -1961,10 +1962,12 @@
       Back
     </button>
     <p class="prompt-title" style="text-align:center;">New support group</p>
-    <input type="text" id="chatGroupNameInput" placeholder="Group name" style="width:100%;padding:13px;border-radius:12px;border:1px solid #EEE0C4;font-size:14px;font-family:inherit;box-sizing:border-box;margin-bottom:16px;">
+    <input type="text" id="chatGroupNameInput" placeholder="Group name" style="width:100%;padding:13px;border-radius:12px;border:1px solid #EEE0C4;font-size:14px;font-family:inherit;box-sizing:border-box;margin-bottom:10px;">
+    <textarea id="chatGroupDescInput" placeholder="Description (optional) — what's this group for?" style="width:100%;padding:13px;border-radius:12px;border:1px solid #EEE0C4;font-size:13px;font-family:inherit;box-sizing:border-box;margin-bottom:16px;min-height:60px;resize:vertical;"></textarea>
     <p style="font-size:11.5px;color:#9AABCE;margin:0 0 8px;">Add members — choose Invite (they accept before joining) or Add directly (they're in immediately).</p>
-    <input type="text" id="chatGroupMemberSearch" placeholder="Search people..." style="width:100%;padding:11px;border-radius:12px;border:1px solid #EEE0C4;font-size:13px;font-family:inherit;box-sizing:border-box;margin-bottom:12px;">
-    <div id="chatGroupMemberResults" style="max-height:200px;overflow-y:auto;margin-bottom:12px;"></div>
+    <input type="text" id="chatGroupMemberSearch" placeholder="Filter the list below (optional)..." style="width:100%;padding:11px;border-radius:12px;border:1px solid #EEE0C4;font-size:13px;font-family:inherit;box-sizing:border-box;margin-bottom:12px;">
+    <div id="chatGroupMemberResults" style="max-height:280px;overflow-y:auto;margin-bottom:12px;border:1px solid #F0E9D8;border-radius:12px;"></div>
+    <p style="font-size:10.5px;color:#9AABCE;margin:-6px 0 12px;text-align:center;">Scroll to see everyone, or filter above to find someone faster.</p>
     <div id="chatGroupSelectedMembers" style="margin-bottom:20px;"></div>
     <button id="chatCreateGroupSubmitBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:14.5px;font-weight:700;cursor:pointer;">Create group</button>
   </div>
@@ -1975,9 +1978,12 @@
       Back
     </button>
     <p class="prompt-title" style="text-align:center;" id="chatRoomInfoTitle">Group info</p>
+    <div id="chatRoomDescSection" style="margin-bottom:14px;"></div>
+    <div id="chatRoomPinnedSection" style="margin-bottom:14px;"></div>
     <button id="chatRoomInfoAddMemberBtn" style="display:none;width:100%;padding:12px;border-radius:12px;border:1px dashed #C7D2E8;background:transparent;color:#6690D6;font-size:12.5px;font-weight:700;cursor:pointer;margin-bottom:16px;">+ Add members</button>
     <p style="font-size:11px;color:#9AABCE;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 8px;">Members</p>
     <div id="chatRoomInfoMembersList"></div>
+    <button id="chatRoomExitBtn" style="display:none;width:100%;padding:12px;border-radius:12px;border:1px solid #EFC7C7;background:transparent;color:#C77B7B;font-size:12.5px;font-weight:700;cursor:pointer;margin-top:20px;">Exit group</button>
   </div>
 
   <div class="nav-footer">
@@ -2018,7 +2024,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260716224323';
+  var CURRENT_BUILD = '20260717104124';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -4807,7 +4813,7 @@ async function openChatRoom(roomId){
   showOnly('panel-chat-room');
   document.getElementById('chatMessagesList').innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12px;">Loading…</p>';
 
-  var { data: room } = await sb.from('chat_rooms').select('type, name, client_id').eq('id', roomId).single();
+  var { data: room } = await sb.from('chat_rooms').select('type, name, client_id, pinned_message_id').eq('id', roomId).single();
   var titleEl = document.getElementById('chatRoomTitle');
   var subEl = document.getElementById('chatRoomSubtitle');
   currentChatRoomType = room ? room.type : null;
@@ -4831,6 +4837,17 @@ async function openChatRoom(roomId){
       var others = await sb.from('chat_room_members').select('user_id').eq('room_id', roomId).neq('user_id', currentUser.id);
       var names = await Promise.all((others.data||[]).map(function(r){ return resolveUserName(r.user_id); }));
       titleEl.textContent = names.join(', ') || 'Chat';
+    }
+  }
+
+  var pinnedBanner = document.getElementById('chatPinnedBanner');
+  pinnedBanner.style.display = 'none';
+  pinnedBanner.onclick = function(){ openChatRoomInfo(); };
+  if(room && room.pinned_message_id){
+    var { data: pinnedMsgForBanner } = await sb.from('chat_messages').select('text').eq('id', room.pinned_message_id).single();
+    if(pinnedMsgForBanner){
+      pinnedBanner.style.display = 'block';
+      pinnedBanner.innerHTML = '📌 <strong>' + (pinnedMsgForBanner.text||'').replace(/</g,'&lt;').slice(0,80) + '</strong>';
     }
   }
 
@@ -4878,7 +4895,7 @@ async function appendChatMessageBubble(msg){
   var list = document.getElementById('chatMessagesList');
   var isMine = msg.sender_id === currentUser.id;
   var bubble = document.createElement('div');
-  bubble.style.cssText = 'display:flex;'+(isMine ? 'justify-content:flex-end;' : 'justify-content:flex-start;')+'margin-bottom:8px;';
+  bubble.style.cssText = 'display:flex;flex-direction:column;'+(isMine ? 'align-items:flex-end;' : 'align-items:flex-start;')+'margin-bottom:8px;';
   var timeStr = new Date(msg.created_at).toLocaleTimeString(undefined, {hour:'numeric', minute:'2-digit'});
   var text = msg.deleted ? '<em>Message deleted</em>' : (msg.text || '').replace(/</g,'&lt;');
   // Sender name shown for group chats only (obvious who's who in a 1-on-1) -- respects the
@@ -4889,12 +4906,27 @@ async function appendChatMessageBubble(msg){
     var name = await resolveDisplayNameForCurrentRoom(msg.sender_id);
     senderLabel = '<p style="margin:0 0 2px;font-size:10.5px;font-weight:700;color:#6690D6;">'+name+'</p>';
   }
-  bubble.innerHTML =
-    '<div style="max-width:75%;background:'+(isMine ? '#6690D6' : '#FFFFFF')+';color:'+(isMine ? '#FFF8F0' : '#2A2013')+';border-radius:16px;padding:9px 13px;box-shadow:0 1px 3px rgba(42,32,19,0.08);">'+
+  var bubbleInner = document.createElement('div');
+  bubbleInner.style.cssText = 'max-width:75%;background:'+(isMine ? '#6690D6' : '#FFFFFF')+';color:'+(isMine ? '#FFF8F0' : '#2A2013')+';border-radius:16px;padding:9px 13px;box-shadow:0 1px 3px rgba(42,32,19,0.08);';
+  bubbleInner.innerHTML =
       senderLabel+
       '<p style="margin:0;font-size:13.5px;white-space:pre-wrap;">'+text+'</p>'+
-      '<p style="margin:3px 0 0;font-size:9.5px;opacity:0.7;text-align:right;">'+timeStr+'</p>'+
-    '</div>';
+      '<p style="margin:3px 0 0;font-size:9.5px;opacity:0.7;text-align:right;">'+timeStr+'</p>';
+  bubble.appendChild(bubbleInner);
+
+  // Group admins/co-admins can pin a message -- reuses the same "can this viewer act as this
+  // room's facilitator" check already computed for name visibility, since it's the same
+  // underlying role check either way.
+  if(currentChatRoomType === 'support_group' && currentRoomViewerCanSeeRealNames && !msg.deleted && typeof msg.id === 'string' && msg.id.indexOf('temp-') !== 0){
+    var pinLink = document.createElement('button');
+    pinLink.textContent = '📌 Pin';
+    pinLink.style.cssText = 'background:none;border:none;color:#9AABCE;font-size:9.5px;cursor:pointer;padding:2px 4px;margin-top:1px;';
+    pinLink.onclick = async function(){
+      await sb.from('chat_rooms').update({ pinned_message_id: msg.id }).eq('id', currentChatRoomId);
+      showToast('Message pinned');
+    };
+    bubble.appendChild(pinLink);
+  }
   list.appendChild(bubble);
 }
 
@@ -4929,7 +4961,37 @@ async function sendChatMessage(){
   list.scrollTop = list.scrollHeight;
 
   var { error } = await sb.from('chat_messages').insert({ room_id: currentChatRoomId, sender_id: currentUser.id, text: text });
-  if(error){ showToast("Couldn't send — please try again"); console.error(error); }
+  if(error){ showToast("Couldn't send — please try again"); console.error(error); return; }
+
+  notifyOtherRoomMembers(currentChatRoomId, text).catch(function(){}); // best-effort, never blocks sending
+}
+
+// Notifies every other joined member of a room that a new message arrived -- push, not just
+// the in-app realtime update, since someone with the app backgrounded or closed would
+// otherwise never know. Title matches WhatsApp's own convention: the sender's name for a
+// group (so it's clear who wrote it before opening), nothing extra needed for a 1-on-1.
+async function notifyOtherRoomMembers(roomId, messageText){
+  var { data: room } = await sb.from('chat_rooms').select('type, name').eq('id', roomId).single();
+  if(!room) return;
+  var { data: members } = await sb.from('chat_room_members').select('user_id').eq('room_id', roomId).eq('status', 'joined').neq('user_id', currentUser.id);
+  if(!members || members.length === 0) return;
+
+  var senderName = 'You';
+  if(room.type === 'support_group'){
+    var { data: myMembership } = await sb.from('chat_room_members').select('display_alias').eq('room_id', roomId).eq('user_id', currentUser.id).single();
+    senderName = (myMembership && myMembership.display_alias) || 'A group member';
+  } else {
+    senderName = await resolveUserName(currentUser.id);
+  }
+
+  var title = room.type === 'support_group' ? (room.name || 'Support group') : senderName;
+  var body = room.type === 'support_group' ? (senderName + ': ' + messageText) : messageText;
+
+  members.forEach(function(m){
+    sb.functions.invoke('send-push-notification', {
+      body: { userId: m.user_id, title: title, body: body.slice(0, 180), data: { type: 'chat_message', room_id: roomId } }
+    }).catch(function(){});
+  });
 }
 
 document.getElementById('chatSendBtn').onclick = sendChatMessage;
@@ -7376,16 +7438,57 @@ document.getElementById('headerChatBtn').onclick = function(){
 var chatGroupSelectedUsers = {};
 var chatCreateGroupSubmitBtn_addMode = false;
 
+var chatGroupPickerAllUsers = [];
+
+async function loadAllUsersForGroupPicker(){
+  var resultsEl = document.getElementById('chatGroupMemberResults');
+  resultsEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12px;padding:20px;">Loading…</p>';
+  var { data, error } = await sb.from('profiles').select('user_id, name, email').order('name');
+  if(error){ resultsEl.innerHTML = '<p style="text-align:center;color:#C77B7B;font-size:12px;padding:20px;">Could not load people.</p>'; return; }
+  chatGroupPickerAllUsers = (data || []).filter(function(u){ return u.user_id !== currentUser.id && u.name; });
+  renderGroupMemberPickerList('');
+}
+
+function renderGroupMemberPickerList(filterText){
+  var resultsEl = document.getElementById('chatGroupMemberResults');
+  var q = (filterText || '').trim().toLowerCase();
+  var visible = q ? chatGroupPickerAllUsers.filter(function(u){ return (u.name||'').toLowerCase().indexOf(q) !== -1; }) : chatGroupPickerAllUsers;
+  resultsEl.innerHTML = '';
+  if(visible.length === 0){
+    resultsEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12px;padding:20px;">No matches.</p>';
+    return;
+  }
+  visible.forEach(function(u){
+    var isSelected = !!chatGroupSelectedUsers[u.user_id];
+    var row = document.createElement('div');
+    row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:11px 12px;border-bottom:1px solid #F0E9D8;cursor:pointer;background:'+(isSelected ? '#F0F4FC' : 'transparent')+';';
+    row.innerHTML =
+      '<span style="font-size:13px;color:#2A2013;">'+(u.name||'Unnamed')+'</span>'+
+      '<span style="width:20px;height:20px;border-radius:5px;border:1.5px solid '+(isSelected ? '#6690D6' : '#D9C9A0')+';background:'+(isSelected ? '#6690D6' : 'transparent')+';display:flex;align-items:center;justify-content:center;flex-shrink:0;">'+
+      (isSelected ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>' : '')+
+      '</span>';
+    row.onclick = function(){
+      if(chatGroupSelectedUsers[u.user_id]) delete chatGroupSelectedUsers[u.user_id];
+      else chatGroupSelectedUsers[u.user_id] = { name: u.name || 'Unnamed', mode: 'direct' };
+      renderGroupMemberPickerList(document.getElementById('chatGroupMemberSearch').value);
+      renderSelectedGroupMembers();
+    };
+    resultsEl.appendChild(row);
+  });
+}
+
 document.getElementById('chatNewGroupBtn').onclick = function(){
   chatGroupSelectedUsers = {};
   chatCreateGroupSubmitBtn_addMode = false;
   document.getElementById('chatGroupNameInput').style.display = 'block';
   document.getElementById('chatGroupNameInput').value = '';
+  document.getElementById('chatGroupDescInput').style.display = 'block';
+  document.getElementById('chatGroupDescInput').value = '';
   document.getElementById('chatGroupMemberSearch').value = '';
-  document.getElementById('chatGroupMemberResults').innerHTML = '';
   document.getElementById('chatCreateGroupSubmitBtn').textContent = 'Create group';
   renderSelectedGroupMembers();
   showOnly('panel-chat-create-group');
+  loadAllUsersForGroupPicker();
 };
 document.getElementById('chatCreateGroupBackBtn').onclick = function(){
   if(chatCreateGroupSubmitBtn_addMode){ openChatRoomInfo(); }
@@ -7393,25 +7496,7 @@ document.getElementById('chatCreateGroupBackBtn').onclick = function(){
 };
 
 document.getElementById('chatGroupMemberSearch').oninput = function(){
-  var q = this.value.trim();
-  var resultsEl = document.getElementById('chatGroupMemberResults');
-  if(q.length < 2){ resultsEl.innerHTML = ''; return; }
-  sb.from('profiles').select('user_id, name, email').ilike('name', '%'+q+'%').limit(10).then(function(res){
-    resultsEl.innerHTML = '';
-    (res.data || []).forEach(function(u){
-      if(u.user_id === currentUser.id || chatGroupSelectedUsers[u.user_id]) return;
-      var row = document.createElement('div');
-      row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:9px 4px;border-bottom:1px solid #F0E9D8;cursor:pointer;';
-      row.innerHTML = '<span style="font-size:13px;">'+(u.name||'Unnamed')+'</span><span style="font-size:11px;color:#6690D6;font-weight:700;">+ Add</span>';
-      row.onclick = function(){
-        chatGroupSelectedUsers[u.user_id] = { name: u.name || 'Unnamed', mode: 'direct' };
-        renderSelectedGroupMembers();
-        resultsEl.innerHTML = '';
-        document.getElementById('chatGroupMemberSearch').value = '';
-      };
-      resultsEl.appendChild(row);
-    });
-  });
+  renderGroupMemberPickerList(this.value);
 };
 
 function renderSelectedGroupMembers(){
@@ -7465,8 +7550,9 @@ document.getElementById('chatCreateGroupSubmitBtn').onclick = async function(){
 
   var name = document.getElementById('chatGroupNameInput').value.trim();
   if(!name){ showToast('Give the group a name first'); return; }
+  var description = document.getElementById('chatGroupDescInput').value.trim();
 
-  var { data: room, error } = await sb.from('chat_rooms').insert({ type: 'support_group', name: name, created_by: currentUser.id }).select().single();
+  var { data: room, error } = await sb.from('chat_rooms').insert({ type: 'support_group', name: name, description: description || null, created_by: currentUser.id }).select().single();
   if(error){ showToast("Couldn't create group"); console.error(error); return; }
 
   var memberRows = [{ room_id: room.id, user_id: currentUser.id, role: 'admin', status: 'joined', joined_at: new Date().toISOString() }];
@@ -7491,9 +7577,53 @@ async function openChatRoomInfo(){
   var listEl = document.getElementById('chatRoomInfoMembersList');
   listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12px;">Loading…</p>';
 
+  var { data: room } = await sb.from('chat_rooms').select('description, pinned_message_id').eq('id', currentChatRoomId).single();
   var { data: myMembership } = await sb.from('chat_room_members').select('role, display_alias').eq('room_id', currentChatRoomId).eq('user_id', currentUser.id).single();
   var iAmGroupAdmin = appState.isAdmin || (myMembership && (myMembership.role === 'admin' || myMembership.role === 'co_admin'));
   document.getElementById('chatRoomInfoAddMemberBtn').style.display = iAmGroupAdmin ? 'block' : 'none';
+  document.getElementById('chatRoomExitBtn').style.display = 'block';
+
+  // Description
+  var descEl = document.getElementById('chatRoomDescSection');
+  var descText = (room && room.description) || (iAmGroupAdmin ? 'No description yet.' : '');
+  descEl.innerHTML =
+    '<p style="font-size:11px;color:#9AABCE;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 6px;">Description</p>'+
+    '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:10px;padding:11px 12px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">'+
+    '<p style="font-size:12.5px;color:#2A2013;margin:0;flex:1;">'+(descText || '<span style="color:#B0AA98;">No description yet.</span>')+'</p>'+
+    (iAmGroupAdmin ? '<button id="chatEditDescBtn" style="font-size:10.5px;font-weight:700;color:#6690D6;background:none;border:none;cursor:pointer;flex-shrink:0;">Edit</button>' : '')+
+    '</div>';
+  if(iAmGroupAdmin){
+    document.getElementById('chatEditDescBtn').onclick = async function(){
+      var newDesc = prompt("What's this group for?", (room && room.description) || '');
+      if(newDesc === null) return;
+      var { error } = await sb.from('chat_rooms').update({ description: newDesc.trim() || null }).eq('id', currentChatRoomId);
+      if(error){ showToast("Couldn't save"); return; }
+      openChatRoomInfo();
+    };
+  }
+
+  // Pinned message
+  var pinnedEl = document.getElementById('chatRoomPinnedSection');
+  pinnedEl.innerHTML = '';
+  if(room && room.pinned_message_id){
+    var { data: pinnedMsg } = await sb.from('chat_messages').select('text, sender_id').eq('id', room.pinned_message_id).single();
+    if(pinnedMsg){
+      var pinnedSenderName = await resolveDisplayNameForCurrentRoom(pinnedMsg.sender_id);
+      pinnedEl.innerHTML =
+        '<p style="font-size:11px;color:#9AABCE;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 6px;">📌 Pinned message</p>'+
+        '<div style="background:#FEF3D8;border:1px solid #EFD9A0;border-radius:10px;padding:11px 12px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">'+
+        '<div><p style="font-size:10.5px;font-weight:700;color:#7B4F00;margin:0 0 2px;">'+pinnedSenderName+'</p>'+
+        '<p style="font-size:12.5px;color:#2A2013;margin:0;">'+(pinnedMsg.text||'').replace(/</g,'&lt;')+'</p></div>'+
+        (iAmGroupAdmin ? '<button id="chatUnpinBtn" style="font-size:10.5px;font-weight:700;color:#C77B7B;background:none;border:none;cursor:pointer;flex-shrink:0;">Unpin</button>' : '')+
+        '</div>';
+      if(iAmGroupAdmin){
+        document.getElementById('chatUnpinBtn').onclick = async function(){
+          await sb.from('chat_rooms').update({ pinned_message_id: null }).eq('id', currentChatRoomId);
+          openChatRoomInfo();
+        };
+      }
+    }
+  }
 
   // Real names always visible to platform admin and this group's own admin/co-admin -- per
   // direct instruction, identity protection here is specifically from other members, not from
@@ -7538,6 +7668,16 @@ async function openChatRoomInfo(){
     }
     listEl.appendChild(row);
   }
+
+  document.getElementById('chatRoomExitBtn').onclick = async function(){
+    if(!confirm('Leave this group? You can be added back later, but you\'ll stop seeing new messages until then.')) return;
+    var { error } = await sb.from('chat_room_members').update({ status: 'left' }).eq('room_id', currentChatRoomId).eq('user_id', currentUser.id);
+    if(error){ showToast("Couldn't leave — please try again"); return; }
+    showToast('Left the group');
+    if(chatRealtimeChannel){ sb.removeChannel(chatRealtimeChannel); chatRealtimeChannel = null; }
+    showOnly('panel-chat-list');
+    renderChatList();
+  };
 }
 
 async function editMyGroupAlias(){
@@ -7565,12 +7705,13 @@ document.getElementById('chatRoomInfoBackBtn').onclick = function(){ openChatRoo
 document.getElementById('chatRoomInfoAddMemberBtn').onclick = function(){
   chatGroupSelectedUsers = {};
   document.getElementById('chatGroupNameInput').style.display = 'none';
+  document.getElementById('chatGroupDescInput').style.display = 'none';
   document.getElementById('chatGroupMemberSearch').value = '';
-  document.getElementById('chatGroupMemberResults').innerHTML = '';
   renderSelectedGroupMembers();
   chatCreateGroupSubmitBtn_addMode = true;
   document.getElementById('chatCreateGroupSubmitBtn').textContent = 'Add to group';
   showOnly('panel-chat-create-group');
+  loadAllUsersForGroupPicker();
 };
 
 document.getElementById('profileSearchBtn').onclick = openSearch;
