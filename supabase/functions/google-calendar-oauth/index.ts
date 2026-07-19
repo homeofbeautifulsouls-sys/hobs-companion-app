@@ -145,6 +145,16 @@ Deno.serve(async (req) => {
         needs_reconnect: false,
       });
 
+      // Starts instant sync right away -- registered server-side here rather than as a
+      // separate frontend call, since this landing page might have no active session at all
+      // (the whole reason the state-token approach exists), so it can't be relied on to make
+      // a second authenticated round-trip afterward.
+      fetch(`${SUPABASE_URL}/functions/v1/google-calendar-sync`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "register_watch", user_id: userId }),
+      }).catch((e) => console.error("Could not register calendar watch:", e));
+
       return new Response(JSON.stringify({ success: true, google_email: googleEmail }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
