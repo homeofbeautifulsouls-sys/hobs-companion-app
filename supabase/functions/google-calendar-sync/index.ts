@@ -146,6 +146,111 @@ Deno.serve(async (req) => {
 
         return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
+      if (body.action === "sync_session") {
+        // Centralized so every place a session's state can change (client requests a time,
+        // professional accepts, admin logs an appointment directly, a reschedule, a
+        // cancellation) all call the same logic instead of each duplicating Google API calls.
+        const bookingRows = await dbFetch(`expert_bookings?id=eq.${body.booking_id}&select=*`);
+        const booking = Array.isArray(bookingRows) ? bookingRows[0] : null;
+        if (!booking) return new Response(JSON.stringify({ error: "Booking not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+        const profRows = await dbFetch(`profiles?therapist_expert_name=eq.${encodeURIComponent(booking.expert_name)}&is_therapist=eq.true&select=user_id`);
+        const professional = Array.isArray(profRows) ? profRows[0] : null;
+        if (!professional) return new Response(JSON.stringify({ skipped: "No professional account for this expert" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+        const connRows = await dbFetch(`professional_calendar_connections?user_id=eq.${professional.user_id}&select=*`);
+        const conn = Array.isArray(connRows) ? connRows[0] : null;
+        if (!conn || conn.needs_reconnect) return new Response(JSON.stringify({ skipped: "No active calendar connection" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+        const accessToken = await getValidAccessToken(conn);
+        if (!accessToken) return new Response(JSON.stringify({ skipped: "Reconnect needed" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+        const linkRows = await dbFetch(`session_calendar_events?booking_id=eq.${body.booking_id}&select=*`);
+        const existingLink = Array.isArray(linkRows) ? linkRows[0] : null;
+
+        // Cancelled (or session_date cleared) -- remove the calendar event if one exists.
+        if (booking.status === "cancelled" || !booking.session_date) {
+          if (existingLink) {
+            await fetch(`https://www.googleapis.com/calendar/v3/calendars/${conn.google_calendar_id}/events/${existingLink.google_event_id}`, {
+              method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` },
+            }).catch(() => {});
+            await fetch(`${SUPABASE_URL}/rest/v1/session_calendar_events?id=eq.${existingLink.id}`, {
+              method: "DELETE", headers: { apikey: SUPABASE_SERVICE_ROLE_KEY ?? "", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+            });
+          }
+          return new Response(JSON.stringify({ success: true, action: "removed" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+
+        let clientName = booking.is_external ? (booking.external_client_name || "HOBS client") : "HOBS client";
+        if (!booking.is_external && booking.user_id) {
+          const clientRows = await dbFetch(`profiles?user_id=eq.${booking.user_id}&select=name`);
+          clientName = (Array.isArray(clientRows) && clientRows[0]?.name) || "HOBS client";
+        }
+        const startTime = new Date(booking.session_date);
+        const endTime = new Date(startTime.getTime() + 45 * 60 * 1000); // default 45-minute session
+
+        // Conflict check against the professional's own blocked time -- per direct instruction,
+        // this never blocks the booking itself, it notifies the professional to accept or
+        // reject afterward. Only checked on first creation (existingLink absent), not on every
+        // subsequent update, so this doesn't re-fire repeatedly for the same session.
+        if (!existingLink) {
+          const overlapping = await dbFetch(
+            `professional_busy_blocks?professional_user_id=eq.${professional.user_id}&start_time=lt.${endTime.toISOString()}&end_time=gt.${startTime.toISOString()}&select=id&limit=1`
+          );
+          if (Array.isArray(overlapping) && overlapping.length > 0) {
+            await dbWrite("calendar_change_requests", "POST", {
+              booking_id: body.booking_id, professional_user_id: professional.user_id, change_type: "conflict_detected",
+              new_start: startTime.toISOString(),
+            }, "return=minimal");
+            await sendPush(professional.user_id, "New session may conflict with your calendar", `A session with ${clientName} was just booked for a time you've marked busy elsewhere. Review it in your Schedule tab to accept or reject.`);
+          }
+        }
+
+        const eventBody = {
+          summary: `HOBS Session — ${clientName}`,
+          description: "Booked via HOBS Companion.",
+          start: { dateTime: startTime.toISOString() },
+          end: { dateTime: endTime.toISOString() },
+          conferenceData: { createRequest: { requestId: body.booking_id, conferenceSolutionKey: { type: "hangoutsMeet" } } },
+        };
+
+        let eventRes, eventData;
+        if (existingLink) {
+          eventRes = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${conn.google_calendar_id}/events/${existingLink.google_event_id}?conferenceDataVersion=1`, {
+            method: "PATCH",
+            headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+            body: JSON.stringify(eventBody),
+          });
+        } else {
+          eventRes = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${conn.google_calendar_id}/events?conferenceDataVersion=1`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+            body: JSON.stringify(eventBody),
+          });
+        }
+        eventData = await eventRes.json();
+        if (!eventRes.ok) {
+          console.error("Google event sync error:", eventData);
+          return new Response(JSON.stringify({ error: "Could not sync to calendar" }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+
+        if (existingLink) {
+          await fetch(`${SUPABASE_URL}/rest/v1/session_calendar_events?id=eq.${existingLink.id}`, {
+            method: "PATCH",
+            headers: { apikey: SUPABASE_SERVICE_ROLE_KEY ?? "", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+            body: JSON.stringify({ last_known_start: startTime.toISOString(), last_known_end: endTime.toISOString(), updated_at: new Date().toISOString() }),
+          });
+        } else {
+          await dbWrite("session_calendar_events", "POST", {
+            booking_id: body.booking_id, professional_user_id: professional.user_id, google_event_id: eventData.id,
+            last_known_start: startTime.toISOString(), last_known_end: endTime.toISOString(),
+          }, "return=minimal");
+        }
+
+        const meetLink = eventData.conferenceData?.entryPoints?.find((e: any) => e.entryPointType === "video")?.uri;
+        return new Response(JSON.stringify({ success: true, action: existingLink ? "updated" : "created", meet_link: meetLink || null }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
       return new Response(JSON.stringify({ error: "Unknown action" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 

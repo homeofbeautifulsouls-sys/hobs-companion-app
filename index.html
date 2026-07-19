@@ -961,6 +961,7 @@
     </div>
 
     <div id="therapistDashTab-schedule" class="therapist-dash-tab-content" style="display:none;">
+    <div id="therapistCalChangeRequestsSection" style="display:none;margin-bottom:18px;"></div>
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">My Availability</p>
     <p style="font-size:11px;font-weight:700;color:#9AABCE;margin:0 0 8px;">All Upcoming Slots</p>
     <div id="therapistAllSlotsList" style="margin-bottom:14px;"></div>
@@ -2034,7 +2035,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260719195509';
+  var CURRENT_BUILD = '20260719202342';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -5299,7 +5300,7 @@ function renderProfile(){
       // real booking, that would have just silently un-done itself on the next data load. Now it
       // actually updates the booking that's the real source of truth.
       if(therapistBookingObj && String(therapistBookingObj.id).indexOf('temp_') !== 0){
-        sb.from('expert_bookings').update({ status: 'cancelled' }).eq('id', therapistBookingObj.id).then(function(){});
+        sb.from('expert_bookings').update({ status: 'cancelled' }).eq('id', therapistBookingObj.id).then(function(){ syncSessionToCalendar(therapistBookingObj.id); });
       }
       if(therapistBookingObj) therapistBookingObj.status = 'cancelled';
       appState.userHasTherapist = false;
@@ -7463,6 +7464,101 @@ function openSearch(){
 }
 document.getElementById('headerSearchBtn').onclick = openSearch;
 
+// Shared trigger for keeping a session's Google Calendar event in sync -- called from every
+// place a booking's session_date or status actually changes (a client's time gets confirmed,
+// a reschedule, a cancellation), rather than duplicating this at each site. Fire-and-forget:
+// never blocks or fails the actual booking action in the UI just because calendar sync had an
+// issue -- the booking itself is what matters most, sync is a background enhancement on top.
+function syncSessionToCalendar(bookingId){
+  if(!bookingId || String(bookingId).indexOf('temp_') === 0) return; // not saved yet, nothing to sync
+  sb.functions.invoke('google-calendar-sync', { body: { action: 'sync_session', booking_id: bookingId } }).catch(function(){});
+}
+
+// Time changes detected from Google Calendar never auto-apply -- per direct instruction, the
+// professional reviews and explicitly approves or declines each one here.
+async function renderCalendarChangeRequests(){
+  var section = document.getElementById('therapistCalChangeRequestsSection');
+  var { data: requests } = await sb.from('calendar_change_requests').select('*').eq('professional_user_id', currentUser.id).eq('status', 'pending').order('created_at', { ascending: false });
+  if(!requests || requests.length === 0){ section.style.display = 'none'; section.innerHTML = ''; return; }
+
+  section.style.display = 'block';
+  var rows = [];
+  for(var r of requests){
+    var { data: booking } = await sb.from('expert_bookings').select('user_id, external_client_name, is_external').eq('id', r.booking_id).single();
+    var clientLabel = 'a client';
+    if(booking){
+      if(booking.is_external) clientLabel = booking.external_client_name || 'a client';
+      else if(booking.user_id){
+        var { data: clientProfile } = await sb.from('profiles').select('name').eq('user_id', booking.user_id).single();
+        clientLabel = (clientProfile && clientProfile.name) || 'a client';
+      }
+    }
+    var isConflict = r.change_type === 'conflict_detected';
+    var bodyHtml;
+    if(isConflict){
+      var whenStr = new Date(r.new_start).toLocaleString(undefined, {dateStyle:'medium', timeStyle:'short'});
+      bodyHtml =
+        '<p style="font-size:12px;font-weight:700;color:#7B4F00;margin:0 0 4px;">Possible scheduling conflict</p>'+
+        '<p style="font-size:11.5px;color:#2A2013;margin:0 0 3px;">Session with '+clientLabel+' — '+whenStr+'</p>'+
+        '<p style="font-size:11px;color:#5C6B94;margin:0 0 10px;">This overlaps with something already on your Google Calendar. Keep it, or cancel this session?</p>'+
+        '<div style="display:flex;gap:8px;">'+
+          '<button class="cal-change-approve-btn" data-id="'+r.id+'" style="flex:1;padding:9px;border-radius:8px;border:none;background:#3B8F63;color:#fff;font-size:11.5px;font-weight:700;cursor:pointer;">Keep session</button>'+
+          '<button class="cal-change-decline-btn" data-id="'+r.id+'" style="flex:1;padding:9px;border-radius:8px;border:1px solid #C77B7B;background:transparent;color:#C77B7B;font-size:11.5px;font-weight:700;cursor:pointer;">Cancel session</button>'+
+        '</div>';
+    } else {
+      var oldStr = r.old_start ? new Date(r.old_start).toLocaleString(undefined, {dateStyle:'medium', timeStyle:'short'}) : 'unknown time';
+      var newStr = new Date(r.new_start).toLocaleString(undefined, {dateStyle:'medium', timeStyle:'short'});
+      bodyHtml =
+        '<p style="font-size:12px;font-weight:700;color:#7B4F00;margin:0 0 4px;">Calendar time changed — needs your review</p>'+
+        '<p style="font-size:11.5px;color:#2A2013;margin:0 0 3px;">Session with '+clientLabel+'</p>'+
+        '<p style="font-size:11px;color:#5C6B94;margin:0 0 10px;">'+oldStr+' → <strong>'+newStr+'</strong></p>'+
+        '<div style="display:flex;gap:8px;">'+
+          '<button class="cal-change-approve-btn" data-id="'+r.id+'" style="flex:1;padding:9px;border-radius:8px;border:none;background:#3B8F63;color:#fff;font-size:11.5px;font-weight:700;cursor:pointer;">Approve</button>'+
+          '<button class="cal-change-decline-btn" data-id="'+r.id+'" style="flex:1;padding:9px;border-radius:8px;border:1px solid #C77B7B;background:transparent;color:#C77B7B;font-size:11.5px;font-weight:700;cursor:pointer;">Decline (keep original)</button>'+
+        '</div>';
+    }
+    rows.push('<div style="background:#FEF3D8;border:1px solid #EFD9A0;border-radius:12px;padding:14px;margin-bottom:10px;" data-type="'+r.change_type+'">'+bodyHtml+'</div>');
+  }
+  section.innerHTML = rows.join('');
+
+  section.querySelectorAll('.cal-change-approve-btn').forEach(function(btn){
+    btn.onclick = async function(){
+      var req = requests.find(function(r){ return r.id === btn.dataset.id; });
+      if(req.change_type === 'conflict_detected'){
+        // "Keep session" -- nothing to change, just acknowledge and clear the flag.
+        await sb.from('calendar_change_requests').update({ status: 'approved', resolved_at: new Date().toISOString() }).eq('id', req.id);
+        showToast('Session kept as scheduled.');
+        renderCalendarChangeRequests();
+        return;
+      }
+      var { error } = await sb.from('expert_bookings').update({ session_date: req.new_start }).eq('id', req.booking_id);
+      if(error){ showToast("Couldn't approve — please try again."); return; }
+      await sb.from('calendar_change_requests').update({ status: 'approved', resolved_at: new Date().toISOString() }).eq('id', req.id);
+      showToast('Time change approved.');
+      renderCalendarChangeRequests();
+      renderTherapistClientsList();
+    };
+  });
+  section.querySelectorAll('.cal-change-decline-btn').forEach(function(btn){
+    btn.onclick = async function(){
+      var req = requests.find(function(r){ return r.id === btn.dataset.id; });
+      await sb.from('calendar_change_requests').update({ status: 'declined', resolved_at: new Date().toISOString() }).eq('id', req.id);
+      if(req.change_type === 'conflict_detected'){
+        // "Cancel session" -- actually cancel the booking, which also removes the Google event
+        // and runs the same cancellation policy as any other cancellation.
+        await sb.from('expert_bookings').update({ status: 'cancelled' }).eq('id', req.booking_id);
+        showToast('Session cancelled due to the conflict.');
+        syncSessionToCalendar(req.booking_id);
+        renderTherapistClientsList();
+      } else {
+        showToast('Declined — correcting the calendar back to the original time.');
+        syncSessionToCalendar(req.booking_id); // pushes the app's still-unchanged session_date back to Google, correcting the drift
+      }
+      renderCalendarChangeRequests();
+    };
+  });
+}
+
 document.getElementById('headerChatBtn').onclick = function(){
   showOnly('panel-chat-list');
   renderChatList();
@@ -9271,7 +9367,7 @@ function openAdminDashboard(){
       document.querySelectorAll('.admin-approve-change-btn').forEach(function(btn){
         btn.onclick = function(){
           sb.from('expert_bookings').update({ status: 'cancelled', change_approved: true }).eq('id', btn.dataset.id).then(function(result){
-            if(!result.error){ showToast('Change approved — this category is now open for a new booking.'); openAdminDashboard(); }
+            if(!result.error){ showToast('Change approved — this category is now open for a new booking.'); syncSessionToCalendar(btn.dataset.id); openAdminDashboard(); }
           });
         };
       });
@@ -9462,7 +9558,7 @@ function openAdminDashboard(){
         if(!dateInput.value || !timeInput.value) return;
         var isoValue = new Date(dateInput.value + 'T' + timeInput.value).toISOString();
         sb.from('expert_bookings').update({ session_date: isoValue }).eq('id', id).then(function(result){
-          if(!result.error) showToast('Session date set.');
+          if(!result.error){ showToast('Session date set.'); syncSessionToCalendar(id); }
         });
       };
     });
@@ -9539,6 +9635,7 @@ function switchTherapistDashTab(tabKey){
     tab.style.color = isActive ? '#FFF8F0' : '#9AABCE';
   });
   if(tabKey === 'profile') renderGcalConnectionCard();
+  if(tabKey === 'schedule') renderCalendarChangeRequests();
 }
 document.querySelectorAll('.therapist-dash-tab').forEach(function(tab){
   tab.onclick = function(){ switchTherapistDashTab(tab.dataset.tab); };
@@ -9634,6 +9731,7 @@ function renderTherapistTimeRequests(){
         }).eq('id', btn.dataset.id).then(function(result){
           if(result.error){ showToast('Could not accept — please try again.'); return; }
           showToast('Time confirmed.');
+          syncSessionToCalendar(btn.dataset.id);
           renderTherapistTimeRequests();
           renderTherapistClientsList();
           sb.functions.invoke('send-push-notification', {
@@ -9683,6 +9781,7 @@ function renderTherapistTimeRequests(){
         }).eq('id', btn.dataset.id).then(function(result){
           if(result.error){ showToast('Could not propose — please try again.'); return; }
           showToast('New time set — client has been notified.');
+          syncSessionToCalendar(btn.dataset.id);
           renderTherapistTimeRequests();
           renderTherapistClientsList();
           sb.functions.invoke('send-push-notification', {
@@ -9954,6 +10053,7 @@ document.getElementById('therapistScheduleEditSaveBtn').onclick = function(){
     document.getElementById('therapistScheduleEditBackdrop').style.display = 'none';
     document.getElementById('therapistScheduleEditModal').style.display = 'none';
     showToast('Schedule updated.');
+    if(bookingId) syncSessionToCalendar(bookingId);
     renderTherapistClientsList();
   });
 };
@@ -10692,13 +10792,14 @@ document.getElementById('therapistLogExternalBtn').onclick = function(){
     sb.from('expert_bookings').update({
       session_date: fullDate.toISOString(), time_request_status: 'accepted', requested_session_date: null,
       payment_confirmed: false, payment_note: paymentNote
-    }).eq('expert_name', appState.therapistExpertName).eq('user_id', userId).eq('status', 'active').then(function(result){
+    }).eq('expert_name', appState.therapistExpertName).eq('user_id', userId).eq('status', 'active').select('id').then(function(result){
       btn.disabled = false;
       if(result.error){ showToast('Could not log — please try again.'); return; }
       document.getElementById('therapistExternalTime').value = '';
       document.getElementById('therapistExternalPaymentNote').value = '';
       document.getElementById('therapistLogWhoSelect').value = '';
       showToast('Logged — payment will show as unconfirmed until an admin reviews it.');
+      if(result.data && result.data[0]) syncSessionToCalendar(result.data[0].id);
       renderTherapistClientsList();
     });
   } else if(whoValue.indexOf('external:') === 0){
@@ -10717,13 +10818,14 @@ document.getElementById('therapistLogExternalBtn').onclick = function(){
           external_client_name: contact.name, external_client_contact: contact.contact || contact.email || null,
           expert_name: appState.therapistExpertName, role_category: roleCategory,
           status: 'active', session_date: fullDate.toISOString(), payment_confirmed: false, payment_note: paymentNote, cancellation_count: 0
-        }).then(function(result){
+        }).select('id').then(function(result){
           btn.disabled = false;
           if(result.error){ showToast('Could not log — please try again.'); return; }
           document.getElementById('therapistExternalTime').value = '';
           document.getElementById('therapistExternalPaymentNote').value = '';
           document.getElementById('therapistLogWhoSelect').value = '';
           showToast('Logged — payment will show as unconfirmed until an admin reviews it.');
+          if(result.data && result.data[0]) syncSessionToCalendar(result.data[0].id);
           renderTherapistClientsList();
         });
       });
@@ -10796,7 +10898,7 @@ function cancelSession(m){
           last_cancelled_at: booking.last_cancelled_at,
           cancellation_charge_percent: chargePercent,
           cancellation_charge_owed: chargePercent > 0
-        }).eq('id', booking.id).then(function(){});
+        }).eq('id', booking.id).then(function(){ syncSessionToCalendar(booking.id); });
       }
 
       if(chargePercent > 0){
