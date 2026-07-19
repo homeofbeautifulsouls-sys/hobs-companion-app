@@ -2027,7 +2027,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260719101856';
+  var CURRENT_BUILD = '20260719145118';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -10028,7 +10028,7 @@ document.getElementById('therapistSaveProfileBtn').onclick = function(){
 // Client ID is safe to embed here (only the client secret is sensitive, and that never leaves
 // the google-calendar-oauth Edge Function). Filled in once Akash provides the actual value from
 // the Google Cloud project he set up.
-var GOOGLE_CALENDAR_CLIENT_ID = 'PENDING_CLIENT_ID'; // TODO: replace with the real client ID
+var GOOGLE_CALENDAR_CLIENT_ID = '409064332835-ts79bnt1u9sierp84adttb008jn9mpjj.apps.googleusercontent.com';
 var GOOGLE_CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.events email';
 
 function startGoogleCalendarConnect(){
