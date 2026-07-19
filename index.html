@@ -1052,6 +1052,9 @@
     <p style="font-size:11px;color:#9AABCE;font-weight:700;margin:0 0 6px;">Languages you can work in</p>
     <div id="therapistLanguagesCheckboxes" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;"></div>
     <button id="therapistSaveProfileBtn" style="width:100%;padding:12px;border-radius:10px;border:none;background:#3B8F63;color:#fff;font-size:12.5px;font-weight:700;cursor:pointer;">Save My Profile</button>
+
+    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:26px 0 10px;">Calendar</p>
+    <div id="gcalConnectionCard" style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:14px;padding:16px;"></div>
     </div>
   </div>
 
@@ -2024,7 +2027,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260719095907';
+  var CURRENT_BUILD = '20260719101856';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -2518,6 +2521,8 @@ function onAuthSuccess(user){
     initPushNotifications();
     syncDeviceInfo();
     checkUnreadNotifications();
+    handleGoogleCalendarCallback();
+    maybeSilentlyRefreshGoogleCalendarToken();
     if(!appState.onboardingComplete){
       showOnboarding();
     } else if(!appState.basicTosSigned){
@@ -9517,6 +9522,7 @@ function switchTherapistDashTab(tabKey){
     tab.style.background = isActive ? '#6690D6' : 'transparent';
     tab.style.color = isActive ? '#FFF8F0' : '#9AABCE';
   });
+  if(tabKey === 'profile') renderGcalConnectionCard();
 }
 document.querySelectorAll('.therapist-dash-tab').forEach(function(tab){
   tab.onclick = function(){ switchTherapistDashTab(tab.dataset.tab); };
@@ -10017,6 +10023,96 @@ document.getElementById('therapistSaveProfileBtn').onclick = function(){
     loadExpertsFromSupabase();
   });
 };
+
+// ===== GOOGLE CALENDAR CONNECTION (per-professional, own calendar, not shared) =====
+// Client ID is safe to embed here (only the client secret is sensitive, and that never leaves
+// the google-calendar-oauth Edge Function). Filled in once Akash provides the actual value from
+// the Google Cloud project he set up.
+var GOOGLE_CALENDAR_CLIENT_ID = 'PENDING_CLIENT_ID'; // TODO: replace with the real client ID
+var GOOGLE_CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.events email';
+
+function startGoogleCalendarConnect(){
+  if(GOOGLE_CALENDAR_CLIENT_ID === 'PENDING_CLIENT_ID'){
+    showToast('Calendar connection is being set up — check back shortly.');
+    return;
+  }
+  var redirectUri = window.location.origin + window.location.pathname;
+  var authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' + new URLSearchParams({
+    client_id: GOOGLE_CALENDAR_CLIENT_ID,
+    redirect_uri: redirectUri,
+    response_type: 'code',
+    scope: GOOGLE_CALENDAR_SCOPE,
+    access_type: 'offline', // required to receive a refresh token at all
+    prompt: 'consent',      // forces a fresh refresh token every time, not just on first-ever connect
+    state: 'gcal_connect'
+  }).toString();
+  window.location.href = authUrl;
+}
+
+async function renderGcalConnectionCard(){
+  var card = document.getElementById('gcalConnectionCard');
+  if(!card) return;
+  card.innerHTML = '<p style="font-size:12px;color:#9AABCE;margin:0;">Loading…</p>';
+
+  var { data, error } = await sb.from('professional_calendar_connections').select('*').eq('user_id', currentUser.id).maybeSingle();
+  if(error || !data){
+    card.innerHTML =
+      '<p style="font-size:12.5px;color:#2A2013;margin:0 0 4px;font-weight:700;">Not connected</p>'+
+      '<p style="font-size:11px;color:#9AABCE;margin:0 0 12px;">Connect your own Google Calendar so sessions can include a Meet link automatically.</p>'+
+      '<button id="gcalConnectBtn" style="width:100%;padding:11px;border-radius:10px;border:none;background:#4285F4;color:#fff;font-size:12.5px;font-weight:700;cursor:pointer;">Connect Google Calendar</button>';
+    document.getElementById('gcalConnectBtn').onclick = startGoogleCalendarConnect;
+    return;
+  }
+
+  if(data.needs_reconnect){
+    card.innerHTML =
+      '<p style="font-size:12.5px;color:#7B4F00;margin:0 0 4px;font-weight:700;">⚠ Reconnection needed</p>'+
+      '<p style="font-size:11px;color:#9AABCE;margin:0 0 12px;">Your connection to '+(data.google_email||'your calendar')+' expired (this happens roughly every 7 days while HOBS is in Google\'s testing mode). One tap to reconnect.</p>'+
+      '<button id="gcalConnectBtn" style="width:100%;padding:11px;border-radius:10px;border:none;background:#4285F4;color:#fff;font-size:12.5px;font-weight:700;cursor:pointer;">Reconnect Google Calendar</button>';
+    document.getElementById('gcalConnectBtn').onclick = startGoogleCalendarConnect;
+    return;
+  }
+
+  card.innerHTML =
+    '<p style="font-size:12.5px;color:#3B8F63;margin:0 0 4px;font-weight:700;">✓ Connected</p>'+
+    '<p style="font-size:11px;color:#9AABCE;margin:0 0 12px;">'+(data.google_email||'')+'</p>'+
+    '<button id="gcalDisconnectBtn" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EFC7C7;background:transparent;color:#C77B7B;font-size:11.5px;font-weight:700;cursor:pointer;">Disconnect</button>';
+  document.getElementById('gcalDisconnectBtn').onclick = async function(){
+    if(!confirm('Disconnect your Google Calendar?')) return;
+    await sb.from('professional_calendar_connections').delete().eq('user_id', currentUser.id);
+    renderGcalConnectionCard();
+  };
+}
+
+// Handles the redirect back from Google (?code=...&state=gcal_connect in the URL) --
+// exchanges the code for tokens via the Edge Function, then cleans the URL so a page refresh
+// doesn't try to redeem the same code twice.
+async function handleGoogleCalendarCallback(){
+  var params = new URLSearchParams(window.location.search);
+  if(params.get('state') !== 'gcal_connect' || !params.get('code')) return;
+  var code = params.get('code');
+  window.history.replaceState({}, document.title, window.location.pathname);
+  showToast('Connecting your calendar…');
+  var { data, error } = await sb.functions.invoke('google-calendar-oauth', { body: { action: 'exchange_code', code: code } });
+  if(error || (data && data.error)){
+    showToast("Couldn't connect — please try again.");
+    return;
+  }
+  showToast('Calendar connected as ' + (data.google_email || 'your Google account') + '.');
+  renderGcalConnectionCard();
+}
+
+// Silent refresh: called once per app load for a connected professional. If the access token
+// is expired or close to it, refreshes it quietly using the stored refresh token -- this is
+// what makes the connection "just work" for the full 7-day window without any interaction.
+async function maybeSilentlyRefreshGoogleCalendarToken(){
+  if(!appState.isTherapist) return;
+  var { data } = await sb.from('professional_calendar_connections').select('access_token_expires_at, needs_reconnect').eq('user_id', currentUser.id).maybeSingle();
+  if(!data || data.needs_reconnect) return;
+  var expiresAt = data.access_token_expires_at ? new Date(data.access_token_expires_at).getTime() : 0;
+  if(expiresAt - Date.now() > 5 * 60 * 1000) return; // still valid for more than 5 more minutes, nothing to do
+  sb.functions.invoke('google-calendar-oauth', { body: { action: 'refresh_token' } }).catch(function(){});
+}
 
 var therapistDetailExpanded = false;
 function renderTherapistSummaryAndDetail(){
