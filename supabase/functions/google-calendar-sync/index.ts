@@ -103,8 +103,47 @@ async function autoCancelWithPolicy(booking: any) {
   return chargePercent;
 }
 
+async function registerWatchForUser(userId: string): Promise<{ ok: boolean; reason?: string }> {
+  const connRows = await dbFetch(`professional_calendar_connections?user_id=eq.${userId}&select=*`);
+  const conn = Array.isArray(connRows) ? connRows[0] : null;
+  if (!conn) return { ok: false, reason: "No connection found" };
+
+  const accessToken = await getValidAccessToken(conn);
+  if (!accessToken) return { ok: false, reason: "Reconnect needed" };
+
+  const channelId = crypto.randomUUID();
+  const watchRes = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${conn.google_calendar_id}/events/watch`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ id: channelId, type: "web_hook", address: `${SUPABASE_URL}/functions/v1/google-calendar-sync` }),
+  });
+  const watchData = await watchRes.json();
+  if (!watchRes.ok) {
+    console.error("Google watch registration error:", watchData);
+    return { ok: false, reason: "Could not start instant sync" };
+  }
+
+  // Old channel isn't strictly needed once a new one exists (Google lets it lapse on its own),
+  // but explicitly stopping it is the cleaner behavior rather than leaving it dangling.
+  if (conn.watch_channel_id && conn.watch_resource_id) {
+    fetch("https://www.googleapis.com/calendar/v3/channels/stop", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ id: conn.watch_channel_id, resourceId: conn.watch_resource_id }),
+    }).catch(() => {});
+  }
+
+  await dbWrite(`professional_calendar_connections?user_id=eq.${userId}`, "PATCH", {
+    watch_channel_id: channelId,
+    watch_resource_id: watchData.resourceId,
+    watch_expires_at: new Date(Number(watchData.expiration)).toISOString(),
+  }, "return=minimal");
+
+  return { ok: true };
+}
+
 Deno.serve(async (req) => {
-  const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-goog-channel-id, x-goog-resource-id, x-goog-resource-state" };
+  const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-goog-channel-id, x-goog-resource-id, x-goog-resource-state, x-scheduler-secret" };
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
@@ -114,36 +153,27 @@ Deno.serve(async (req) => {
     // pings (which never send a JSON action body, only headers) are routed separately here.
     if (contentType.includes("application/json")) {
       const body = await req.json().catch(() => ({}));
-      if (body.action === "register_watch") {
-        const connRows = await dbFetch(`professional_calendar_connections?user_id=eq.${body.user_id}&select=*`);
-        const conn = Array.isArray(connRows) ? connRows[0] : null;
-        if (!conn) return new Response(JSON.stringify({ error: "No connection found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-        const accessToken = await getValidAccessToken(conn);
-        if (!accessToken) return new Response(JSON.stringify({ error: "Reconnect needed" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-
-        const channelId = crypto.randomUUID();
-        const watchRes = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${conn.google_calendar_id}/events/watch`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id: channelId,
-            type: "web_hook",
-            address: `${SUPABASE_URL}/functions/v1/google-calendar-sync`,
-          }),
-        });
-        const watchData = await watchRes.json();
-        if (!watchRes.ok) {
-          console.error("Google watch registration error:", watchData);
-          return new Response(JSON.stringify({ error: "Could not start instant sync" }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (body.action === "renew_watches") {
+        // Scheduled, not user-triggered -- same shared-secret pattern already used for
+        // notification-scheduler, so this can't be called by just anyone hitting the endpoint.
+        const schedulerSecret = req.headers.get("x-scheduler-secret");
+        if (schedulerSecret !== Deno.env.get("SCHEDULER_SECRET")) {
+          return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
+        const soon = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // renew anything expiring within the next 24h
+        const expiring = await dbFetch(`professional_calendar_connections?watch_expires_at=lt.${soon}&needs_reconnect=eq.false&select=user_id`);
+        const results = [];
+        for (const c of (Array.isArray(expiring) ? expiring : [])) {
+          const r = await registerWatchForUser(c.user_id);
+          results.push({ user_id: c.user_id, ...r });
+        }
+        return new Response(JSON.stringify({ processed: results.length, results }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
 
-        await dbWrite(`professional_calendar_connections?user_id=eq.${body.user_id}`, "PATCH", {
-          watch_channel_id: channelId,
-          watch_resource_id: watchData.resourceId,
-          watch_expires_at: new Date(Number(watchData.expiration)).toISOString(),
-        }, "return=minimal");
-
+      if (body.action === "register_watch") {
+        const result = await registerWatchForUser(body.user_id);
+        if (!result.ok) return new Response(JSON.stringify({ error: result.reason }), { status: result.reason === "No connection found" ? 404 : 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       if (body.action === "sync_session") {
