@@ -2027,7 +2027,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260719145118';
+  var CURRENT_BUILD = '20260719151819';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -2521,7 +2521,6 @@ function onAuthSuccess(user){
     initPushNotifications();
     syncDeviceInfo();
     checkUnreadNotifications();
-    handleGoogleCalendarCallback();
     maybeSilentlyRefreshGoogleCalendarToken();
     if(!appState.onboardingComplete){
       showOnboarding();
@@ -10031,12 +10030,22 @@ document.getElementById('therapistSaveProfileBtn').onclick = function(){
 var GOOGLE_CALENDAR_CLIENT_ID = '409064332835-ts79bnt1u9sierp84adttb008jn9mpjj.apps.googleusercontent.com';
 var GOOGLE_CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.events email';
 
-function startGoogleCalendarConnect(){
+async function startGoogleCalendarConnect(){
   if(GOOGLE_CALENDAR_CLIENT_ID === 'PENDING_CLIENT_ID'){
     showToast('Calendar connection is being set up — check back shortly.');
     return;
   }
-  var redirectUri = window.location.origin + window.location.pathname;
+
+  // Generated now, while the app definitely has a valid session -- this is what lets the
+  // landing page identify who's connecting later, even in a browser context that turns out to
+  // have no session of its own (confirmed directly: this is what was actually missing before).
+  var { data: tokenData, error: tokenError } = await sb.functions.invoke('google-calendar-oauth', { body: { action: 'create_state_token' } });
+  if(tokenError || !tokenData?.token){
+    showToast("Couldn't start the connection — please try again.");
+    return;
+  }
+
+  var redirectUri = WEB_APP_URL;
   var authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' + new URLSearchParams({
     client_id: GOOGLE_CALENDAR_CLIENT_ID,
     redirect_uri: redirectUri,
@@ -10044,9 +10053,38 @@ function startGoogleCalendarConnect(){
     scope: GOOGLE_CALENDAR_SCOPE,
     access_type: 'offline', // required to receive a refresh token at all
     prompt: 'consent',      // forces a fresh refresh token every time, not just on first-ever connect
-    state: 'gcal_connect'
+    state: tokenData.token
   }).toString();
+
+  // Real, confirmed cause of "clicked continue but never came back to the app": Google's OAuth
+  // client here is a Web application type, which only accepts https:// redirect URIs (Google
+  // flatly rejects custom URL schemes for this client type -- unlike Sign-In-with-Google, which
+  // never actually gives Google a custom scheme at all, that goes through Supabase's own relay).
+  // window.location.href triggers Android to hand the whole flow to an external browser tab,
+  // and the redirect back just loads the plain web app there, disconnected from the native
+  // app's own session -- exactly what looked like "never redirected back."
+  //
+  // The state token above is what actually fixes this, not where the flow happens to run: the
+  // landing page can now complete the connection correctly no matter which browser context it
+  // ends up in, session or no session. Still open it in Capacitor's own in-app browser when
+  // available, purely for a nicer contained experience (auto-closes itself when done) --
+  // but the fix itself doesn't depend on that succeeding.
+  if(IS_NATIVE_APP && window.Capacitor?.Plugins?.Browser){
+    window.Capacitor.Plugins.Browser.open({ url: authUrl, presentationStyle: 'popover' });
+    return;
+  }
   window.location.href = authUrl;
+}
+
+async function completeGoogleCalendarConnect(code, stateToken){
+  showToast('Connecting your calendar…');
+  var { data, error } = await sb.functions.invoke('google-calendar-oauth', { body: { action: 'exchange_code', code: code, state_token: stateToken } });
+  if(error || (data && data.error)){
+    showToast("Couldn't connect — please try again.");
+    return;
+  }
+  showToast('Calendar connected as ' + (data.google_email || 'your Google account') + '.');
+  renderGcalConnectionCard();
 }
 
 async function renderGcalConnectionCard(){
@@ -10089,18 +10127,26 @@ async function renderGcalConnectionCard(){
 // doesn't try to redeem the same code twice.
 async function handleGoogleCalendarCallback(){
   var params = new URLSearchParams(window.location.search);
-  if(params.get('state') !== 'gcal_connect' || !params.get('code')) return;
   var code = params.get('code');
+  var stateToken = params.get('state');
+  // A UUID state token specifically (not any other feature that might use ?state= or ?code=
+  // on this same URL) -- the format itself is the signal, since this can no longer check
+  // against a fixed literal string the way the old 'gcal_connect' constant allowed.
+  var looksLikeStateToken = stateToken && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(stateToken);
+  if(!code || !looksLikeStateToken) return;
   window.history.replaceState({}, document.title, window.location.pathname);
-  showToast('Connecting your calendar…');
-  var { data, error } = await sb.functions.invoke('google-calendar-oauth', { body: { action: 'exchange_code', code: code } });
-  if(error || (data && data.error)){
-    showToast("Couldn't connect — please try again.");
-    return;
+  await completeGoogleCalendarConnect(code, stateToken);
+  // If this landed inside Capacitor's in-app browser (opened from startGoogleCalendarConnect),
+  // close it now that the connection is done, returning control to the app automatically
+  // instead of leaving the person stranded on a page with nothing left to do.
+  if(window.Capacitor?.Plugins?.Browser){
+    setTimeout(function(){ window.Capacitor.Plugins.Browser.close().catch(function(){}); }, 1500);
   }
-  showToast('Calendar connected as ' + (data.google_email || 'your Google account') + '.');
-  renderGcalConnectionCard();
 }
+// Runs immediately on script load, independent of login state entirely -- the landing page
+// this redirects to might have no active session of its own at all (confirmed directly: this
+// is exactly the scenario that broke before), so this can't wait for onAuthSuccess to fire.
+handleGoogleCalendarCallback();
 
 // Silent refresh: called once per app load for a connected professional. If the access token
 // is expired or close to it, refreshes it quietly using the stored refresh token -- this is

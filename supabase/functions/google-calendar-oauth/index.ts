@@ -1,9 +1,15 @@
-// Handles the Google Calendar OAuth flow for professionals connecting their own calendar --
-// two actions: exchange an authorization code for tokens (initial connect), and refresh an
-// access token using a stored refresh token (silent renewal within the 7-day testing-mode
-// window). Client secret never leaves this server-side function, matching the same pattern
-// already used for transcribe-audio (auth checked directly, no SDK import that broke boot
-// there previously).
+// Handles the Google Calendar OAuth flow for professionals connecting their own calendar.
+//
+// The initial connect step has a real architectural constraint: on native Android, opening the
+// OAuth URL can hand the flow to a browser context that's completely disconnected from the
+// app's own logged-in session (confirmed directly -- this is exactly what caused "clicked
+// continue but never came back to the app"). So exchange_code supports two ways to identify
+// who's connecting: a normal Bearer-token session (used from a plain browser, where the
+// session survives fine), or a short-lived, single-use state_token generated *before* the
+// redirect while the app definitely has a valid session, passed through Google's own state
+// parameter and read back on return -- this lets the landing page complete the connection
+// even in a context with no active session of its own, without ever trusting a raw user id
+// from the client.
 
 const GOOGLE_CLIENT_ID = Deno.env.get("GOOGLE_CALENDAR_CLIENT_ID");
 const GOOGLE_CLIENT_SECRET = Deno.env.get("GOOGLE_CALENDAR_CLIENT_SECRET");
@@ -21,6 +27,13 @@ async function getAuthedUser(authHeader: string | null) {
   return await res.json();
 }
 
+async function dbFetch(path: string) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    headers: { apikey: SUPABASE_SERVICE_ROLE_KEY ?? "", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+  });
+  return res.json();
+}
+
 async function dbWrite(path: string, method: string, body: unknown) {
   return fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     method,
@@ -32,6 +45,20 @@ async function dbWrite(path: string, method: string, body: unknown) {
     },
     body: JSON.stringify(body),
   });
+}
+
+// Resolves which user this request is acting for, trying a real session first and falling
+// back to a valid, unexpired, unused state token -- never trusts a user id supplied directly.
+async function resolveActingUserId(authHeader: string | null, stateToken: string | undefined) {
+  const sessionUser = await getAuthedUser(authHeader);
+  if (sessionUser) return sessionUser.id;
+
+  if (!stateToken) return null;
+  const rows = await dbFetch(`gcal_connect_state_tokens?token=eq.${stateToken}&select=user_id,expires_at,used`);
+  const row = Array.isArray(rows) ? rows[0] : null;
+  if (!row || row.used || new Date(row.expires_at).getTime() < Date.now()) return null;
+  await dbWrite(`gcal_connect_state_tokens?token=eq.${stateToken}`, "PATCH", { used: true });
+  return row.user_id;
 }
 
 Deno.serve(async (req) => {
@@ -49,17 +76,35 @@ Deno.serve(async (req) => {
     }
 
     const authHeader = req.headers.get("Authorization");
-    const user = await getAuthedUser(authHeader);
-    if (!user) {
-      return new Response(JSON.stringify({ error: "Not authenticated" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const body = await req.json();
     const action = body.action;
 
+    if (action === "create_state_token") {
+      // Called from the app while it definitely has a valid session, right before opening the
+      // OAuth URL -- generates the short-lived ticket that lets the landing page identify who's
+      // connecting even without a session of its own.
+      const user = await getAuthedUser(authHeader);
+      if (!user) {
+        return new Response(JSON.stringify({ error: "Not authenticated" }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const insertRes = await dbWrite("gcal_connect_state_tokens", "POST", { user_id: user.id });
+      const rows = await insertRes.json();
+      const token = Array.isArray(rows) ? rows[0]?.token : null;
+      return new Response(JSON.stringify({ token }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (action === "exchange_code") {
+      const userId = await resolveActingUserId(authHeader, body.state_token);
+      if (!userId) {
+        return new Response(JSON.stringify({ error: "Not authenticated" }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -79,7 +124,6 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Look up the connected Google account's email for display purposes.
       let googleEmail = null;
       try {
         const profileRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
@@ -89,10 +133,8 @@ Deno.serve(async (req) => {
       } catch (_e) { /* non-critical, proceed without it */ }
 
       const now = Date.now();
-      // Testing-mode refresh tokens are valid for 7 days -- tracked explicitly so a clean
-      // reconnect prompt can be shown right when it actually expires, not guessed at.
       await dbWrite("professional_calendar_connections", "POST", {
-        user_id: user.id,
+        user_id: userId,
         google_email: googleEmail,
         access_token: tokenData.access_token,
         refresh_token: tokenData.refresh_token,
@@ -109,12 +151,14 @@ Deno.serve(async (req) => {
     }
 
     if (action === "refresh_token") {
-      const connRes = await fetch(
-        `${SUPABASE_URL}/rest/v1/professional_calendar_connections?user_id=eq.${user.id}&select=refresh_token,refresh_token_expires_at`,
-        { headers: { apikey: SUPABASE_SERVICE_ROLE_KEY ?? "", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` } }
-      );
-      const rows = await connRes.json();
-      const conn = rows[0];
+      const user = await getAuthedUser(authHeader);
+      if (!user) {
+        return new Response(JSON.stringify({ error: "Not authenticated" }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const rows = await dbFetch(`professional_calendar_connections?user_id=eq.${user.id}&select=refresh_token,refresh_token_expires_at`);
+      const conn = Array.isArray(rows) ? rows[0] : null;
       if (!conn || !conn.refresh_token) {
         return new Response(JSON.stringify({ error: "No connection found", needs_reconnect: true }), {
           status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -134,8 +178,6 @@ Deno.serve(async (req) => {
       const tokenData = await tokenRes.json();
 
       if (!tokenRes.ok) {
-        // Refresh token itself has expired (the 7-day testing-mode cap) or was revoked --
-        // flag for reconnect rather than failing silently, so the UI can prompt clearly.
         await dbWrite(`professional_calendar_connections?user_id=eq.${user.id}`, "PATCH", { needs_reconnect: true });
         return new Response(JSON.stringify({ error: "Reconnection needed", needs_reconnect: true }), {
           status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
