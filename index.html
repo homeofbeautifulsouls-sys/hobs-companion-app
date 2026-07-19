@@ -996,6 +996,13 @@
         <input type="checkbox" id="therapistRepeatToggle" style="accent-color:#6690D6;">
         Also add this same time to other days
       </label>
+      <div id="therapistRepeatModeArea" style="display:none;margin-bottom:10px;">
+        <select id="therapistRepeatMode" style="width:100%;padding:9px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;box-sizing:border-box;">
+          <option value="weekly">Same weekday, every week</option>
+          <option value="multiday">Specific weekdays (choose which)</option>
+          <option value="monthly">Same weekday, monthly (e.g. 3rd Monday)</option>
+        </select>
+      </div>
       <div id="therapistRepeatDatesArea" style="display:none;margin-bottom:14px;background:#F9F6EE;border-radius:12px;padding:12px;max-height:180px;overflow-y:auto;"></div>
       <button id="therapistDayAddTimeBtn" style="display:block;width:100%;padding:12px;border-radius:10px;border:none;background:#3B8F63;color:#fff;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:14px;">Add Time</button>
 
@@ -2027,7 +2034,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260719151819';
+  var CURRENT_BUILD = '20260719154844';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -10521,30 +10528,89 @@ function renderTherapistDaySlotsList(){
     };
   });
 }
-// Repeat picker: when enabled, shows the next several occurrences of the SAME weekday as the
-// day currently being edited, so a therapist can check off exactly which future dates should
-// also get this same time slot -- matches "I choose 7-7:45pm, then add the option to repeat,
-// add the same slot to a different date, I just have to select them."
+// Repeat picker: three real patterns now, not just same-weekday-weekly -- per direct
+// correction that therapists need this to actually cover how their availability really
+// varies (some days repeat weekly, some only land on specific extra weekdays, some follow a
+// monthly rhythm like "3rd Monday of every month").
 document.getElementById('therapistRepeatToggle').onchange = function(){
+  var modeArea = document.getElementById('therapistRepeatModeArea');
   var area = document.getElementById('therapistRepeatDatesArea');
-  if(!this.checked){ area.style.display = 'none'; area.innerHTML = ''; return; }
-  area.style.display = 'block';
+  if(!this.checked){
+    modeArea.style.display = 'none';
+    area.style.display = 'none';
+    area.innerHTML = '';
+    return;
+  }
+  modeArea.style.display = 'block';
+  document.getElementById('therapistRepeatMode').value = 'weekly';
+  renderTherapistRepeatDates();
+};
+document.getElementById('therapistRepeatMode').onchange = renderTherapistRepeatDates;
+
+function nthWeekdayOfMonth(year, monthIndex, weekday, n){
+  // weekday: 0=Sun..6=Sat. Finds the Nth occurrence of that weekday in the given month.
+  var d = new Date(year, monthIndex, 1);
+  var offset = (weekday - d.getDay() + 7) % 7;
+  d.setDate(1 + offset + (n-1)*7);
+  return d;
+}
+
+function renderTherapistRepeatDates(){
+  var area = document.getElementById('therapistRepeatDatesArea');
+  var mode = document.getElementById('therapistRepeatMode').value;
   var parts = therapistCalActiveDayKey.split('-').map(Number);
   var baseDate = new Date(parts[0], parts[1]-1, parts[2]);
   var weekdayName = baseDate.toLocaleDateString('en-US', { weekday: 'long' });
+  area.style.display = 'block';
   var rows = [];
-  for(var i=1; i<=10; i++){
-    var d = new Date(baseDate);
-    d.setDate(d.getDate() + i*7); // same weekday, one week apart each
-    var key = d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
-    var label = d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
-    rows.push('<label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:#2A2013;padding:6px 0;cursor:pointer;">'+
-      '<input type="checkbox" class="therapist-repeat-date-check" data-key="'+key+'" style="accent-color:#6690D6;">'+
-      'Next '+weekdayName+' — '+label+
-    '</label>');
+
+  if(mode === 'weekly'){
+    for(var i=1; i<=10; i++){
+      var d = new Date(baseDate);
+      d.setDate(d.getDate() + i*7); // same weekday, one week apart each
+      var key = d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
+      var label = d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+      rows.push('<label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:#2A2013;padding:6px 0;cursor:pointer;">'+
+        '<input type="checkbox" class="therapist-repeat-date-check" data-key="'+key+'" style="accent-color:#6690D6;">'+
+        'Next '+weekdayName+' — '+label+
+      '</label>');
+    }
+    area.innerHTML = '<p style="font-size:10.5px;color:#9AABCE;margin:0 0 6px;">Same time, same weekday — pick which future dates to add it to:</p>' + rows.join('');
+
+  } else if(mode === 'multiday'){
+    var dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    for(var wd=0; wd<7; wd++){
+      if(wd === baseDate.getDay()) continue; // this day is already being added -- no need to also offer it here
+      var d2 = new Date(baseDate);
+      var diff = (wd - baseDate.getDay() + 7) % 7;
+      d2.setDate(baseDate.getDate() + (diff === 0 ? 7 : diff)); // next occurrence of that weekday from the base date
+      var key2 = d2.getFullYear()+'-'+pad2(d2.getMonth()+1)+'-'+pad2(d2.getDate());
+      var label2 = d2.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+      rows.push('<label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:#2A2013;padding:6px 0;cursor:pointer;">'+
+        '<input type="checkbox" class="therapist-repeat-date-check" data-key="'+key2+'" style="accent-color:#6690D6;">'+
+        dayNames[wd]+' — '+label2+
+      '</label>');
+    }
+    area.innerHTML = '<p style="font-size:10.5px;color:#9AABCE;margin:0 0 6px;">Same time, this week — pick which other weekdays to also add it to:</p>' + rows.join('');
+
+  } else if(mode === 'monthly'){
+    var weekday = baseDate.getDay();
+    var occurrence = Math.ceil(baseDate.getDate() / 7); // which "Nth" occurrence this weekday is within its own month
+    var ordinal = ['','1st','2nd','3rd','4th','5th'][occurrence] || (occurrence+'th');
+    for(var m=1; m<=6; m++){
+      var targetMonth = baseDate.getMonth() + m;
+      var targetYear = baseDate.getFullYear() + Math.floor(targetMonth / 12);
+      var d3 = nthWeekdayOfMonth(targetYear, targetMonth % 12, weekday, occurrence);
+      var key3 = d3.getFullYear()+'-'+pad2(d3.getMonth()+1)+'-'+pad2(d3.getDate());
+      var label3 = d3.toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' });
+      rows.push('<label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:#2A2013;padding:6px 0;cursor:pointer;">'+
+        '<input type="checkbox" class="therapist-repeat-date-check" data-key="'+key3+'" style="accent-color:#6690D6;">'+
+        'The '+ordinal+' '+weekdayName+' — '+label3+
+      '</label>');
+    }
+    area.innerHTML = '<p style="font-size:10.5px;color:#9AABCE;margin:0 0 6px;">The '+ordinal+' '+weekdayName+' of each month — pick which months to also add it to:</p>' + rows.join('');
   }
-  area.innerHTML = '<p style="font-size:10.5px;color:#9AABCE;margin:0 0 6px;">Same time, same weekday — pick which future dates to add it to:</p>' + rows.join('');
-};
+}
 
 document.getElementById('therapistDayAddTimeBtn').onclick = function(){
   var timeInput = document.getElementById('therapistDayNewTime');
