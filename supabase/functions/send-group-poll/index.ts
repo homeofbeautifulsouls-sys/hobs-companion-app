@@ -88,6 +88,21 @@ async function pickPromptForRoom(roomId: string, anchor: PromptDef | null): Prom
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
+async function notifyRoomMembersOfPoll(roomId: string, question: string) {
+  const room = await dbFetch(`chat_rooms?id=eq.${roomId}&select=name`);
+  const roomName = (Array.isArray(room) && room[0]?.name) || "Support group";
+  const members = await dbFetch(`chat_room_members?room_id=eq.${roomId}&status=eq.joined&user_id=neq.${BOB_USER_ID}&select=user_id`);
+  for (const m of (Array.isArray(members) ? members : [])) {
+    try {
+      await fetch(`${SUPABASE_URL}/functions/v1/send-push-notification`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+        body: JSON.stringify({ userId: m.user_id, title: roomName, body: question.slice(0, 180), data: { type: "chat_message", room_id: roomId } }),
+      });
+    } catch (_e) { /* best-effort, matches the same fire-and-forget pattern already used for regular messages */ }
+  }
+}
+
 async function sendPollToRoom(roomId: string, prompt: PromptDef) {
   const messageRows = await dbWrite("chat_messages", "POST", {
     room_id: roomId, sender_id: BOB_USER_ID, text: prompt.question, message_type: "poll",
@@ -108,6 +123,8 @@ async function sendPollToRoom(roomId: string, prompt: PromptDef) {
   );
 
   await dbWrite("chat_poll_history?on_conflict=room_id,prompt_key", "POST", { room_id: roomId, prompt_key: prompt.key, sent_at: new Date().toISOString() }, "resolution=merge-duplicates,return=minimal");
+
+  await notifyRoomMembersOfPoll(roomId, prompt.question);
 }
 
 Deno.serve(async (req) => {

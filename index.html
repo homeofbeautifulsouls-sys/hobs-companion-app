@@ -2075,7 +2075,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260720181214';
+  var CURRENT_BUILD = '20260720222853';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -4964,7 +4964,7 @@ async function openChatRoom(roomId){
 
   if(room){
     subEl.textContent = room.type === 'support_group' ? 'Support group' : room.type === 'coordination' ? 'Care coordination' : '';
-    document.getElementById('chatRoomInfoBtn').style.display = room.type === 'support_group' ? 'block' : 'none';
+    document.getElementById('chatRoomInfoBtn').style.display = (room.type === 'support_group' || room.type === 'coordination') ? 'block' : 'none';
     if(room.name){
       titleEl.textContent = room.name;
     } else {
@@ -5238,29 +5238,41 @@ document.getElementById('chatRoomBackBtn').onclick = function(){
   renderChatList();
 };
 
-// Starts (or opens, if one already exists) a direct chat with the given user. Admin can always
-// message anyone; a professional/client pair needs an active connection first (enforced here,
-// not just assumed) -- mirrors the same expert_bookings-based check already used elsewhere.
+var directChatInFlight = {}; // otherUserId -> true while a start/open attempt is in progress
+// Real bug found and fixed: this function has several await points between "check for an
+// existing room" and "create one if none exists." A rapid double-tap on a Message button --
+// very easy to do by accident on a touchscreen -- fired this twice before either call had
+// actually created anything, so both found no existing room and both created one. Confirmed
+// directly: two real, completely empty direct-chat rooms existed between the same two people,
+// created 0.65 seconds apart. Fixing with an in-flight guard keyed by the other person's id,
+// rather than patching every button that calls this individually -- protects every current
+// call site and any future one automatically.
 async function startOrOpenDirectChat(otherUserId){
-  if(!appState.isAdmin){
-    var { data: hasConnection } = await sb.rpc('users_have_active_connection', { user_a: currentUser.id, user_b: otherUserId });
-    if(!hasConnection){
-      showToast("You'll need an active connection with this person first.");
-      return;
+  if(directChatInFlight[otherUserId]) return;
+  directChatInFlight[otherUserId] = true;
+  try{
+    if(!appState.isAdmin){
+      var { data: hasConnection } = await sb.rpc('users_have_active_connection', { user_a: currentUser.id, user_b: otherUserId });
+      if(!hasConnection){
+        showToast("You'll need an active connection with this person first.");
+        return;
+      }
     }
+    var { data: existingRooms } = await sb.from('chat_room_members').select('room_id, chat_rooms!inner(type)').eq('user_id', currentUser.id).eq('chat_rooms.type', 'direct');
+    for(var r of (existingRooms || [])){
+      var { data: otherMember } = await sb.from('chat_room_members').select('user_id').eq('room_id', r.room_id).eq('user_id', otherUserId).maybeSingle();
+      if(otherMember){ openChatRoom(r.room_id); return; }
+    }
+    var { data: newRoom, error } = await sb.from('chat_rooms').insert({ type: 'direct', created_by: currentUser.id }).select().single();
+    if(error){ showToast("Couldn't start chat"); return; }
+    await sb.from('chat_room_members').insert([
+      { room_id: newRoom.id, user_id: currentUser.id, status: 'joined', joined_at: new Date().toISOString() },
+      { room_id: newRoom.id, user_id: otherUserId, status: 'joined', joined_at: new Date().toISOString() }
+    ]);
+    openChatRoom(newRoom.id);
+  } finally {
+    delete directChatInFlight[otherUserId];
   }
-  var { data: existingRooms } = await sb.from('chat_room_members').select('room_id, chat_rooms!inner(type)').eq('user_id', currentUser.id).eq('chat_rooms.type', 'direct');
-  for(var r of (existingRooms || [])){
-    var { data: otherMember } = await sb.from('chat_room_members').select('user_id').eq('room_id', r.room_id).eq('user_id', otherUserId).maybeSingle();
-    if(otherMember){ openChatRoom(r.room_id); return; }
-  }
-  var { data: newRoom, error } = await sb.from('chat_rooms').insert({ type: 'direct', created_by: currentUser.id }).select().single();
-  if(error){ showToast("Couldn't start chat"); return; }
-  await sb.from('chat_room_members').insert([
-    { room_id: newRoom.id, user_id: currentUser.id, status: 'joined', joined_at: new Date().toISOString() },
-    { room_id: newRoom.id, user_id: otherUserId, status: 'joined', joined_at: new Date().toISOString() }
-  ]);
-  openChatRoom(newRoom.id);
 }
 
 document.getElementById('navYou').onclick = function(){
@@ -7789,7 +7801,17 @@ async function loadAllUsersForGroupPicker(){
   resultsEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12px;padding:20px;">Loading…</p>';
   var { data, error } = await sb.from('profiles').select('user_id, name, email').order('name');
   if(error){ resultsEl.innerHTML = '<p style="text-align:center;color:#C77B7B;font-size:12px;padding:20px;">Could not load people.</p>'; return; }
-  chatGroupPickerAllUsers = (data || []).filter(function(u){ return u.user_id !== currentUser.id && u.name; });
+  var excludeIds = {};
+  // Real bug found and fixed: when adding to an existing group, this list never excluded people
+  // who were already members. Selecting even one of them alongside new people made the whole
+  // batch fail at once (a unique room+user constraint), with no indication which selection
+  // caused it -- confirmed directly, a real support group's existing member showed up as a
+  // normal selectable candidate in this exact list.
+  if(chatCreateGroupSubmitBtn_addMode && currentChatRoomId){
+    var { data: existingMembers } = await sb.from('chat_room_members').select('user_id').eq('room_id', currentChatRoomId).in('status', ['joined', 'invited']);
+    (existingMembers || []).forEach(function(m){ excludeIds[m.user_id] = true; });
+  }
+  chatGroupPickerAllUsers = (data || []).filter(function(u){ return u.user_id !== currentUser.id && u.name && !excludeIds[u.user_id]; });
   renderGroupMemberPickerList('');
 }
 
@@ -7885,8 +7907,8 @@ document.getElementById('chatCreateGroupSubmitBtn').onclick = async function(){
         invited_by: currentUser.id
       };
     });
-    var { error: addError } = await sb.from('chat_room_members').insert(addRows);
-    if(addError){ showToast("Couldn't add members"); console.error(addError); return; }
+    var { error: addError } = await sb.from('chat_room_members').upsert(addRows, { onConflict: 'room_id,user_id' });
+    if(addError){ showToast("Couldn't add members — please try again."); console.error(addError); return; }
     showToast('Members added');
     openChatRoomInfo();
     return;
@@ -7924,7 +7946,10 @@ async function openChatRoomInfo(){
   var { data: room } = await sb.from('chat_rooms').select('description, pinned_message_id').eq('id', currentChatRoomId).single();
   var { data: myMembership } = await sb.from('chat_room_members').select('role, display_alias').eq('room_id', currentChatRoomId).eq('user_id', currentUser.id).single();
   var iAmGroupAdmin = appState.isAdmin || (myMembership && (myMembership.role === 'admin' || myMembership.role === 'co_admin'));
-  document.getElementById('chatRoomInfoAddMemberBtn').style.display = iAmGroupAdmin ? 'block' : 'none';
+  // Coordination room membership is auto-managed by the trigger that shares professionals
+  // treating the same client -- manually adding someone here wouldn't make sense the way it
+  // does for a real support group, so the button never shows there even for an admin.
+  document.getElementById('chatRoomInfoAddMemberBtn').style.display = (iAmGroupAdmin && currentChatRoomType !== 'coordination') ? 'block' : 'none';
   document.getElementById('chatRoomExitBtn').style.display = 'block';
 
   // Description
