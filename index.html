@@ -13,7 +13,30 @@
 <title>HOBS Companion — Mood Check-in</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" onerror="window.__SUPABASE_LOAD_FAILED = true;"></script>
+<script>
+  // Real gap fixed: this had a single hard dependency on a CDN script with zero fallback --
+  // if it fails to load (flaky connection, CDN hiccup, an ad-blocker catching a third-party
+  // script), everything downstream throws immediately and silently, before the app's own
+  // error logger even gets registered to catch it -- which is exactly why this specific
+  // failure mode never showed up in error_logs despite being a very plausible real cause of
+  // "just a blank/white screen." A timeout-based check now catches this category of failure
+  // generally, not just this one script specifically, and shows a real retry screen instead
+  // of leaving the person staring at nothing indefinitely.
+  window.addEventListener('DOMContentLoaded', function(){
+    setTimeout(function(){
+      var bootFailed = window.__SUPABASE_LOAD_FAILED || typeof window.supabase === 'undefined' || !window.__HOBS_BOOT_STARTED;
+      if(bootFailed){
+        document.body.innerHTML =
+          '<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center;font-family:system-ui,sans-serif;background:#FFF8F0;">'+
+            '<p style="font-size:16px;font-weight:700;color:#2A2013;margin:0 0 8px;">Couldn\'t load HOBS Companion</p>'+
+            '<p style="font-size:13px;color:#5C6B94;margin:0 0 20px;max-width:280px;">This is usually a connection hiccup. Check your internet and try again.</p>'+
+            '<button onclick="window.location.reload()" style="padding:12px 28px;border-radius:12px;border:none;background:#6690D6;color:#fff;font-size:14px;font-weight:700;cursor:pointer;">Retry</button>'+
+          '</div>';
+      }
+    }, 9000);
+  });
+</script>
 <style>
   * { box-sizing: border-box; }
   html { color-scheme: light only; }
@@ -28,7 +51,7 @@
     min-height: 100vh;
     box-sizing: border-box;
   }
-  .phone { max-width: 420px; width: 100%; height: min(800px, 92vh); background: #FFF8F0; border-radius: 26px; overflow: hidden; box-shadow: 0 20px 50px rgba(40,70,140,0.25); display:flex; flex-direction:column; }
+  .phone { position: relative; max-width: 420px; width: 100%; height: min(800px, 92vh); background: #FFF8F0; border-radius: 26px; overflow: hidden; box-shadow: 0 20px 50px rgba(40,70,140,0.25); display:flex; flex-direction:column; }
 
   .header {
     display: flex; align-items: center; justify-content: space-between;
@@ -532,21 +555,21 @@
     <textarea id="consentAddress" rows="2" placeholder="Full address" style="width:100%;padding:12px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:13px;box-sizing:border-box;margin-bottom:14px;resize:none;"></textarea>
 
     <label style="font-size:12px;font-weight:700;color:#2A2013;margin-bottom:6px;display:block;">Your phone number</label>
-    <input id="consentPhone" type="tel" placeholder="Phone number" style="width:100%;padding:12px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:13px;box-sizing:border-box;margin-bottom:14px;">
+    <input id="consentPhone" type="tel" inputmode="numeric" maxlength="10" placeholder="Phone number" style="width:100%;padding:12px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:13px;box-sizing:border-box;margin-bottom:14px;">
 
     <label style="font-size:12px;font-weight:700;color:#2A2013;margin-bottom:4px;display:block;">Emergency contacts</label>
     <p style="font-size:11px;color:#9AABCE;margin:0 0 8px;">People who could be physically present if you needed them — this is who the No Suicide Agreement above refers to.</p>
     <div style="display:flex;gap:6px;margin-bottom:8px;">
       <input id="consentEC1Name" type="text" placeholder="Contact 1 name" style="flex:1;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
-      <input id="consentEC1Phone" type="tel" placeholder="Phone" style="flex:1;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
+      <input id="consentEC1Phone" type="tel" inputmode="numeric" maxlength="10" placeholder="Phone" style="flex:1;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
     </div>
     <div style="display:flex;gap:6px;margin-bottom:8px;">
       <input id="consentEC2Name" type="text" placeholder="Contact 2 name" style="flex:1;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
-      <input id="consentEC2Phone" type="tel" placeholder="Phone" style="flex:1;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
+      <input id="consentEC2Phone" type="tel" inputmode="numeric" maxlength="10" placeholder="Phone" style="flex:1;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
     </div>
     <div style="display:flex;gap:6px;margin-bottom:16px;">
       <input id="consentEC3Name" type="text" placeholder="Contact 3 name" style="flex:1;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
-      <input id="consentEC3Phone" type="tel" placeholder="Phone" style="flex:1;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
+      <input id="consentEC3Phone" type="tel" inputmode="numeric" maxlength="10" placeholder="Phone" style="flex:1;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
     </div>
 
     <label style="font-size:12px;font-weight:700;color:#2A2013;margin-bottom:8px;display:block;">I consent to being offered these session types</label>
@@ -961,6 +984,8 @@
     </div>
 
     <div id="therapistDashTab-schedule" class="therapist-dash-tab-content" style="display:none;">
+    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Calendar</p>
+    <div id="gcalConnectionCard" style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:14px;padding:16px;margin-bottom:18px;"></div>
     <div id="therapistCalChangeRequestsSection" style="display:none;margin-bottom:18px;"></div>
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">My Availability</p>
     <p style="font-size:11px;font-weight:700;color:#9AABCE;margin:0 0 8px;">All Upcoming Slots</p>
@@ -1060,9 +1085,6 @@
     <p style="font-size:11px;color:#9AABCE;font-weight:700;margin:0 0 6px;">Languages you can work in</p>
     <div id="therapistLanguagesCheckboxes" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;"></div>
     <button id="therapistSaveProfileBtn" style="width:100%;padding:12px;border-radius:10px;border:none;background:#3B8F63;color:#fff;font-size:12.5px;font-weight:700;cursor:pointer;">Save My Profile</button>
-
-    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:26px 0 10px;">Calendar</p>
-    <div id="gcalConnectionCard" style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:14px;padding:16px;"></div>
     </div>
   </div>
 
@@ -1089,7 +1111,7 @@
     <input id="epPronounCustom" type="text" placeholder="Or type your own" style="display:none;width:100%;padding:12px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:13px;box-sizing:border-box;margin-bottom:20px;">
 
     <label style="font-size:12px;font-weight:700;color:#2A2013;margin-bottom:6px;display:block;">Phone number</label>
-    <input id="epPhone" type="tel" placeholder="Your phone number" style="width:100%;padding:14px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:14px;box-sizing:border-box;margin-bottom:20px;">
+    <input id="epPhone" type="tel" inputmode="numeric" maxlength="10" placeholder="Your phone number" style="width:100%;padding:14px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:14px;box-sizing:border-box;margin-bottom:20px;">
 
     <label style="font-size:12px;font-weight:700;color:#2A2013;margin-bottom:6px;display:block;">Date of birth</label>
     <input id="epDob" type="date" style="width:100%;padding:14px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:14px;box-sizing:border-box;margin-bottom:20px;">
@@ -1099,7 +1121,7 @@
 
     <label style="font-size:12px;font-weight:700;color:#2A2013;margin-bottom:6px;display:block;">Emergency contact <span style="font-weight:400;color:#B0AA98;">(only visible to your therapist and admin)</span></label>
     <input id="epEmergencyName" type="text" placeholder="Name" style="width:100%;padding:14px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:14px;box-sizing:border-box;margin-bottom:10px;">
-    <input id="epEmergencyPhone" type="tel" placeholder="Phone number" style="width:100%;padding:14px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:14px;box-sizing:border-box;margin-bottom:10px;">
+    <input id="epEmergencyPhone" type="tel" inputmode="numeric" maxlength="10" placeholder="Phone number" style="width:100%;padding:14px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:14px;box-sizing:border-box;margin-bottom:10px;">
 
     <p id="epError" style="display:none;color:#C77B7B;font-size:12px;text-align:center;margin:8px 0 0;"></p>
     <button id="epSaveBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:15px;font-weight:700;cursor:pointer;margin-top:18px;">Save Changes</button>
@@ -2035,7 +2057,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260719202342';
+  var CURRENT_BUILD = '20260720010208';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -2101,6 +2123,7 @@
 var SUPABASE_URL = 'https://adjvptkzyckkvewbfmzf.supabase.co';
 var SUPABASE_KEY = 'sb_publishable_OfcfAkUyxd9oXKeGvVxBIw_KxUV9TzE';
 var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+window.__HOBS_BOOT_STARTED = true; // tells the timeout-based failure check that boot got at least this far
 
 // Real error monitoring — since there's no server-side infrastructure for this yet,
 // genuine JS errors get logged to Supabase (best-effort, never blocks the user)
@@ -2112,6 +2135,19 @@ window.addEventListener('error', function(e){
       user_id: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null,
       message: e.message || 'Unknown error',
       stack: e.error && e.error.stack ? e.error.stack.slice(0, 2000) : '',
+      page_url: window.location.href
+    }).then(function(){});
+  } catch(err){}
+});
+// Real gap fixed: the listener above only ever caught synchronous errors -- a rejected
+// Promise (a failed fetch, a Supabase call throwing async) never surfaced here at all, so an
+// entire category of real failures was invisible in error_logs.
+window.addEventListener('unhandledrejection', function(e){
+  try {
+    sb.from('error_logs').insert({
+      user_id: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null,
+      message: 'Unhandled promise rejection: ' + (e.reason && e.reason.message ? e.reason.message : String(e.reason)),
+      stack: e.reason && e.reason.stack ? e.reason.stack.slice(0, 2000) : '',
       page_url: window.location.href
     }).then(function(){});
   } catch(err){}
@@ -2192,6 +2228,13 @@ document.getElementById('logoutBtn').onclick = function(){
     document.getElementById('authEmail').value = '';
     document.getElementById('authPassword').value = '';
     hideAuthError();
+    // Real bug fixed: for anyone who'd logged in via a restored session (not a fresh manual
+    // login), authLoadingState/authFormContent never got switched even once -- that only
+    // happens in the initial boot's "no session" branch. So this was leaving the splash/spinner
+    // permanently stuck visible after sign-out, with the actual login form still display:none
+    // underneath it -- looked exactly like being stuck on "Good to see you" / loading forever.
+    document.getElementById('authLoadingState').style.display = 'none';
+    document.getElementById('authFormContent').style.display = 'block';
     document.getElementById('authOverlay').style.display = 'flex';
   });
 };
@@ -2974,6 +3017,12 @@ document.getElementById('epSaveBtn').onclick = function(){
     errEl.style.display = 'block';
     return;
   }
+  if(!isValidPhone(phone) || (emergencyPhone && !isValidPhone(emergencyPhone))){
+    errEl.textContent = 'Please enter a valid 10-digit phone number.';
+    errEl.style.display = 'block';
+    return;
+  }
+  errEl.style.display = 'none';
 
   var btn = document.getElementById('epSaveBtn');
   btn.textContent = 'Saving...'; btn.disabled = true;
@@ -3183,7 +3232,12 @@ document.getElementById('consentGateSubmitBtn').onclick = function(){
   // otherwise.
   var allTextFilled = Object.keys(fields).every(function(k){ return fields[k].length > 0; });
   var atLeastOneModality = consentChat || consentAudio || consentVideo;
-  if(!allTextFilled || !atLeastOneModality || !age18Confirmed){
+  var allPhonesValid = isValidPhone(fields.contact_phone) && isValidPhone(fields.emergency_contact_1_phone) &&
+    isValidPhone(fields.emergency_contact_2_phone) && isValidPhone(fields.emergency_contact_3_phone);
+  if(!allTextFilled || !atLeastOneModality || !age18Confirmed || !allPhonesValid){
+    document.getElementById('consentGateError').textContent = !allPhonesValid
+      ? 'Please enter valid 10-digit phone numbers.'
+      : 'Please fill in all fields, confirm you\'re 18+, and select at least one session type.';
     document.getElementById('consentGateError').style.display = 'block';
     document.getElementById('consentGateError').scrollIntoView({ behavior:'smooth', block:'center' });
     return;
@@ -7469,6 +7523,21 @@ document.getElementById('headerSearchBtn').onclick = openSearch;
 // a reschedule, a cancellation), rather than duplicating this at each site. Fire-and-forget:
 // never blocks or fails the actual booking action in the UI just because calendar sync had an
 // issue -- the booking itself is what matters most, sync is a background enhancement on top.
+// Real bug fixed: phone fields accepted 11-digit numbers or arbitrary non-numeric text, with
+// no validation anywhere. maxlength alone doesn't stop someone typing letters/symbols (it just
+// counts characters, digit or not), so this strips anything non-numeric as they type, capped
+// at 10 digits -- applied to every phone field across the app, not just one.
+['consentPhone','consentEC1Phone','consentEC2Phone','consentEC3Phone','epPhone','epEmergencyPhone'].forEach(function(id){
+  var el = document.getElementById(id);
+  if(!el) return;
+  el.addEventListener('input', function(){
+    this.value = this.value.replace(/\D/g, '').slice(0, 10);
+  });
+});
+function isValidPhone(value){
+  return /^\d{10}$/.test((value || '').trim());
+}
+
 function syncSessionToCalendar(bookingId){
   if(!bookingId || String(bookingId).indexOf('temp_') === 0) return; // not saved yet, nothing to sync
   sb.functions.invoke('google-calendar-sync', { body: { action: 'sync_session', booking_id: bookingId } }).catch(function(){});
@@ -9634,8 +9703,7 @@ function switchTherapistDashTab(tabKey){
     tab.style.background = isActive ? '#6690D6' : 'transparent';
     tab.style.color = isActive ? '#FFF8F0' : '#9AABCE';
   });
-  if(tabKey === 'profile') renderGcalConnectionCard();
-  if(tabKey === 'schedule') renderCalendarChangeRequests();
+  if(tabKey === 'schedule'){ renderGcalConnectionCard(); renderCalendarChangeRequests(); }
 }
 document.querySelectorAll('.therapist-dash-tab').forEach(function(tab){
   tab.onclick = function(){ switchTherapistDashTab(tab.dataset.tab); };
