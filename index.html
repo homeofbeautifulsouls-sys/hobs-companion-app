@@ -1081,6 +1081,13 @@
       <button id="therapistClientDetailCloseBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:13px;font-weight:700;cursor:pointer;margin-top:16px;">Close</button>
     </div>
 
+    <div id="therapistApptDetailBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.45);z-index:60;"></div>
+    <div id="therapistApptDetailModal" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;max-height:82vh;overflow-y:auto;background:#FFFFFF;border-radius:24px 24px 0 0;padding:24px 22px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;z-index:61;box-shadow:0 -10px 30px rgba(0,0,0,0.15);">
+      <p class="prompt-title" style="margin-bottom:16px;" id="therapistApptDetailName">Appointment</p>
+      <div id="therapistApptDetailBody"></div>
+      <button id="therapistApptDetailCloseBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:13px;font-weight:700;cursor:pointer;margin-top:16px;">Close</button>
+    </div>
+
     <div id="therapistDashTab-profile" class="therapist-dash-tab-content" style="display:none;">
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:22px 0 10px;">My Profile</p>
     <p style="font-size:11px;color:#B0AA98;margin:0 0 10px;">This is what clients see about you on the Experts page.</p>
@@ -1931,7 +1938,7 @@
     </div>
   </div>
 
-  <button id="newJournalEntryFabBtn" title="New journal entry" style="position:absolute;right:16px;bottom:150px;width:52px;height:52px;border-radius:50%;border:none;background:#3B8F63;box-shadow:0 4px 14px rgba(0,0,0,0.18);cursor:pointer;z-index:55;display:flex;align-items:center;justify-content:center;padding:0;">
+  <button id="newJournalEntryFabBtn" title="New journal entry" style="display:none;position:absolute;right:16px;bottom:150px;width:52px;height:52px;border-radius:50%;border:none;background:#3B8F63;box-shadow:0 4px 14px rgba(0,0,0,0.18);cursor:pointer;z-index:55;align-items:center;justify-content:center;padding:0;">
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFF8F0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
   </button>
   <button id="assistantFabBtn" style="position:absolute;right:16px;bottom:86px;width:52px;height:52px;border-radius:50%;border:none;background:#6690D6;box-shadow:0 4px 14px rgba(0,0,0,0.18);cursor:pointer;z-index:55;display:flex;align-items:center;justify-content:center;padding:0;">
@@ -2068,7 +2075,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260720020559';
+  var CURRENT_BUILD = '20260720180006';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -2179,19 +2186,39 @@ function savePendingSyncQueue(){
 // unavailable at the moment of saving (e.g. mid-reload, session hiccup).
 // If we can save now, we do. If not, it's queued and retried automatically
 // the moment a session is confirmed again.
+// Real bug found and fixed: this used to plain .insert(), with no protection against a network
+// blip that makes the CLIENT think a request failed even though the server-side insert actually
+// went through -- that failure path pushes the same payload to the retry queue, and the later
+// retry creates a second, fully separate row with identical content and the same original
+// timestamp. Confirmed directly in production data: multiple real journal entries existed as
+// exact duplicates, same text, same created_at down to the millisecond. Every table using this
+// shared function (entries, who5_entries, subtasks, tasks, test_results) was equally exposed,
+// since the bug lives here, not in any one caller.
+// Fix: generate the row's id client-side and upsert on it, so a retry of the same logical
+// attempt is a genuine no-op (updates the existing row with the same data) instead of a new row.
+function generateClientId(){
+  if(window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c){
+    var r = Math.random()*16|0, v = c === 'x' ? r : (r&0x3|0x8);
+    return v.toString(16);
+  });
+}
+
 function syncToSupabase(table, payload, onSuccess){
   if(currentUser && currentUser.id){
-    var fullPayload = Object.assign({}, payload, { user_id: currentUser.id });
-    sb.from(table).insert(fullPayload).select().single().then(function(result){
+    var clientId = payload.id || generateClientId();
+    var fullPayload = Object.assign({}, payload, { id: clientId, user_id: currentUser.id });
+    sb.from(table).upsert(fullPayload, { onConflict: 'id' }).select().single().then(function(result){
       if(result.error){
-        pendingSyncQueue.push({ table: table, payload: payload, queuedAt: new Date().toISOString() });
+        pendingSyncQueue.push({ table: table, payload: fullPayload, queuedAt: new Date().toISOString() });
         savePendingSyncQueue();
         return;
       }
       if(onSuccess) onSuccess(result.data);
     });
   } else {
-    pendingSyncQueue.push({ table: table, payload: payload, queuedAt: new Date().toISOString() });
+    var clientId2 = payload.id || generateClientId();
+    pendingSyncQueue.push({ table: table, payload: Object.assign({}, payload, { id: clientId2 }), queuedAt: new Date().toISOString() });
     savePendingSyncQueue();
   }
 }
@@ -2202,7 +2229,8 @@ function retryPendingSync(){
   pendingSyncQueue = [];
   savePendingSyncQueue();
   queue.forEach(function(item){
-    sb.from(item.table).insert(Object.assign({}, item.payload, { user_id: currentUser.id })).then(function(result){
+    var itemId = item.payload.id || generateClientId();
+    sb.from(item.table).upsert(Object.assign({}, item.payload, { id: itemId, user_id: currentUser.id }), { onConflict: 'id' }).then(function(result){
       if(result.error){
         pendingSyncQueue.push(item);
         savePendingSyncQueue();
@@ -4106,6 +4134,9 @@ var allPanels = ['panel-bubbles','panel-journal','panel-quick-journal','panel-sa
 var panelHistoryStack = ['panel-bubbles'];
 function showOnly(panelId){
   allPanels.forEach(function(id){ document.getElementById(id).style.display = (id === panelId) ? 'block' : 'none'; });
+  // Real ask: this button should only ever be visible on the Journal index page itself, not
+  // floating over every single screen in the app the way it originally did.
+  document.getElementById('newJournalEntryFabBtn').style.display = (panelId === 'panel-history') ? 'flex' : 'none';
   if(panelHistoryStack[panelHistoryStack.length - 1] !== panelId){
     panelHistoryStack.push(panelId);
     if(panelHistoryStack.length > 30) panelHistoryStack.shift(); // avoid unbounded growth
@@ -10069,7 +10100,11 @@ function renderTherapistAppointmentsList(){
             '<button class="therapist-appt-cancel-btn" data-booking-id="'+b.id+'" style="flex:1;font-size:10.5px;font-weight:700;color:#C77B7B;background:none;border:1px solid #EFC7C7;border-radius:8px;padding:6px;cursor:pointer;">Cancel</button>'+
           '</div>'
         : '';
-      return '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:12px 13px;margin-bottom:8px;">'+
+      // Real ask: tapping a row -- past ones especially -- should open full detail and session
+      // notes (view what's there, or add them if missing), not just sit as a read-only summary
+      // line. Wrapped the whole card as clickable, with Edit/Cancel buttons stopping propagation
+      // so they still work independently on upcoming rows.
+      return '<div class="therapist-appt-row" data-booking-id="'+b.id+'" data-name="'+name.replace(/"/g,'&quot;')+'" style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:12px 13px;margin-bottom:8px;cursor:pointer;">'+
         '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:3px;">'+
           '<p style="font-size:12.5px;font-weight:700;color:#2A2013;margin:0;">'+name.replace(/</g,'&lt;')+'</p>'+statusBadge+
         '</div>'+
@@ -10078,13 +10113,18 @@ function renderTherapistAppointmentsList(){
       '</div>';
     }).join('');
 
+    listEl.querySelectorAll('.therapist-appt-row').forEach(function(row){
+      row.onclick = function(){ openTherapistApptDetail(row.dataset.bookingId, row.dataset.name); };
+    });
     listEl.querySelectorAll('.therapist-appt-edit-btn').forEach(function(btn){
-      btn.onclick = function(){
+      btn.onclick = function(e){
+        e.stopPropagation();
         openTherapistScheduleEdit(btn.dataset.userId, btn.dataset.bookingId, btn.dataset.name, btn.dataset.sessionDate);
       };
     });
     listEl.querySelectorAll('.therapist-appt-cancel-btn').forEach(function(btn){
-      btn.onclick = function(){
+      btn.onclick = function(e){
+        e.stopPropagation();
         if(!confirm('Cancel this appointment?')) return;
         sb.from('expert_bookings').update({ status: 'cancelled' }).eq('id', btn.dataset.bookingId).then(function(result){
           if(result.error){ showToast("Couldn't cancel — please try again."); return; }
@@ -10096,6 +10136,95 @@ function renderTherapistAppointmentsList(){
     });
   });
 }
+
+// Opens the full detail view for one appointment (from the My Appointments list, Upcoming or
+// Past). Shows everything about the booking plus session notes -- editable if not yet locked,
+// read-only with the attached file if already locked -- reusing the exact same
+// notes/lock-payment mechanism as the monthly summary detail view, so there's only ever one
+// real path for saving notes, not two that could drift apart.
+function openTherapistApptDetail(bookingId, name){
+  document.getElementById('therapistApptDetailName').textContent = name;
+  document.getElementById('therapistApptDetailBody').innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12px;">Loading...</p>';
+  document.getElementById('therapistApptDetailBackdrop').style.display = 'block';
+  document.getElementById('therapistApptDetailModal').style.display = 'block';
+
+  sb.from('expert_bookings').select('*').eq('id', bookingId).single().then(function(result){
+    var bodyEl = document.getElementById('therapistApptDetailBody');
+    if(result.error || !result.data){
+      bodyEl.innerHTML = '<p style="color:#C77B7B;font-size:12px;text-align:center;">Could not load this appointment.</p>';
+      return;
+    }
+    var b = result.data;
+    var dateLabel = b.session_date ? new Date(b.session_date).toLocaleString('en-IN', { weekday:'short', day:'numeric', month:'short', year:'numeric', hour:'numeric', minute:'2-digit' }) : 'No date set';
+    var statusColor = b.status === 'cancelled' ? '#C77B7B' : '#3B8F63';
+    var paymentLabel = b.payment_confirmed === false ? 'Unpaid' : (b.payment_confirmed ? 'Paid' : '—');
+
+    var html = '<div style="background:#F3F6FC;border-radius:12px;padding:12px;margin-bottom:16px;">'+
+      '<p style="font-size:12.5px;color:#2A2013;margin:0 0 6px;"><strong>When:</strong> '+dateLabel+'</p>'+
+      '<p style="font-size:12.5px;color:'+statusColor+';margin:0 0 6px;font-weight:700;"><strong style="color:#2A2013;font-weight:400;">Status:</strong> '+b.status+'</p>'+
+      '<p style="font-size:12.5px;color:#2A2013;margin:0;"><strong>Payment:</strong> '+paymentLabel+(b.payment_note ? ' — '+b.payment_note.replace(/</g,'&lt;') : '')+'</p>'+
+      '</div>';
+
+    html += '<p style="font-size:11px;font-weight:700;color:#9AABCE;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 8px;">Session Notes</p>';
+    if(b.payment_locked){
+      html += '<div style="background:#EAF4EE;border-radius:10px;padding:12px;margin-bottom:6px;">'+
+        '<p style="font-size:12px;color:#2A2013;margin:0;white-space:pre-wrap;">'+(b.session_notes ? b.session_notes.replace(/</g,'&lt;') : '(no notes text, only a locked payment record)')+'</p>'+
+        '</div>'+
+        (b.session_note_file_url ? '<a href="#" id="apptDetailViewFileBtn" data-path="'+b.session_note_file_url+'" style="font-size:11.5px;color:#6690D6;font-weight:700;">View attached file</a>' : '');
+    } else {
+      html += '<p style="font-size:11.5px;color:#B0AA98;margin:0 0 10px;">Not added yet.</p>'+
+        '<textarea id="apptDetailNotesInput" placeholder="Session notes... (required to lock payment)" rows="3" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12.5px;font-family:inherit;margin-bottom:8px;box-sizing:border-box;resize:vertical;">'+(b.session_notes||'')+'</textarea>'+
+        '<input type="file" id="apptDetailFileInput" accept="image/*,.pdf,.doc,.docx" style="width:100%;font-size:11px;margin-bottom:10px;">'+
+        '<button id="apptDetailSaveBtn" data-id="'+b.id+'" style="width:100%;padding:11px;border-radius:10px;border:none;background:#3B8F63;color:#fff;font-size:12.5px;font-weight:700;cursor:pointer;">Save Notes &amp; Lock Payment</button>';
+    }
+    bodyEl.innerHTML = html;
+
+    var fileBtn = document.getElementById('apptDetailViewFileBtn');
+    if(fileBtn) fileBtn.onclick = function(e){
+      e.preventDefault();
+      sb.storage.from('session-attachments').createSignedUrl(fileBtn.dataset.path, 300).then(function(r){
+        if(r.data) window.open(r.data.signedUrl, '_blank');
+      });
+    };
+    var saveBtn = document.getElementById('apptDetailSaveBtn');
+    if(saveBtn) saveBtn.onclick = function(){
+      var notes = document.getElementById('apptDetailNotesInput').value.trim();
+      if(!notes){ showToast('Session notes are required to lock payment.'); return; }
+      var fileInput = document.getElementById('apptDetailFileInput');
+      saveBtn.textContent = 'Saving...'; saveBtn.disabled = true;
+      var doSave = function(fileUrl){
+        var updateData = { session_notes: notes, payment_locked: true };
+        if(fileUrl) updateData.session_note_file_url = fileUrl;
+        sb.from('expert_bookings').update(updateData).eq('id', bookingId).then(function(r){
+          if(r.error){
+            showToast('Could not save — please try again.');
+            saveBtn.textContent = 'Save Notes & Lock Payment'; saveBtn.disabled = false;
+            return;
+          }
+          showToast('Notes saved and payment locked.');
+          openTherapistApptDetail(bookingId, name); // re-render this same modal now locked/read-only
+          renderTherapistAppointmentsList();
+          if(typeof renderTherapistSummaryAndDetail === 'function') renderTherapistSummaryAndDetail();
+        });
+      };
+      if(fileInput && fileInput.files && fileInput.files[0]){
+        var file = fileInput.files[0];
+        var path = bookingId + '/' + Date.now() + '_' + file.name;
+        sb.storage.from('session-attachments').upload(path, file).then(function(uploadResult){
+          if(uploadResult.error){ doSave(null); return; }
+          doSave(path);
+        });
+      } else {
+        doSave(null);
+      }
+    };
+  });
+}
+document.getElementById('therapistApptDetailCloseBtn').onclick = function(){
+  document.getElementById('therapistApptDetailBackdrop').style.display = 'none';
+  document.getElementById('therapistApptDetailModal').style.display = 'none';
+};
+document.getElementById('therapistApptDetailBackdrop').onclick = document.getElementById('therapistApptDetailCloseBtn').onclick;
 document.querySelectorAll('.therapist-appt-filter-btn').forEach(function(btn){
   btn.onclick = function(){
     therapistApptFilter = btn.dataset.filter;
