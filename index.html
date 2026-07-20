@@ -2057,7 +2057,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260720010208';
+  var CURRENT_BUILD = '20260720011057';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -8995,9 +8995,17 @@ function showAdminUserProfile(userId){
     sb.from('experts').select('*'),
     sb.from('consent_agreements').select('*').eq('user_id', userId).order('created_at', {ascending:false}).limit(1),
     sb.from('tasks').select('id,done').eq('user_id', userId),
-    sb.from('entries').select('id,type,text,worksheet_name,category_name,created_at').eq('user_id', userId).eq('shared_with_therapist', true).order('created_at', {ascending:false})
+    sb.from('entries').select('id,type,text,worksheet_name,category_name,created_at').eq('user_id', userId).eq('shared_with_therapist', true).order('created_at', {ascending:false}),
+    // Real gap fixed: this admin view only ever queried entries, so anything shared via
+    // worksheet_responses or test_results (both genuinely separate sharing mechanisms used
+    // elsewhere in the app) was invisible here even though it had actually been shared --
+    // matched against the more complete pattern already used in the therapist's own client
+    // detail view, which correctly includes all three.
+    sb.from('worksheet_responses').select('worksheet_key,category_key,updated_at').eq('user_id', userId).eq('shared_with_therapist', true),
+    sb.from('test_results').select('test_key,score,elevated,created_at').eq('user_id', userId).eq('shared_with_therapist', true)
   ]).then(function(results){
     var profileRes = results[0], bookingsRes = results[1], expertsRes = results[2], consentRes = results[3], tasksRes = results[4], sharedEntriesRes = results[5];
+    var sharedWorksheetsRes = results[6], sharedTestsRes = results[7];
     if(profileRes.error || !profileRes.data){
       document.getElementById('adminUserProfileName').textContent = 'Could not load this profile';
       return;
@@ -9050,7 +9058,30 @@ function showAdminUserProfile(userId){
         '<p style="font-size:12px;color:#3A4A6A;margin:0;">'+doneTasks+' completed of '+totalTasks+' total task'+(totalTasks===1?'':'s')+'</p>';
     }
     if(!sharedEntriesRes.error && sharedEntriesRes.data){
-      var shared = sharedEntriesRes.data;
+      var shared = sharedEntriesRes.data.map(function(e){
+        var when = new Date(e.created_at).toLocaleDateString('en-IN', {day:'numeric', month:'short'});
+        var label = e.type === 'worksheet' ? ('Worksheet: ' + (e.worksheet_name || e.category_name || 'Untitled')) : (e.text || '(no text)');
+        return { when: when, label: label, sortKey: e.created_at };
+      });
+      if(!sharedWorksheetsRes.error && sharedWorksheetsRes.data){
+        sharedWorksheetsRes.data.forEach(function(w){
+          shared.push({
+            when: new Date(w.updated_at).toLocaleDateString('en-IN', {day:'numeric', month:'short'}),
+            label: 'Worksheet: ' + (w.category_key || w.worksheet_key || 'Untitled'),
+            sortKey: w.updated_at
+          });
+        });
+      }
+      if(!sharedTestsRes.error && sharedTestsRes.data){
+        sharedTestsRes.data.forEach(function(t){
+          shared.push({
+            when: new Date(t.created_at).toLocaleDateString('en-IN', {day:'numeric', month:'short'}),
+            label: 'Test result: ' + (t.test_key || 'Untitled') + (t.score != null ? ' (score ' + t.score + (t.elevated ? ', elevated' : '') + ')' : ''),
+            sortKey: t.created_at
+          });
+        });
+      }
+      shared.sort(function(a,b){ return new Date(b.sortKey) - new Date(a.sortKey); });
       var sharedEl = document.getElementById('adminUserProfileSharedEntries');
       if(shared.length === 0){
         sharedEl.innerHTML = '<p style="font-size:11px;font-weight:700;color:#9AABCE;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 6px;">Shared With Therapist</p><p style="font-size:11.5px;color:#B0AA98;margin:0;">Nothing shared yet.</p>';
@@ -9058,9 +9089,7 @@ function showAdminUserProfile(userId){
         sharedEl.innerHTML = '<p style="font-size:11px;font-weight:700;color:#9AABCE;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 6px;">Shared With Therapist ('+shared.length+')</p>'+
           '<div style="background:#F3F6FC;border-radius:10px;padding:10px 12px;max-height:200px;overflow-y:auto;">'+
           shared.map(function(e){
-            var when = new Date(e.created_at).toLocaleDateString('en-IN', {day:'numeric', month:'short'});
-            var label = e.type === 'worksheet' ? ('Worksheet: ' + (e.worksheet_name || e.category_name || 'Untitled')) : (e.text ? e.text.slice(0,60) + (e.text.length > 60 ? '…' : '') : '(no text)');
-            return '<p style="font-size:11px;color:#2A2013;margin:0 0 8px;"><strong style="color:#6690D6;">'+when+':</strong> '+label.replace(/</g,'&lt;')+'</p>';
+            return '<p style="font-size:11px;color:#2A2013;margin:0 0 8px;"><strong style="color:#6690D6;">'+e.when+':</strong> '+e.label.replace(/</g,'&lt;').replace(/\n/g, '<br>')+'</p>';
           }).join('')+
           '</div>';
       }
@@ -10037,8 +10066,8 @@ function openTherapistClientDetail(userId, name){
             }
             return '<p style="font-size:11.5px;color:#2A2013;margin:0 0 10px;"><strong style="color:#6690D6;">'+when+':</strong> '+label.replace(/</g,'&lt;')+'</p>'+answersHtml;
           }
-          var label = e.text ? e.text.slice(0,80) + (e.text.length > 80 ? '…' : '') : '(no text)';
-          return '<p style="font-size:11.5px;color:#2A2013;margin:0 0 10px;"><strong style="color:#6690D6;">'+when+':</strong> '+label.replace(/</g,'&lt;')+'</p>';
+          var label = e.text ? e.text.replace(/</g,'&lt;').replace(/\n/g, '<br>') : '(no text)';
+          return '<p style="font-size:11.5px;color:#2A2013;margin:0 0 10px;"><strong style="color:#6690D6;">'+when+':</strong> '+label+'</p>';
         }).join('')+
         '</div>';
     }
