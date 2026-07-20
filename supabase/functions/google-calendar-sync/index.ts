@@ -35,7 +35,13 @@ async function dbWrite(path: string, method: string, body: unknown, prefer = "re
     },
     body: JSON.stringify(body),
   });
-  return res.json();
+  // return=minimal produces an empty body by design -- parsing it as JSON throws, so this
+  // only attempts to parse when there's actually content to parse. Real bug, found while
+  // building the poll feature: every return=minimal call in this file (webhook processing,
+  // watch renewal) was silently at risk of throwing here, just never exercised by earlier
+  // testing since those specific code paths weren't reached yet.
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
 }
 async function sendPush(userId: string, title: string, body: string) {
   await fetch(`${SUPABASE_URL}/functions/v1/send-push-notification`, {

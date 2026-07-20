@@ -2068,7 +2068,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260720011709';
+  var CURRENT_BUILD = '20260720020559';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -4980,7 +4980,7 @@ async function resolveDisplayNameForCurrentRoom(userId){
 async function renderChatMessages(){
   var list = document.getElementById('chatMessagesList');
   var { data: messages, error } = await sb.from('chat_messages')
-    .select('id, sender_id, text, created_at, deleted')
+    .select('id, sender_id, text, created_at, deleted, message_type, poll_id')
     .eq('room_id', currentChatRoomId).order('created_at', { ascending: true });
   if(error){ list.innerHTML = '<p style="text-align:center;color:#C77B7B;font-size:12px;">Could not load messages.</p>'; return; }
 
@@ -4994,6 +4994,15 @@ async function renderChatMessages(){
 async function appendChatMessageBubble(msg){
   var list = document.getElementById('chatMessagesList');
   var isMine = msg.sender_id === currentUser.id;
+
+  // A poll gets its own card, not a plain text bubble -- rendered from Bob's own perspective
+  // (never "mine", always shown on the left, matching how a group message from anyone else
+  // would look) since Bob posting it isn't really "a message from me" in the normal sense.
+  if(msg.message_type === 'poll' && msg.poll_id){
+    await renderPollCard(msg, list);
+    return;
+  }
+
   var bubble = document.createElement('div');
   bubble.style.cssText = 'display:flex;flex-direction:column;'+(isMine ? 'align-items:flex-end;' : 'align-items:flex-start;')+'margin-bottom:8px;';
   var timeStr = new Date(msg.created_at).toLocaleTimeString(undefined, {hour:'numeric', minute:'2-digit'});
@@ -5030,6 +5039,87 @@ async function appendChatMessageBubble(msg){
   list.appendChild(bubble);
 }
 
+// Renders a poll as its own card: Bob's question, each option as a tappable bar showing live
+// results, and an "add another option" input always available at the end -- per direct
+// instruction, this isn't optional trim, it's a permanent fixture of every poll.
+async function renderPollCard(msg, list){
+  var wrap = document.createElement('div');
+  wrap.style.cssText = 'display:flex;flex-direction:column;align-items:flex-start;margin-bottom:10px;';
+  wrap.id = 'poll-card-' + msg.poll_id;
+
+  var card = document.createElement('div');
+  card.style.cssText = 'max-width:88%;background:#FFFFFF;border:1px solid #EEE0C4;border-radius:16px;padding:13px 14px;box-shadow:0 1px 3px rgba(42,32,19,0.08);';
+  card.innerHTML =
+    '<p style="margin:0 0 3px;font-size:10.5px;font-weight:700;color:#6690D6;">🐘 Bob</p>'+
+    '<p style="margin:0 0 10px;font-size:13.5px;font-weight:600;color:#2A2013;">'+(msg.text||'').replace(/</g,'&lt;')+'</p>'+
+    '<div id="poll-options-' + msg.poll_id + '"></div>';
+  wrap.appendChild(card);
+  list.appendChild(wrap);
+
+  await refreshPollOptions(msg.poll_id);
+}
+
+async function refreshPollOptions(pollId){
+  var container = document.getElementById('poll-options-' + pollId);
+  if(!container) return;
+
+  var [{ data: options }, { data: votes }] = await Promise.all([
+    sb.from('chat_poll_options').select('id, option_text, display_order').eq('poll_id', pollId).order('display_order'),
+    sb.from('chat_poll_votes').select('option_id, user_id').eq('poll_id', pollId)
+  ]);
+  options = options || []; votes = votes || [];
+  var totalVotes = votes.length;
+  var myVoteOptionIds = votes.filter(function(v){ return v.user_id === currentUser.id; }).map(function(v){ return v.option_id; });
+
+  container.innerHTML = options.map(function(opt){
+    var optVotes = votes.filter(function(v){ return v.option_id === opt.id; }).length;
+    var pct = totalVotes > 0 ? Math.round((optVotes / totalVotes) * 100) : 0;
+    var isMine = myVoteOptionIds.indexOf(opt.id) !== -1;
+    return '<div class="poll-option-row" data-option-id="'+opt.id+'" data-poll-id="'+pollId+'" style="position:relative;margin-bottom:7px;padding:9px 11px;border-radius:10px;border:1px solid '+(isMine ? '#6690D6' : '#EEE0C4')+';cursor:pointer;overflow:hidden;">'+
+      '<div style="position:absolute;top:0;left:0;bottom:0;width:'+pct+'%;background:'+(isMine ? '#EAF0FB' : '#F7F4EC')+';z-index:0;transition:width 0.3s ease;"></div>'+
+      '<div style="position:relative;z-index:1;display:flex;justify-content:space-between;align-items:center;gap:8px;">'+
+        '<span style="font-size:12.5px;color:#2A2013;'+(isMine ? 'font-weight:700;' : '')+'">'+(isMine ? '✓ ' : '')+opt.option_text.replace(/</g,'&lt;')+'</span>'+
+        '<span style="font-size:10.5px;color:#9AABCE;flex-shrink:0;">'+optVotes+' · '+pct+'%</span>'+
+      '</div>'+
+    '</div>';
+  }).join('') +
+  '<div id="poll-add-option-' + pollId + '" style="display:flex;gap:6px;margin-top:4px;">'+
+    '<input type="text" placeholder="+ Add another option" maxlength="60" style="flex:1;padding:8px 10px;border-radius:9px;border:1px dashed #C7D2E8;font-size:12px;font-family:inherit;box-sizing:border-box;">'+
+    '<button style="padding:8px 12px;border-radius:9px;border:none;background:#6690D6;color:#fff;font-size:11.5px;font-weight:700;cursor:pointer;">Add</button>'+
+  '</div>';
+
+  container.querySelectorAll('.poll-option-row').forEach(function(row){
+    row.onclick = async function(){
+      var optionId = row.dataset.optionId;
+      var alreadyMine = myVoteOptionIds.indexOf(optionId) !== -1;
+      if(alreadyMine){
+        await sb.from('chat_poll_votes').delete().eq('poll_id', pollId).eq('option_id', optionId).eq('user_id', currentUser.id);
+      } else {
+        // Single-choice by default -- clear any previous vote on this poll first, then cast
+        // the new one, matching WhatsApp's default (multi-select can be added later if a group
+        // genuinely needs it, but wasn't asked for here).
+        await sb.from('chat_poll_votes').delete().eq('poll_id', pollId).eq('user_id', currentUser.id);
+        await sb.from('chat_poll_votes').insert({ poll_id: pollId, option_id: optionId, user_id: currentUser.id });
+      }
+      refreshPollOptions(pollId);
+    };
+  });
+
+  var addWrap = document.getElementById('poll-add-option-' + pollId);
+  var addInput = addWrap.querySelector('input');
+  var addBtn = addWrap.querySelector('button');
+  addBtn.onclick = async function(){
+    var text = addInput.value.trim();
+    if(!text) return;
+    var maxOrder = options.length > 0 ? Math.max.apply(null, options.map(function(o){ return o.display_order; })) : -1;
+    var { error } = await sb.from('chat_poll_options').insert({ poll_id: pollId, option_text: text, added_by: currentUser.id, display_order: maxOrder + 1 });
+    if(error){ showToast("Couldn't add that option — please try again."); return; }
+    addInput.value = '';
+    refreshPollOptions(pollId);
+  };
+  addInput.addEventListener('keydown', function(e){ if(e.key === 'Enter') addBtn.click(); });
+}
+
 function subscribeToChatRoom(roomId){
   if(chatRealtimeChannel){ sb.removeChannel(chatRealtimeChannel); chatRealtimeChannel = null; }
   chatRealtimeChannel = sb.channel('chat-room-'+roomId)
@@ -5038,6 +5128,16 @@ function subscribeToChatRoom(roomId){
       appendChatMessageBubble(payload.new);
       var list = document.getElementById('chatMessagesList');
       list.scrollTop = list.scrollHeight;
+    })
+    // Live updates when anyone votes or adds an option to a poll in this room -- refreshes just
+    // that poll's card in place rather than reloading the whole message list.
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_poll_votes' }, function(payload){
+      var pollId = (payload.new && payload.new.poll_id) || (payload.old && payload.old.poll_id);
+      if(pollId && document.getElementById('poll-options-' + pollId)) refreshPollOptions(pollId);
+    })
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_poll_options' }, function(payload){
+      var pollId = payload.new && payload.new.poll_id;
+      if(pollId && document.getElementById('poll-options-' + pollId)) refreshPollOptions(pollId);
     })
     .subscribe();
 }
@@ -8911,7 +9011,7 @@ function renderAdminAllUsers(){
   var listEl = document.getElementById('adminAllUsersList');
   listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">Loading...</p>';
   Promise.all([
-    sb.from('profiles').select('user_id,name,email,is_admin,is_therapist,created_at,onboarding_complete,last_active_at').order('created_at', {ascending:false}),
+    sb.from('profiles').select('user_id,name,email,is_admin,is_therapist,created_at,onboarding_complete,last_active_at').eq('is_mascot_bot', false).order('created_at', {ascending:false}),
     sb.from('expert_bookings').select('user_id,status,role_category')
   ]).then(function(results){
     var profilesRes = results[0], bookingsRes = results[1];

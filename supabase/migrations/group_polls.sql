@@ -1,0 +1,4 @@
+-- Full schema: see chat_polls, chat_poll_options, chat_poll_votes, chat_poll_history.
+-- Bob's system account (b71ff181-8624-4644-9208-dc576c5b6f1b) created via auth admin API,
+-- not reproducible via SQL alone -- profiles.is_mascot_bot marks it for exclusion from
+-- admin listings.
