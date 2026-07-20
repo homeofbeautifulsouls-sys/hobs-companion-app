@@ -2075,7 +2075,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260720180006';
+  var CURRENT_BUILD = '20260720181214';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -3093,8 +3093,11 @@ document.getElementById('epSaveBtn').onclick = function(){
     // never actually showed up anywhere a client would see it. Only relevant for professionals
     // with a matching experts listing, never for regular clients.
     if(pendingPhotoUrl && appState.isTherapist && appState.therapistExpertName){
-      sb.from('experts').update({ photo_url: pendingPhotoUrl }).eq('name', appState.therapistExpertName).then(function(expertResult){
-        if(expertResult.error) console.error('Could not sync photo to experts listing:', expertResult.error);
+      sb.from('experts').update({ photo_url: pendingPhotoUrl }).eq('name', appState.therapistExpertName).select().then(function(expertResult){
+        if(expertResult.error){ console.error('Could not sync photo to experts listing:', expertResult.error); return; }
+        if(!expertResult.data || expertResult.data.length === 0){
+          console.error('Photo sync matched zero rows in experts table -- therapist_expert_name does not match any experts.name. Profile itself saved fine, but the public listing was not updated.');
+        }
       });
     }
     showToast('Profile updated.');
@@ -10569,12 +10572,24 @@ document.getElementById('therapistSaveProfileBtn').onclick = function(){
   var languages = getSelectedLanguagesFromCheckboxes('therapistLanguagesCheckboxes');
   var btn = document.getElementById('therapistSaveProfileBtn');
   btn.textContent = 'Saving...'; btn.disabled = true;
+  // Real bug found and fixed: this update matches rows by exact name string
+  // (experts.name = appState.therapistExpertName). If those two values ever drift apart even by
+  // a single character -- confirmed this actually happened: one professional's profile had
+  // "Dr Anisha Chaubey", her real expert listing was "Dr. Anisha Chaubey" -- the update matches
+  // zero rows. Supabase doesn't treat that as an error, so the old code showed a false "saved"
+  // toast while nothing was written at all. Adding .select() here so a genuinely empty result
+  // can be told apart from a real success, and surfacing a clear, honest error instead of lying
+  // about what happened.
   sb.from('experts').update({
     bio: bio, approaches: approaches, specializations: specializations, languages: languages,
     superpowers: superpowers, why_therapist: whyTherapist, qualifications_detail: qualificationsDetail
-  }).eq('name', appState.therapistExpertName).then(function(result){
+  }).eq('name', appState.therapistExpertName).select().then(function(result){
     btn.textContent = 'Save My Profile'; btn.disabled = false;
     if(result.error){ showToast('Could not save — please try again.'); return; }
+    if(!result.data || result.data.length === 0){
+      showToast("Couldn't find your profile listing to update — please contact admin, your account isn't linked correctly.");
+      return;
+    }
     showToast('Profile updated — clients will see this right away.');
     loadExpertsFromSupabase();
   });
