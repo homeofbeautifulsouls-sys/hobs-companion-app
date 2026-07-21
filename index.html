@@ -500,8 +500,8 @@
     <button id="obSaveBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:15px;font-weight:700;cursor:pointer;margin-top:18px;">Continue</button>
   </div>
 
-  <div id="welcomeBackOverlay" style="position:absolute;inset:0;z-index:100;background:#000;display:none;cursor:pointer;">
-    <img src="bob-welcome-back.jpg" alt="Welcome back Home" style="width:100%;height:100%;object-fit:cover;display:block;">
+  <div id="welcomeBackOverlay" style="position:absolute;inset:0;z-index:100;background:#80C5E6;display:none;cursor:pointer;">
+    <img src="bob-welcome-back.jpg" alt="Welcome back Home" style="width:100%;height:100%;object-fit:contain;display:block;">
     <p style="position:absolute;bottom:calc(22px + env(safe-area-inset-bottom));left:0;right:0;text-align:center;color:#fff;font-size:11px;opacity:0.85;text-shadow:0 1px 3px rgba(0,0,0,0.5);">Tap anywhere to continue</p>
   </div>
 
@@ -2080,7 +2080,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260721072112';
+  var CURRENT_BUILD = '20260721073525';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -3410,9 +3410,7 @@ document.getElementById('walkthroughFinishBtn').onclick = finishWalkthrough;
 
 var BOB_SPLASH_LINES = [
   "Hi, I'm Bob. Glad you're here.",
-  "Hey. Take your time — I'll wait.",
-  "Good to see you again.",
-  "Welcome back. No rush."
+  "Hey. Take your time — I'll wait."
 ];
 document.getElementById('bobSplashLine').textContent = BOB_SPLASH_LINES[Math.floor(Math.random()*BOB_SPLASH_LINES.length)];
 var SPLASH_START_TIME = Date.now();
