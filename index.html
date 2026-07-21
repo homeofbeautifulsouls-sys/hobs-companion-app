@@ -2010,7 +2010,7 @@
     <div id="chatRoomsList"></div>
   </div>
 
-  <div class="content" id="panel-chat-room" style="display:none;padding:0;display:flex;flex-direction:column;">
+  <div class="content" id="panel-chat-room" style="display:none;padding:0;flex-direction:column;">
     <div style="display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid #EEE0C4;background:#FFFFFF;">
       <button id="chatRoomBackBtn" style="background:none;border:none;cursor:pointer;padding:0;color:#5C6B94;display:flex;align-items:center;">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
@@ -2054,7 +2054,9 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
       Back
     </button>
-    <p class="prompt-title" style="text-align:center;" id="chatRoomInfoTitle">Group info</p>
+    <p class="prompt-title" style="text-align:center;display:none;" id="chatRoomInfoTitle">Group info</p>
+    <div id="chatRoomInfoHeaderSection" style="text-align:center;margin-bottom:18px;"></div>
+    <input type="file" id="chatRoomIconFileInput" accept="image/*" style="display:none;">
     <div id="chatRoomDescSection" style="margin-bottom:14px;"></div>
     <div id="chatRoomPinnedSection" style="margin-bottom:14px;"></div>
     <button id="chatRoomInfoAddMemberBtn" style="display:none;width:100%;padding:12px;border-radius:12px;border:1px dashed #C7D2E8;background:transparent;color:#6690D6;font-size:12.5px;font-weight:700;cursor:pointer;margin-bottom:16px;">+ Add members</button>
@@ -2101,7 +2103,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260721082024';
+  var CURRENT_BUILD = '20260721085307';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -2676,6 +2678,7 @@ function showWelcomeBackScreen(){
   overlay.onclick = function(){
     overlay.style.display = 'none';
     overlay.onclick = null;
+    showOnly('panel-bubbles');
     renderHomeGreeting();
   };
 }
@@ -4183,6 +4186,9 @@ var allPanels = ['panel-bubbles','panel-journal','panel-quick-journal','panel-sa
 var panelHistoryStack = ['panel-bubbles'];
 function showOnly(panelId){
   allPanels.forEach(function(id){ document.getElementById(id).style.display = (id === panelId) ? 'block' : 'none'; });
+  // panel-chat-room needs flex (not the generic block above) for its own internal header/
+  // messages/input column layout to actually work as intended.
+  if(panelId === 'panel-chat-room') document.getElementById('panel-chat-room').style.display = 'flex';
   // Real ask: this button should only ever be visible on the Journal index page itself, not
   // floating over every single screen in the app the way it originally did.
   document.getElementById('newJournalEntryFabBtn').style.display = (panelId === 'panel-history') ? 'flex' : 'none';
@@ -4911,7 +4917,7 @@ async function renderChatList(){
   document.getElementById('chatNewGroupBtn').style.display = appState.isAdmin ? 'block' : 'none';
 
   var { data: memberships, error } = await sb.from('chat_room_members')
-    .select('room_id, role, status, chat_rooms(id, type, name, client_id, archived)')
+    .select('room_id, role, status, chat_rooms(id, type, name, client_id, archived, icon_url)')
     .eq('user_id', currentUser.id).in('status', ['joined', 'invited']);
 
   if(error){ list.innerHTML = '<p style="text-align:center;color:#C77B7B;font-size:13px;">Could not load chats.</p>'; return; }
@@ -4930,10 +4936,13 @@ async function renderChatList(){
       var card = document.createElement('div');
       card.style.cssText = 'background:'+(isInvited ? '#FEF3D8' : '#FFFFFF')+';border:1px solid '+(isInvited ? '#EFD9A0' : '#EEE0C4')+';border-radius:14px;padding:14px;margin-bottom:10px;'+(isInvited ? '' : 'cursor:pointer;')+'display:flex;align-items:center;gap:12px;';
       var iconBg = room.type === 'support_group' ? '#6690D6' : room.type === 'coordination' ? '#C9A227' : '#9AABCE';
-      card.innerHTML =
-        '<div style="width:42px;height:42px;border-radius:50%;background:'+iconBg+'22;display:flex;align-items:center;justify-content:center;flex-shrink:0;">'+
+      var avatarHtml = room.icon_url
+        ? '<img src="'+room.icon_url+'" style="width:42px;height:42px;border-radius:50%;object-fit:cover;flex-shrink:0;">'
+        : '<div style="width:42px;height:42px;border-radius:50%;background:'+iconBg+'22;display:flex;align-items:center;justify-content:center;flex-shrink:0;">'+
           '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="'+iconBg+'" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>'+
-        '</div>'+
+        '</div>';
+      card.innerHTML =
+        avatarHtml+
         '<div style="flex:1;min-width:0;"><p class="chat-card-title" style="font-weight:700;font-size:14px;color:#2A2013;margin:0;">…</p>'+
         '<p style="font-size:11px;color:'+(isInvited ? '#7B4F00' : '#9AABCE')+';margin:2px 0 0;">'+(isInvited ? "You're invited — " : '')+(room.type === 'support_group' ? 'Support group' : room.type === 'coordination' ? 'Care coordination' : 'Direct message')+'</p></div>';
 
@@ -7998,9 +8007,55 @@ async function openChatRoomInfo(){
   var listEl = document.getElementById('chatRoomInfoMembersList');
   listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12px;">Loading…</p>';
 
-  var { data: room } = await sb.from('chat_rooms').select('description, pinned_message_id').eq('id', currentChatRoomId).single();
+  var { data: room } = await sb.from('chat_rooms').select('name, description, icon_url, pinned_message_id').eq('id', currentChatRoomId).single();
   var { data: myMembership } = await sb.from('chat_room_members').select('role, display_alias').eq('room_id', currentChatRoomId).eq('user_id', currentUser.id).single();
   var iAmGroupAdmin = appState.isAdmin || (myMembership && (myMembership.role === 'admin' || myMembership.role === 'co_admin'));
+
+  // New feature per direct request: admins can change the group's name and icon, not just its
+  // description. Icon uploads to the same public bucket already used for profile photos.
+  var headerEl = document.getElementById('chatRoomInfoHeaderSection');
+  var roomName = (room && room.name) || 'Group';
+  var iconHtml = room && room.icon_url
+    ? '<img src="'+room.icon_url+'" style="width:72px;height:72px;border-radius:50%;object-fit:cover;">'
+    : '<div style="width:72px;height:72px;border-radius:50%;background:#EAF0FB;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:800;color:#6690D6;">'+roomName.charAt(0).toUpperCase()+'</div>';
+  var canEditNameIcon = iAmGroupAdmin && currentChatRoomType === 'support_group';
+  headerEl.innerHTML =
+    '<div style="position:relative;display:inline-block;">'+iconHtml+
+    (canEditNameIcon ? '<button id="chatRoomIconEditBtn" title="Change icon" style="position:absolute;bottom:-2px;right:-2px;width:26px;height:26px;border-radius:50%;background:#6690D6;border:2px solid #FFF8F0;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>' : '')+
+    '</div>'+
+    '<div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:10px;">'+
+    '<p id="chatRoomInfoNameText" style="font-size:16px;font-weight:800;color:#2A2013;margin:0;">'+roomName.replace(/</g,'&lt;')+'</p>'+
+    (canEditNameIcon ? '<button id="chatRoomNameEditBtn" style="background:none;border:none;cursor:pointer;padding:2px;color:#6690D6;flex-shrink:0;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>' : '')+
+    '</div>';
+
+  if(canEditNameIcon){
+    document.getElementById('chatRoomNameEditBtn').onclick = async function(){
+      var newName = prompt('Group name', roomName);
+      if(newName === null || !newName.trim()) return;
+      var { error } = await sb.from('chat_rooms').update({ name: newName.trim() }).eq('id', currentChatRoomId);
+      if(error){ showToast("Couldn't save"); return; }
+      showToast('Group name updated.');
+      openChatRoomInfo();
+    };
+    document.getElementById('chatRoomIconEditBtn').onclick = function(){
+      document.getElementById('chatRoomIconFileInput').click();
+    };
+    document.getElementById('chatRoomIconFileInput').onchange = async function(e){
+      var file = e.target.files && e.target.files[0];
+      e.target.value = '';
+      if(!file) return;
+      var editBtn = document.getElementById('chatRoomIconEditBtn');
+      editBtn.disabled = true;
+      var path = currentUser.id + '/chat-room-icons/' + currentChatRoomId + '/' + Date.now() + '_' + file.name;
+      var { error: uploadError } = await sb.storage.from('task-images').upload(path, file);
+      if(uploadError){ showToast("Couldn't upload icon"); editBtn.disabled = false; return; }
+      var { data: publicUrlData } = sb.storage.from('task-images').getPublicUrl(path);
+      var { error } = await sb.from('chat_rooms').update({ icon_url: publicUrlData.publicUrl }).eq('id', currentChatRoomId);
+      if(error){ showToast("Couldn't save icon"); editBtn.disabled = false; return; }
+      showToast('Group icon updated.');
+      openChatRoomInfo();
+    };
+  }
   // Coordination room membership is auto-managed by the trigger that shares professionals
   // treating the same client -- manually adding someone here wouldn't make sense the way it
   // does for a real support group, so the button never shows there even for an admin.
