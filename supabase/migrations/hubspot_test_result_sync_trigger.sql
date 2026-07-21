@@ -13,14 +13,10 @@ begin
       'test_key', new.test_key,
       'elevated', new.elevated,
       'self_harm_flagged', new.self_harm_flagged,
-      'created_at', new.created_at
+      'created_at', new.created_at,
+      'answers', new.answers
     )
   );
   return new;
 end;
 $function$;
-
-drop trigger if exists trg_sync_test_result_to_hubspot on test_results;
-create trigger trg_sync_test_result_to_hubspot
-  after insert on test_results
-  for each row execute function trigger_sync_test_result_to_hubspot();
