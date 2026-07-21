@@ -11,9 +11,30 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&family=Caveat:wght@600;700&display=swap" rel="stylesheet">
 <title>HOBS Companion — Mood Check-in</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" onerror="window.__SUPABASE_LOAD_FAILED = true;"></script>
+<script>
+  // Real perf fix: html2canvas (~194KB) and jsPDF (~356KB) used to be loaded here as blocking
+  // <head> scripts -- meaning every single person paid for both, on every single load, before
+  // the browser could even finish parsing the rest of this page, for two features (share as
+  // image, generate a PDF) that most sessions never touch. Confirmed directly: together they
+  // were over half a megabyte of pure render-blocking dead weight for anyone who never uses
+  // either feature in a given session. Now loaded on demand, only at the moment one of those
+  // three specific actions is actually triggered -- see loadScriptOnce below.
+  var __loadedScripts = {};
+  function loadScriptOnce(url){
+    if(__loadedScripts[url]) return __loadedScripts[url];
+    __loadedScripts[url] = new Promise(function(resolve, reject){
+      var s = document.createElement('script');
+      s.src = url;
+      s.onload = function(){ resolve(); };
+      s.onerror = function(){ delete __loadedScripts[url]; reject(new Error('Failed to load ' + url)); };
+      document.head.appendChild(s);
+    });
+    return __loadedScripts[url];
+  }
+  function loadHtml2Canvas(){ return loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'); }
+  function loadJsPDF(){ return loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'); }
+</script>
 <script>
   // Real gap fixed: this had a single hard dependency on a CDN script with zero fallback --
   // if it fails to load (flaky connection, CDN hiccup, an ad-blocker catching a third-party
@@ -2080,7 +2101,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260721074622';
+  var CURRENT_BUILD = '20260721075411';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -5400,7 +5421,9 @@ function renderHistory(){
       shareImageBtn.style.cssText = 'background:none;border:none;color:#6B5B3A;font-family:Kalam,cursive;font-size:13px;font-weight:700;cursor:pointer;padding:0;text-decoration:underline;text-decoration-style:dotted;';
       shareImageBtn.onclick = function(ev){
         ev.stopPropagation();
-        if(typeof html2canvas === 'undefined'){ showToast("Screenshot library didn't load — check your connection"); return; }
+        shareImageBtn.textContent = 'Preparing...';
+        loadHtml2Canvas().then(function(){
+        shareImageBtn.textContent = 'Share as image';
         // Real bug found and fixed: this used to screenshot the visible index card directly,
         // but that card only ever contains a truncated ~40-character snippet since the index
         // redesign -- it never held the full entry text in the first place, so no screenshot
@@ -5422,6 +5445,10 @@ function renderHistory(){
         }).catch(function(){
           if(fullCard.parentNode) document.body.removeChild(fullCard);
           showToast("Couldn't capture image right now");
+        });
+        }).catch(function(){
+          shareImageBtn.textContent = 'Share as image';
+          showToast("Screenshot library didn't load — check your connection");
         });
       };
       actionsRow.appendChild(shareImageBtn);
@@ -6862,10 +6889,13 @@ function handleShare(target){
   document.getElementById('shareOverlay').style.display = 'none';
   if(target === 'therapist'){ showToast('Sent to ' + (appState.therapistName || 'your therapist') + ' ✓'); return; }
   if(target === 'group'){ showToast('Posted to your body doubling group ✓'); return; }
-  if(typeof html2canvas === 'undefined'){ showToast("Screenshot library didn't load — check your connection"); return; }
-  html2canvas(document.getElementById('celebrationCard'), { backgroundColor:'#FFF8F0', scale:2 }).then(function(canvas){
-    shareImageFromCanvas(canvas, 'hobs-progress.png', 'My progress today');
-  }).catch(function(){ showToast("Couldn't capture image right now"); });
+  loadHtml2Canvas().then(function(){
+    html2canvas(document.getElementById('celebrationCard'), { backgroundColor:'#FFF8F0', scale:2 }).then(function(canvas){
+      shareImageFromCanvas(canvas, 'hobs-progress.png', 'My progress today');
+    }).catch(function(){ showToast("Couldn't capture image right now"); });
+  }).catch(function(){
+    showToast("Screenshot library didn't load — check your connection");
+  });
 }
 
 // ---- Body Doubling: matches the reference room structure, HOBS asset + brand colors ----
@@ -12627,7 +12657,18 @@ document.getElementById('shareTestResultBtn').onclick = function(){
 document.getElementById('testResultDoneBtn').onclick = function(){ renderTestsList(); renderProfessionalAssessmentList(); showOnly('panel-tests'); };
 
 document.getElementById('downloadReportBtn').onclick = function(){
-  if(typeof window.jspdf === 'undefined'){ showToast("PDF library didn't load — check your connection"); return; }
+  var btn = document.getElementById('downloadReportBtn');
+  var originalText = btn.textContent;
+  btn.textContent = 'Preparing...';
+  loadJsPDF().then(function(){
+    btn.textContent = originalText;
+    generateAndDownloadTestReportPdf();
+  }).catch(function(){
+    btn.textContent = originalText;
+    showToast("PDF library didn't load — check your connection");
+  });
+};
+function generateAndDownloadTestReportPdf(){
   var t = TESTS_DATA[currentTestKey];
   var personName = (document.getElementById('reportNameInput').value || '').trim() || 'there';
   var firstName = personName === 'there' ? 'there' : personName.split(' ')[0];
