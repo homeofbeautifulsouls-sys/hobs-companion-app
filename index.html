@@ -1903,7 +1903,6 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
       Calendar
     </button>
-    <img src="bob.png" alt="Bob" style="width:56px;height:56px;border-radius:50%;margin:0 auto 12px;display:block;" onerror="this.style.display='none'">
     <p class="prompt-title" style="text-align:center;">Here's where things stand</p>
     <p class="prompt-sub" style="text-align:center;margin-bottom:18px;">Tap a task to mark it done, or its dot to change priority.</p>
     <div id="progressTimeline"></div>
@@ -2103,7 +2102,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260721130529';
+  var CURRENT_BUILD = '20260721232156';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -2845,21 +2844,41 @@ function initPushNotifications(){
       console.error('Push registration error:', err);
     });
     Push.addListener('pushNotificationReceived', function(notification){
-      // App was already open in the foreground. Previously this only showed a toast, which
-      // meant foreground notifications felt like they "didn't arrive" compared to background
-      // ones landing in the system tray -- now it does both, for consistency either way.
+      // Real bug found and fixed: this listener fires whenever the app PROCESS is alive --
+      // foreground OR backgrounded-but-not-killed -- not only when truly foregrounded, despite
+      // the previous comment here assuming otherwise. Our FCM payload (see notification-scheduler
+      // and send-push-notification) includes a top-level `notification` block specifically so
+      // Android still shows something when the app is fully killed. But that same block also
+      // makes Android auto-display it in the system tray whenever the app is backgrounded --
+      // and this handler was ALSO unconditionally posting its own LocalNotification every time,
+      // producing two separate tray entries for one push (confirmed directly: notification_log
+      // and notification_recipients each show exactly one send, so this was never a server-side
+      // duplicate -- purely this client-side double-post). Now only posts the local notification
+      // when the app is confirmed truly in the foreground, which is also the only state where
+      // Android does NOT already auto-display from the notification block, so there's no longer
+      // any state where both paths can fire for the same push.
       if(notification && notification.title){
         showToast(notification.title + (notification.body ? ': ' + notification.body : ''));
       }
-      if(window.Capacitor.Plugins.LocalNotifications){
-        window.Capacitor.Plugins.LocalNotifications.schedule({
-          notifications: [{
-            id: Math.floor(Math.random() * 2147483647),
-            title: notification.title || 'HOBS Companion',
-            body: notification.body || '',
-            extra: notification.data || {}
-          }]
-        }).catch(function(err){ console.error('Local notification post failed:', err); });
+      var postLocalIfForeground = function(isForeground){
+        if(!isForeground) return; // backgrounded-but-alive: system tray already showed it, skip
+        if(window.Capacitor.Plugins.LocalNotifications){
+          window.Capacitor.Plugins.LocalNotifications.schedule({
+            notifications: [{
+              id: Math.floor(Math.random() * 2147483647),
+              title: notification.title || 'HOBS Companion',
+              body: notification.body || '',
+              extra: notification.data || {}
+            }]
+          }).catch(function(err){ console.error('Local notification post failed:', err); });
+        }
+      };
+      if(window.Capacitor.Plugins.App && window.Capacitor.Plugins.App.getState){
+        window.Capacitor.Plugins.App.getState().then(function(state){
+          postLocalIfForeground(!!(state && state.isActive));
+        }).catch(function(){ postLocalIfForeground(false); }); // can't confirm foreground -- err toward not duplicating
+      } else {
+        postLocalIfForeground(false);
       }
       // Note: receiving it (even while foregrounded) isn't the same as the person actually
       // engaging with it -- "opened" is tracked only on an actual tap, in the action handlers below.
@@ -3484,9 +3503,10 @@ function loadUserDataFromSupabase(){
     sb.from('tasks').select('*').eq('user_id', uid),
     sb.from('subtasks').select('*').eq('user_id', uid),
     sb.from('expert_bookings').select('*').eq('user_id', uid),
-    sb.from('worksheet_responses').select('*').eq('user_id', uid)
+    sb.from('worksheet_responses').select('*').eq('user_id', uid),
+    sb.from('chat_room_members').select('room_id, chat_rooms!inner(type)').eq('user_id', uid).eq('status', 'joined').eq('chat_rooms.type', 'support_group')
   ]).then(function(results){
-    var profileRes = results[0], entriesRes = results[1], tasksRes = results[2], subtasksRes = results[3], bookingsRes = results[4], worksheetRes = results[5];
+    var profileRes = results[0], entriesRes = results[1], tasksRes = results[2], subtasksRes = results[3], bookingsRes = results[4], worksheetRes = results[5], supportGroupMembershipRes = results[6];
 
     appState.expertBookings = (bookingsRes && !bookingsRes.error && bookingsRes.data) ? bookingsRes.data : [];
 
@@ -3528,9 +3548,17 @@ function loadUserDataFromSupabase(){
       return b.status === 'active';
     });
 
+    // Real gap found and fixed, same shape as the has_therapist bug above: profiles.has_support_group
+    // is a separate flag (originally a pre-launch "join our support group" waitlist indicator) that
+    // never gets set when someone actually joins a real support group via the invite/accept flow on
+    // chat_room_members. Confirmed directly -- an account that is a genuinely joined member of a real
+    // support_group chat room still had has_support_group=false. Now true if EITHER the legacy flag is
+    // set OR there's a real joined support_group membership, so real membership is never invisible.
+    var hasRealSupportGroupMembership = !!(supportGroupMembershipRes && !supportGroupMembershipRes.error && supportGroupMembershipRes.data && supportGroupMembershipRes.data.length > 0);
+
     if(profileRes.data){
       appState.hasOutsideTherapist = profileRes.data.has_outside_therapist || false;
-      appState.userHasSupportGroup = profileRes.data.has_support_group || false;
+      appState.userHasSupportGroup = (profileRes.data.has_support_group || false) || hasRealSupportGroupMembership;
       appState.dontShowPitch = profileRes.data.dismissed_pitch || false;
       appState.dontShowSupportPitch = profileRes.data.dismissed_support_pitch || false;
       appState.lastBadgeCount = profileRes.data.last_badge_count || 0;
