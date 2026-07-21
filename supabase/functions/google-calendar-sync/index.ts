@@ -270,6 +270,17 @@ Deno.serve(async (req) => {
           return new Response(JSON.stringify({ error: "Could not sync to calendar" }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
 
+        const meetLink = eventData.conferenceData?.entryPoints?.find((e: any) => e.entryPointType === "video")?.uri;
+
+        if (meetLink) {
+          const cleanDescription = `Booked via HOBS Companion.\n\nJoin: ${meetLink}`;
+          await fetch(`https://www.googleapis.com/calendar/v3/calendars/${conn.google_calendar_id}/events/${eventData.id}`, {
+            method: "PATCH",
+            headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ description: cleanDescription }),
+          });
+        }
+
         if (existingLink) {
           await fetch(`${SUPABASE_URL}/rest/v1/session_calendar_events?id=eq.${existingLink.id}`, {
             method: "PATCH",
@@ -283,7 +294,6 @@ Deno.serve(async (req) => {
           }, "return=minimal");
         }
 
-        const meetLink = eventData.conferenceData?.entryPoints?.find((e: any) => e.entryPointType === "video")?.uri;
         return new Response(JSON.stringify({ success: true, action: existingLink ? "updated" : "created", meet_link: meetLink || null }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="color-scheme" content="light only">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
@@ -76,7 +76,7 @@
 
   .header {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 16px 18px 14px; background: linear-gradient(135deg, #6690D6, #7FA3E0);
+    padding: calc(16px + env(safe-area-inset-top)) 18px 14px; background: linear-gradient(135deg, #6690D6, #7FA3E0);
   }
   .logo-img { height: 30px; width: auto; object-fit: contain; display: block; background: #FFF8F0; border-radius: 8px; padding: 3px 6px; }
   .header-icons { display: flex; align-items: center; gap: 10px; }
@@ -99,7 +99,7 @@
 
   .nav-footer {
     display: flex; align-items: center; justify-content: space-around;
-    padding: 16px 12px 22px; background: linear-gradient(135deg, #6690D6, #7FA3E0);
+    padding: 16px 12px calc(22px + env(safe-area-inset-bottom)); background: linear-gradient(135deg, #6690D6, #7FA3E0);
   }
   .nav-item {
     display: flex; flex-direction: column; align-items: center; gap: 4px;
@@ -2103,7 +2103,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260721085307';
+  var CURRENT_BUILD = '20260721125300';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -11564,9 +11564,10 @@ function renderTeamList(){
       actionHtml = '<div style="margin-top:6px;padding:11px;border-radius:12px;background:#EAF4EE;color:#3B8F63;font-size:11.5px;font-weight:700;text-align:center;margin-bottom:6px;">You\'ve been matched! Pick a session time.</div>'+
         '<button class="pick-time-btn" data-idx="'+idx+'" style="display:block;width:100%;padding:11px;border-radius:12px;border:none;background:#6690D6;color:#FFF8F0;font-size:12.5px;font-weight:700;cursor:pointer;">Pick a Time</button>';
     } else if(isThisPersonBooked){
+      var confirmedTimeLabel = activeBooking.session_date ? new Date(activeBooking.session_date).toLocaleString('en-IN', {weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}) : '';
       var statusBadge = activeBooking.payment_confirmed
-        ? '<div style="flex:1 1 100%;padding:11px;border-radius:12px;background:#EAF4EE;color:#3B8F63;font-size:11.5px;font-weight:700;text-align:center;">✓ Confirmed</div>'
-        : '<div style="flex:1 1 100%;padding:11px;border-radius:12px;background:#FEF3D8;color:#7B4F00;font-size:11.5px;font-weight:700;text-align:center;">⏳ Pending confirmation from HOBS</div>';
+        ? '<div style="flex:1 1 100%;padding:11px;border-radius:12px;background:#EAF4EE;color:#3B8F63;font-size:11.5px;font-weight:700;text-align:center;">✓ Confirmed'+(confirmedTimeLabel ? ' — '+confirmedTimeLabel : '')+'</div>'
+        : '<div style="flex:1 1 100%;padding:11px;border-radius:12px;background:#FEF3D8;color:#7B4F00;font-size:11.5px;font-weight:700;text-align:center;">⏳ Pending confirmation from HOBS'+(confirmedTimeLabel ? ' — '+confirmedTimeLabel : '')+'</div>';
       actionHtml = '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">'+
         statusBadge+
         '<button class="cancel-session-btn" data-idx="'+idx+'" style="flex:1;padding:10px;border-radius:12px;border:1px solid #EEE0C4;background:transparent;color:#C77B7B;font-size:10.5px;font-weight:700;cursor:pointer;">Cancel Session</button>'+
