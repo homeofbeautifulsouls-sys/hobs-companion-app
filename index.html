@@ -500,6 +500,11 @@
     <button id="obSaveBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:15px;font-weight:700;cursor:pointer;margin-top:18px;">Continue</button>
   </div>
 
+  <div id="welcomeBackOverlay" style="position:absolute;inset:0;z-index:100;background:#000;display:none;cursor:pointer;">
+    <img src="bob-welcome-back.jpg" alt="Welcome back Home" style="width:100%;height:100%;object-fit:cover;display:block;">
+    <p style="position:absolute;bottom:calc(22px + env(safe-area-inset-bottom));left:0;right:0;text-align:center;color:#fff;font-size:11px;opacity:0.85;text-shadow:0 1px 3px rgba(0,0,0,0.5);">Tap anywhere to continue</p>
+  </div>
+
   <div id="basicTosGateOverlay" style="position:absolute;inset:0;z-index:101;background:#FFF8F0;display:none;flex-direction:column;justify-content:center;padding:28px 24px;box-sizing:border-box;">
     <p style="text-align:center;font-size:18px;font-weight:800;color:#2E5090;margin:4px 0 8px;">We've updated our policies</p>
     <p style="text-align:center;font-size:12.5px;color:#5C6B94;margin:0 0 24px;">Please confirm these before continuing — this only takes a second.</p>
@@ -2075,7 +2080,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260720224001';
+  var CURRENT_BUILD = '20260721072112';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -2627,9 +2632,22 @@ function onAuthSuccess(user){
     } else if(!appState.hasSeenIntro){
       showWalkthrough();
     } else {
-      renderHomeGreeting();
+      showWelcomeBackScreen();
     }
   });
+}
+
+// Shown to genuinely returning users only -- anyone who's already completed onboarding, signed
+// the basic ToS, cleared the consent gate if it applied, and seen the first-time walkthrough.
+// First-time flow (showOnboarding, showWalkthrough) is completely untouched by this.
+function showWelcomeBackScreen(){
+  var overlay = document.getElementById('welcomeBackOverlay');
+  overlay.style.display = 'block';
+  overlay.onclick = function(){
+    overlay.style.display = 'none';
+    overlay.onclick = null;
+    renderHomeGreeting();
+  };
 }
 
 // Reports this device's timezone (so scheduled reminders fire at the right LOCAL time for this
