@@ -1963,10 +1963,10 @@
     </div>
   </div>
 
-  <button id="newJournalEntryFabBtn" title="New journal entry" style="display:none;position:absolute;right:16px;bottom:150px;width:52px;height:52px;border-radius:50%;border:none;background:#3B8F63;box-shadow:0 4px 14px rgba(0,0,0,0.18);cursor:pointer;z-index:55;align-items:center;justify-content:center;padding:0;">
+  <button id="newJournalEntryFabBtn" title="New journal entry" style="display:none;position:absolute;right:16px;bottom:200px;width:52px;height:52px;border-radius:50%;border:none;background:#3B8F63;box-shadow:0 4px 14px rgba(0,0,0,0.18);cursor:pointer;z-index:55;align-items:center;justify-content:center;padding:0;">
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFF8F0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
   </button>
-  <button id="assistantFabBtn" style="position:absolute;right:16px;bottom:86px;width:52px;height:52px;border-radius:50%;border:none;background:#6690D6;box-shadow:0 4px 14px rgba(0,0,0,0.18);cursor:pointer;z-index:55;display:flex;align-items:center;justify-content:center;padding:0;">
+  <button id="assistantFabBtn" style="position:absolute;right:16px;bottom:136px;width:52px;height:52px;border-radius:50%;border:none;background:#6690D6;box-shadow:0 4px 14px rgba(0,0,0,0.18);cursor:pointer;z-index:55;display:flex;align-items:center;justify-content:center;padding:0;">
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFF8F0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
   </button>
 
@@ -2102,7 +2102,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260721232156';
+  var CURRENT_BUILD = '20260721233448';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
