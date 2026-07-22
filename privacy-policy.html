@@ -55,6 +55,20 @@ CIN: <span>U85300GJ2020NPL118743</span></p>
 <tr><td>Error logs</td><td>Technical error details if something goes wrong in the App</td><td>To find and fix bugs</td></tr>
 </table>
 
+<h3>2.3 Google Calendar integration</h3>
+<p>HOBS Companion offers mental health professionals on our platform the option to connect their own Google Calendar to the App.</p>
+<p><strong>What we access.</strong> If a professional chooses to connect their calendar, we request permission to view and create calendar events on that professional's own Google Calendar. We do not access any other Google service (Gmail, Drive, Contacts, etc.), and we only ever access the calendar belonging to the professional who explicitly connects it — never a client's calendar, and never any calendar the professional hasn't personally authorized.</p>
+<p><strong>Why we access it.</strong> This connection is used solely to:</p>
+<ul>
+  <li>Automatically create a calendar event (with a Google Meet video link) when a client books a session with that professional.</li>
+  <li>Update or remove that event if the session is rescheduled or cancelled within HOBS Companion.</li>
+  <li>Reflect changes made directly in Google Calendar back into HOBS Companion, so both stay in sync.</li>
+  <li>Recognize when a professional has personal time blocked on their calendar, so that time is not offered to clients as available for booking.</li>
+</ul>
+<p><strong>What we store.</strong> We store the OAuth access and refresh tokens needed to maintain this connection, encrypted at rest, along with the Google account email associated with the connection. We do not store the content of any calendar event that isn't related to a HOBS Companion session — for example, we do not read or retain details of a professional's personal appointments beyond knowing that a time slot is unavailable.</p>
+<p><strong>How a professional can revoke access.</strong> A professional can disconnect their Google Calendar at any time from within the App (Profile/Schedule → Calendar → Disconnect), which immediately deletes the stored tokens. They can also revoke access directly from their Google Account's security settings at any time, independent of the App.</p>
+<p><strong>Data sharing.</strong> We do not sell, rent, or share Google Calendar data with any third party. It is used exclusively for the scheduling functionality described above.</p>
+
 <h2>3. Where your data is stored</h2>
 <p>Your data is stored securely with Supabase, our database and backend provider, on cloud infrastructure located in Japan. Push notifications and usage analytics are processed through Google Firebase, which operates on Google's global infrastructure.</p>
 <p>Access to your data within our systems is restricted using row-level security — in plain terms, our database is configured so that, by default, each person can only read their own data, and only designated admin or therapist accounts (for clients under their active care) can see more, and only what's relevant to that care relationship.</p>
