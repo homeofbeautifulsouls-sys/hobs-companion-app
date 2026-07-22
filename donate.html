@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Support HOBS — Home of Beautiful Souls Foundation</title>
-<meta property="og:title" content="Support Home of Beautiful Souls Foundation">
-<meta property="og:description" content="Help us continue making mental health support accessible.">
+<title>Support HOBS â Home of Beautiful Souls Foundation</title>
+<meta property="og:title" content="Free Mental Health Support for Students">
+<meta property="og:description" content="We are raising funds to provide free mental health support - Therapy, meds, support group to students, especially when they need it the most. We have lost enough lives, we cannot afford to lose more..">
+<meta property="og:image" content="https://homeofbeautifulsouls-sys.github.io/hobs-companion-app/logo.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Free Mental Health Support for Students">
+<meta name="twitter:description" content="We are raising funds to provide free mental health support - Therapy, meds, support group to students, especially when they need it the most. We have lost enough lives, we cannot afford to lose more..">
+<meta name="twitter:image" content="https://homeofbeautifulsouls-sys.github.io/hobs-companion-app/logo.png">
 <style>
   * { box-sizing: border-box; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #FFF8F0; color: #2A2013; margin: 0; padding: 0; }
@@ -34,25 +40,25 @@
 </head>
 <body>
 <div class="wrap">
-  <p style="font-weight:800;color:#2E5090;font-size:16px;margin:0 0 24px;">HOBS · Home of Beautiful Souls Foundation</p>
+  <p style="font-weight:800;color:#2E5090;font-size:16px;margin:0 0 24px;">HOBS Â· Home of Beautiful Souls Foundation</p>
 
   <div id="campaignInfo">
-    <h1 id="campaignTitle">Loading…</h1>
+    <h1 id="campaignTitle">Loadingâ¦</h1>
     <p class="desc" id="campaignDesc"></p>
     <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%;"></div></div>
     <div class="stats">
-      <span class="raised" id="raisedLabel">₹0 raised</span>
-      <span class="goal" id="goalLabel">of ₹0 goal</span>
+      <span class="raised" id="raisedLabel">â¹0 raised</span>
+      <span class="goal" id="goalLabel">of â¹0 goal</span>
     </div>
   </div>
 
   <div class="card">
     <input type="text" id="donorName" placeholder="Your name (optional)">
-    <input type="number" id="donateAmount" placeholder="Amount (₹)">
+    <input type="number" id="donateAmount" placeholder="Amount (â¹)">
     <div class="presets">
-      <button class="preset-btn" data-amt="500">₹500</button>
-      <button class="preset-btn" data-amt="1000">₹1000</button>
-      <button class="preset-btn" data-amt="2500">₹2500</button>
+      <button class="preset-btn" data-amt="500">â¹500</button>
+      <button class="preset-btn" data-amt="1000">â¹1000</button>
+      <button class="preset-btn" data-amt="2500">â¹2500</button>
     </div>
     <button class="primary" id="continueBtn">Continue to Payment</button>
     <p style="font-size:11.5px;color:#9AABCE;text-align:center;margin:0;">A registered non-profit. Every contribution helps us keep mental health support accessible.</p>
@@ -94,8 +100,8 @@
       var raised = (donationsRes.data || []).filter(function(d){ return d.campaign_id === c.id; }).reduce(function(sum, d){ return sum + parseFloat(d.amount); }, 0);
       var pct = Math.min(100, Math.round((raised / parseFloat(c.goal_amount)) * 100));
       document.getElementById('progressFill').style.width = pct + '%';
-      document.getElementById('raisedLabel').textContent = '₹' + raised.toLocaleString('en-IN') + ' raised';
-      document.getElementById('goalLabel').textContent = 'of ₹' + parseFloat(c.goal_amount).toLocaleString('en-IN') + ' goal';
+      document.getElementById('raisedLabel').textContent = 'â¹' + raised.toLocaleString('en-IN') + ' raised';
+      document.getElementById('goalLabel').textContent = 'of â¹' + parseFloat(c.goal_amount).toLocaleString('en-IN') + ' goal';
     });
   }
   loadCampaign();
@@ -133,7 +139,7 @@
       campaign_id: activeCampaign.id, donor_name: pendingName || null, amount: pendingAmount, payment_confirmed: false
     }).then(function(result){
       if(result.error){
-        document.getElementById('statusMsg').textContent = 'Something went wrong — please try again.';
+        document.getElementById('statusMsg').textContent = 'Something went wrong â please try again.';
         document.getElementById('statusMsg').style.color = '#C77B7B';
         return;
       }
