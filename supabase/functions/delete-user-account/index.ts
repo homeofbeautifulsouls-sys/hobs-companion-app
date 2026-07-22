@@ -87,7 +87,52 @@ const PROFESSIONAL_HARD_DELETE_TABLES = [
   "professional_busy_blocks",
 ];
 
+async function deleteStorageFolder(adminClient: ReturnType<typeof createClient>, bucket: string, prefix: string) {
+  // REAL BUG FOUND AND FIXED via a live test with an actual uploaded file: Storage's .list()
+  // is NOT recursive -- it only returns direct children of the given prefix. A file uploaded to
+  // {userId}/profile-photos/photo.png was being completely missed, because .list(userId) only
+  // saw "profile-photos" as an opaque folder entry, never descended into it, and so never found
+  // the actual file to delete. Confirmed the file was still present after "deletion" before this
+  // fix. A folder entry has id === null; a real file entry always has a real id. Walk the whole
+  // tree before batch-removing every actual file path collected.
+  const allFilePaths: string[] = [];
+  async function walk(currentPrefix: string) {
+    const { data: entries } = await adminClient.storage.from(bucket).list(currentPrefix, { limit: 1000 });
+    if (!entries) return;
+    for (const entry of entries) {
+      const entryPath = `${currentPrefix}/${entry.name}`;
+      if (entry.id === null) {
+        await walk(entryPath); // it's a subfolder -- descend
+      } else {
+        allFilePaths.push(entryPath); // it's a real file
+      }
+    }
+  }
+  await walk(prefix);
+  if (allFilePaths.length > 0) {
+    await adminClient.storage.from(bucket).remove(allFilePaths);
+  }
+}
+
 async function deleteAllDataFor(adminClient: ReturnType<typeof createClient>, userId: string) {
+  // REAL GAP FOUND AND FIXED: uploaded files were never being cleaned up at all, only the
+  // database rows referencing them -- profile photos, task attachments, and session
+  // attachments were all being left behind in storage indefinitely after "deletion".
+  //
+  // task-images is cleanly prefixed by {user_id}/ for everything this user ever uploaded
+  // (profile-photos, campaigns, settings subfolders) -- one list+remove sweep covers all of it.
+  await deleteStorageFolder(adminClient, "task-images", userId);
+
+  // session-attachments is keyed by {bookingId}/, not by user directly, so the booking ids
+  // have to be captured BEFORE expert_bookings rows are deleted further down, or there'd be no
+  // way to find which folders belonged to this user at all.
+  const { data: bookings } = await adminClient.from("expert_bookings").select("id").eq("user_id", userId);
+  if (bookings) {
+    for (const booking of bookings) {
+      await deleteStorageFolder(adminClient, "session-attachments", booking.id);
+    }
+  }
+
   for (const table of HARD_DELETE_TABLES) {
     await adminClient.from(table).delete().eq("user_id", userId);
   }
