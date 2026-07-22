@@ -12,12 +12,38 @@
 <meta name="twitter:title" content="Free Mental Health Support for Students">
 <meta name="twitter:description" content="We are raising funds to provide free mental health support - Therapy, meds, support group to students, especially when they need it the most. We have lost enough lives, we cannot afford to lose more... And people need HOPE...">
 <meta name="twitter:image" content="https://adjvptkzyckkvewbfmzf.supabase.co/storage/v1/object/public/task-images/52f3a837-cedb-4c01-b3c2-4eb2bcb15295/campaigns/zh73rxt9.png">
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #FFF8F0; color: #2A2013; margin: 0; padding: 0; }
+  .wrap { max-width: 480px; margin: 0 auto; padding: 24px 20px 60px; }
+  .logo { display: block; height: 40px; margin-bottom: 24px; }
+  h1 { color: #2E5090; font-size: 22px; margin: 0 0 6px; }
+  .desc { color: #5C6B94; font-size: 14px; line-height: 1.6; margin: 0 0 20px; }
+  .progress-track { background: #EEE0C4; border-radius: 20px; height: 14px; overflow: hidden; margin-bottom: 10px; }
+  .progress-fill { background: #3B8F63; height: 100%; border-radius: 20px; transition: width 0.4s; }
+  .stats { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 28px; }
+  .raised { color: #3B8F63; font-weight: 700; }
+  .goal { color: #9AABCE; }
+  .card { background: #FFFFFF; border: 1px solid #EEE0C4; border-radius: 20px; padding: 24px; }
+  input { width: 100%; padding: 13px 14px; border-radius: 12px; border: 1px solid #EEE0C4; font-size: 14px; font-family: inherit; box-sizing: border-box; margin-bottom: 10px; }
+  .presets { display: flex; gap: 8px; margin-bottom: 16px; }
+  .preset-btn { flex: 1; padding: 10px; border-radius: 10px; border: 1px solid #EEE0C4; background: transparent; color: #6690D6; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .preset-btn.active { background: #6690D6; color: #fff; }
+  button.primary { display: block; width: 100%; padding: 15px; border-radius: 14px; border: none; background: #6690D6; color: #FFF8F0; font-size: 15px; font-weight: 700; cursor: pointer; margin-bottom: 10px; }
+  .qr-area { text-align: center; display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid #F0E9D8; }
+  .qr-area img { width: 100%; max-width: 220px; border-radius: 16px; border: 1px solid #EEE0C4; margin-bottom: 12px; }
+  .upi { font-size: 11px; color: #9AABCE; margin-bottom: 14px; }
+  .status { text-align: center; font-size: 13px; margin-top: 14px; min-height: 18px; }
+  .footer-note { text-align: center; font-size: 11px; color: #B0AA98; margin-top: 24px; }
+  .footer-note a { color: #6690D6; }
+</style>
 </head>
 <body>
 <div class="wrap">
   <p style="font-weight:800;color:#2E5090;font-size:16px;margin:0 0 24px;">HOBS · Home of Beautiful Souls Foundation</p>
 
   <div id="campaignInfo">
+    <img id="campaignImage" style="display:none;width:100%;max-height:220px;object-fit:cover;border-radius:16px;margin-bottom:18px;" alt="">
     <h1 id="campaignTitle">Loading…</h1>
     <p class="desc" id="campaignDesc"></p>
     <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%;"></div></div>
@@ -72,6 +98,8 @@
       activeCampaign = c;
       document.getElementById('campaignTitle').textContent = c.title;
       document.getElementById('campaignDesc').textContent = c.description || '';
+      var imgEl = document.getElementById('campaignImage');
+      if(c.image_url){ imgEl.src = c.image_url; imgEl.alt = c.title; imgEl.style.display = 'block'; } else { imgEl.style.display = 'none'; }
       var raised = (donationsRes.data || []).filter(function(d){ return d.campaign_id === c.id; }).reduce(function(sum, d){ return sum + parseFloat(d.amount); }, 0);
       var pct = Math.min(100, Math.round((raised / parseFloat(c.goal_amount)) * 100));
       document.getElementById('progressFill').style.width = pct + '%';
