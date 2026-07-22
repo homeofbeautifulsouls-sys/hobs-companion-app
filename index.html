@@ -2133,7 +2133,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260722173425';
+  var CURRENT_BUILD = '20260722182939';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -11939,6 +11939,20 @@ var currentDonateCampaign = null;
 // profile, which Akash correctly pointed out makes little sense: a donation ask belongs
 // somewhere every user actually sees regularly, not buried on a page only visited while
 // browsing for a therapist.
+// Same safe renderer as donate.html: escapes HTML first (so nothing in admin-entered campaign
+// text can ever inject markup), then converts **bold** markers to real <strong> tags and blank
+// lines to paragraph breaks. Real bug fixed here -- this widget used to inject c.description
+// directly with no escaping, no bold support, and no paragraph breaks at all, so a longer
+// description with **emphasis** rendered as one unbroken wall of text with literal asterisks.
+function escapeHtmlForCampaign(s){
+  return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+function renderCampaignDescriptionHtml(raw){
+  var escaped = escapeHtmlForCampaign(raw);
+  var bolded = escaped.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  return bolded.split(/\n\s*\n/).map(function(para){ return '<p style="margin:0 0 10px;">' + para.replace(/\n/g, '<br>') + '</p>'; }).join('');
+}
+
 function renderProfileDonationWidget(){
   var widget = document.getElementById('profileDonationWidget');
   if(!widget) return;
@@ -11958,7 +11972,7 @@ function renderProfileDonationWidget(){
       '<div style="background:#FFF8F0;border:1px solid #EEE0C4;border-radius:16px;padding:16px;">'+
         '<p style="font-size:12px;font-weight:700;color:#9AABCE;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 6px;">Support HOBS</p>'+
         '<p style="font-size:14px;font-weight:800;color:#2A2013;margin:0 0 6px;">'+c.title+'</p>'+
-        (c.description ? '<p style="font-size:11.5px;color:#5C6B94;margin:0 0 12px;">'+c.description+'</p>' : '')+
+        (c.description ? '<div style="font-size:11.5px;color:#5C6B94;margin:0 0 12px;">'+renderCampaignDescriptionHtml(c.description)+'</div>' : '')+
         '<div style="background:#EEE0C4;border-radius:20px;height:10px;overflow:hidden;margin-bottom:8px;">'+
           '<div style="background:#3B8F63;height:100%;width:'+pct+'%;border-radius:20px;"></div>'+
         '</div>'+
@@ -11987,7 +12001,7 @@ function shareCampaign(c){
 
 function openDonateModal(c){
   document.getElementById('donateModalTitle').textContent = c.title;
-  document.getElementById('donateModalDescription').textContent = c.description || '';
+  document.getElementById('donateModalDescription').innerHTML = renderCampaignDescriptionHtml(c.description || '');
   document.getElementById('donateDonorName').value = appState.displayName || '';
   document.getElementById('donateAmount').value = '';
   document.getElementById('donateModalBackdrop').style.display = 'block';
