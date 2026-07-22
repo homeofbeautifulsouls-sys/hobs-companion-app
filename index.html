@@ -932,9 +932,18 @@
     <div id="adminCampaignCurrentInfo" style="margin-bottom:10px;"></div>
     <input type="text" id="adminCampaignTitle" placeholder="Campaign title" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;">
     <textarea id="adminCampaignDescription" placeholder="Description — what this campaign is for" style="width:100%;min-height:60px;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;resize:vertical;"></textarea>
+    <div style="margin-bottom:6px;">
+      <label for="adminCampaignImageInput" style="display:block;font-size:11px;color:#9AABCE;margin-bottom:4px;">Campaign photo — shown on the donation page and in the preview when the link is shared</label>
+      <img id="adminCampaignImagePreview" style="display:none;width:100%;max-height:140px;object-fit:cover;border-radius:10px;border:1px solid #EEE0C4;margin-bottom:6px;">
+      <input type="file" id="adminCampaignImageInput" accept="image/jpeg,image/png,image/webp" style="width:100%;font-size:11px;">
+      <p id="adminCampaignImageStatus" style="font-size:10.5px;color:#9AABCE;margin:4px 0 0;"></p>
+    </div>
     <input type="number" id="adminCampaignGoal" placeholder="Goal amount (₹)" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;">
     <button id="adminCampaignSaveBtn" style="width:100%;padding:11px;border-radius:10px;border:none;background:#6690D6;color:#FFF8F0;font-size:12.5px;font-weight:700;cursor:pointer;margin-bottom:8px;">Save Campaign</button>
     <button id="adminCampaignArchiveBtn" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;background:transparent;color:#C77B7B;font-size:11.5px;font-weight:700;cursor:pointer;margin-bottom:14px;">Hide this campaign &amp; start a new one</button>
+
+    <p style="font-size:11px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Past Campaigns</p>
+    <div id="adminPastCampaignsList" style="margin-bottom:22px;"></div>
 
     <p style="font-size:11px;font-weight:700;color:#7B4F00;margin:0 0 10px;">Pledged donations awaiting confirmation</p>
     <div id="adminDonationsList" style="margin-bottom:22px;"></div>
@@ -2124,7 +2133,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260722000832';
+  var CURRENT_BUILD = '20260722173425';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -9004,6 +9013,7 @@ document.getElementById('notifComposeSendBtn').onclick = function(){
 // requested, but can be changed) -- confirming moves the booking to 'active' and the client then
 // gets to pick their session time from the calendar.
 var adminActiveCampaignId = null;
+var adminCampaignImageUrl = null;
 function renderAdminExpertsManageList(){
   var listEl = document.getElementById('adminExpertsManageList');
   listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12px;">Loading...</p>';
@@ -9155,16 +9165,21 @@ document.getElementById('adminNotifyPolicyUpdateBtn').onclick = function(){
 function renderAdminCampaign(){
   sb.from('donation_campaigns').select('*').eq('is_active', true).order('created_at', {ascending:false}).limit(1).then(function(result){
     var infoEl = document.getElementById('adminCampaignCurrentInfo');
+    var previewImg = document.getElementById('adminCampaignImagePreview');
     if(result.error || !result.data || result.data.length === 0){
       adminActiveCampaignId = null;
+      adminCampaignImageUrl = null;
+      previewImg.style.display = 'none';
       infoEl.innerHTML = '<p style="font-size:11px;color:#B0AA98;">No active campaign yet — fill in the fields below to start one.</p>';
       return;
     }
     var c = result.data[0];
     adminActiveCampaignId = c.id;
+    adminCampaignImageUrl = c.image_url || null;
     document.getElementById('adminCampaignTitle').value = c.title;
     document.getElementById('adminCampaignDescription').value = c.description || '';
     document.getElementById('adminCampaignGoal').value = c.goal_amount;
+    if(c.image_url){ previewImg.src = c.image_url; previewImg.style.display = 'block'; } else { previewImg.style.display = 'none'; }
 
     sb.from('donations').select('amount').eq('campaign_id', c.id).eq('payment_confirmed', true).then(function(donResult){
       var raised = (donResult.data || []).reduce(function(sum, d){ return sum + parseFloat(d.amount); }, 0);
@@ -9172,7 +9187,81 @@ function renderAdminCampaign(){
     });
   });
   renderAdminDonationsList();
+  renderAdminPastCampaigns();
 }
+
+// Fires the meta-tag sync best-effort -- if it fails, the campaign itself is still saved fine
+// in Supabase and the live donate page still works correctly via its own JS; only the link
+// share-preview would lag behind until the next successful save or a manual retry.
+function syncDonatePageMeta(){
+  sb.functions.invoke('update-donate-page-meta', { body: {} }).catch(function(){});
+}
+
+function renderAdminPastCampaigns(){
+  var listEl = document.getElementById('adminPastCampaignsList');
+  listEl.innerHTML = '<p style="font-size:11px;color:#B0AA98;">Loading...</p>';
+  sb.from('donation_campaigns').select('*').eq('is_active', false).order('created_at', {ascending:false}).then(function(result){
+    if(result.error){ listEl.innerHTML = '<p style="font-size:11px;color:#B0AA98;">Could not load past campaigns.</p>'; return; }
+    var campaigns = result.data || [];
+    if(campaigns.length === 0){
+      listEl.innerHTML = '<p style="font-size:11px;color:#9AABCE;">No past campaigns yet.</p>';
+      return;
+    }
+    Promise.all(campaigns.map(function(c){
+      return sb.from('donations').select('amount').eq('campaign_id', c.id).eq('payment_confirmed', true).then(function(donResult){
+        return (donResult.data || []).reduce(function(sum, d){ return sum + parseFloat(d.amount); }, 0);
+      });
+    })).then(function(raisedAmounts){
+      listEl.innerHTML = campaigns.map(function(c, i){
+        var when = new Date(c.created_at).toLocaleDateString('en-IN', {day:'numeric', month:'short', year:'numeric'});
+        var thumb = c.image_url ? '<img src="'+c.image_url+'" style="width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0;">' : '<div style="width:44px;height:44px;border-radius:8px;background:#F0E9D8;flex-shrink:0;"></div>';
+        return '<div style="display:flex;gap:10px;align-items:center;background:#FFFFFF;border:1px solid #EEE0C4;border-radius:10px;padding:10px 12px;margin-bottom:6px;">'+
+          thumb+
+          '<div style="flex:1;min-width:0;">'+
+            '<p style="font-size:12px;font-weight:700;color:#2A2013;margin:0 0 2px;">'+c.title+'</p>'+
+            '<p style="font-size:10.5px;color:#9AABCE;margin:0;">₹'+raisedAmounts[i].toLocaleString('en-IN')+' raised of ₹'+parseFloat(c.goal_amount).toLocaleString('en-IN')+' · started '+when+'</p>'+
+          '</div>'+
+          '<button class="admin-reactivate-campaign-btn" data-id="'+c.id+'" style="font-size:10px;font-weight:700;color:#6690D6;background:none;border:1px solid #C9D6EF;border-radius:8px;padding:6px 8px;cursor:pointer;flex-shrink:0;">Reactivate</button>'+
+        '</div>';
+      }).join('');
+      listEl.querySelectorAll('.admin-reactivate-campaign-btn').forEach(function(btn){
+        btn.onclick = function(){
+          if(adminActiveCampaignId){
+            showToast('Hide the current active campaign first before reactivating an older one.');
+            return;
+          }
+          sb.from('donation_campaigns').update({ is_active: true }).eq('id', btn.dataset.id).then(function(result){
+            if(result.error){ showToast('Could not reactivate — please try again.'); return; }
+            showToast('Campaign reactivated.');
+            renderAdminCampaign();
+            syncDonatePageMeta();
+          });
+        };
+      });
+    });
+  });
+}
+
+document.getElementById('adminCampaignImageInput').onchange = function(){
+  var file = this.files[0];
+  if(!file) return;
+  if(file.size > 5 * 1024 * 1024){ showToast('That photo is a bit too big (5MB max)'); this.value = ''; return; }
+  var statusEl = document.getElementById('adminCampaignImageStatus');
+  var previewImg = document.getElementById('adminCampaignImagePreview');
+  var localUrl = URL.createObjectURL(file);
+  previewImg.src = localUrl;
+  previewImg.style.display = 'block';
+  statusEl.textContent = 'Uploading...';
+  var ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+  var path = currentUser.id + '/campaigns/' + uidGen() + '.' + ext;
+  sb.storage.from('task-images').upload(path, file, { contentType: file.type }).then(function(result){
+    if(result.error){ statusEl.textContent = 'Upload failed — try again.'; statusEl.style.color = '#C77B7B'; return; }
+    var publicUrlResult = sb.storage.from('task-images').getPublicUrl(path);
+    adminCampaignImageUrl = publicUrlResult.data.publicUrl;
+    statusEl.textContent = 'Photo ready — click Save Campaign to apply it.';
+    statusEl.style.color = '#3B8F63';
+  });
+};
 
 document.getElementById('adminCampaignArchiveBtn').onclick = function(){
   if(!adminActiveCampaignId){
@@ -9190,11 +9279,16 @@ document.getElementById('adminCampaignArchiveBtn').onclick = function(){
     btn.disabled = false;
     if(result.error){ showToast('Could not hide the campaign — please try again.'); return; }
     adminActiveCampaignId = null;
+    adminCampaignImageUrl = null;
     document.getElementById('adminCampaignTitle').value = '';
     document.getElementById('adminCampaignDescription').value = '';
     document.getElementById('adminCampaignGoal').value = '';
+    document.getElementById('adminCampaignImagePreview').style.display = 'none';
+    document.getElementById('adminCampaignImageInput').value = '';
+    document.getElementById('adminCampaignImageStatus').textContent = '';
     showToast('Previous campaign hidden. Fill in the fields below to start a new one.');
     renderAdminCampaign();
+    syncDonatePageMeta();
   });
 };
 
@@ -9207,16 +9301,18 @@ document.getElementById('adminCampaignSaveBtn').onclick = function(){
     return;
   }
   if(adminActiveCampaignId){
-    sb.from('donation_campaigns').update({ title: title, description: description, goal_amount: goal }).eq('id', adminActiveCampaignId).then(function(result){
+    sb.from('donation_campaigns').update({ title: title, description: description, goal_amount: goal, image_url: adminCampaignImageUrl }).eq('id', adminActiveCampaignId).then(function(result){
       if(result.error){ showToast('Could not save — please try again.'); return; }
       showToast('Campaign updated.');
       renderAdminCampaign();
+      syncDonatePageMeta();
     });
   } else {
-    sb.from('donation_campaigns').insert({ title: title, description: description, goal_amount: goal, is_active: true }).then(function(result){
+    sb.from('donation_campaigns').insert({ title: title, description: description, goal_amount: goal, image_url: adminCampaignImageUrl, is_active: true }).then(function(result){
       if(result.error){ showToast('Could not save — please try again.'); return; }
       showToast('Campaign created.');
       renderAdminCampaign();
+      syncDonatePageMeta();
     });
   }
 };
