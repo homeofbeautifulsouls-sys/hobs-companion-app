@@ -946,6 +946,13 @@
     <p style="font-size:11px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Past Campaigns</p>
     <div id="adminPastCampaignsList" style="margin-bottom:22px;"></div>
 
+    <p style="font-size:11px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Payment QR Code</p>
+    <p style="font-size:10.5px;color:#B0AA98;margin:0 0 10px;">Used on every donation page and the in-app donate screen — one QR code shared across all campaigns.</p>
+    <img id="adminPaymentQrPreview" style="display:none;width:160px;max-width:100%;border-radius:10px;border:1px solid #EEE0C4;margin-bottom:8px;">
+    <input type="file" id="adminPaymentQrInput" accept="image/jpeg,image/png,image/webp" style="width:100%;font-size:11px;margin-bottom:8px;">
+    <input type="text" id="adminPaymentUpiId" placeholder="UPI ID (e.g. yourname@bank)" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:8px;box-sizing:border-box;">
+    <button id="adminPaymentQrSaveBtn" style="width:100%;padding:11px;border-radius:10px;border:none;background:#6690D6;color:#FFF8F0;font-size:12.5px;font-weight:700;cursor:pointer;margin-bottom:22px;">Save Payment Settings</button>
+
     <p style="font-size:11px;font-weight:700;color:#7B4F00;margin:0 0 10px;">Pledged donations awaiting confirmation</p>
     <div id="adminDonationsList" style="margin-bottom:22px;"></div>
 
@@ -1215,7 +1222,7 @@
     <p class="prompt-title" style="margin-bottom:4px;">Complete Payment</p>
     <p id="paymentModalPurpose" style="font-size:12.5px;color:#5C6B94;margin:0 0 18px;"></p>
     <img id="paymentQrImage" src="paytm-qr.jpg" alt="Paytm QR Code" style="width:100%;max-width:240px;height:auto;object-fit:contain;margin:0 auto 14px;border:1px solid #EEE0C4;border-radius:16px;" onerror="this.style.display='none'; document.getElementById('paymentQrFallback').style.display='block';">
-    <p style="font-size:11px;color:#9AABCE;margin:0 0 14px;">UPI ID: 9426212083@ptyes</p>
+    <p id="paymentModalUpiId" style="font-size:11px;color:#9AABCE;margin:0 0 14px;">UPI ID: 9426212083@ptyes</p>
     <p id="paymentQrFallback" style="display:none;font-size:12px;color:#C77B7B;margin:0 0 14px;">QR code not available yet — message us directly to arrange payment.</p>
     <p style="font-size:11.5px;color:#9AABCE;line-height:1.6;margin:0 0 20px;">Scan with any UPI app (Paytm, GPay, PhonePe) to pay. Once you've paid, let us know and we'll confirm your booking.</p>
     <button id="paymentConfirmBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;">I've Paid</button>
@@ -2134,7 +2141,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260722184657';
+  var CURRENT_BUILD = '20260722190217';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -8490,13 +8497,16 @@ function showPaymentModal(purposeText, notifyMessage, onConfirmed){
   document.getElementById('paymentModalPurpose').textContent = purposeText;
   var qrImg = document.getElementById('paymentQrImage');
   var qrFallback = document.getElementById('paymentQrFallback');
-  if(qrImg.complete && qrImg.naturalWidth === 0){
-    qrImg.style.display = 'none';
-    qrFallback.style.display = 'block';
-  } else {
-    qrImg.style.display = 'block';
-    qrFallback.style.display = 'none';
-  }
+  var upiEl = document.getElementById('paymentModalUpiId');
+  qrImg.style.display = 'block';
+  qrFallback.style.display = 'none';
+  sb.from('app_settings').select('*').in('key', ['payment_qr_url','payment_upi_id']).then(function(result){
+    if(result.error || !result.data) return; // keep the static defaults already in the HTML
+    var settings = {};
+    result.data.forEach(function(row){ settings[row.key] = row.value; });
+    if(settings.payment_qr_url) qrImg.src = settings.payment_qr_url;
+    if(settings.payment_upi_id) upiEl.textContent = 'UPI ID: ' + settings.payment_upi_id;
+  });
   document.getElementById('paymentModalBackdrop').style.display = 'block';
   document.getElementById('paymentModal').style.display = 'block';
   var closeModal = function(){
@@ -9220,6 +9230,7 @@ function renderAdminCampaign(){
   });
   renderAdminDonationsList();
   renderAdminPastCampaigns();
+  renderAdminPaymentSettings();
 }
 
 // Fires the meta-tag sync best-effort -- if it fails, the campaign itself is still saved fine
@@ -9273,6 +9284,50 @@ function renderAdminPastCampaigns(){
     });
   });
 }
+
+var adminPaymentQrUrl = null;
+function renderAdminPaymentSettings(){
+  sb.from('app_settings').select('*').in('key', ['payment_qr_url','payment_upi_id']).then(function(result){
+    if(result.error || !result.data) return;
+    var settings = {};
+    result.data.forEach(function(row){ settings[row.key] = row.value; });
+    adminPaymentQrUrl = settings.payment_qr_url || null;
+    document.getElementById('adminPaymentUpiId').value = settings.payment_upi_id || '';
+    var previewImg = document.getElementById('adminPaymentQrPreview');
+    if(adminPaymentQrUrl){ previewImg.src = adminPaymentQrUrl; previewImg.style.display = 'block'; } else { previewImg.style.display = 'none'; }
+  });
+}
+
+document.getElementById('adminPaymentQrInput').onchange = function(){
+  var file = this.files[0];
+  if(!file) return;
+  if(file.size > 5 * 1024 * 1024){ showToast('That image is a bit too big (5MB max)'); this.value = ''; return; }
+  var previewImg = document.getElementById('adminPaymentQrPreview');
+  previewImg.src = URL.createObjectURL(file);
+  previewImg.style.display = 'block';
+  var ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+  var path = currentUser.id + '/settings/' + uidGen() + '.' + ext;
+  sb.storage.from('task-images').upload(path, file, { contentType: file.type }).then(function(result){
+    if(result.error){ showToast('QR upload failed — try again.'); return; }
+    adminPaymentQrUrl = sb.storage.from('task-images').getPublicUrl(path).data.publicUrl;
+    showToast('QR ready — click Save Payment Settings to apply it.');
+  });
+};
+
+document.getElementById('adminPaymentQrSaveBtn').onclick = function(){
+  var upiId = document.getElementById('adminPaymentUpiId').value.trim();
+  if(!adminPaymentQrUrl || !upiId){ showToast('Add both a QR code image and a UPI ID first.'); return; }
+  var btn = this;
+  btn.disabled = true; btn.textContent = 'Saving...';
+  Promise.all([
+    sb.from('app_settings').upsert({ key: 'payment_qr_url', value: adminPaymentQrUrl, updated_at: new Date().toISOString() }),
+    sb.from('app_settings').upsert({ key: 'payment_upi_id', value: upiId, updated_at: new Date().toISOString() })
+  ]).then(function(results){
+    btn.disabled = false; btn.textContent = 'Save Payment Settings';
+    if(results[0].error || results[1].error){ showToast('Could not save — please try again.'); return; }
+    showToast('Payment settings updated.');
+  });
+};
 
 document.getElementById('adminCampaignImageInput').onchange = function(){
   var file = this.files[0];
