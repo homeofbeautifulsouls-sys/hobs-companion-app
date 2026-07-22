@@ -2185,7 +2185,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260722222037';
+  var CURRENT_BUILD = '20260722222321';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -4312,6 +4312,7 @@ document.addEventListener('input', function(e){ if(e.target && e.target.tagName 
 document.addEventListener('focus', function(e){ if(e.target && e.target.tagName === 'TEXTAREA') autoGrowTextarea(e.target); }, true);
 
 function showOnly(panelId){
+  var previousPanel = panelHistoryStack[panelHistoryStack.length - 1];
   allPanels.forEach(function(id){ document.getElementById(id).style.display = (id === panelId) ? 'block' : 'none'; });
   // panel-chat-room needs flex (not the generic block above) for its own internal header/
   // messages/input column layout to actually work as intended.
@@ -4319,6 +4320,20 @@ function showOnly(panelId){
   // Real ask: this button should only ever be visible on the Journal index page itself, not
   // floating over every single screen in the app the way it originally did.
   document.getElementById('newJournalEntryFabBtn').style.display = (panelId === 'panel-history') ? 'flex' : 'none';
+  // Screenshot/screen-recording prevention in chats: @capacitor/privacy-screen was already a
+  // real dependency (confirmed in package.json) but never actually called anywhere -- the
+  // plugin requires an explicit enable()/disable() call, it does nothing just by being
+  // installed. Hooked here rather than only on one exit button specifically because the
+  // plugin's own docs warn to toggle on every navigation, including back navigation -- this
+  // way it's correct regardless of HOW someone leaves a chat room (back button, tapping a nav
+  // tab, a notification tap that jumps elsewhere, etc.), not just one specific path.
+  if(IS_NATIVE_APP && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.PrivacyScreen){
+    if(panelId === 'panel-chat-room' && previousPanel !== 'panel-chat-room'){
+      window.Capacitor.Plugins.PrivacyScreen.enable({ android: { dimBackground: true } }).catch(function(){});
+    } else if(panelId !== 'panel-chat-room' && previousPanel === 'panel-chat-room'){
+      window.Capacitor.Plugins.PrivacyScreen.disable().catch(function(){});
+    }
+  }
   if(panelHistoryStack[panelHistoryStack.length - 1] !== panelId){
     var fromPanel = panelHistoryStack[panelHistoryStack.length - 1];
     panelHistoryStack.push(panelId);
