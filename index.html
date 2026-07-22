@@ -1707,9 +1707,24 @@
   </div>
 
   <div id="periodDateModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.45);z-index:60;"></div>
-  <div id="periodDateModal" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;background:#FFFFFF;border-radius:24px 24px 0 0;padding:24px 22px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;z-index:61;box-shadow:0 -10px 30px rgba(0,0,0,0.15);text-align:center;">
+  <div id="periodDateModal" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;background:#FFFFFF;border-radius:24px 24px 0 0;padding:24px 22px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;z-index:61;box-shadow:0 -10px 30px rgba(0,0,0,0.15);text-align:center;max-height:88vh;overflow-y:auto;">
     <p class="prompt-title" id="periodDateModalTitle" style="margin-bottom:14px;">Log Period Start</p>
     <input type="date" id="periodDateModalInput" style="width:100%;padding:14px;border-radius:12px;border:1px solid #EEE0C4;font-size:15px;font-family:inherit;margin-bottom:16px;box-sizing:border-box;">
+
+    <div id="periodSymptomFields" style="display:none;text-align:left;">
+      <p style="font-size:11px;font-weight:700;color:#9AABCE;margin:0 0 8px;">Flow — optional</p>
+      <div id="periodFlowChips" style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;"></div>
+
+      <p style="font-size:11px;font-weight:700;color:#9AABCE;margin:0 0 8px;">Physical symptoms — optional, pick any that fit</p>
+      <div id="periodPhysicalChips" style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;"></div>
+
+      <p style="font-size:11px;font-weight:700;color:#9AABCE;margin:0 0 8px;">How's your mood been — optional</p>
+      <p style="font-size:10.5px;color:#B0AA98;margin:-4px 0 8px;">This is the part that's genuinely useful to track alongside your cycle — patterns here can matter for how you're feeling day to day.</p>
+      <div id="periodMoodChips" style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;"></div>
+
+      <textarea id="periodNotesInput" placeholder="Anything else worth noting — optional" style="width:100%;min-height:50px;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:16px;box-sizing:border-box;resize:vertical;"></textarea>
+    </div>
+
     <button id="periodDateModalSaveBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:none;background:#C2588A;color:#FFFFFF;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;">Save</button>
     <button id="periodDateModalCancelBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:13px;font-weight:700;cursor:pointer;">Cancel</button>
   </div>
@@ -2185,7 +2200,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260722222321';
+  var CURRENT_BUILD = '20260722224321';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -6026,8 +6041,26 @@ document.getElementById('moodTrackerBackBtn').onclick = function(){ showOnly('pa
 // "Users manage their own period logs" policy). Never touched by analytics beyond a generic
 // screen-view (see logFirstPartyAnalytics elsewhere -- that already never logs content, just
 // that the screen was opened), never synced anywhere else.
-var periodDateModalMode = null; // 'start' | 'end'
+//
+// Field choices grounded in real guidance rather than guessed: ACOG treats the menstrual cycle
+// itself as a vital sign (first day of last period + pattern of menses), and flow intensity +
+// a defined symptom set are the standard fields real clinical-grade apps (Flo, Clue) use. Kept
+// scoped to what's actually relevant to HOBS specifically -- physical symptoms plus, deliberately,
+// a dedicated MOOD/mental-health symptom set (irritability, anxiety, low mood, mood swings, brain
+// fog) since PMDD/PMS-mood correlation is squarely inside this app's own mission, not full
+// fertility-awareness tracking (basal temp, cervical mucus), which is a different app's job.
+// Every field is optional -- nothing is forced before someone can just log that their period
+// started.
+var periodDateModalMode = null; // 'start' | 'end' | 'edit'
 var periodOngoingLogId = null;
+var periodEditingLogId = null;
+var periodSelectedFlow = null;
+var periodSelectedPhysical = [];
+var periodSelectedMood = [];
+
+var PERIOD_FLOW_OPTIONS = ['Spotting', 'Light', 'Medium', 'Heavy'];
+var PERIOD_PHYSICAL_OPTIONS = ['Cramps', 'Headache', 'Bloating', 'Back pain', 'Breast tenderness', 'Fatigue', 'Nausea', 'Acne'];
+var PERIOD_MOOD_OPTIONS = ['Irritability', 'Anxiety', 'Low mood', 'Mood swings', 'Brain fog'];
 
 document.getElementById('openPeriodTrackerBtn').onclick = function(){
   showOnly('panel-period-tracker');
@@ -6040,6 +6073,26 @@ function formatPeriodDate(dateStr){
 }
 function daysBetween(a, b){
   return Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / (1000*60*60*24));
+}
+
+function renderPeriodChips(containerId, options, selectedRef, multiSelect){
+  var container = document.getElementById(containerId);
+  container.innerHTML = options.map(function(opt){
+    var isSelected = multiSelect ? selectedRef.indexOf(opt) !== -1 : selectedRef === opt;
+    return '<button type="button" class="period-chip" data-val="'+opt+'" style="padding:8px 13px;border-radius:20px;border:1.5px solid '+(isSelected?'#C2588A':'#EEE0C4')+';background:'+(isSelected?'#C2588A':'transparent')+';color:'+(isSelected?'#FFFFFF':'#5C6B94')+';font-size:12px;font-weight:600;cursor:pointer;">'+opt+'</button>';
+  }).join('');
+  container.querySelectorAll('.period-chip').forEach(function(chip){
+    chip.onclick = function(){
+      var val = chip.dataset.val;
+      if(multiSelect){
+        var idx = selectedRef.indexOf(val);
+        if(idx === -1) selectedRef.push(val); else selectedRef.splice(idx, 1);
+      } else {
+        if(containerId === 'periodFlowChips') periodSelectedFlow = (periodSelectedFlow === val) ? null : val;
+      }
+      renderPeriodChips(containerId, options, containerId === 'periodFlowChips' ? periodSelectedFlow : selectedRef, multiSelect);
+    };
+  });
 }
 
 function renderPeriodTracker(){
@@ -6091,28 +6144,67 @@ function renderPeriodTracker(){
     historyEl.innerHTML = logs.map(function(l){
       var lengthLabel = l.end_date ? (daysBetween(l.start_date, l.end_date) + 1) + ' days' : 'Ongoing';
       var rangeLabel = formatPeriodDate(l.start_date) + (l.end_date ? ' – ' + formatPeriodDate(l.end_date) : '');
-      return '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:14px;padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">'+
-        '<p style="font-size:12.5px;font-weight:700;color:#2A2013;margin:0;">'+rangeLabel+'</p>'+
-        '<p style="font-size:11px;color:#C2588A;font-weight:700;margin:0;">'+lengthLabel+'</p>'+
+      var tags = [];
+      if(l.flow_intensity) tags.push(l.flow_intensity);
+      (l.physical_symptoms || []).forEach(function(s){ tags.push(s); });
+      (l.mood_symptoms || []).forEach(function(s){ tags.push(s); });
+      var tagsHtml = tags.length ? '<p style="font-size:10.5px;color:#B0708F;margin:4px 0 0;">'+tags.join(' · ')+'</p>' : '';
+      return '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:14px;padding:12px 14px;margin-bottom:8px;">'+
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;">'+
+          '<div><p style="font-size:12.5px;font-weight:700;color:#2A2013;margin:0;">'+rangeLabel+'</p>'+tagsHtml+'</div>'+
+          '<p style="font-size:11px;color:#C2588A;font-weight:700;margin:0;white-space:nowrap;">'+lengthLabel+'</p>'+
+        '</div>'+
+        '<div style="display:flex;gap:8px;margin-top:10px;">'+
+          '<button class="period-edit-btn" data-id="'+l.id+'" style="flex:1;padding:8px;border-radius:10px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:11px;font-weight:700;cursor:pointer;">Edit</button>'+
+          '<button class="period-delete-btn" data-id="'+l.id+'" style="flex:1;padding:8px;border-radius:10px;border:1px solid #F0C7C7;background:transparent;color:#C77B7B;font-size:11px;font-weight:700;cursor:pointer;">Delete</button>'+
+        '</div>'+
       '</div>';
     }).join('');
+
+    historyEl.querySelectorAll('.period-edit-btn').forEach(function(btn){
+      btn.onclick = function(){
+        var log = logs.find(function(l){ return l.id === btn.dataset.id; });
+        openPeriodModal('edit', log);
+      };
+    });
+    historyEl.querySelectorAll('.period-delete-btn').forEach(function(btn){
+      btn.onclick = function(){
+        if(!confirm('Delete this logged cycle? This cannot be undone.')) return;
+        sb.from('period_logs').delete().eq('id', btn.dataset.id).then(function(result){
+          if(result.error){ showToast('Could not delete — please try again.'); return; }
+          showToast('Removed.');
+          renderPeriodTracker();
+        });
+      };
+    });
   });
 }
 
-document.getElementById('periodLogStartBtn').onclick = function(){
-  periodDateModalMode = 'start';
-  document.getElementById('periodDateModalTitle').textContent = 'Log Period Start';
-  document.getElementById('periodDateModalInput').value = new Date().toISOString().slice(0, 10);
+function openPeriodModal(mode, existingLog){
+  periodDateModalMode = mode;
+  periodEditingLogId = existingLog ? existingLog.id : null;
+  periodSelectedFlow = existingLog ? (existingLog.flow_intensity || null) : null;
+  periodSelectedPhysical = existingLog ? (existingLog.physical_symptoms || []).slice() : [];
+  periodSelectedMood = existingLog ? (existingLog.mood_symptoms || []).slice() : [];
+
+  var symptomFieldsShown = (mode === 'start' || mode === 'edit');
+  document.getElementById('periodSymptomFields').style.display = symptomFieldsShown ? 'block' : 'none';
+  document.getElementById('periodDateModalTitle').textContent = mode === 'end' ? 'Log Period End' : (mode === 'edit' ? 'Edit Cycle' : 'Log Period Start');
+  document.getElementById('periodDateModalInput').value = existingLog ? existingLog.start_date : new Date().toISOString().slice(0, 10);
+  document.getElementById('periodNotesInput').value = existingLog ? (existingLog.notes || '') : '';
+
+  if(symptomFieldsShown){
+    renderPeriodChips('periodFlowChips', PERIOD_FLOW_OPTIONS, periodSelectedFlow, false);
+    renderPeriodChips('periodPhysicalChips', PERIOD_PHYSICAL_OPTIONS, periodSelectedPhysical, true);
+    renderPeriodChips('periodMoodChips', PERIOD_MOOD_OPTIONS, periodSelectedMood, true);
+  }
   document.getElementById('periodDateModalBackdrop').style.display = 'block';
   document.getElementById('periodDateModal').style.display = 'block';
-};
-document.getElementById('periodLogEndBtn').onclick = function(){
-  periodDateModalMode = 'end';
-  document.getElementById('periodDateModalTitle').textContent = 'Log Period End';
-  document.getElementById('periodDateModalInput').value = new Date().toISOString().slice(0, 10);
-  document.getElementById('periodDateModalBackdrop').style.display = 'block';
-  document.getElementById('periodDateModal').style.display = 'block';
-};
+}
+
+document.getElementById('periodLogStartBtn').onclick = function(){ openPeriodModal('start', null); };
+document.getElementById('periodLogEndBtn').onclick = function(){ openPeriodModal('end', null); };
+
 function closePeriodDateModal(){
   document.getElementById('periodDateModalBackdrop').style.display = 'none';
   document.getElementById('periodDateModal').style.display = 'none';
@@ -6124,16 +6216,37 @@ document.getElementById('periodDateModalSaveBtn').onclick = function(){
   if(!dateVal){ showToast('Pick a date first.'); return; }
   var btn = this;
   btn.disabled = true; btn.textContent = 'Saving...';
+
+  if(periodDateModalMode === 'end'){
+    sb.from('period_logs').update({ end_date: dateVal }).eq('id', periodOngoingLogId).then(function(result){
+      btn.disabled = false; btn.textContent = 'Save';
+      if(result.error){ showToast('Could not save — please try again.'); return; }
+      closePeriodDateModal();
+      renderPeriodTracker();
+    });
+    return;
+  }
+
+  var payload = {
+    flow_intensity: periodSelectedFlow,
+    physical_symptoms: periodSelectedPhysical,
+    mood_symptoms: periodSelectedMood,
+    notes: document.getElementById('periodNotesInput').value.trim() || null
+  };
+
   if(periodDateModalMode === 'start'){
-    sb.from('period_logs').insert({ user_id: currentUser.id, start_date: dateVal }).then(function(result){
+    payload.user_id = currentUser.id;
+    payload.start_date = dateVal;
+    sb.from('period_logs').insert(payload).then(function(result){
       btn.disabled = false; btn.textContent = 'Save';
       if(result.error){ showToast('Could not save — please try again.'); return; }
       logAnalyticsEvent('period_logged');
       closePeriodDateModal();
       renderPeriodTracker();
     });
-  } else {
-    sb.from('period_logs').update({ end_date: dateVal }).eq('id', periodOngoingLogId).then(function(result){
+  } else { // edit
+    payload.start_date = dateVal;
+    sb.from('period_logs').update(payload).eq('id', periodEditingLogId).then(function(result){
       btn.disabled = false; btn.textContent = 'Save';
       if(result.error){ showToast('Could not save — please try again.'); return; }
       closePeriodDateModal();
