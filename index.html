@@ -1209,6 +1209,22 @@
 
     <p id="epError" style="display:none;color:#C77B7B;font-size:12px;text-align:center;margin:8px 0 0;"></p>
     <button id="epSaveBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:15px;font-weight:700;cursor:pointer;margin-top:18px;">Save Changes</button>
+
+    <div style="border-top:1px solid #EEE0C4;margin:26px 0 0;padding-top:20px;">
+      <p style="font-size:11px;font-weight:700;color:#9AABCE;margin:0 0 8px;">Account</p>
+      <button id="epDeleteAccountBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #F0C7C7;background:transparent;color:#C77B7B;font-size:13px;font-weight:700;cursor:pointer;">Delete My Account</button>
+    </div>
+  </div>
+
+  <div id="deleteAccountModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.5);z-index:70;"></div>
+  <div id="deleteAccountModal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:calc(100% - 48px);max-width:380px;background:#FFFFFF;border-radius:20px;padding:26px 22px;box-sizing:border-box;z-index:71;box-shadow:0 10px 40px rgba(0,0,0,0.2);">
+    <p style="font-size:15px;font-weight:800;color:#2A2013;margin:0 0 10px;">Delete your account?</p>
+    <p style="font-size:13px;color:#5C6B94;line-height:1.6;margin:0 0 16px;">This permanently removes your journal entries, tasks, mood and period history, screening results, bookings, and everything else tied to your account. It cannot be undone.</p>
+    <p style="font-size:12px;color:#9AABCE;margin:0 0 8px;">Type <strong>DELETE</strong> below to confirm.</p>
+    <input type="text" id="deleteAccountConfirmInput" placeholder="Type DELETE" style="width:100%;padding:12px;border-radius:10px;border:1px solid #EEE0C4;font-size:14px;font-family:inherit;margin-bottom:16px;box-sizing:border-box;text-transform:uppercase;">
+    <p id="deleteAccountError" style="display:none;color:#C77B7B;font-size:12px;text-align:center;margin:0 0 10px;"></p>
+    <button id="deleteAccountConfirmBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:none;background:#C77B7B;color:#FFFFFF;font-size:13.5px;font-weight:700;cursor:pointer;margin-bottom:10px;">Permanently Delete</button>
+    <button id="deleteAccountCancelBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:13px;font-weight:700;cursor:pointer;">Cancel</button>
   </div>
 
   <div class="content" id="panel-my-bookings" style="display:none;">
@@ -2200,7 +2216,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260722224321';
+  var CURRENT_BUILD = '20260722233550';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -3203,6 +3219,59 @@ document.getElementById('epPhotoInput').onchange = function(){
     document.getElementById('epPhotoPlaceholder').style.display = 'none';
     document.getElementById('epPhotoPreview').dataset.pendingUrl = publicUrl;
     btn.textContent = 'Add / change photo'; btn.disabled = false;
+  });
+};
+
+// ================= SELF-SERVICE ACCOUNT DELETION =================
+// Real gap found and fixed: delete-user-account previously existed but was admin-triggered
+// only, and explicitly BLOCKED a user from targeting their own account through it at all.
+// Google Play's account deletion policy expects a genuine in-app self-service path, not just
+// an admin action -- this is that path. Staff accounts (is_admin/is_therapist) are still
+// blocked here, same as server-side, since deleting a professional's account has real
+// knock-on effects for their actual clients that deserve a person looking at it, not a solo
+// button tap -- shown as a clear message up front rather than letting them type DELETE first
+// and only then finding out.
+document.getElementById('epDeleteAccountBtn').onclick = function(){
+  if(appState.isAdmin || appState.isTherapist){
+    showToast("Staff accounts can't be deleted here since it affects your clients too — please message us directly and we'll help.");
+    return;
+  }
+  document.getElementById('deleteAccountConfirmInput').value = '';
+  document.getElementById('deleteAccountError').style.display = 'none';
+  document.getElementById('deleteAccountModalBackdrop').style.display = 'block';
+  document.getElementById('deleteAccountModal').style.display = 'block';
+};
+function closeDeleteAccountModal(){
+  document.getElementById('deleteAccountModalBackdrop').style.display = 'none';
+  document.getElementById('deleteAccountModal').style.display = 'none';
+}
+document.getElementById('deleteAccountCancelBtn').onclick = closeDeleteAccountModal;
+document.getElementById('deleteAccountModalBackdrop').onclick = closeDeleteAccountModal;
+document.getElementById('deleteAccountConfirmBtn').onclick = function(){
+  var typed = document.getElementById('deleteAccountConfirmInput').value.trim().toUpperCase();
+  var errorEl = document.getElementById('deleteAccountError');
+  if(typed !== 'DELETE'){
+    errorEl.textContent = 'Type DELETE exactly to confirm.';
+    errorEl.style.display = 'block';
+    return;
+  }
+  var btn = this;
+  btn.disabled = true; btn.textContent = 'Deleting...';
+  sb.functions.invoke('delete-user-account', { body: { selfDelete: true } }).then(function(result){
+    btn.disabled = false; btn.textContent = 'Permanently Delete';
+    var errored = result.error || (result.data && result.data.error);
+    if(errored){
+      errorEl.textContent = (result.data && result.data.error) || 'Something went wrong — please try again, or message us directly.';
+      errorEl.style.display = 'block';
+      return;
+    }
+    closeDeleteAccountModal();
+    showToast("Your account has been deleted. We're sorry to see you go.");
+    document.getElementById('logoutBtn').click();
+  }).catch(function(){
+    btn.disabled = false; btn.textContent = 'Permanently Delete';
+    errorEl.textContent = 'Something went wrong — please try again, or message us directly.';
+    errorEl.style.display = 'block';
   });
 };
 
