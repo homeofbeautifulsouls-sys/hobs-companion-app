@@ -45,7 +45,8 @@ Deno.serve(async (req: Request) => {
 
     const title = campaign ? campaign.title : "Support Home of Beautiful Souls Foundation";
     const rawDescription = campaign ? (campaign.description || "Help us continue making mental health support accessible.") : "Help us continue making mental health support accessible.";
-    const description = rawDescription.length <= 300 ? rawDescription : rawDescription.slice(0, rawDescription.lastIndexOf(" ", 297)) + "…";
+    const plainDescription = rawDescription.replace(/\*\*(.+?)\*\*/g, "$1").replace(/\n+/g, " ").trim();
+    const description = plainDescription.length <= 300 ? plainDescription : plainDescription.slice(0, plainDescription.lastIndexOf(" ", 297)) + "…";
     // Falls back to the app's own logo (already hosted on the same repo) if no campaign
     // photo has been set, so a share preview is never blank even before any image is uploaded.
     const imageUrl = (campaign && campaign.image_url) || "https://homeofbeautifulsouls-sys.github.io/hobs-companion-app/logo.png";
