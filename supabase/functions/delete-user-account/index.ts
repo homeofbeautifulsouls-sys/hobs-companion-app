@@ -75,10 +75,31 @@ const HARD_DELETE_TABLES = [
   "professional_calendar_connections",
 ];
 
+// Only populated for professionals (therapists/psychiatrists/etc), so only ever relevant on the
+// admin-delete-someone-else path -- self-delete is blocked entirely for staff accounts before
+// this ever runs. professional_user_id is NOT NULL on all three, so these rows have to be
+// removed outright rather than anonymized; a professional's own calendar/schedule data has no
+// independent meaning once their account is gone. Found on a deeper schema pass after an
+// initial review missed anything not using the exact column name "user_id".
+const PROFESSIONAL_HARD_DELETE_TABLES = [
+  "calendar_change_requests",
+  "session_calendar_events",
+  "professional_busy_blocks",
+];
+
 async function deleteAllDataFor(adminClient: ReturnType<typeof createClient>, userId: string) {
   for (const table of HARD_DELETE_TABLES) {
     await adminClient.from(table).delete().eq("user_id", userId);
   }
+  for (const table of PROFESSIONAL_HARD_DELETE_TABLES) {
+    await adminClient.from(table).delete().eq("professional_user_id", userId);
+  }
+
+  // SOFT-TOUCH: a coordination chat_room is built around a specific client (see chat_rooms.
+  // client_id) -- found on the same deeper pass. The room and its messages stay (a therapist's
+  // continuity of care record for THEIR side of things), but the reference to the now-deleted
+  // client is cleared rather than left pointing at someone who no longer exists.
+  await adminClient.from("chat_rooms").update({ client_id: null }).eq("client_id", userId);
 
   // SOFT-TOUCH: chat messages -- hard-deleting these would leave real gaps in other people's
   // conversation history (a support group mid-discussion, a coordination thread). The app
