@@ -36,11 +36,6 @@
   .status { text-align: center; font-size: 13px; margin-top: 14px; min-height: 18px; }
   .footer-note { text-align: center; font-size: 11px; color: #B0AA98; margin-top: 24px; }
   .footer-note a { color: #6690D6; }
-  .past-campaign-card { display: flex; gap: 12px; align-items: center; background: #FFFFFF; border: 1px solid #EEE0C4; border-radius: 14px; padding: 12px; margin-bottom: 8px; }
-  .past-campaign-card img { width: 56px; height: 56px; border-radius: 10px; object-fit: cover; flex-shrink: 0; }
-  .past-campaign-card .thumb-placeholder { width: 56px; height: 56px; border-radius: 10px; background: #F0E9D8; flex-shrink: 0; }
-  .past-campaign-title { font-size: 12.5px; font-weight: 700; color: #2A2013; margin: 0 0 2px; }
-  .past-campaign-meta { font-size: 11px; color: #3B8F63; margin: 0; }
 </style>
 </head>
 <body>
@@ -76,12 +71,6 @@
       <button class="primary" id="paidBtn">I've Paid</button>
     </div>
     <p class="status" id="statusMsg"></p>
-  </div>
-
-  <div id="pastCampaignsSection" style="display:none;margin-top:32px;">
-    <p style="font-size:13px;font-weight:700;color:#2E5090;margin:0 0 4px;">What we've already funded</p>
-    <p style="font-size:11.5px;color:#9AABCE;margin:0 0 16px;">Past campaigns, and what your support made possible.</p>
-    <div id="pastCampaignsList"></div>
   </div>
 
   <p class="footer-note">Prefer to use the app? <a href="index.html">Open HOBS Companion</a></p>
@@ -132,30 +121,6 @@
     });
   }
   loadCampaign();
-  loadPastCampaigns();
-
-  function loadPastCampaigns(){
-    // RLS already permits public read on this table regardless of is_active (it's a simple
-    // "true" policy, not filtered) -- this was purely a missing query, not a permissions gap.
-    Promise.all([
-      sb.from('donation_campaigns').select('*').eq('is_active', false).order('created_at', {ascending:false}),
-      sb.from('donations').select('amount, campaign_id').eq('payment_confirmed', true)
-    ]).then(function(results){
-      var campaignsRes = results[0], donationsRes = results[1];
-      if(campaignsRes.error || !campaignsRes.data || campaignsRes.data.length === 0) return;
-      var sectionEl = document.getElementById('pastCampaignsSection');
-      var listEl = document.getElementById('pastCampaignsList');
-      sectionEl.style.display = 'block';
-      listEl.innerHTML = campaignsRes.data.map(function(c){
-        var raised = (donationsRes.data || []).filter(function(d){ return d.campaign_id === c.id; }).reduce(function(sum, d){ return sum + parseFloat(d.amount); }, 0);
-        var thumb = c.image_url ? '<img src="'+c.image_url+'" alt="">' : '<div class="thumb-placeholder"></div>';
-        return '<div class="past-campaign-card">'+thumb+
-          '<div><p class="past-campaign-title">'+c.title+'</p>'+
-          '<p class="past-campaign-meta">₹'+raised.toLocaleString('en-IN')+' raised of ₹'+parseFloat(c.goal_amount).toLocaleString('en-IN')+' goal</p></div>'+
-        '</div>';
-      }).join('');
-    });
-  }
 
   document.querySelectorAll('.preset-btn').forEach(function(btn){
     btn.onclick = function(){
