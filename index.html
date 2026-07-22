@@ -829,6 +829,7 @@
       <button class="admin-dash-tab" data-tab="requests" style="flex-shrink:0;background:transparent;border:1px solid #EEE0C4;border-radius:10px;padding:9px 12px;text-align:center;cursor:pointer;font-size:11.5px;font-weight:700;color:#9AABCE;">Requests &amp; Bookings</button>
       <button class="admin-dash-tab" data-tab="organization" style="flex-shrink:0;background:transparent;border:1px solid #EEE0C4;border-radius:10px;padding:9px 12px;text-align:center;cursor:pointer;font-size:11.5px;font-weight:700;color:#9AABCE;">Organization</button>
       <button class="admin-dash-tab" data-tab="system" style="flex-shrink:0;background:transparent;border:1px solid #EEE0C4;border-radius:10px;padding:9px 12px;text-align:center;cursor:pointer;font-size:11.5px;font-weight:700;color:#9AABCE;">System</button>
+      <button class="admin-dash-tab" data-tab="behavior" style="flex-shrink:0;background:transparent;border:1px solid #EEE0C4;border-radius:10px;padding:9px 12px;text-align:center;cursor:pointer;font-size:11.5px;font-weight:700;color:#9AABCE;">Behavior</button>
     </div>
 
     <div id="adminDashTab-overview" class="admin-dash-tab-content">
@@ -964,6 +965,27 @@
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Recent App Errors</p>
     <p style="font-size:11px;color:#B0AA98;margin:0 0 10px;">Real errors users have actually hit, most recent first.</p>
     <div id="adminErrorLogsList"></div>
+    </div>
+
+    <div id="adminDashTab-behavior" class="admin-dash-tab-content" style="display:none;">
+    <p style="font-size:11px;color:#B0AA98;margin:0 0 14px;">First-party, built in-house -- nothing here ever leaves your own Supabase project. Deliberately tracks only which screens and features get used, never journal text, mood selections, test answers, or chat content.</p>
+    <div id="adminBehaviorRangeRow" style="display:flex;gap:6px;margin-bottom:18px;">
+      <button class="admin-behavior-range" data-days="7" style="flex:1;background:transparent;border:1px solid #EEE0C4;border-radius:10px;padding:8px;text-align:center;cursor:pointer;font-size:11.5px;font-weight:700;color:#9AABCE;">7 days</button>
+      <button class="admin-behavior-range" data-days="30" style="flex:1;background:#6690D6;border:none;border-radius:10px;padding:8px;text-align:center;cursor:pointer;font-size:11.5px;font-weight:700;color:#FFF8F0;">30 days</button>
+      <button class="admin-behavior-range" data-days="90" style="flex:1;background:transparent;border:1px solid #EEE0C4;border-radius:10px;padding:8px;text-align:center;cursor:pointer;font-size:11.5px;font-weight:700;color:#9AABCE;">90 days</button>
+    </div>
+
+    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Feature usage</p>
+    <p style="font-size:11px;color:#B0AA98;margin:0 0 10px;">What people actually do, ranked by how often.</p>
+    <div id="adminFeatureUsageList" style="margin-bottom:22px;"></div>
+
+    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Most-visited screens</p>
+    <p style="font-size:11px;color:#B0AA98;margin:0 0 10px;">Where people spend their time.</p>
+    <div id="adminScreenPopularityList" style="margin-bottom:22px;"></div>
+
+    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">How people navigate</p>
+    <p style="font-size:11px;color:#B0AA98;margin:0 0 10px;">The most common "went from X, then to Y" paths through the app.</p>
+    <div id="adminNavFlowList"></div>
     </div>
   </div>
 
@@ -2102,7 +2124,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260721233948';
+  var CURRENT_BUILD = '20260722000832';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -2747,7 +2769,7 @@ function trackNotificationAction(actionType){
     .then(function(result){ if(result.error) console.error('Failed to record notification action:', result.error); });
 }
 
-document.getElementById('notifBellBtn').onclick = openMyNotifInbox;
+document.getElementById('notifBellBtn').onclick = function(){ logAnalyticsEvent('notif_inbox_opened'); openMyNotifInbox(); };
 document.getElementById('myNotifInboxCloseBtn').onclick = function(){
   document.getElementById('myNotifInboxBackdrop').style.display = 'none';
   document.getElementById('myNotifInboxModal').style.display = 'none';
@@ -4221,19 +4243,43 @@ function showOnly(panelId){
   // floating over every single screen in the app the way it originally did.
   document.getElementById('newJournalEntryFabBtn').style.display = (panelId === 'panel-history') ? 'flex' : 'none';
   if(panelHistoryStack[panelHistoryStack.length - 1] !== panelId){
+    var fromPanel = panelHistoryStack[panelHistoryStack.length - 1];
     panelHistoryStack.push(panelId);
     if(panelHistoryStack.length > 30) panelHistoryStack.shift(); // avoid unbounded growth
-    logScreenView(panelId);
+    logScreenView(panelId, fromPanel);
   }
 }
 
 // Firebase Analytics: automatic screen-view tracking (every panel change, via showOnly above) plus
 // a handful of custom events at the key funnel moments Akash asked to see behavior for.
-function logScreenView(panelId){
+//
+// First-party analytics (app_analytics_events table in Supabase): built alongside Firebase so
+// feature-usage and navigation-flow data is visible directly in the admin panel, not just in an
+// external Firebase console. Deliberately logs ONLY screen/feature identifiers, exactly the same
+// event names already going to Firebase above -- never the actual journal text, which mood was
+// picked, a test score, or chat content. This is what makes it safe to log on every screen
+// including sensitive ones: we record that the journal screen was opened, never what was written
+// there. Runs on web too (Firebase Analytics here is native-app-only), fire-and-forget so a
+// failed write never blocks the UI.
+var analyticsSessionId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : (Date.now() + '-' + Math.random().toString(36).slice(2));
+function logFirstPartyAnalytics(eventType, screenName, fromScreen, featureName){
+  if(!sb) return;
+  sb.from('app_analytics_events').insert({
+    user_id: (currentUser && currentUser.id) || null,
+    event_type: eventType,
+    screen_name: screenName || null,
+    from_screen: fromScreen || null,
+    feature_name: featureName || null,
+    session_id: analyticsSessionId
+  }).then(function(){}).catch(function(){});
+}
+function logScreenView(panelId, fromPanel){
+  logFirstPartyAnalytics('screen_view', panelId, fromPanel, null);
   if(!IS_NATIVE_APP || !window.Capacitor || !window.Capacitor.Plugins || !window.Capacitor.Plugins.FirebaseAnalytics) return;
   window.Capacitor.Plugins.FirebaseAnalytics.setCurrentScreen({ screenName: panelId, screenClassOverview: panelId }).catch(function(){});
 }
 function logAnalyticsEvent(eventName, params){
+  logFirstPartyAnalytics('feature_use', panelHistoryStack[panelHistoryStack.length - 1], null, eventName);
   if(!IS_NATIVE_APP || !window.Capacitor || !window.Capacitor.Plugins || !window.Capacitor.Plugins.FirebaseAnalytics) return;
   window.Capacitor.Plugins.FirebaseAnalytics.logEvent({ name: eventName, params: params || {} }).catch(function(){});
 }
@@ -7661,6 +7707,7 @@ document.getElementById('calmRoomPlayBtn').onclick = function(){
   if(!ambientAudioCtx){
     startAmbientSound();
     icon.innerHTML = '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>';
+    logAnalyticsEvent('calm_sound_played');
   } else {
     stopAmbientSound();
     icon.innerHTML = '<path d="M8 5v14l11-7z"/>';
@@ -8373,7 +8420,7 @@ document.getElementById('meetPoBtn').onclick = function(){ openAssistantModal('p
 // The floating button is a second, quick-access entry point alongside the Home-page crew
 // section, not a replacement for it -- opens to whichever tab was last active (Bob by default),
 // same underlying modal either way.
-document.getElementById('assistantFabBtn').onclick = function(){ openAssistantModal(assistantActiveCharacter); };
+document.getElementById('assistantFabBtn').onclick = function(){ logAnalyticsEvent('assistant_opened'); openAssistantModal(assistantActiveCharacter); };
 document.getElementById('newJournalEntryFabBtn').onclick = function(){
   // Goes straight to the writing page, same as choiceJournalBtn -- no need for the "what kind
   // of entry" choice overlay here, since tapping a dedicated "new journal entry" button is
@@ -8755,6 +8802,99 @@ function renderAdminErrorLogs(){
       return '<div style="background:#FBE8E8;border-radius:10px;padding:10px 12px;margin-bottom:6px;">'+
         '<p style="font-size:11px;color:#C77B7B;font-weight:700;margin:0 0 3px;">'+(l.message||'Unknown error')+'</p>'+
         '<p style="font-size:9.5px;color:#9AABCE;margin:0;">'+dateLabel+'</p>'+
+      '</div>';
+    }).join('');
+  });
+}
+
+// ================= APP BEHAVIOR ANALYTICS (Admin > Behavior tab) =================
+// First-party feature usage + navigation analytics, built directly on top of the same
+// screen/feature identifiers already going to Firebase Analytics -- see logFirstPartyAnalytics
+// above. Friendly labels below are just for readability here; the underlying data is always the
+// raw panel id / event name, never any content typed or selected within a screen.
+var PANEL_FRIENDLY_LABELS = {
+  'panel-bubbles': 'Home', 'panel-journal': 'Journal (writing)', 'panel-quick-journal': 'Quick journal',
+  'panel-saved': 'Saved entry', 'panel-support': 'Support groups info', 'panel-therapist-select': 'Choose therapist',
+  'panel-intake': 'Intake form', 'panel-booking': 'Booking', 'panel-history': 'Journal index',
+  'panel-profile': 'Profile (You)', 'panel-mood-tracker': 'Mood tracker', 'panel-who5': 'WHO-5 check-in',
+  'panel-who5-results': 'WHO-5 results', 'panel-calendar': 'Calendar', 'panel-day': 'Day detail',
+  'panel-celebration': 'Task celebration', 'panel-bodydouble': 'Body doubling', 'panel-tips': 'Grounding tips',
+  'panel-calmroom': 'Calm Room', 'panel-progress': 'See Progress', 'panel-achievements': 'Achievements',
+  'panel-rewards': 'Rewards', 'panel-search': 'Search', 'panel-team': 'Browse team',
+  'panel-expert-detail': 'Expert profile', 'panel-admin': 'Admin panel', 'panel-therapist-dashboard': 'Therapist dashboard',
+  'panel-edit-profile': 'Edit profile', 'panel-my-bookings': 'My bookings', 'panel-tests': 'Screening tests list',
+  'panel-test-detail': 'Test intro', 'panel-test-results': 'Test results', 'panel-grounding': 'Grounding exercises',
+  'panel-grounding-detail': 'Grounding exercise', 'panel-worksheets': 'Worksheets', 'panel-worksheet-category': 'Worksheet category',
+  'panel-worksheet-detail': 'Worksheet (writing)', 'panel-chat-list': 'Chats', 'panel-chat-room': 'Chat room',
+  'panel-chat-create-group': 'Create group', 'panel-chat-room-info': 'Chat room info'
+};
+function friendlyPanelLabel(id){ return PANEL_FRIENDLY_LABELS[id] || id; }
+function friendlyFeatureLabel(name){
+  return (name || '').replace(/_/g, ' ').replace(/\b\w/g, function(c){ return c.toUpperCase(); });
+}
+
+var adminBehaviorRangeDays = 30;
+document.querySelectorAll('.admin-behavior-range').forEach(function(btn){
+  btn.onclick = function(){
+    adminBehaviorRangeDays = parseInt(btn.dataset.days, 10);
+    document.querySelectorAll('.admin-behavior-range').forEach(function(b){
+      var isActive = b === btn;
+      b.style.background = isActive ? '#6690D6' : 'transparent';
+      b.style.color = isActive ? '#FFF8F0' : '#9AABCE';
+      b.style.border = isActive ? 'none' : '1px solid #EEE0C4';
+    });
+    renderAdminBehaviorAnalytics(adminBehaviorRangeDays);
+  };
+});
+
+function behaviorBarRow(label, count, uniqueUsers, maxCount, color){
+  var pct = maxCount > 0 ? Math.max(4, Math.round((count / maxCount) * 100)) : 0;
+  var userLabel = (uniqueUsers !== undefined && uniqueUsers !== null) ? (uniqueUsers + ' user' + (uniqueUsers === 1 ? '' : 's')) : '';
+  return '<div style="margin-bottom:10px;">'+
+    '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">'+
+      '<span style="font-size:12px;font-weight:700;color:#2A2013;">'+label+'</span>'+
+      '<span style="font-size:10.5px;color:#9AABCE;">'+count+(userLabel ? ' · '+userLabel : '')+'</span>'+
+    '</div>'+
+    '<div style="height:7px;background:#F0E9D8;border-radius:4px;overflow:hidden;">'+
+      '<div style="height:100%;width:'+pct+'%;background:'+color+';border-radius:4px;"></div>'+
+    '</div>'+
+  '</div>';
+}
+
+function renderAdminBehaviorAnalytics(daysBack){
+  var featureWrap = document.getElementById('adminFeatureUsageList');
+  var screenWrap = document.getElementById('adminScreenPopularityList');
+  var flowWrap = document.getElementById('adminNavFlowList');
+  featureWrap.innerHTML = '<p style="font-size:11px;color:#B0AA98;">Loading...</p>';
+  screenWrap.innerHTML = '<p style="font-size:11px;color:#B0AA98;">Loading...</p>';
+  flowWrap.innerHTML = '<p style="font-size:11px;color:#B0AA98;">Loading...</p>';
+
+  sb.rpc('analytics_feature_usage', { days_back: daysBack }).then(function(result){
+    if(result.error){ featureWrap.innerHTML = '<p style="font-size:11px;color:#B0AA98;">Could not load feature usage.</p>'; return; }
+    var rows = result.data || [];
+    if(rows.length === 0){ featureWrap.innerHTML = '<p style="font-size:11px;color:#9AABCE;">No feature events logged yet in this range.</p>'; return; }
+    var max = rows[0].use_count;
+    featureWrap.innerHTML = rows.map(function(r){ return behaviorBarRow(friendlyFeatureLabel(r.feature_name), r.use_count, r.unique_users, max, '#6690D6'); }).join('');
+  });
+
+  sb.rpc('analytics_screen_popularity', { days_back: daysBack }).then(function(result){
+    if(result.error){ screenWrap.innerHTML = '<p style="font-size:11px;color:#B0AA98;">Could not load screen popularity.</p>'; return; }
+    var rows = result.data || [];
+    if(rows.length === 0){ screenWrap.innerHTML = '<p style="font-size:11px;color:#9AABCE;">No screen views logged yet in this range.</p>'; return; }
+    var max = rows[0].view_count;
+    screenWrap.innerHTML = rows.map(function(r){ return behaviorBarRow(friendlyPanelLabel(r.screen_name), r.view_count, r.unique_users, max, '#3B8F63'); }).join('');
+  });
+
+  sb.rpc('analytics_top_transitions', { days_back: daysBack }).then(function(result){
+    if(result.error){ flowWrap.innerHTML = '<p style="font-size:11px;color:#B0AA98;">Could not load navigation flow.</p>'; return; }
+    var rows = result.data || [];
+    if(rows.length === 0){ flowWrap.innerHTML = '<p style="font-size:11px;color:#9AABCE;">Not enough navigation data yet in this range.</p>'; return; }
+    flowWrap.innerHTML = rows.map(function(r){
+      return '<div style="display:flex;align-items:center;gap:8px;background:#FFFFFF;border:1px solid #EEE0C4;border-radius:10px;padding:10px 12px;margin-bottom:6px;">'+
+        '<span style="font-size:11.5px;font-weight:700;color:#2A2013;flex:1;">'+friendlyPanelLabel(r.from_screen)+'</span>'+
+        '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9AABCE" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M5 12h14M12 5l7 7-7 7"/></svg>'+
+        '<span style="font-size:11.5px;font-weight:700;color:#2A2013;flex:1;">'+friendlyPanelLabel(r.to_screen)+'</span>'+
+        '<span style="font-size:10.5px;color:#9AABCE;flex-shrink:0;">'+r.transition_count+'×</span>'+
       '</div>';
     }).join('');
   });
@@ -9737,7 +9877,7 @@ document.getElementById('adminStatDetailModalBackdrop').onclick = function(){
 // groups, the full user base), System (technical/error visibility) -- instead of one long
 // scroll through 14+ stacked sections with no grouping at all.
 function switchAdminDashTab(tabKey){
-  ['overview','experts','requests','organization','system'].forEach(function(key){
+  ['overview','experts','requests','organization','system','behavior'].forEach(function(key){
     document.getElementById('adminDashTab-'+key).style.display = (key === tabKey) ? 'block' : 'none';
   });
   document.querySelectorAll('.admin-dash-tab').forEach(function(tab){
@@ -9745,6 +9885,7 @@ function switchAdminDashTab(tabKey){
     tab.style.background = isActive ? '#6690D6' : 'transparent';
     tab.style.color = isActive ? '#FFF8F0' : '#9AABCE';
   });
+  if(tabKey === 'behavior') renderAdminBehaviorAnalytics(adminBehaviorRangeDays);
 }
 document.querySelectorAll('.admin-dash-tab').forEach(function(tab){
   tab.onclick = function(){ switchAdminDashTab(tab.dataset.tab); };
@@ -11960,7 +12101,7 @@ function teamPhotoFallback(img, initials){
   if(img && img.parentElement) img.parentElement.textContent = initials;
 }
 document.getElementById('meetTeamBtn').onclick = function(){ renderTeamList(); showOnly('panel-team'); };
-document.getElementById('homeBookSessionBtn').onclick = function(){ renderTeamList(); showOnly('panel-team'); };
+document.getElementById('homeBookSessionBtn').onclick = function(){ logAnalyticsEvent('home_book_session_cta_tapped'); renderTeamList(); showOnly('panel-team'); };
 document.getElementById('teamBackBtn').onclick = function(){ showOnly('panel-bubbles'); setActiveNav('navHome'); };
 
 // ================= SCREENING TESTS (17 total, matching homeofbeautifulsouls.com structure) =================
