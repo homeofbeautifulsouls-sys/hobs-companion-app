@@ -935,6 +935,7 @@
     <div style="margin-bottom:6px;">
       <label for="adminCampaignImageInput" style="display:block;font-size:11px;color:#9AABCE;margin-bottom:4px;">Campaign photo — shown on the donation page and in the preview when the link is shared</label>
       <img id="adminCampaignImagePreview" style="display:none;width:100%;max-height:140px;object-fit:cover;border-radius:10px;border:1px solid #EEE0C4;margin-bottom:6px;">
+      <button id="adminCampaignImageRemoveBtn" type="button" style="display:none;width:100%;padding:8px;border-radius:8px;border:1px solid #F0C7C7;background:transparent;color:#C77B7B;font-size:11px;font-weight:700;cursor:pointer;margin-bottom:6px;">Remove photo</button>
       <input type="file" id="adminCampaignImageInput" accept="image/jpeg,image/png,image/webp" style="width:100%;font-size:11px;">
       <p id="adminCampaignImageStatus" style="font-size:10.5px;color:#9AABCE;margin:4px 0 0;"></p>
     </div>
@@ -9162,14 +9163,26 @@ document.getElementById('adminNotifyPolicyUpdateBtn').onclick = function(){
   });
 };
 
+function updateCampaignImagePreviewUI(url){
+  var previewImg = document.getElementById('adminCampaignImagePreview');
+  var removeBtn = document.getElementById('adminCampaignImageRemoveBtn');
+  if(url){
+    previewImg.src = url;
+    previewImg.style.display = 'block';
+    removeBtn.style.display = 'block';
+  } else {
+    previewImg.style.display = 'none';
+    removeBtn.style.display = 'none';
+  }
+}
+
 function renderAdminCampaign(){
   sb.from('donation_campaigns').select('*').eq('is_active', true).order('created_at', {ascending:false}).limit(1).then(function(result){
     var infoEl = document.getElementById('adminCampaignCurrentInfo');
-    var previewImg = document.getElementById('adminCampaignImagePreview');
     if(result.error || !result.data || result.data.length === 0){
       adminActiveCampaignId = null;
       adminCampaignImageUrl = null;
-      previewImg.style.display = 'none';
+      updateCampaignImagePreviewUI(null);
       infoEl.innerHTML = '<p style="font-size:11px;color:#B0AA98;">No active campaign yet — fill in the fields below to start one.</p>';
       return;
     }
@@ -9179,7 +9192,7 @@ function renderAdminCampaign(){
     document.getElementById('adminCampaignTitle').value = c.title;
     document.getElementById('adminCampaignDescription').value = c.description || '';
     document.getElementById('adminCampaignGoal').value = c.goal_amount;
-    if(c.image_url){ previewImg.src = c.image_url; previewImg.style.display = 'block'; } else { previewImg.style.display = 'none'; }
+    updateCampaignImagePreviewUI(c.image_url || null);
 
     sb.from('donations').select('amount').eq('campaign_id', c.id).eq('payment_confirmed', true).then(function(donResult){
       var raised = (donResult.data || []).reduce(function(sum, d){ return sum + parseFloat(d.amount); }, 0);
@@ -9251,6 +9264,7 @@ document.getElementById('adminCampaignImageInput').onchange = function(){
   var localUrl = URL.createObjectURL(file);
   previewImg.src = localUrl;
   previewImg.style.display = 'block';
+  document.getElementById('adminCampaignImageRemoveBtn').style.display = 'block';
   statusEl.textContent = 'Uploading...';
   var ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
   var path = currentUser.id + '/campaigns/' + uidGen() + '.' + ext;
@@ -9261,6 +9275,24 @@ document.getElementById('adminCampaignImageInput').onchange = function(){
     statusEl.textContent = 'Photo ready — click Save Campaign to apply it.';
     statusEl.style.color = '#3B8F63';
   });
+};
+
+document.getElementById('adminCampaignImageRemoveBtn').onclick = function(){
+  adminCampaignImageUrl = null;
+  document.getElementById('adminCampaignImageInput').value = '';
+  document.getElementById('adminCampaignImageStatus').textContent = '';
+  updateCampaignImagePreviewUI(null);
+  // If there's already a saved campaign, remove the photo immediately rather than waiting on
+  // a separate Save click -- "remove" should mean removed, not "removed once you remember to
+  // also hit Save", which is exactly the kind of stale-state mismatch that caused a real mix-up
+  // earlier today.
+  if(adminActiveCampaignId){
+    sb.from('donation_campaigns').update({ image_url: null }).eq('id', adminActiveCampaignId).then(function(result){
+      if(result.error){ showToast('Could not remove the photo — please try again.'); return; }
+      showToast('Photo removed.');
+      syncDonatePageMeta();
+    });
+  }
 };
 
 document.getElementById('adminCampaignArchiveBtn').onclick = function(){
@@ -9283,9 +9315,9 @@ document.getElementById('adminCampaignArchiveBtn').onclick = function(){
     document.getElementById('adminCampaignTitle').value = '';
     document.getElementById('adminCampaignDescription').value = '';
     document.getElementById('adminCampaignGoal').value = '';
-    document.getElementById('adminCampaignImagePreview').style.display = 'none';
     document.getElementById('adminCampaignImageInput').value = '';
     document.getElementById('adminCampaignImageStatus').textContent = '';
+    updateCampaignImagePreviewUI(null);
     showToast('Previous campaign hidden. Fill in the fields below to start a new one.');
     renderAdminCampaign();
     syncDonatePageMeta();
