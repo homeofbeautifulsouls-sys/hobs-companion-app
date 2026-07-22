@@ -714,6 +714,10 @@
         <div class="qa-card-icon"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div>
         <span class="qa-card-label">Book an Appointment</span>
       </div>
+      <div class="qa-card" id="openPeriodTrackerBtn" style="--qa-color:#C2588A;--qa-bg:#FBE7EF;">
+        <div class="qa-card-icon"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c4 5 7 9 7 12.5A7 7 0 0 1 5 14.5C5 11 8 7 12 2z"/></svg></div>
+        <span class="qa-card-label">Period Tracker</span>
+      </div>
     </div>
 
     <p class="home-section-title">Your journey so far</p>
@@ -1675,6 +1679,41 @@
     <div id="moodPastDaysList"></div>
   </div>
 
+  <div class="content" id="panel-period-tracker" style="display:none;">
+    <button id="periodTrackerBackBtn" style="background:none;border:none;cursor:pointer;padding:0;margin-bottom:14px;color:#5C6B94;display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      Home
+    </button>
+    <p class="prompt-title" style="text-align:center;">Period Tracker</p>
+    <p class="prompt-sub" style="text-align:center;margin-bottom:22px;">Just for you — this is never visible to anyone else, not even your care team.</p>
+
+    <div id="periodPredictionCard" style="display:none;background:#FBE7EF;border-radius:16px;padding:16px;margin-bottom:18px;text-align:center;">
+      <p style="font-size:11px;color:#C2588A;font-weight:700;margin:0 0 4px;text-transform:uppercase;letter-spacing:0.3px;">Next period, estimated</p>
+      <p id="periodPredictionDate" style="font-size:19px;font-weight:800;color:#8A3A64;margin:0 0 4px;"></p>
+      <p id="periodPredictionMeta" style="font-size:11px;color:#B0708F;margin:0;"></p>
+    </div>
+    <p id="periodNotEnoughDataMsg" style="display:none;font-size:12px;color:#9AABCE;text-align:center;margin:0 0 18px;">Log a couple of cycles and we'll start estimating your next one.</p>
+
+    <div id="periodActiveCard" style="display:none;background:#FFFFFF;border:1px solid #EEE0C4;border-radius:16px;padding:16px;margin-bottom:18px;">
+      <p style="font-size:12.5px;font-weight:700;color:#2A2013;margin:0 0 3px;">Currently logged as ongoing</p>
+      <p id="periodActiveSince" style="font-size:11px;color:#9AABCE;margin:0 0 12px;"></p>
+      <button id="periodLogEndBtn" style="width:100%;padding:12px;border-radius:12px;border:none;background:#C2588A;color:#FFFFFF;font-size:13px;font-weight:700;cursor:pointer;">Log End Date</button>
+    </div>
+    <button id="periodLogStartBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:none;background:#C2588A;color:#FFFFFF;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:22px;">Log Period Start</button>
+
+    <p class="home-section-title" style="text-align:left;margin-top:0;">History</p>
+    <p class="home-section-sub" style="text-align:left;margin-bottom:12px;">Every cycle you've logged.</p>
+    <div id="periodHistoryList"></div>
+  </div>
+
+  <div id="periodDateModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.45);z-index:60;"></div>
+  <div id="periodDateModal" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;background:#FFFFFF;border-radius:24px 24px 0 0;padding:24px 22px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;z-index:61;box-shadow:0 -10px 30px rgba(0,0,0,0.15);text-align:center;">
+    <p class="prompt-title" id="periodDateModalTitle" style="margin-bottom:14px;">Log Period Start</p>
+    <input type="date" id="periodDateModalInput" style="width:100%;padding:14px;border-radius:12px;border:1px solid #EEE0C4;font-size:15px;font-family:inherit;margin-bottom:16px;box-sizing:border-box;">
+    <button id="periodDateModalSaveBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:none;background:#C2588A;color:#FFFFFF;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;">Save</button>
+    <button id="periodDateModalCancelBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:13px;font-weight:700;cursor:pointer;">Cancel</button>
+  </div>
+
   <div class="content" id="panel-who5" style="display:none;">
     <button id="who5BackBtn" style="background:none;border:none;cursor:pointer;padding:0;margin-bottom:14px;color:#5C6B94;display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600;">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
@@ -2146,7 +2185,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260722191526';
+  var CURRENT_BUILD = '20260722222037';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -4254,7 +4293,7 @@ document.getElementById('intakeDoneBtn').onclick = function(){
 };
 
 // ---- Bottom nav: Home / Journal / You ----
-var allPanels = ['panel-bubbles','panel-journal','panel-quick-journal','panel-saved','panel-support','panel-therapist-select','panel-intake','panel-booking','panel-history','panel-profile','panel-mood-tracker','panel-who5','panel-who5-results','panel-calendar','panel-day','panel-celebration','panel-bodydouble','panel-tips','panel-calmroom','panel-progress','panel-achievements','panel-rewards','panel-search','panel-team','panel-expert-detail','panel-admin','panel-therapist-dashboard','panel-edit-profile','panel-my-bookings','panel-tests','panel-test-detail','panel-test-results','panel-grounding','panel-grounding-detail','panel-worksheets','panel-worksheet-category','panel-worksheet-detail','panel-chat-list','panel-chat-room','panel-chat-create-group','panel-chat-room-info'];
+var allPanels = ['panel-bubbles','panel-journal','panel-quick-journal','panel-saved','panel-support','panel-therapist-select','panel-intake','panel-booking','panel-history','panel-profile','panel-mood-tracker','panel-period-tracker','panel-who5','panel-who5-results','panel-calendar','panel-day','panel-celebration','panel-bodydouble','panel-tips','panel-calmroom','panel-progress','panel-achievements','panel-rewards','panel-search','panel-team','panel-expert-detail','panel-admin','panel-therapist-dashboard','panel-edit-profile','panel-my-bookings','panel-tests','panel-test-detail','panel-test-results','panel-grounding','panel-grounding-detail','panel-worksheets','panel-worksheet-category','panel-worksheet-detail','panel-chat-list','panel-chat-room','panel-chat-create-group','panel-chat-room-info'];
 var panelHistoryStack = ['panel-bubbles'];
 // Real ask: text in a fixed-height textarea (campaign description, therapist bio, session
 // notes, etc.) was only visible up to whatever the CSS min-height happened to be -- the rest
@@ -5965,6 +6004,128 @@ document.getElementById('openMoodTrackerBtn').onclick = function(){
   showOnly('panel-mood-tracker');
 };
 document.getElementById('moodTrackerBackBtn').onclick = function(){ showOnly('panel-bubbles'); setActiveNav('navHome'); };
+
+// ================= PERIOD TRACKER =================
+// Deliberately the most locked-down data in the app -- RLS on period_logs allows ONLY the
+// owning user to read or write their own rows, full stop, not even admins or therapists (see
+// "Users manage their own period logs" policy). Never touched by analytics beyond a generic
+// screen-view (see logFirstPartyAnalytics elsewhere -- that already never logs content, just
+// that the screen was opened), never synced anywhere else.
+var periodDateModalMode = null; // 'start' | 'end'
+var periodOngoingLogId = null;
+
+document.getElementById('openPeriodTrackerBtn').onclick = function(){
+  showOnly('panel-period-tracker');
+  renderPeriodTracker();
+};
+document.getElementById('periodTrackerBackBtn').onclick = function(){ showOnly('panel-bubbles'); setActiveNav('navHome'); };
+
+function formatPeriodDate(dateStr){
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
+}
+function daysBetween(a, b){
+  return Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / (1000*60*60*24));
+}
+
+function renderPeriodTracker(){
+  sb.from('period_logs').select('*').eq('user_id', currentUser.id).order('start_date', {ascending:false}).then(function(result){
+    var logs = (result.data || []);
+    var activeCard = document.getElementById('periodActiveCard');
+    var logStartBtn = document.getElementById('periodLogStartBtn');
+    var ongoing = logs.find(function(l){ return !l.end_date; });
+
+    if(ongoing){
+      periodOngoingLogId = ongoing.id;
+      activeCard.style.display = 'block';
+      document.getElementById('periodActiveSince').textContent = 'Started ' + formatPeriodDate(ongoing.start_date);
+      logStartBtn.style.display = 'none';
+    } else {
+      periodOngoingLogId = null;
+      activeCard.style.display = 'none';
+      logStartBtn.style.display = 'block';
+    }
+
+    // Prediction: average the gap between the last few cycle START dates (up to 6), predict
+    // forward from the most recent start. Needs at least 2 logged cycles to say anything --
+    // never guesses off a single data point.
+    var predictionCard = document.getElementById('periodPredictionCard');
+    var notEnoughMsg = document.getElementById('periodNotEnoughDataMsg');
+    var starts = logs.map(function(l){ return l.start_date; }).sort(); // oldest first
+    if(starts.length >= 2){
+      var recentStarts = starts.slice(-6);
+      var gaps = [];
+      for(var i = 1; i < recentStarts.length; i++) gaps.push(daysBetween(recentStarts[i-1], recentStarts[i]));
+      var avgCycle = Math.round(gaps.reduce(function(sum, g){ return sum + g; }, 0) / gaps.length);
+      var lastStart = recentStarts[recentStarts.length - 1];
+      var predictedDate = new Date(lastStart + 'T00:00:00');
+      predictedDate.setDate(predictedDate.getDate() + avgCycle);
+      predictionCard.style.display = 'block';
+      notEnoughMsg.style.display = 'none';
+      document.getElementById('periodPredictionDate').textContent = predictedDate.toLocaleDateString('en-IN', { day:'numeric', month:'long' });
+      document.getElementById('periodPredictionMeta').textContent = 'Based on your last ' + recentStarts.length + ' cycles — average ' + avgCycle + ' days';
+    } else {
+      predictionCard.style.display = 'none';
+      notEnoughMsg.style.display = 'block';
+    }
+
+    var historyEl = document.getElementById('periodHistoryList');
+    if(logs.length === 0){
+      historyEl.innerHTML = '<p style="font-size:12px;color:#9AABCE;text-align:center;">Nothing logged yet — tap "Log Period Start" whenever it begins.</p>';
+      return;
+    }
+    historyEl.innerHTML = logs.map(function(l){
+      var lengthLabel = l.end_date ? (daysBetween(l.start_date, l.end_date) + 1) + ' days' : 'Ongoing';
+      var rangeLabel = formatPeriodDate(l.start_date) + (l.end_date ? ' – ' + formatPeriodDate(l.end_date) : '');
+      return '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:14px;padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">'+
+        '<p style="font-size:12.5px;font-weight:700;color:#2A2013;margin:0;">'+rangeLabel+'</p>'+
+        '<p style="font-size:11px;color:#C2588A;font-weight:700;margin:0;">'+lengthLabel+'</p>'+
+      '</div>';
+    }).join('');
+  });
+}
+
+document.getElementById('periodLogStartBtn').onclick = function(){
+  periodDateModalMode = 'start';
+  document.getElementById('periodDateModalTitle').textContent = 'Log Period Start';
+  document.getElementById('periodDateModalInput').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('periodDateModalBackdrop').style.display = 'block';
+  document.getElementById('periodDateModal').style.display = 'block';
+};
+document.getElementById('periodLogEndBtn').onclick = function(){
+  periodDateModalMode = 'end';
+  document.getElementById('periodDateModalTitle').textContent = 'Log Period End';
+  document.getElementById('periodDateModalInput').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('periodDateModalBackdrop').style.display = 'block';
+  document.getElementById('periodDateModal').style.display = 'block';
+};
+function closePeriodDateModal(){
+  document.getElementById('periodDateModalBackdrop').style.display = 'none';
+  document.getElementById('periodDateModal').style.display = 'none';
+}
+document.getElementById('periodDateModalCancelBtn').onclick = closePeriodDateModal;
+document.getElementById('periodDateModalBackdrop').onclick = closePeriodDateModal;
+document.getElementById('periodDateModalSaveBtn').onclick = function(){
+  var dateVal = document.getElementById('periodDateModalInput').value;
+  if(!dateVal){ showToast('Pick a date first.'); return; }
+  var btn = this;
+  btn.disabled = true; btn.textContent = 'Saving...';
+  if(periodDateModalMode === 'start'){
+    sb.from('period_logs').insert({ user_id: currentUser.id, start_date: dateVal }).then(function(result){
+      btn.disabled = false; btn.textContent = 'Save';
+      if(result.error){ showToast('Could not save — please try again.'); return; }
+      logAnalyticsEvent('period_logged');
+      closePeriodDateModal();
+      renderPeriodTracker();
+    });
+  } else {
+    sb.from('period_logs').update({ end_date: dateVal }).eq('id', periodOngoingLogId).then(function(result){
+      btn.disabled = false; btn.textContent = 'Save';
+      if(result.error){ showToast('Could not save — please try again.'); return; }
+      closePeriodDateModal();
+      renderPeriodTracker();
+    });
+  }
+};
 
 function renderMoodPastDays(){
   var wrap = document.getElementById('moodPastDaysList');
@@ -8860,7 +9021,7 @@ var PANEL_FRIENDLY_LABELS = {
   'panel-bubbles': 'Home', 'panel-journal': 'Journal (writing)', 'panel-quick-journal': 'Quick journal',
   'panel-saved': 'Saved entry', 'panel-support': 'Support groups info', 'panel-therapist-select': 'Choose therapist',
   'panel-intake': 'Intake form', 'panel-booking': 'Booking', 'panel-history': 'Journal index',
-  'panel-profile': 'Profile (You)', 'panel-mood-tracker': 'Mood tracker', 'panel-who5': 'WHO-5 check-in',
+  'panel-profile': 'Profile (You)', 'panel-mood-tracker': 'Mood tracker', 'panel-period-tracker': 'Period tracker', 'panel-who5': 'WHO-5 check-in',
   'panel-who5-results': 'WHO-5 results', 'panel-calendar': 'Calendar', 'panel-day': 'Day detail',
   'panel-celebration': 'Task celebration', 'panel-bodydouble': 'Body doubling', 'panel-tips': 'Grounding tips',
   'panel-calmroom': 'Calm Room', 'panel-progress': 'See Progress', 'panel-achievements': 'Achievements',
