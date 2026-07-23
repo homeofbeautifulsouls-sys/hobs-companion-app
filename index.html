@@ -1787,21 +1787,21 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
       Home
     </button>
-    <div class="month-nav">
-      <button id="prevMonthBtn">‹</button>
-      <span class="month-title" id="monthTitle">July 2026</span>
-      <button id="nextMonthBtn">›</button>
+    <div style="background:#FFFFFF;border-radius:20px;padding:18px 20px;margin-bottom:16px;box-shadow:0 1px 3px rgba(60,70,50,0.06);">
+      <p style="font-size:10.5px;font-weight:700;color:#9AABCE;text-transform:uppercase;letter-spacing:0.06em;margin:0 0 2px;">Today</p>
+      <p id="todayDateTitle" style="font-family:'Caveat',cursive;font-weight:700;font-size:30px;color:#150D06;margin:0 0 12px;"></p>
+      <div id="todayProgressStrip" style="display:flex;gap:5px;margin-bottom:2px;"></div>
+      <p id="todayProgressLabel" style="font-size:11px;color:#9AABCE;margin:6px 0 0;"></p>
     </div>
-    <p class="prompt-title">Your month, at a glance</p>
-    <p class="prompt-sub" style="margin-bottom:14px;">Every day you check in gets a place here — tap any day to see your mood and your tasks together.</p>
-    <div class="weekday-row"><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div>
-    <div class="day-grid" id="dayGrid"></div>
 
-    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:24px 0 10px;">Upcoming Sessions</p>
-    <div id="calendarUpcomingSessions"></div>
+    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Upcoming Sessions</p>
+    <div id="calendarUpcomingSessions" style="margin-bottom:20px;"></div>
 
-    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:24px 0 10px;">Tasks</p>
-    <div id="calendarPendingTasks"></div>
+    <div id="taskListToday"></div>
+    <div style="display:flex;gap:8px;margin-top:8px;">
+      <button id="addTaskBtnToday" style="flex:1;padding:14px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#6690D6;font-size:13px;font-weight:700;cursor:pointer;">+ Add a task</button>
+      <button id="addMoodBtnToday" style="flex:1;padding:14px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#3F8C82;font-size:13px;font-weight:700;cursor:pointer;">+ Add a mood</button>
+    </div>
   </div>
   <div class="content" id="panel-day" style="display:none;">
     <button id="dayBackBtn" style="background:none;border:none;cursor:pointer;padding:0;margin-bottom:14px;color:#5C6B94;display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600;">
@@ -2233,7 +2233,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260723064621';
+  var CURRENT_BUILD = '20260723065745';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -4629,7 +4629,7 @@ var ASSISTANT_COMMANDS = [
   { character: 'po', tier: 'client', patterns: [/\bjournal\b/i, /(want|need|let'?s|gonna).*write/i, /write.*(down|entry|about)/i, /new entry/i],
     reply: "Say less — here you go.", action: assistantGoTo(function(){ showOnly('panel-journal'); }, 'navJournal') },
   { character: 'po', tier: 'client', patterns: [/\btask/i, /\bcalendar\b/i, /\bschedule\b/i, /to.?do/i, /add.*(step|thing)/i],
-    reply: "On it.", action: assistantGoTo(function(){ showOnly('panel-calendar'); renderCalendar(); }, 'navTasks') },
+    reply: "On it.", action: assistantGoTo(function(){ showOnly('panel-calendar'); renderTodayCard(); }, 'navTasks') },
   { character: 'po', tier: 'therapist', patterns: [/log.*(appointment|session)/i],
     reply: null, // handled specially below -- attempts to parse a name and time
     action: 'LOG_APPOINTMENT' },
@@ -4922,8 +4922,8 @@ document.getElementById('navHome').onclick = function(){
 };
 
 document.getElementById('navTasks').onclick = function(){
-  renderCalendar();
   showOnly('panel-calendar');
+  renderTodayCard();
   setActiveNav('navTasks');
 };
 document.getElementById('calendarBackBtn').onclick = function(){ showOnly('panel-bubbles'); setActiveNav('navHome'); };
@@ -6548,31 +6548,21 @@ function moodsForDate(dateKey){
   return out;
 }
 
-// ---- Calendar (month grid: mood + task dots) ----
-var viewYear = TODAY_DATE.getFullYear(), viewMonth = TODAY_DATE.getMonth();
-var MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+// ---- Tasklist landing screen: today's tasks + upcoming sessions ----
+// Real request: the old month-grid calendar view was eliminated entirely per direct
+// instruction -- this screen now shows today's tasks directly (reusing the exact same rich
+// task-list rendering already proven on the day-detail page: drag-reorder, priority zones,
+// completed/remaining split, subtask breakdown) rather than a flat read-only list, plus
+// upcoming sessions. Viewing a DIFFERENT day still goes through panel-day via search results,
+// "Upcoming Sessions" taps, etc. -- this screen is specifically "what's true right now."
+var MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']; // still used by the separate therapist calendar
 
-function renderCalendar(){
-  document.getElementById('monthTitle').textContent = MONTH_NAMES[viewMonth] + ' ' + viewYear;
-  var grid = document.getElementById('dayGrid');
-  grid.innerHTML = '';
-  var firstDay = new Date(viewYear, viewMonth, 1).getDay();
-  var daysInMonth = new Date(viewYear, viewMonth+1, 0).getDate();
-  for(var i=0; i<firstDay; i++){
-    var empty = document.createElement('div'); empty.className = 'day-cell empty'; grid.appendChild(empty);
-  }
-  for(var day=1; day<=daysInMonth; day++){
-    (function(day){
-      var key = viewYear+'-'+pad2(viewMonth+1)+'-'+pad2(day);
-      var cell = document.createElement('div');
-      cell.className = 'day-cell' + ((viewYear===TODAY_DATE.getFullYear() && viewMonth===TODAY_DATE.getMonth() && day===TODAY_DATE.getDate()) ? ' today' : '');
-      var num = document.createElement('div'); num.className = 'day-num'; num.textContent = day; cell.appendChild(num);
-      cell.onclick = function(){ openDay(key); };
-      grid.appendChild(cell);
-    })(day);
-  }
+function renderTodayCard(){
+  activeDayKey = TODAY_KEY;
+  taskListRenderContext = { containerId: 'taskListToday', stripId: 'todayProgressStrip', labelId: 'todayProgressLabel' };
+  document.getElementById('todayDateTitle').textContent = TODAY_DATE.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
+  renderTaskListCal();
   renderCalendarUpcomingSessions();
-  renderCalendarPendingTasks();
 }
 
 function buildGoogleCalendarLink(title, dateObj, details){
@@ -6670,8 +6660,6 @@ function renderCalendarPendingTasks(){
     row.onclick = function(){ openDay(row.dataset.key); };
   });
 }
-document.getElementById('prevMonthBtn').onclick = function(){ viewMonth--; if(viewMonth<0){ viewMonth=11; viewYear--; } renderCalendar(); };
-document.getElementById('nextMonthBtn').onclick = function(){ viewMonth++; if(viewMonth>11){ viewMonth=0; viewYear++; } renderCalendar(); };
 
 // ---- Day detail ----
 var activeDayKey = null, lastCelebratedTask = null;
@@ -6680,9 +6668,11 @@ function openDay(key){
   showOnly('panel-day');
   renderDayPanel();
 }
-document.getElementById('dayBackBtn').onclick = function(){ renderCalendar(); showOnly('panel-calendar'); setActiveNav('navTasks'); };
+document.getElementById('dayBackBtn').onclick = function(){ showOnly('panel-calendar'); renderTodayCard(); setActiveNav('navTasks'); };
 document.getElementById('createTaskHighlightBtn').onclick = function(){ openDay(TODAY_KEY); };
+var taskListRenderContext = { containerId: 'taskListCal', stripId: 'dayProgressStrip', labelId: 'dayProgressLabel' };
 function renderDayPanel(){
+  taskListRenderContext = { containerId: 'taskListCal', stripId: 'dayProgressStrip', labelId: 'dayProgressLabel' };
   var parts = activeDayKey.split('-').map(Number);
   var dObj = new Date(parts[0], parts[1]-1, parts[2]);
   document.getElementById('dayDateTitle').textContent = dObj.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
@@ -6704,9 +6694,11 @@ function renderDayPanel(){
 // "derive from real subtask state, never trust task.done blindly" rule already used in
 // renderTaskListCal just below), not as one flat unit -- a 3-subtask task with 1 done
 // contributes 1/3 of a "task" toward the strip, not 0.
+// Targets whichever screen last set taskListRenderContext (the day-detail page or the Tasklist
+// landing/today screen) -- both share this exact same logic rather than duplicating it.
 function renderDayProgressStrip(){
-  var strip = document.getElementById('dayProgressStrip');
-  var label = document.getElementById('dayProgressLabel');
+  var strip = document.getElementById(taskListRenderContext.stripId);
+  var label = document.getElementById(taskListRenderContext.labelId);
   var tasks = getTasks(activeDayKey);
   if(tasks.length === 0){
     strip.innerHTML = '';
@@ -6777,7 +6769,8 @@ document.getElementById('dayMoodSaveBtn').onclick = function(){
   document.getElementById('dayMoodSheetBackdrop').style.display = 'none';
   document.getElementById('dayMoodSheet').style.display = 'none';
   showToast('Mood saved for that day');
-  renderDayPanel();
+  if(document.getElementById('panel-day').style.display !== 'none') renderDayPanel();
+  else if(document.getElementById('panel-calendar').style.display !== 'none') renderTodayCard();
 };
 var PRIORITY_COLORS = { low:'#9AABCE', medium:'#D9A536', high:'#C77B7B' };
 
@@ -7129,8 +7122,8 @@ function buildTaskItemElement(task, opts){
 }
 
 function renderTaskListCal(){
-  if(document.getElementById('dayProgressStrip')) renderDayProgressStrip();
-  var listEl = document.getElementById('taskListCal');
+  if(document.getElementById(taskListRenderContext.stripId)) renderDayProgressStrip();
+  var listEl = document.getElementById(taskListRenderContext.containerId);
   var tasks = getTasks(activeDayKey);
 
   // Each task resolves to one or two "entries" to render:
@@ -7305,6 +7298,8 @@ function toggleTaskCal(taskId){
   }
 }
 document.getElementById('addTaskBtnCal').onclick = function(){ openAddTaskSheet(activeDayKey); };
+document.getElementById('addTaskBtnToday').onclick = function(){ openAddTaskSheet(TODAY_KEY); };
+document.getElementById('addMoodBtnToday').onclick = function(){ document.getElementById('addMoodBtnCal').click(); };
 
 // ---- Celebration / mindmap ----
 var COOKIE_LINES = [
@@ -7530,7 +7525,7 @@ function renderBodyDoubleTaskList(){
 
 document.getElementById('bodyDoubleCloseBtn').onclick = function(){
   if(activeDayKey){ showOnly('panel-day'); renderDayPanel(); }
-  else { renderCalendar(); showOnly('panel-calendar'); setActiveNav('navTasks'); }
+  else { showOnly('panel-calendar'); renderTodayCard(); setActiveNav('navTasks'); }
 };
 
 document.getElementById('joinBodyDoubleBtn').onclick = function(){
