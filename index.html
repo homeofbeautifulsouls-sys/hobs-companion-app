@@ -1808,12 +1808,19 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
       Calendar
     </button>
-    <p class="day-date-title" id="dayDateTitle">Friday, July 4</p>
+    <div id="dayHeaderCard" style="background:#FFFFFF;border-radius:20px;padding:18px 20px;margin-bottom:16px;box-shadow:0 1px 3px rgba(60,70,50,0.06);">
+      <p id="dayHeaderLabel" style="font-size:10.5px;font-weight:700;color:#9AABCE;text-transform:uppercase;letter-spacing:0.06em;margin:0 0 2px;"></p>
+      <p id="dayDateTitle" style="font-family:'Caveat',cursive;font-weight:700;font-size:30px;color:#150D06;margin:0 0 12px;"></p>
+      <div id="dayProgressStrip" style="display:flex;gap:5px;margin-bottom:2px;"></div>
+      <p id="dayProgressLabel" style="font-size:11px;color:#9AABCE;margin:6px 0 0;"></p>
+    </div>
     <div id="dayMoodArea"></div>
     <button id="startBodyDoubleBtn" style="display:none;width:100%;padding:13px;border-radius:14px;border:1px dashed #B9CBEC;background:transparent;color:#6690D6;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:16px;">Start Body Doubling with today's tasks</button>
     <div id="taskListCal"></div>
-    <button id="addTaskBtnCal" style="display:block;width:100%;padding:14px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#6690D6;font-size:13.5px;font-weight:700;cursor:pointer;margin-top:8px;">+ Add a task for this day</button>
-    <button id="addMoodBtnCal" style="display:block;width:100%;padding:14px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#3F8C82;font-size:13.5px;font-weight:700;cursor:pointer;margin-top:8px;">+ Add a mood for this day</button>
+    <div style="display:flex;gap:8px;margin-top:8px;">
+      <button id="addTaskBtnCal" style="flex:1;padding:14px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#6690D6;font-size:13px;font-weight:700;cursor:pointer;">+ Add a task</button>
+      <button id="addMoodBtnCal" style="flex:1;padding:14px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#3F8C82;font-size:13px;font-weight:700;cursor:pointer;">+ Add a mood</button>
+    </div>
   </div>
 
   <div id="dayMoodSheetBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.4);z-index:40;"></div>
@@ -2084,6 +2091,9 @@
     </div>
   </div>
 
+  <button id="newTaskFabBtn" title="New task" style="display:none;position:absolute;right:16px;bottom:200px;width:52px;height:52px;border-radius:50%;border:none;background:#3B8F63;box-shadow:0 4px 14px rgba(0,0,0,0.18);cursor:pointer;z-index:55;align-items:center;justify-content:center;padding:0;">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFF8F0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+  </button>
   <button id="newJournalEntryFabBtn" title="New journal entry" style="display:none;position:absolute;right:16px;bottom:200px;width:52px;height:52px;border-radius:50%;border:none;background:#3B8F63;box-shadow:0 4px 14px rgba(0,0,0,0.18);cursor:pointer;z-index:55;align-items:center;justify-content:center;padding:0;">
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFF8F0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
   </button>
@@ -2223,7 +2233,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260723004231';
+  var CURRENT_BUILD = '20260723063701';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -4409,6 +4419,7 @@ function showOnly(panelId){
   // Real ask: this button should only ever be visible on the Journal index page itself, not
   // floating over every single screen in the app the way it originally did.
   document.getElementById('newJournalEntryFabBtn').style.display = (panelId === 'panel-history') ? 'flex' : 'none';
+  document.getElementById('newTaskFabBtn').style.display = (panelId === 'panel-day') ? 'flex' : 'none';
   // Screenshot/screen-recording prevention in chats: @capacitor/privacy-screen was already a
   // real dependency (confirmed in package.json) but never actually called anywhere -- the
   // plugin requires an explicit enable()/disable() call, it does nothing just by being
@@ -6672,6 +6683,8 @@ function renderDayPanel(){
   var parts = activeDayKey.split('-').map(Number);
   var dObj = new Date(parts[0], parts[1]-1, parts[2]);
   document.getElementById('dayDateTitle').textContent = dObj.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
+  document.getElementById('dayHeaderLabel').textContent = (activeDayKey === TODAY_KEY) ? 'Today' : dObj.toLocaleDateString('en-US', { weekday:'long' });
+  renderDayProgressStrip();
   var moodArea = document.getElementById('dayMoodArea');
   var dayMoods = moodsForDate(activeDayKey);
   if(dayMoods.length){
@@ -6683,6 +6696,41 @@ function renderDayPanel(){
   }
   document.getElementById('startBodyDoubleBtn').style.display = (activeDayKey === TODAY_KEY) ? 'block' : 'none';
   renderTaskListCal();
+}
+// A task with subtasks counts as fractionally done based on its own subtasks (matching the same
+// "derive from real subtask state, never trust task.done blindly" rule already used in
+// renderTaskListCal just below), not as one flat unit -- a 3-subtask task with 1 done
+// contributes 1/3 of a "task" toward the strip, not 0.
+function renderDayProgressStrip(){
+  var strip = document.getElementById('dayProgressStrip');
+  var label = document.getElementById('dayProgressLabel');
+  var tasks = getTasks(activeDayKey);
+  if(tasks.length === 0){
+    strip.innerHTML = '';
+    label.textContent = 'Nothing on the list yet for this day.';
+    return;
+  }
+  var totalUnits = 0, doneUnits = 0;
+  tasks.forEach(function(task){
+    if(task.subtasks && task.subtasks.length > 0){
+      totalUnits += task.subtasks.length;
+      doneUnits += task.subtasks.filter(function(s){ return s.done; }).length;
+    } else {
+      totalUnits += 1;
+      doneUnits += task.done ? 1 : 0;
+    }
+  });
+  var segments = tasks.length; // one segment per task, filled proportionally to how much of the strip's overall progress it represents
+  var pctDone = totalUnits > 0 ? (doneUnits / totalUnits) : 0;
+  var filledSegments = Math.round(pctDone * segments);
+  strip.innerHTML = '';
+  for(var i = 0; i < segments; i++){
+    var dot = document.createElement('div');
+    dot.style.cssText = 'flex:1;height:6px;border-radius:3px;background:'+(i < filledSegments ? '#3B8F63' : '#EEE0C4')+';transition:background 0.4s ease;';
+    strip.appendChild(dot);
+  }
+  var doneTasks = tasks.filter(function(t){ return t.subtasks && t.subtasks.length > 0 ? t.subtasks.every(function(s){ return s.done; }) : t.done; }).length;
+  label.textContent = doneTasks === tasks.length ? 'Everything done for this day.' : (doneTasks + ' of ' + tasks.length + ' tasks done');
 }
 document.getElementById('startBodyDoubleBtn').onclick = function(){ openBodyDouble(); };
 
@@ -7078,6 +7126,7 @@ function buildTaskItemElement(task, opts){
 }
 
 function renderTaskListCal(){
+  if(document.getElementById('dayProgressStrip')) renderDayProgressStrip();
   var listEl = document.getElementById('taskListCal');
   var tasks = getTasks(activeDayKey);
 
@@ -7526,6 +7575,7 @@ function openAddTaskSheet(dateKey){
   document.getElementById('sheetDeleteTaskBtn').style.display = 'none';
   document.getElementById('addTaskSheetBackdrop').style.display = 'block';
   document.getElementById('addTaskSheet').style.display = 'block';
+  document.getElementById('newTaskFabBtn').style.display = 'none';
   document.getElementById('sheetTaskInput').focus();
 }
 
@@ -7603,6 +7653,7 @@ function closeAddTaskSheet(){
   var savedSomething = commitSheetTaskIfDirty(); // catches the case where the sheet is dismissed without tapping Save
   document.getElementById('addTaskSheetBackdrop').style.display = 'none';
   document.getElementById('addTaskSheet').style.display = 'none';
+  if(document.getElementById('panel-day').style.display !== 'none') document.getElementById('newTaskFabBtn').style.display = 'flex';
   if(savedSomething) showToast('Saved');
 }
 
@@ -8838,6 +8889,11 @@ document.getElementById('newJournalEntryFabBtn').onclick = function(){
   panel.classList.remove('page-flip-in');
   void panel.offsetWidth;
   panel.classList.add('page-flip-in');
+};
+document.getElementById('newTaskFabBtn').onclick = function(){
+  // Reuses the exact same add-task sheet the existing "+ Add a task for this day" button
+  // already opens, for whichever day is currently being viewed -- not a separate flow.
+  openAddTaskSheet(activeDayKey);
 };
 var TEAM_MEMBERS = []; // populated live from Supabase via loadExpertsFromSupabase()
 
