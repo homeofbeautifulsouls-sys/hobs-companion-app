@@ -2233,7 +2233,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260723063701';
+  var CURRENT_BUILD = '20260723064621';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -4419,7 +4419,7 @@ function showOnly(panelId){
   // Real ask: this button should only ever be visible on the Journal index page itself, not
   // floating over every single screen in the app the way it originally did.
   document.getElementById('newJournalEntryFabBtn').style.display = (panelId === 'panel-history') ? 'flex' : 'none';
-  document.getElementById('newTaskFabBtn').style.display = (panelId === 'panel-day') ? 'flex' : 'none';
+  document.getElementById('newTaskFabBtn').style.display = (panelId === 'panel-day' || panelId === 'panel-calendar') ? 'flex' : 'none';
   // Screenshot/screen-recording prevention in chats: @capacitor/privacy-screen was already a
   // real dependency (confirmed in package.json) but never actually called anywhere -- the
   // plugin requires an explicit enable()/disable() call, it does nothing just by being
@@ -6643,8 +6643,11 @@ function renderCalendarPendingTasks(){
       ? '<div style="font-size:9.5px;font-weight:700;color:#6690D6;margin-top:3px;">📋 Homework from '+item.task.assignedByTherapist+'</div>'
       : '';
     var titleStyle = isDone ? 'font-size:12.5px;color:#3B8F63;font-weight:700;' : 'font-size:12.5px;color:#2A2013;font-weight:600;';
-    return '<div class="pending-task-row" data-key="'+item.dateKey+'" style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:'+(isDone?'#EAF4EE':'#FFFFFF')+';border:1px solid '+(isDone?'#CFE8DA':(item.task.assignedByTherapist?'#D5E2F7':'#EEE0C4'))+';border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer;">'+
-      '<div><span style="'+titleStyle+'">'+item.task.title+'</span>'+homeworkBadge+'</div>'+
+    var priorityColor = item.task.priority ? PRIORITY_COLORS[item.task.priority] : null;
+    var borderColor = isDone ? '#CFE8DA' : (item.task.assignedByTherapist ? '#D5E2F7' : (priorityColor || '#EEE0C4'));
+    var priorityDot = (!isDone && priorityColor) ? '<span style="width:8px;height:8px;border-radius:50%;background:'+priorityColor+';flex-shrink:0;"></span>' : '';
+    return '<div class="pending-task-row" data-key="'+item.dateKey+'" style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:'+(isDone?'#EAF4EE':'#FFFFFF')+';border:1px solid '+borderColor+';border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer;">'+
+      '<div style="display:flex;align-items:center;gap:9px;min-width:0;">'+priorityDot+'<div style="min-width:0;"><span style="'+titleStyle+'">'+item.task.title+'</span>'+homeworkBadge+'</div></div>'+
       '<span style="font-size:10.5px;color:#9AABCE;flex-shrink:0;">'+dateLabel+'</span>'+
     '</div>';
   };
@@ -7653,7 +7656,9 @@ function closeAddTaskSheet(){
   var savedSomething = commitSheetTaskIfDirty(); // catches the case where the sheet is dismissed without tapping Save
   document.getElementById('addTaskSheetBackdrop').style.display = 'none';
   document.getElementById('addTaskSheet').style.display = 'none';
-  if(document.getElementById('panel-day').style.display !== 'none') document.getElementById('newTaskFabBtn').style.display = 'flex';
+  var dayVisible = document.getElementById('panel-day').style.display !== 'none';
+  var calVisible = document.getElementById('panel-calendar').style.display !== 'none';
+  if(dayVisible || calVisible) document.getElementById('newTaskFabBtn').style.display = 'flex';
   if(savedSomething) showToast('Saved');
 }
 
@@ -8892,8 +8897,10 @@ document.getElementById('newJournalEntryFabBtn').onclick = function(){
 };
 document.getElementById('newTaskFabBtn').onclick = function(){
   // Reuses the exact same add-task sheet the existing "+ Add a task for this day" button
-  // already opens, for whichever day is currently being viewed -- not a separate flow.
-  openAddTaskSheet(activeDayKey);
+  // already opens. On the day-detail screen, uses whichever specific day is open; on the
+  // Tasklist landing screen there's no single day in view, so it defaults to today.
+  var onDayPanel = document.getElementById('panel-day').style.display !== 'none';
+  openAddTaskSheet(onDayPanel ? activeDayKey : TODAY_KEY);
 };
 var TEAM_MEMBERS = []; // populated live from Supabase via loadExpertsFromSupabase()
 
