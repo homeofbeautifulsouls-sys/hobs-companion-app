@@ -2225,7 +2225,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260723144913';
+  var CURRENT_BUILD = '20260723152611';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -3849,6 +3849,7 @@ var moods = [
   {label:'Excited',  x:0.82, y:0.10, h:40,  s:58, l:60, size:62},
   {label:'Hopeful',  x:0.54, y:0.36, h:42,  s:16, l:86, size:58},
   {label:'Heavy',    x:0.14, y:0.55, h:26,  s:26, l:44, size:60},
+  {label:'Numb',     x:0.32, y:0.52, h:0,   s:0,  l:50, size:58},
   {label:'Tired',    x:0.32, y:0.82, h:220, s:16, l:60, size:56},
   {label:'Calm',     x:0.58, y:0.86, h:210, s:42, l:62, size:62},
   {label:'Content',  x:0.82, y:0.62, h:150, s:34, l:54, size:58}
@@ -4143,7 +4144,7 @@ document.getElementById('saveNoteBtn').onclick = function(){
   // storage, never the server. That meant they could vanish entirely on logout, reinstall, or
   // switching devices, and never appeared for anyone using the app on a second device. Fixed
   // by routing through the same shared function every other save path already correctly uses.
-  var distressMoods = ['Anxious', 'Restless', 'Heavy'];
+  var distressMoods = ['Anxious', 'Restless', 'Heavy', 'Numb']; // Numb added per direct clinical decision -- emotional numbness/dissociation is a real, often under-recognized sign of distress, arguably easier to miss than anxiety
   var isDistressed = selected.some(function(b){ return distressMoods.indexOf(b.label) !== -1; });
   var saved = commitMainJournalIfDirty();
   if(!saved){ showToast('Write something or pick a mood first'); return; }
@@ -5143,7 +5144,7 @@ function saveEntryToSupabase(entry){
 
 document.getElementById('quickJournalSaveBtn').onclick = function(){
   if(!quickJournalSelected.length){ showToast('Pick at least one mood first'); return; }
-  var distressMoods = ['Anxious', 'Restless', 'Heavy'];
+  var distressMoods = ['Anxious', 'Restless', 'Heavy', 'Numb']; // Numb added per direct clinical decision -- emotional numbness/dissociation is a real, often under-recognized sign of distress, arguably easier to miss than anxiety
   var isDistressed = quickJournalSelected.some(function(l){ return distressMoods.indexOf(l) !== -1; });
   commitQuickJournalIfDirty();
 
@@ -6381,7 +6382,7 @@ function renderMoodPastDays(){
   });
 }
 
-var HEAVY_MOODS = ['Anxious','Restless','Heavy','Tired'];
+var HEAVY_MOODS = ['Anxious','Restless','Heavy','Tired','Numb'];
 var LIGHT_MOODS = ['Excited','Hopeful','Calm','Content'];
 var MOOD_AFFIRMATIONS = {
   light: [
