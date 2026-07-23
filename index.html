@@ -250,21 +250,6 @@
      flat plane. Built from a fan of thin vertical slices, each hinged on the same left edge but
      starting at a different rotation angle (steeper near the free/right edge, barely rotated
      near the hinge) -- that's what actually produces a visible curl across the page mid-turn,
-     all slices converging to flat (0deg) by the end. */
-  /* Real page-turn: ONE single page (matching how pageFlipIn/coverOpen already work elsewhere
-     in this app -- one element, one hinge), not multiple pieces. Hinged on the RIGHT this time
-     per direct request -- the free edge is the left side, and it sweeps right-to-left as it
-     opens. The curve is now a real change in the page's own silhouette (clip-path bows the free
-     edge inward mid-turn, then straightens back out), not just a shadow -- composed together
-     with the 3D rotation, which is what actually reads as paper bending rather than a flat card
-     tilting. Tap-gated: arrives already folded shut and waits for a tap before it plays, rather
-     than auto-playing the moment the screen appears. */
-  #welcomeBackPage { position:absolute; inset:0; background-repeat:no-repeat; background-size:100% 100%; transform-origin:right center; backface-visibility:hidden; }
-  #welcomeBackShade { position:absolute; inset:0; pointer-events:none; mix-blend-mode:multiply; }
-  @media (prefers-reduced-motion: reduce) {
-    #welcomeBackPage.opening { animation: none !important; transform: none !important; }
-    #welcomeBackShade.opening { animation: none !important; opacity: 0 !important; }
-  }
   @keyframes pageFlipIn {
     0%   { transform: perspective(1000px) rotateY(-18deg); opacity: 0.3; }
     100% { transform: perspective(1000px) rotateY(0deg); opacity: 1; }
@@ -543,10 +528,9 @@
     <button id="obSaveBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:15px;font-weight:700;cursor:pointer;margin-top:18px;">Continue</button>
   </div>
 
-  <div id="welcomeBackOverlay" style="position:absolute;inset:0;z-index:100;background:#75C3E9;display:none;cursor:pointer;perspective:1800px;">
-    <div id="welcomeBackPage"></div>
-    <div id="welcomeBackShade" style="position:absolute;inset:0;pointer-events:none;"></div>
-    <p style="position:absolute;bottom:calc(22px + env(safe-area-inset-bottom));left:0;right:0;text-align:center;color:#fff;font-size:11px;opacity:0.85;text-shadow:0 1px 3px rgba(0,0,0,0.5);z-index:2;">Tap anywhere to continue</p>
+  <div id="welcomeBackOverlay" style="position:absolute;inset:0;z-index:100;background:#75C3E9;display:none;cursor:pointer;">
+    <img id="welcomeBackImg" alt="Welcome back Home" style="width:100%;height:100%;object-fit:contain;display:block;">
+    <p style="position:absolute;bottom:calc(22px + env(safe-area-inset-bottom));left:0;right:0;text-align:center;color:#fff;font-size:11px;opacity:0.85;text-shadow:0 1px 3px rgba(0,0,0,0.5);">Tap anywhere to continue</p>
   </div>
 
   <div id="basicTosGateOverlay" style="position:absolute;inset:0;z-index:101;background:#FFF8F0;display:none;flex-direction:column;justify-content:center;padding:28px 24px;box-sizing:border-box;">
@@ -2799,73 +2783,21 @@ function onAuthSuccess(user){
 // Shown to genuinely returning users only -- anyone who's already completed onboarding, signed
 // the basic ToS, cleared the consent gate if it applied, and seen the first-time walkthrough.
 // First-time flow (showOnboarding, showWalkthrough) is completely untouched by this.
-var WB_FLAT_CLIP = 'polygon(100% 0%, 0% 0%, 0% 25%, 0% 50%, 0% 75%, 0% 100%, 100% 100%)';
-var WB_CURLED_CLIP = 'polygon(100% 0%, 3% 0%, 5% 25%, 17% 50%, 5% 75%, 3% 100%, 100% 100%)';
 function showWelcomeBackScreen(){
   var overlay = document.getElementById('welcomeBackOverlay');
-  var pageEl = document.getElementById('welcomeBackPage');
-  var shadeEl = document.getElementById('welcomeBackShade');
-  // Real bug found and fixed in an earlier session, still preserved here: a static background-
-  // image loads the moment the HTML parses, regardless of the containing div being display:none.
-  // Setting it here instead, only at the moment this screen is actually about to be shown, means
-  // it's never fetched for anyone who doesn't reach this exact point.
-  if(!pageEl.style.backgroundImage) pageEl.style.backgroundImage = "url('bob-welcome-back.jpg')";
+  var img = document.getElementById('welcomeBackImg');
+  // Real bug found and fixed in an earlier session: this used to be a static src on the img
+  // tag, which browsers start downloading the moment the HTML parses -- regardless of the
+  // containing div being display:none. Setting it here instead, only at the moment this screen
+  // is actually about to be shown, means it's never fetched for anyone who doesn't reach this
+  // exact point.
+  if(!img.src) img.src = 'bob-welcome-back.jpg';
   overlay.style.display = 'block';
-
-  pageEl.getAnimations().forEach(function(anim){ anim.cancel(); }); // let it replay cleanly every showing, not just once
-  shadeEl.getAnimations().forEach(function(anim){ anim.cancel(); });
-  var reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  // Arrives already folded shut against the right-side hinge -- no auto-play. A tap is what
-  // starts the turn now, per direct request, rather than it playing the instant this screen
-  // appears.
-  pageEl.style.clipPath = WB_FLAT_CLIP;
-  if(reducedMotion){
-    pageEl.style.transform = 'rotateY(0deg)';
-    shadeEl.style.opacity = '0';
-  } else {
-    pageEl.style.transform = 'rotateY(-32deg)';
-    shadeEl.style.background = 'linear-gradient(90deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0) 65%)';
-    shadeEl.style.opacity = '0';
-  }
-
-  var playing = false;
   overlay.onclick = function(){
-    if(reducedMotion){
-      overlay.style.display = 'none';
-      overlay.onclick = null;
-      showOnly('panel-bubbles');
-      renderHomeGreeting();
-      return;
-    }
-    if(playing) return; // ignore extra taps mid-turn
-    playing = true;
-    // Slow and smooth, closer to the weight of the existing book-cover-open animation (1.3s)
-    // than the quicker in-app page flips, since this is a bigger once-per-session moment, not
-    // something that repeats constantly. The clip-path keyframes are what add the actual curve
-    // -- the free (left) edge bows inward mid-turn, then straightens back out flat -- composed
-    // together with the rotation itself, rather than a flat rectangle just tilting in place.
-    var pageAnim = pageEl.animate(
-      [
-        { transform: 'rotateY(-32deg)', clipPath: WB_FLAT_CLIP,   offset: 0 },
-        { transform: 'rotateY(-26deg)', clipPath: WB_CURLED_CLIP, offset: 0.18 },
-        { transform: 'rotateY(-18deg)', clipPath: WB_FLAT_CLIP,   offset: 0.35 },
-        { transform: 'rotateY(0deg)',   clipPath: WB_FLAT_CLIP,   offset: 1 }
-      ],
-      { duration: 1500, easing: 'cubic-bezier(.5,.02,.4,1)', fill: 'forwards' }
-    );
-    shadeEl.animate(
-      [ { opacity: 0 }, { opacity: 0.55, offset: 0.18 }, { opacity: 0, offset: 0.4 } ],
-      { duration: 1500, easing: 'ease-out', fill: 'forwards' }
-    );
-    var finish = function(){
-      overlay.style.display = 'none';
-      overlay.onclick = null;
-      showOnly('panel-bubbles');
-      renderHomeGreeting();
-    };
-    if(pageAnim.finished && pageAnim.finished.then) pageAnim.finished.then(finish).catch(finish);
-    else setTimeout(finish, 1550);
+    overlay.style.display = 'none';
+    overlay.onclick = null;
+    showOnly('panel-bubbles');
+    renderHomeGreeting();
   };
 }
 
