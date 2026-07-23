@@ -252,12 +252,14 @@
      near the hinge) -- that's what actually produces a visible curl across the page mid-turn,
      all slices converging to flat (0deg) by the end. */
   /* Real page-turn: ONE single page (matching how pageFlipIn/coverOpen already work elsewhere
-     in this app -- one element, one hinge), not multiple pieces. The "curve" comes from a
-     shadow/highlight overlay that sweeps across in sync with the rotation -- darkest right at
-     the turning edge, fading toward the hinge -- which is what reads as a page bending to the
-     eye, without actually cutting the image into segments (which looked like a fan of separate
-     strips, not one page). */
-  #welcomeBackPage { position:absolute; inset:0; background-repeat:no-repeat; background-size:100% 100%; transform-origin:left center; backface-visibility:hidden; }
+     in this app -- one element, one hinge), not multiple pieces. Hinged on the RIGHT this time
+     per direct request -- the free edge is the left side, and it sweeps right-to-left as it
+     opens. The curve is now a real change in the page's own silhouette (clip-path bows the free
+     edge inward mid-turn, then straightens back out), not just a shadow -- composed together
+     with the 3D rotation, which is what actually reads as paper bending rather than a flat card
+     tilting. Tap-gated: arrives already folded shut and waits for a tap before it plays, rather
+     than auto-playing the moment the screen appears. */
+  #welcomeBackPage { position:absolute; inset:0; background-repeat:no-repeat; background-size:100% 100%; transform-origin:right center; backface-visibility:hidden; }
   #welcomeBackShade { position:absolute; inset:0; pointer-events:none; mix-blend-mode:multiply; }
   @media (prefers-reduced-motion: reduce) {
     #welcomeBackPage.opening { animation: none !important; transform: none !important; }
@@ -2237,7 +2239,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260723001214';
+  var CURRENT_BUILD = '20260723001859';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -2797,6 +2799,8 @@ function onAuthSuccess(user){
 // Shown to genuinely returning users only -- anyone who's already completed onboarding, signed
 // the basic ToS, cleared the consent gate if it applied, and seen the first-time walkthrough.
 // First-time flow (showOnboarding, showWalkthrough) is completely untouched by this.
+var WB_FLAT_CLIP = 'polygon(100% 0%, 0% 0%, 0% 25%, 0% 50%, 0% 75%, 0% 100%, 100% 100%)';
+var WB_CURLED_CLIP = 'polygon(100% 0%, 9% 0%, 7% 25%, 13% 50%, 7% 75%, 9% 100%, 100% 100%)';
 function showWelcomeBackScreen(){
   var overlay = document.getElementById('welcomeBackOverlay');
   var pageEl = document.getElementById('welcomeBackPage');
@@ -2811,39 +2815,56 @@ function showWelcomeBackScreen(){
   pageEl.getAnimations().forEach(function(anim){ anim.cancel(); }); // let it replay cleanly every showing, not just once
   shadeEl.getAnimations().forEach(function(anim){ anim.cancel(); });
   var reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Arrives already folded shut against the right-side hinge -- no auto-play. A tap is what
+  // starts the turn now, per direct request, rather than it playing the instant this screen
+  // appears.
+  pageEl.style.clipPath = WB_FLAT_CLIP;
   if(reducedMotion){
     pageEl.style.transform = 'rotateY(0deg)';
     shadeEl.style.opacity = '0';
   } else {
-    // ONE single page (matching how pageFlipIn/coverOpen already work elsewhere -- one element,
-    // one hinge on the left, not several pieces). The middle keyframe's slight scaleX pinch is
-    // what suggests the page bending as it comes around, rather than swinging as a perfectly
-    // rigid flat card -- real paper foreshortens more than a flat rotation alone accounts for.
-    // The shade is a right-to-left shadow gradient (darkest at the free edge, the part still
-    // curling) that fades out in sync as the page settles flat -- that moving shadow is what
-    // actually reads as "curve" to the eye, without cutting the image into pieces to fake it.
-    pageEl.style.transform = 'rotateY(-85deg)';
-    pageEl.animate(
-      [
-        { transform: 'rotateY(-85deg) scaleX(1)' },
-        { transform: 'rotateY(-40deg) scaleX(0.94)' },
-        { transform: 'rotateY(0deg) scaleX(1)' }
-      ],
-      { duration: 750, easing: 'cubic-bezier(.3,.8,.4,1)', fill: 'forwards' }
-    );
-    shadeEl.style.background = 'linear-gradient(90deg, rgba(0,0,0,0) 35%, rgba(0,0,0,0.45) 100%)';
-    shadeEl.style.opacity = '1';
-    shadeEl.animate(
-      [ { opacity: 1 }, { opacity: 0.5, offset: 0.5 }, { opacity: 0 } ],
-      { duration: 750, easing: 'ease-out', fill: 'forwards' }
-    );
+    pageEl.style.transform = 'rotateY(85deg)';
+    shadeEl.style.background = 'linear-gradient(90deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0) 65%)';
+    shadeEl.style.opacity = '0';
   }
 
+  var playing = false;
   overlay.onclick = function(){
-    overlay.style.display = 'none';
-    overlay.onclick = null;
-    showOnly('panel-bubbles');
-    renderHomeGreeting();
+    if(reducedMotion){
+      overlay.style.display = 'none';
+      overlay.onclick = null;
+      showOnly('panel-bubbles');
+      renderHomeGreeting();
+      return;
+    }
+    if(playing) return; // ignore extra taps mid-turn
+    playing = true;
+    // Slow and smooth, closer to the weight of the existing book-cover-open animation (1.3s)
+    // than the quicker in-app page flips, since this is a bigger once-per-session moment, not
+    // something that repeats constantly. The clip-path keyframes are what add the actual curve
+    // -- the free (left) edge bows inward mid-turn, then straightens back out flat -- composed
+    // together with the rotation itself, rather than a flat rectangle just tilting in place.
+    var pageAnim = pageEl.animate(
+      [
+        { transform: 'rotateY(85deg)',  clipPath: WB_FLAT_CLIP,   offset: 0 },
+        { transform: 'rotateY(38deg)',  clipPath: WB_CURLED_CLIP, offset: 0.55 },
+        { transform: 'rotateY(0deg)',   clipPath: WB_FLAT_CLIP,   offset: 1 }
+      ],
+      { duration: 1500, easing: 'cubic-bezier(.5,.02,.4,1)', fill: 'forwards' }
+    );
+    shadeEl.animate(
+      [ { opacity: 0 }, { opacity: 0.55, offset: 0.5 }, { opacity: 0 } ],
+      { duration: 1500, easing: 'ease-out', fill: 'forwards' }
+    );
+    var finish = function(){
+      overlay.style.display = 'none';
+      overlay.onclick = null;
+      showOnly('panel-bubbles');
+      renderHomeGreeting();
+    };
+    if(pageAnim.finished && pageAnim.finished.then) pageAnim.finished.then(finish).catch(finish);
+    else setTimeout(finish, 1550);
   };
 }
 
