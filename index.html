@@ -2225,7 +2225,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260723144247';
+  var CURRENT_BUILD = '20260723144913';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -2760,8 +2760,15 @@ function onAuthSuccess(user){
   // (an unconditional fetch on every page load, including for people who never even sign in) --
   // it only ever fires once per actual sign-in, and the rare case where it goes unused (a
   // brand-new signup headed to onboarding instead) is far cheaper than that original problem.
-  var welcomeBackPreloadImg = new Image();
-  welcomeBackPreloadImg.src = 'bob-welcome-back.jpg';
+  //
+  // Same exact root cause, same fix, for the three Journal parchment background images: these
+  // are plain CSS background-image references inside display:none panels, which Chrome
+  // correctly defers fetching until the panel actually becomes visible -- giving zero head
+  // start at the moment someone taps into Journal, same as the welcome-back image did.
+  ['bob-welcome-back.jpg', 'vintage-bg-index.jpg', 'vintage-bg-journal.jpg', 'vintage-bg-cover.jpg'].forEach(function(src){
+    var preloadImg = new Image();
+    preloadImg.src = src;
+  });
   Promise.all([loadUserDataFromSupabase(), loadExpertsFromSupabase()]).then(function(){
     var overlay = document.getElementById('authOverlay');
     overlay.style.display = 'none';
