@@ -1787,21 +1787,13 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
       Home
     </button>
-    <div style="background:#FFFFFF;border-radius:20px;padding:18px 20px;margin-bottom:16px;box-shadow:0 1px 3px rgba(60,70,50,0.06);">
-      <p style="font-size:10.5px;font-weight:700;color:#9AABCE;text-transform:uppercase;letter-spacing:0.06em;margin:0 0 2px;">Today</p>
-      <p id="todayDateTitle" style="font-family:'Caveat',cursive;font-weight:700;font-size:30px;color:#150D06;margin:0 0 12px;"></p>
-      <div id="todayProgressStrip" style="display:flex;gap:5px;margin-bottom:2px;"></div>
-      <p id="todayProgressLabel" style="font-size:11px;color:#9AABCE;margin:6px 0 0;"></p>
-    </div>
+    <p class="prompt-title">Your tasks</p>
 
-    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Upcoming Sessions</p>
-    <div id="calendarUpcomingSessions" style="margin-bottom:20px;"></div>
+    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:24px 0 10px;">Upcoming Sessions</p>
+    <div id="calendarUpcomingSessions"></div>
 
-    <div id="taskListToday"></div>
-    <div style="display:flex;gap:8px;margin-top:8px;">
-      <button id="addTaskBtnToday" style="flex:1;padding:14px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#6690D6;font-size:13px;font-weight:700;cursor:pointer;">+ Add a task</button>
-      <button id="addMoodBtnToday" style="flex:1;padding:14px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#3F8C82;font-size:13px;font-weight:700;cursor:pointer;">+ Add a mood</button>
-    </div>
+    <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:24px 0 10px;">Tasks</p>
+    <div id="calendarPendingTasks"></div>
   </div>
   <div class="content" id="panel-day" style="display:none;">
     <button id="dayBackBtn" style="background:none;border:none;cursor:pointer;padding:0;margin-bottom:14px;color:#5C6B94;display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600;">
@@ -2233,7 +2225,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260723065745';
+  var CURRENT_BUILD = '20260723071006';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -6549,20 +6541,14 @@ function moodsForDate(dateKey){
 }
 
 // ---- Tasklist landing screen: today's tasks + upcoming sessions ----
-// Real request: the old month-grid calendar view was eliminated entirely per direct
-// instruction -- this screen now shows today's tasks directly (reusing the exact same rich
-// task-list rendering already proven on the day-detail page: drag-reorder, priority zones,
-// completed/remaining split, subtask breakdown) rather than a flat read-only list, plus
-// upcoming sessions. Viewing a DIFFERENT day still goes through panel-day via search results,
-// "Upcoming Sessions" taps, etc. -- this screen is specifically "what's true right now."
+// Per direct request: the month-grid calendar view is removed entirely. Everything else on
+// this screen is unchanged from before -- Upcoming Sessions, and ALL pending/completed tasks
+// across every date (not narrowed to today), exactly as it worked previously.
 var MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']; // still used by the separate therapist calendar
 
 function renderTodayCard(){
-  activeDayKey = TODAY_KEY;
-  taskListRenderContext = { containerId: 'taskListToday', stripId: 'todayProgressStrip', labelId: 'todayProgressLabel' };
-  document.getElementById('todayDateTitle').textContent = TODAY_DATE.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
-  renderTaskListCal();
   renderCalendarUpcomingSessions();
+  renderCalendarPendingTasks();
 }
 
 function buildGoogleCalendarLink(title, dateObj, details){
@@ -7298,8 +7284,6 @@ function toggleTaskCal(taskId){
   }
 }
 document.getElementById('addTaskBtnCal').onclick = function(){ openAddTaskSheet(activeDayKey); };
-document.getElementById('addTaskBtnToday').onclick = function(){ openAddTaskSheet(TODAY_KEY); };
-document.getElementById('addMoodBtnToday').onclick = function(){ document.getElementById('addMoodBtnCal').click(); };
 
 // ---- Celebration / mindmap ----
 var COOKIE_LINES = [
