@@ -2239,7 +2239,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260723003056';
+  var CURRENT_BUILD = '20260723003707';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -2824,7 +2824,7 @@ function showWelcomeBackScreen(){
     pageEl.style.transform = 'rotateY(0deg)';
     shadeEl.style.opacity = '0';
   } else {
-    pageEl.style.transform = 'rotateY(-85deg)';
+    pageEl.style.transform = 'rotateY(-32deg)';
     shadeEl.style.background = 'linear-gradient(90deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0) 65%)';
     shadeEl.style.opacity = '0';
   }
@@ -2847,9 +2847,9 @@ function showWelcomeBackScreen(){
     // together with the rotation itself, rather than a flat rectangle just tilting in place.
     var pageAnim = pageEl.animate(
       [
-        { transform: 'rotateY(-85deg)', clipPath: WB_FLAT_CLIP,   offset: 0 },
-        { transform: 'rotateY(-70deg)', clipPath: WB_CURLED_CLIP, offset: 0.18 },
-        { transform: 'rotateY(-50deg)', clipPath: WB_FLAT_CLIP,   offset: 0.35 },
+        { transform: 'rotateY(-32deg)', clipPath: WB_FLAT_CLIP,   offset: 0 },
+        { transform: 'rotateY(-26deg)', clipPath: WB_CURLED_CLIP, offset: 0.18 },
+        { transform: 'rotateY(-18deg)', clipPath: WB_FLAT_CLIP,   offset: 0.35 },
         { transform: 'rotateY(0deg)',   clipPath: WB_FLAT_CLIP,   offset: 1 }
       ],
       { duration: 1500, easing: 'cubic-bezier(.5,.02,.4,1)', fill: 'forwards' }
