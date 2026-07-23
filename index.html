@@ -2239,7 +2239,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260723001859';
+  var CURRENT_BUILD = '20260723003056';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -2800,7 +2800,7 @@ function onAuthSuccess(user){
 // the basic ToS, cleared the consent gate if it applied, and seen the first-time walkthrough.
 // First-time flow (showOnboarding, showWalkthrough) is completely untouched by this.
 var WB_FLAT_CLIP = 'polygon(100% 0%, 0% 0%, 0% 25%, 0% 50%, 0% 75%, 0% 100%, 100% 100%)';
-var WB_CURLED_CLIP = 'polygon(100% 0%, 9% 0%, 7% 25%, 13% 50%, 7% 75%, 9% 100%, 100% 100%)';
+var WB_CURLED_CLIP = 'polygon(100% 0%, 3% 0%, 5% 25%, 17% 50%, 5% 75%, 3% 100%, 100% 100%)';
 function showWelcomeBackScreen(){
   var overlay = document.getElementById('welcomeBackOverlay');
   var pageEl = document.getElementById('welcomeBackPage');
@@ -2824,7 +2824,7 @@ function showWelcomeBackScreen(){
     pageEl.style.transform = 'rotateY(0deg)';
     shadeEl.style.opacity = '0';
   } else {
-    pageEl.style.transform = 'rotateY(85deg)';
+    pageEl.style.transform = 'rotateY(-85deg)';
     shadeEl.style.background = 'linear-gradient(90deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0) 65%)';
     shadeEl.style.opacity = '0';
   }
@@ -2847,14 +2847,15 @@ function showWelcomeBackScreen(){
     // together with the rotation itself, rather than a flat rectangle just tilting in place.
     var pageAnim = pageEl.animate(
       [
-        { transform: 'rotateY(85deg)',  clipPath: WB_FLAT_CLIP,   offset: 0 },
-        { transform: 'rotateY(38deg)',  clipPath: WB_CURLED_CLIP, offset: 0.55 },
+        { transform: 'rotateY(-85deg)', clipPath: WB_FLAT_CLIP,   offset: 0 },
+        { transform: 'rotateY(-70deg)', clipPath: WB_CURLED_CLIP, offset: 0.18 },
+        { transform: 'rotateY(-50deg)', clipPath: WB_FLAT_CLIP,   offset: 0.35 },
         { transform: 'rotateY(0deg)',   clipPath: WB_FLAT_CLIP,   offset: 1 }
       ],
       { duration: 1500, easing: 'cubic-bezier(.5,.02,.4,1)', fill: 'forwards' }
     );
     shadeEl.animate(
-      [ { opacity: 0 }, { opacity: 0.55, offset: 0.5 }, { opacity: 0 } ],
+      [ { opacity: 0 }, { opacity: 0.55, offset: 0.18 }, { opacity: 0, offset: 0.4 } ],
       { duration: 1500, easing: 'ease-out', fill: 'forwards' }
     );
     var finish = function(){
