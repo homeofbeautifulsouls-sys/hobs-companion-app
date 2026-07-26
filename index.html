@@ -2225,7 +2225,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260723161436';
+  var CURRENT_BUILD = '20260726222453';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -4137,7 +4137,17 @@ function resetJournalState(){
 
 var intakeReturnTo = 'journal';
 
-document.getElementById('saveNoteBtn').onclick = function(){
+// Real bug found and fixed: found actual duplicate journal entries in the database (one
+// account's entry was saved 6 times with the identical millisecond timestamp) -- this button
+// had no protection against firing more than once per tap, unlike the equivalent task-save
+// button which already guards against this (a double-tap, or the touchend+click-both-firing
+// quirk common on mobile browsers). Same fix applied here.
+var journalSaveInFlight = false;
+function handleJournalSave(e){
+  if(e && e.cancelable) e.preventDefault();
+  if(journalSaveInFlight) return;
+  journalSaveInFlight = true;
+  setTimeout(function(){ journalSaveInFlight = false; }, 700);
   // This used to duplicate commitMainJournalIfDirty's logic inline, but an older, incomplete
   // copy that was missing the actual Supabase sync call entirely -- entries saved via this
   // button (the primary, explicit "Save entry" action) were only ever written to local
@@ -4160,7 +4170,9 @@ document.getElementById('saveNoteBtn').onclick = function(){
     renderSavedPanel();
     document.getElementById('panel-saved').style.display = 'block';
   }
-};
+}
+document.getElementById('saveNoteBtn').addEventListener('touchend', handleJournalSave, {passive:false});
+document.getElementById('saveNoteBtn').addEventListener('click', handleJournalSave);
 
 function renderSavedPanel(){
   var area = document.getElementById('savedPitchArea');
