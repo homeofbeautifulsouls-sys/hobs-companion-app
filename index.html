@@ -2225,7 +2225,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260726222453';
+  var CURRENT_BUILD = '20260726225859';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -2821,8 +2821,26 @@ function showWelcomeBackScreen(){
 }
 
 // Reports this device's timezone (so scheduled reminders fire at the right LOCAL time for this
-// person, not a fixed server timezone) and app version (so the update-nudge job knows who's
-// behind) back onto their profile. Runs quietly on every sign-in.
+// person, not a fixed server timezone), app version (so the update-nudge job knows who's
+// behind), and device model/OS version (so a real notification-delivery issue like a channel
+// importance problem can actually be traced to a specific phone brand, instead of guessing).
+// The device info comes straight from the WebView's own user agent string -- Android reliably
+// includes the real device model there (e.g. "Android 13; SM-G991B"), so this needs no new
+// native plugin or APK rebuild, unlike app_version_code/name above. Runs quietly on every
+// sign-in.
+function parseDeviceInfoFromUserAgent(ua){
+  var result = { osVersion: null, deviceModel: null };
+  if(!ua) return result;
+  var androidMatch = ua.match(/Android\s+([\d.]+);\s*([^)]+)\)/);
+  if(androidMatch){
+    result.osVersion = 'Android ' + androidMatch[1];
+    // The device-model segment sometimes has "Build/XXXXX" trailing on the same clause --
+    // strip that off, it's a firmware build id, not part of the model name.
+    result.deviceModel = androidMatch[2].replace(/\s*Build\/.*/i, '').trim();
+  }
+  return result;
+}
+
 function syncDeviceInfo(){
   if(!currentUser || !currentUser.id) return;
   var updates = {};
@@ -2830,6 +2848,16 @@ function syncDeviceInfo(){
     var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
     if(tz) updates.timezone = tz;
   } catch(e){ /* very old WebView -- leave the existing/default timezone alone */ }
+
+  try{
+    var ua = navigator.userAgent || '';
+    if(ua){
+      updates.user_agent_raw = ua;
+      var parsed = parseDeviceInfoFromUserAgent(ua);
+      if(parsed.osVersion) updates.os_version = parsed.osVersion;
+      if(parsed.deviceModel) updates.device_model = parsed.deviceModel;
+    }
+  } catch(e){ /* navigator.userAgent should always exist, but don't let this block the rest */ }
 
   function applyUpdate(){
     if(Object.keys(updates).length === 0) return;
