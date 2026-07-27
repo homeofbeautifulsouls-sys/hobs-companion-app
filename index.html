@@ -33,7 +33,6 @@
     return __loadedScripts[url];
   }
   function loadHtml2Canvas(){ return loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'); }
-  function loadJsPDF(){ return loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'); }
 </script>
 <script>
   // Real gap fixed: this had a single hard dependency on a CDN script with zero fallback --
@@ -1372,6 +1371,10 @@
     <div style="margin-top:28px;height:3px;background:#F0E9D8;border-radius:4px;overflow:hidden;">
       <div id="testProg" style="height:100%;width:0%;background:#6690D6;border-radius:4px;transition:width .4s;"></div>
     </div>
+    <div style="display:flex;gap:8px;margin-top:20px;">
+      <button id="testBackBtn" style="flex:1;padding:14px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:13.5px;font-weight:700;cursor:pointer;">← Back</button>
+      <button id="testNextBtn" style="flex:2;padding:14px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:13.5px;font-weight:700;cursor:pointer;" disabled>Next →</button>
+    </div>
   </div>
 
   <div class="content" id="panel-test-results" style="display:none;text-align:center;">
@@ -1383,18 +1386,6 @@
     </div>
     <div id="testResultSupportArea"></div>
     <div id="testResultMascotTip"></div>
-    <input id="reportNameInput" type="text" placeholder="Your name (for your report)" style="width:100%;padding:12px 14px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:13px;box-sizing:border-box;margin-bottom:8px;">
-    <button id="downloadReportBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:none;background:#2E5090;color:#FFF8F0;font-size:14.5px;font-weight:700;cursor:pointer;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:8px;">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-      Download My Report (PDF)
-    </button>
-    <div id="testEmailCaptureArea" style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:14px;padding:16px;margin-bottom:14px;text-align:left;">
-      <p style="font-size:12px;font-weight:700;color:#2A2013;margin:0 0 4px;">Want a member of our team to personally follow up?</p>
-      <p style="font-size:10.5px;color:#9AABCE;margin:0 0 10px;">Optional — your downloaded report above is yours either way.</p>
-      <input id="testEmailName" type="text" placeholder="Your name" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid #EEE0C4;font-family:inherit;font-size:12.5px;box-sizing:border-box;margin-bottom:8px;">
-      <input id="testEmailAddress" type="email" placeholder="Your email" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid #EEE0C4;font-family:inherit;font-size:12.5px;box-sizing:border-box;margin-bottom:10px;">
-      <button id="testEmailSubmitBtn" style="width:100%;padding:11px;border-radius:10px;border:none;background:#6690D6;color:#FFF8F0;font-size:12.5px;font-weight:700;cursor:pointer;">Request a follow-up</button>
-    </div>
     <button id="shareTestResultBtn" style="display:none;width:100%;padding:14px;border-radius:14px;border:1px solid #6690D6;background:transparent;color:#6690D6;font-size:13.5px;font-weight:700;cursor:pointer;margin-bottom:10px;">Share this result with your therapist</button>
     <button id="testResultDoneBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#2A2013;font-size:15px;font-weight:700;cursor:pointer;">Back to tests</button>
   </div>
@@ -2225,7 +2216,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260726225859';
+  var CURRENT_BUILD = '20260727002831';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -13388,38 +13379,51 @@ function renderTestItem(){
   var scaleWrap = document.getElementById('testScale');
   scaleWrap.innerHTML = '';
 
+  var backBtn = document.getElementById('testBackBtn');
+  var nextBtn = document.getElementById('testNextBtn');
+  backBtn.style.visibility = testIdx === 0 ? 'hidden' : 'visible';
+  nextBtn.textContent = (testIdx === testFlatItems.length - 1) ? 'See Results →' : 'Next →';
+
+  var hasAnswer = testAnswers[testIdx] !== undefined && testAnswers[testIdx] !== null && testAnswers[testIdx] !== '';
+  nextBtn.disabled = !hasAnswer;
+
   if(item.type === 'number' || item.type === 'time'){
     var inp = document.createElement('input');
     inp.type = item.type;
     inp.style.cssText = 'width:100%;padding:13px;border-radius:12px;border:1.5px solid #EEE0C4;font-size:14px;font-family:inherit;box-sizing:border-box;margin-bottom:10px;';
     if(item.unit) inp.placeholder = 'e.g. ' + (item.unit === 'hours' ? '7.5' : '20') + ' ' + item.unit;
+    if(hasAnswer) inp.value = testAnswers[testIdx];
+    inp.oninput = function(){
+      if(inp.value){ testAnswers[testIdx] = inp.value; } else { delete testAnswers[testIdx]; }
+      nextBtn.disabled = !inp.value;
+    };
     scaleWrap.appendChild(inp);
-    var nextBtn = document.createElement('button');
-    nextBtn.textContent = 'Next';
-    nextBtn.style.cssText = 'display:block;width:100%;padding:13px;border-radius:12px;border:none;background:#6690D6;color:#FFF8F0;font-size:13.5px;font-weight:700;cursor:pointer;';
-    nextBtn.onclick = function(){
-      if(!inp.value){ showToast('Please enter a value'); return; }
-      testAnswers[testIdx] = inp.value;
-      testIdx++;
-      if(testIdx >= testFlatItems.length){ finishTest(); } else { renderTestItem(); }
-    };
-    scaleWrap.appendChild(nextBtn);
     inp.focus();
-    return;
+  } else {
+    item.scale.forEach(function(opt){
+      var btn = document.createElement('button');
+      btn.textContent = opt.label;
+      var isSelected = hasAnswer && testAnswers[testIdx] === opt.val;
+      btn.style.cssText = 'display:block;width:100%;padding:13px;border-radius:12px;border:1.5px solid '+(isSelected?'#6690D6':'#EEE0C4')+';background:'+(isSelected?'#EAF0FB':'#FFFFFF')+';color:'+(isSelected?'#2E5090':'#2A2013')+';font-size:13.5px;font-weight:'+(isSelected?'700':'600')+';cursor:pointer;margin-bottom:8px;';
+      btn.onclick = function(){
+        testAnswers[testIdx] = opt.val;
+        renderTestItem(); // re-render this same question so the new selection highlights immediately
+      };
+      scaleWrap.appendChild(btn);
+    });
   }
-
-  item.scale.forEach(function(opt){
-    var btn = document.createElement('button');
-    btn.textContent = opt.label;
-    btn.style.cssText = 'display:block;width:100%;padding:13px;border-radius:12px;border:1.5px solid #EEE0C4;background:#FFFFFF;color:#2A2013;font-size:13.5px;font-weight:600;cursor:pointer;margin-bottom:8px;';
-    btn.onclick = function(){
-      testAnswers[testIdx] = opt.val;
-      testIdx++;
-      if(testIdx >= testFlatItems.length){ finishTest(); } else { renderTestItem(); }
-    };
-    scaleWrap.appendChild(btn);
-  });
 }
+document.getElementById('testBackBtn').onclick = function(){
+  if(testIdx === 0) return;
+  testIdx--;
+  renderTestItem();
+};
+document.getElementById('testNextBtn').onclick = function(){
+  var item = testFlatItems[testIdx];
+  var hasAnswer = testAnswers[testIdx] !== undefined && testAnswers[testIdx] !== null && testAnswers[testIdx] !== '';
+  if(!hasAnswer){ showToast('Please answer this question first'); return; }
+  if(testIdx >= testFlatItems.length - 1){ finishTest(); } else { testIdx++; renderTestItem(); }
+};
 
 function finishTest(){
   var t = TESTS_DATA[currentTestKey];
@@ -13515,9 +13519,6 @@ function finishTest(){
     document.getElementById('testResultMascotTip').innerHTML = '';
   }
   saveTestResultToSupabase(currentTestKey, testAnswers, anyElevated, selfHarmFlag);
-
-  document.getElementById('testEmailName').value = '';
-  document.getElementById('testEmailAddress').value = '';
   showOnly('panel-test-results');
 }
 function renderCustomResult(t, result){
@@ -13562,8 +13563,6 @@ function renderCustomResult(t, result){
     document.getElementById('testResultMascotTip').innerHTML = '';
   }
   saveTestResultToSupabase(currentTestKey, testAnswers, !!result.elevated, false);
-  document.getElementById('testEmailName').value = '';
-  document.getElementById('testEmailAddress').value = '';
   showOnly('panel-test-results');
 }
 
@@ -13587,235 +13586,6 @@ document.getElementById('shareTestResultBtn').onclick = function(){
   });
 };
 document.getElementById('testResultDoneBtn').onclick = function(){ renderTestsList(); renderProfessionalAssessmentList(); showOnly('panel-tests'); };
-
-document.getElementById('downloadReportBtn').onclick = function(){
-  var btn = document.getElementById('downloadReportBtn');
-  var originalText = btn.textContent;
-  btn.textContent = 'Preparing...';
-  loadJsPDF().then(function(){
-    btn.textContent = originalText;
-    generateAndDownloadTestReportPdf();
-  }).catch(function(){
-    btn.textContent = originalText;
-    showToast("PDF library didn't load — check your connection");
-  });
-};
-function generateAndDownloadTestReportPdf(){
-  var t = TESTS_DATA[currentTestKey];
-  var personName = (document.getElementById('reportNameInput').value || '').trim() || 'there';
-  var firstName = personName === 'there' ? 'there' : personName.split(' ')[0];
-
-  var jsPDFCtor = window.jspdf.jsPDF;
-  var doc = new jsPDFCtor({ unit:'mm', format:'a4' });
-  var pageW = doc.internal.pageSize.getWidth();
-  var pageH = doc.internal.pageSize.getHeight();
-  var ML = 20, MR = 20, MB = 20;
-  var CW = pageW - ML - MR;
-  var navy=[46,80,144], gold=[253,185,19], cream=[254,243,216], creamBorder=[232,213,163];
-  var ink=[26,26,46], darkGrey=[55,65,81], midGrey=[107,114,128], lightBg=[243,244,246];
-  var discBg=[255,248,225], discTitle=[123,79,0], discBody=[92,58,0];
-  var y = 0;
-
-  function footer(pageNum){
-    doc.setDrawColor(gold[0],gold[1],gold[2]); doc.setLineWidth(0.9);
-    doc.line(ML, pageH-MB-6, pageW-MR, pageH-MB-6);
-    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(midGrey[0],midGrey[1],midGrey[2]);
-    doc.text('Home of Beautiful Souls Foundation · homeofbeautifulsouls.com · Confidential – For recipient use only', pageW/2, pageH-MB-1, {align:'center'});
-    doc.text('Page '+pageNum, pageW-MR, pageH-MB-1, {align:'right'});
-  }
-  function sectionPill(label){
-    doc.setFillColor(navy[0],navy[1],navy[2]);
-    doc.rect(ML, y, CW, 7, 'F');
-    doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(255,255,255);
-    doc.text(label.toUpperCase(), ML+4, y+5);
-    y += 7 + 3;
-  }
-  function checkPageBreak(neededHeight){
-    if(y + neededHeight > pageH - MB - 14){
-      footer(doc.internal.getNumberOfPages());
-      doc.addPage();
-      y = 20;
-    }
-  }
-  function bodyText(text, size, color, lineH){
-    doc.setFont('helvetica','normal'); doc.setFontSize(size||10); doc.setTextColor(color[0],color[1],color[2]);
-    var lines = doc.splitTextToSize(text, CW);
-    checkPageBreak(lines.length*(lineH||4.2)+4);
-    doc.text(lines, ML, y);
-    y += lines.length*(lineH||4.2) + 3;
-  }
-  function bulletList(items, size, color){
-    doc.setFont('helvetica','normal'); doc.setFontSize(size||9.5); doc.setTextColor(color[0],color[1],color[2]);
-    items.forEach(function(item){
-      var lines = doc.splitTextToSize('\u2022  ' + item, CW-6);
-      checkPageBreak(lines.length*4.2+1.5);
-      doc.text(lines, ML+2, y);
-      y += lines.length*4.2 + 1.5;
-    });
-    y += 2;
-  }
-  function arrowItem(name, desc){
-    checkPageBreak(10);
-    doc.setFillColor(gold[0],gold[1],gold[2]);
-    doc.triangle(ML+1.5, y-3.2, ML+1.5, y-0.6, ML+3.3, y-1.9, 'F');
-    doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(ink[0],ink[1],ink[2]);
-    doc.text(name+':', ML+6, y);
-    y += 4.5;
-    doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(darkGrey[0],darkGrey[1],darkGrey[2]);
-    var lines = doc.splitTextToSize(desc, CW-7);
-    checkPageBreak(lines.length*4);
-    doc.text(lines, ML+7, y);
-    y += lines.length*4 + 4;
-  }
-
-  // ===== LETTERHEAD =====
-  doc.setFillColor(navy[0],navy[1],navy[2]);
-  doc.rect(0, 0, pageW, 27, 'F');
-  try{
-    var logoImg = document.getElementById('headerLogo');
-    var canvas = document.createElement('canvas');
-    canvas.width = logoImg.naturalWidth; canvas.height = logoImg.naturalHeight;
-    canvas.getContext('2d').drawImage(logoImg, 0, 0);
-    var logoDataUrl = canvas.toDataURL('image/png');
-    doc.addImage(logoDataUrl, 'PNG', ML, 5.5, 20, 9.7);
-  }catch(ex){}
-  doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(255,255,255);
-  doc.text('HOME OF BEAUTIFUL SOULS FOUNDATION', ML+24, 9);
-  doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(184,204,238);
-  doc.text('CIN: U85300GJ2020NPL118743', ML+24, 13);
-  doc.text('319, New Maharathi Society, Behind Water Tank, Sardarnagar, Hansol, Ahmedabad-382475, Gujarat', ML+24, 17);
-  doc.text('akash.ramchandani@homeofbeautifulsouls.com \u00B7 homeofbeautifulsouls@gmail.com', ML+24, 21);
-
-  doc.setFillColor(gold[0],gold[1],gold[2]);
-  doc.rect(0, 27, pageW, 1.2, 'F');
-
-  // ===== HERO BLOCK =====
-  doc.setFillColor(navy[0],navy[1],navy[2]);
-  doc.rect(0, 28.2, pageW, 22, 'F');
-  doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.setTextColor(255,255,255);
-  doc.text('PSYCHOLOGICAL ASSESSMENT REPORT', ML, 39);
-  doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(154,180,216);
-  doc.text('PREPARED FOR', ML, 44.5);
-  doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.setTextColor(255,255,255);
-  doc.text(personName, ML, 49);
-
-  y = 58;
-
-  // ===== SCORES TABLE =====
-  sectionPill('Screening Tests & Scores');
-  var scoreValueText = '';
-  var scoreRow = document.querySelector('#testResultBody [data-score]');
-  var scoreCat = '';
-  if(scoreRow){
-    scoreCat = scoreRow.getAttribute('data-cat');
-    scoreValueText = 'Score: ' + scoreRow.getAttribute('data-score') + ' / ' + scoreRow.getAttribute('data-max') + ' (' + scoreCat + ')';
-  } else {
-    scoreValueText = document.getElementById('testResultBody').innerText.split('\n')[0] || '';
-  }
-
-  doc.setFillColor(lightBg[0],lightBg[1],lightBg[2]);
-  doc.rect(ML, y, CW, 9, 'F');
-  doc.setFont('helvetica','italic'); doc.setFontSize(9); doc.setTextColor(midGrey[0],midGrey[1],midGrey[2]);
-  doc.text(t.name, ML+3, y+5.8);
-  doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(ink[0],ink[1],ink[2]);
-  doc.text(scoreValueText, ML+CW*0.46, y+5.8);
-  y += 9 + 5;
-
-  // ===== THEME CALLOUT =====
-  var themeSentence = t.description || 'A reflection of the patterns shown in this screening.';
-  doc.setFillColor(cream[0],cream[1],cream[2]);
-  doc.setDrawColor(creamBorder[0],creamBorder[1],creamBorder[2]); doc.setLineWidth(0.35);
-  var themeLines = doc.splitTextToSize(themeSentence, CW-9);
-  var themeH = themeLines.length*4.6 + 6;
-  doc.rect(ML, y, CW, themeH, 'FD');
-  doc.setFillColor(gold[0],gold[1],gold[2]); doc.rect(ML, y, 1.4, themeH, 'F');
-  doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(navy[0],navy[1],navy[2]);
-  doc.text(themeLines, ML+5, y+5);
-  y += themeH + 5;
-
-  // ===== OVERVIEW & ANALYSIS =====
-  sectionPill('Overview & Analysis');
-  var reportData = buildReportContent(currentTestKey, t, testAnswers);
-  var greetName = firstName === 'there' ? 'Hi there' : firstName;
-  var overviewText = greetName + ', your screening for the ' + t.name + ' indicates ' + (scoreValueText.match(/\(([^)]+)\)/) ? scoreValueText.match(/\(([^)]+)\)/)[1] : 'the pattern shown above') + '. ' +
-    'It\'s important to understand that these results are often not a reflection of effort, intelligence, or willpower, but a real pattern worth understanding rather than pushing through alone. ' +
-    'Whatever brought you to check in today is worth taking seriously, and acknowledging these patterns is genuinely the first step toward finding what actually helps.';
-  bodyText(overviewText, 10, darkGrey, 4.4);
-  y += 2;
-
-  // ===== CHIEF COMPLAINTS =====
-  if(reportData.complaints.length){
-    sectionPill('Chief Complaints');
-    bulletList(reportData.complaints, 9.5, darkGrey);
-  }
-
-  // ===== CONCERNS =====
-  sectionPill('Concerns Reflected in the Screening');
-  var concernsText = scoreCat ?
-    (scoreCat + ' patterns on the ' + t.name + ', potentially affecting daily functioning, relationships, or wellbeing depending on how these show up day to day.') :
-    themeSentence;
-  bulletList([concernsText], 9.5, darkGrey);
-
-  // ===== THERAPY MODELS =====
-  if(reportData.models.length){
-    checkPageBreak(20);
-    sectionPill('Suggested Therapy Models');
-    reportData.models.forEach(function(m){ arrowItem(m.name, m.text); });
-  }
-
-  // ===== ACTIVITIES =====
-  if(reportData.activities.length){
-    checkPageBreak(20);
-    sectionPill('Suggested Therapeutic Activities');
-    reportData.activities.forEach(function(a){ arrowItem(a.name, a.text); });
-  }
-
-  // ===== DISCLAIMER =====
-  checkPageBreak(28);
-  y += 3;
-  doc.setFillColor(discBg[0],discBg[1],discBg[2]);
-  doc.setDrawColor(gold[0],gold[1],gold[2]); doc.setLineWidth(0.45);
-  var discText = 'The results in this report are based on validated psychological screening tools and reflect patterns that may indicate areas of concern. They are not a clinical diagnosis. Only a licensed mental health professional can confirm, interpret, and provide a formal diagnosis. Please treat this as a starting point for further professional consultation.';
-  var discLines = doc.splitTextToSize(discText, CW-14);
-  var discH = discLines.length*4 + 14;
-  doc.rect(ML, y, CW, discH, 'FD');
-  doc.setFillColor(gold[0],gold[1],gold[2]); doc.rect(ML, y, 1.8, discH, 'F');
-  doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(discTitle[0],discTitle[1],discTitle[2]);
-  doc.text('Important Notice: This is a Screening Report, Not a Diagnosis', ML+6, y+6);
-  doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(discBody[0],discBody[1],discBody[2]);
-  doc.text(discLines, ML+6, y+11);
-  y += discH + 5;
-
-  // ===== BUTTONS ROW =====
-  checkPageBreak(14);
-  var btnW = (CW - 3) / 2;
-  doc.setFillColor(navy[0],navy[1],navy[2]);
-  doc.roundedRect(ML, y, btnW, 9, 1.5, 1.5, 'F');
-  doc.setFont('helvetica','bold'); doc.setFontSize(9.5); doc.setTextColor(255,255,255);
-  doc.textWithLink('Book a Session', ML+btnW/2, y+5.7, {align:'center', url:'https://homeofbeautifulsouls.com/online-therapy-india/'});
-  doc.setFillColor(37,211,102);
-  doc.roundedRect(ML+btnW+3, y, btnW, 9, 1.5, 1.5, 'F');
-  doc.textWithLink('Chat on WhatsApp', ML+btnW+3+btnW/2, y+5.7, {align:'center', url:'https://wa.me/918320470976'});
-  y += 9;
-
-  footer(doc.internal.getNumberOfPages());
-
-  var fname = personName.replace(/[^a-z0-9]+/gi,'_') + '_HOBS_Report.pdf';
-  doc.save(fname);
-  showToast('Report downloaded');
-};
-
-if(!appState.testReportRequests){ appState.testReportRequests = []; }
-document.getElementById('testEmailSubmitBtn').onclick = function(){
-  var name = document.getElementById('testEmailName').value.trim();
-  var email = document.getElementById('testEmailAddress').value.trim();
-  if(!name || !email){ showToast('Add your name and email first'); return; }
-  appState.testReportRequests.push({ name:name, email:email, test:currentTestKey, date:new Date().toISOString() });
-  saveState();
-  showToast('Sent — check your email soon');
-  document.getElementById('testEmailName').value = '';
-  document.getElementById('testEmailAddress').value = '';
-};
 
 var REPORT_CONTENT = {
   pss10: {
