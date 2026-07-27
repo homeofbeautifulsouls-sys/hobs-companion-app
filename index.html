@@ -2216,7 +2216,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260727002831';
+  var CURRENT_BUILD = '20260727011125';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -13413,17 +13413,35 @@ function renderTestItem(){
     });
   }
 }
-document.getElementById('testBackBtn').onclick = function(){
+// Applying the same fix already proven necessary for other critical buttons this session
+// (journal save, task save): plain .onclick can be unreliable on some real mobile WebViews,
+// especially right after a dynamic DOM re-render (which renderTestItem does on every single
+// question change) -- and a double-fire (touchend + click both firing on one tap) could also
+// silently skip two questions at once. Both are now guarded the same proven way.
+var testNavInFlight = false;
+function handleTestBack(e){
+  if(e && e.cancelable) e.preventDefault();
+  if(testNavInFlight) return;
+  testNavInFlight = true;
+  setTimeout(function(){ testNavInFlight = false; }, 400);
   if(testIdx === 0) return;
   testIdx--;
   renderTestItem();
-};
-document.getElementById('testNextBtn').onclick = function(){
+}
+function handleTestNext(e){
+  if(e && e.cancelable) e.preventDefault();
+  if(testNavInFlight) return;
+  testNavInFlight = true;
+  setTimeout(function(){ testNavInFlight = false; }, 400);
   var item = testFlatItems[testIdx];
   var hasAnswer = testAnswers[testIdx] !== undefined && testAnswers[testIdx] !== null && testAnswers[testIdx] !== '';
   if(!hasAnswer){ showToast('Please answer this question first'); return; }
   if(testIdx >= testFlatItems.length - 1){ finishTest(); } else { testIdx++; renderTestItem(); }
-};
+}
+document.getElementById('testBackBtn').addEventListener('touchend', handleTestBack, {passive:false});
+document.getElementById('testBackBtn').addEventListener('click', handleTestBack);
+document.getElementById('testNextBtn').addEventListener('touchend', handleTestNext, {passive:false});
+document.getElementById('testNextBtn').addEventListener('click', handleTestNext);
 
 function finishTest(){
   var t = TESTS_DATA[currentTestKey];
