@@ -33,6 +33,7 @@
     return __loadedScripts[url];
   }
   function loadHtml2Canvas(){ return loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'); }
+  function loadRazorpayCheckout(){ return loadScriptOnce('https://checkout.razorpay.com/v1/checkout.js'); }
 </script>
 <script>
   // Real gap fixed: this had a single hard dependency on a CDN script with zero fallback --
@@ -956,13 +957,6 @@
     <p style="font-size:11px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Past Campaigns</p>
     <div id="adminPastCampaignsList" style="margin-bottom:22px;"></div>
 
-    <p style="font-size:11px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Payment QR Code</p>
-    <p style="font-size:10.5px;color:#B0AA98;margin:0 0 10px;">Used on every donation page and the in-app donate screen — one QR code shared across all campaigns.</p>
-    <img id="adminPaymentQrPreview" style="display:none;width:160px;max-width:100%;border-radius:10px;border:1px solid #EEE0C4;margin-bottom:8px;">
-    <input type="file" id="adminPaymentQrInput" accept="image/jpeg,image/png,image/webp" style="width:100%;font-size:11px;margin-bottom:8px;">
-    <input type="text" id="adminPaymentUpiId" placeholder="UPI ID (e.g. yourname@bank)" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:8px;box-sizing:border-box;">
-    <button id="adminPaymentQrSaveBtn" style="width:100%;padding:11px;border-radius:10px;border:none;background:#6690D6;color:#FFF8F0;font-size:12.5px;font-weight:700;cursor:pointer;margin-bottom:22px;">Save Payment Settings</button>
-
     <p style="font-size:11px;font-weight:700;color:#7B4F00;margin:0 0 10px;">Pledged donations awaiting confirmation</p>
     <div id="adminDonationsList" style="margin-bottom:22px;"></div>
 
@@ -1241,23 +1235,6 @@
     <p class="prompt-title" style="text-align:center;">My Sessions &amp; Cancellations</p>
     <p class="prompt-sub" style="text-align:center;margin-bottom:22px;">A clear record of where things stand.</p>
     <div id="myBookingsList"></div>
-  </div>
-
-  <div id="paymentModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.45);z-index:60;"></div>
-  <div id="paymentModal" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;background:#FFFFFF;border-radius:24px 24px 0 0;padding:24px 22px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;z-index:61;box-shadow:0 -10px 30px rgba(0,0,0,0.15);max-height:85vh;overflow-y:auto;text-align:center;">
-    <p class="prompt-title" style="margin-bottom:4px;">Complete Payment</p>
-    <p id="paymentModalPurpose" style="font-size:12.5px;color:#5C6B94;margin:0 0 18px;"></p>
-    <img id="paymentQrImage" src="paytm-qr.jpg" alt="Paytm QR Code" style="width:100%;max-width:240px;height:auto;object-fit:contain;margin:0 auto 14px;border:1px solid #EEE0C4;border-radius:16px;" onerror="this.style.display='none'; document.getElementById('paymentQrFallback').style.display='block';">
-    <p id="paymentModalUpiId" style="font-size:11px;color:#9AABCE;margin:0 0 14px;">UPI ID: 9426212083@ptyes</p>
-    <p id="paymentQrFallback" style="display:none;font-size:12px;color:#C77B7B;margin:0 0 14px;">QR code not available yet — message us directly to arrange payment.</p>
-    <p style="font-size:11.5px;color:#9AABCE;line-height:1.6;margin:0 0 20px;">Scan with any UPI app (Paytm, GPay, PhonePe) to pay. Once you've paid, let us know and we'll confirm your booking.</p>
-    <div id="paymentModalDonationInfo" style="display:none;margin:-10px 0 20px;">
-      <p style="font-size:10.5px;color:#B0AA98;margin:0 0 6px;">HOBS is a CSR Certified Section 8 Company.</p>
-      <p style="font-size:11px;color:#5C6B94;line-height:1.5;margin:0;">Kindly text us on WhatsApp — <a href="https://wa.me/918320470976" style="color:#6690D6;font-weight:700;">+91 83204 70976</a> — to receive your 80G Income Tax Exemption donation receipt.</p>
-    </div>
-    <button id="paymentConfirmBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;">I've Paid</button>
-    <a href="https://wa.me/918320470976" target="_blank" rel="noopener" id="paymentWhatsappBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:none;background:#25A55A;color:#FFFFFF;font-size:15px;font-weight:700;cursor:pointer;text-align:center;text-decoration:none;box-sizing:border-box;margin-bottom:10px;">WhatsApp Us</a>
-    <button id="paymentCloseBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:13px;font-weight:700;cursor:pointer;">Close</button>
   </div>
 
   <div id="slotPickerModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.45);z-index:60;"></div>
@@ -2216,7 +2193,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260731085432';
+  var CURRENT_BUILD = '20260731093549';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -2452,7 +2429,6 @@ if (IS_NATIVE_APP && window.Capacitor?.Plugins?.App) {
     }
     var openModals = [
       { backdrop: 'policyModalBackdrop', modal: 'policyModal' },
-      { backdrop: 'paymentModalBackdrop', modal: 'paymentModal' },
       { backdrop: 'slotPickerModalBackdrop', modal: 'slotPickerModal' },
       { backdrop: 'changeReasonModalBackdrop', modal: 'changeReasonModal' },
       { backdrop: 'therapistDayEditorBackdrop', modal: 'therapistDayEditor' },
@@ -3451,9 +3427,38 @@ function openMyBookings(){
         '<p style="font-size:11px;color:#9AABCE;margin:0 0 4px;">'+b.role_category+'</p>'+
         '<p style="font-size:11.5px;color:#6690D6;font-weight:600;margin:0 0 8px;">'+dateLabel+'</p>'+
         (b.status === 'active' ? '<p style="font-size:11px;color:#5C6B94;margin:0;">'+cancelText+'</p>' : '')+
+        (b.cancellation_charge_owed ?
+          (b.cancellation_amount_due ?
+            '<div style="background:#FBE8E8;border-radius:10px;padding:10px;margin-top:8px;">'+
+              '<p style="font-size:11px;color:#C77B7B;font-weight:700;margin:0 0 8px;">Cancellation charge: ₹'+b.cancellation_amount_due+'</p>'+
+              '<button class="pay-cancellation-charge-btn" data-id="'+b.id+'" style="width:100%;padding:10px;border-radius:10px;border:none;background:#C77B7B;color:#fff;font-size:12px;font-weight:700;cursor:pointer;">Pay Now</button>'+
+            '</div>' :
+            '<p style="font-size:11px;color:#C77B7B;margin:8px 0 0;">A cancellation charge applies — we\'ll let you know the amount shortly.</p>'
+          ) : ''
+        )+
         homeworkHtml+
       '</div>';
     }).join('');
+    document.querySelectorAll('.pay-cancellation-charge-btn').forEach(function(btn){
+      btn.onclick = function(){
+        var bookingId = btn.dataset.id;
+        var booking = bookings.filter(function(b){ return b.id === bookingId; })[0];
+        btn.disabled = true;
+        btn.textContent = 'Preparing…';
+        openRazorpayPayment(
+          { purpose: 'cancellation_charge', booking_id: bookingId, user_id: currentUser.id },
+          {
+            description: 'Cancellation charge — ' + (booking ? booking.expert_name : ''),
+            handler: function(){
+              showToast('Thank you! Confirming your payment…');
+              setTimeout(openMyBookings, 3000);
+            },
+            modal: { ondismiss: function(){ btn.disabled = false; btn.textContent = 'Pay Now'; } },
+          },
+          function(){ btn.disabled = false; btn.textContent = 'Pay Now'; }
+        );
+      };
+    });
   });
 }
 document.getElementById('myBookingsBtn').onclick = openMyBookings;
@@ -8959,34 +8964,40 @@ function getActiveBookingForCategory(category){
   }) || null;
 }
 
-function showPaymentModal(purposeText, notifyMessage, onConfirmed, isDonation){
-  document.getElementById('paymentModalPurpose').textContent = purposeText;
-  document.getElementById('paymentModalDonationInfo').style.display = isDonation ? 'block' : 'none';
-  var qrImg = document.getElementById('paymentQrImage');
-  var qrFallback = document.getElementById('paymentQrFallback');
-  var upiEl = document.getElementById('paymentModalUpiId');
-  qrImg.style.display = 'block';
-  qrFallback.style.display = 'none';
-  sb.from('app_settings').select('*').in('key', ['payment_qr_url','payment_upi_id']).then(function(result){
-    if(result.error || !result.data) return; // keep the static defaults already in the HTML
-    var settings = {};
-    result.data.forEach(function(row){ settings[row.key] = row.value; });
-    if(settings.payment_qr_url) qrImg.src = settings.payment_qr_url;
-    if(settings.payment_upi_id) upiEl.textContent = 'UPI ID: ' + settings.payment_upi_id;
+// Real Razorpay Checkout, shared by every payment context in the app (session payment,
+// cancellation charge, in-app donation). Creates a real order server-side first, then opens
+// Checkout with it. The success handler here is only ever used to show a "confirming" message --
+// it never marks anything paid itself. Only razorpay-webhook, after independently verifying
+// Razorpay's own signature server-side, can do that -- exactly the same trust boundary already
+// used on the web donate page.
+function openRazorpayPayment(orderRequestBody, checkoutOptions, onDismissedOrFailed){
+  loadRazorpayCheckout().then(function(){
+    fetch('https://adjvptkzyckkvewbfmzf.supabase.co/functions/v1/create-razorpay-order', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(orderRequestBody)
+    }).then(function(r){ return r.json(); }).then(function(order){
+      if(order.error){
+        showToast(order.error);
+        if(onDismissedOrFailed) onDismissedOrFailed();
+        return;
+      }
+      var rzp = new Razorpay(Object.assign({
+        key: order.key_id, amount: order.amount, currency: order.currency, order_id: order.order_id,
+        name: 'Home of Beautiful Souls Foundation', theme: { color: '#6690D6' },
+      }, checkoutOptions));
+      rzp.on('payment.failed', function(){
+        showToast('Payment failed — please try again.');
+        if(onDismissedOrFailed) onDismissedOrFailed();
+      });
+      rzp.open();
+    }).catch(function(){
+      showToast('Could not start payment — please try again.');
+      if(onDismissedOrFailed) onDismissedOrFailed();
+    });
+  }).catch(function(){
+    showToast('Could not load the payment screen — check your connection and try again.');
+    if(onDismissedOrFailed) onDismissedOrFailed();
   });
-  document.getElementById('paymentModalBackdrop').style.display = 'block';
-  document.getElementById('paymentModal').style.display = 'block';
-  var closeModal = function(){
-    document.getElementById('paymentModalBackdrop').style.display = 'none';
-    document.getElementById('paymentModal').style.display = 'none';
-  };
-  document.getElementById('paymentConfirmBtn').onclick = function(){
-    closeModal();
-    showToast("Thanks! We'll verify your payment and confirm shortly.");
-    if(typeof onConfirmed === 'function') onConfirmed();
-  };
-  document.getElementById('paymentCloseBtn').onclick = closeModal;
-  document.getElementById('paymentModalBackdrop').onclick = closeModal;
 }
 
 function showPolicyModal(onContinue){
@@ -9697,7 +9708,6 @@ function renderAdminCampaign(){
   });
   renderAdminDonationsList();
   renderAdminPastCampaigns();
-  renderAdminPaymentSettings();
 }
 
 // Fires the meta-tag sync best-effort -- if it fails, the campaign itself is still saved fine
@@ -9751,50 +9761,6 @@ function renderAdminPastCampaigns(){
     });
   });
 }
-
-var adminPaymentQrUrl = null;
-function renderAdminPaymentSettings(){
-  sb.from('app_settings').select('*').in('key', ['payment_qr_url','payment_upi_id']).then(function(result){
-    if(result.error || !result.data) return;
-    var settings = {};
-    result.data.forEach(function(row){ settings[row.key] = row.value; });
-    adminPaymentQrUrl = settings.payment_qr_url || null;
-    document.getElementById('adminPaymentUpiId').value = settings.payment_upi_id || '';
-    var previewImg = document.getElementById('adminPaymentQrPreview');
-    if(adminPaymentQrUrl){ previewImg.src = adminPaymentQrUrl; previewImg.style.display = 'block'; } else { previewImg.style.display = 'none'; }
-  });
-}
-
-document.getElementById('adminPaymentQrInput').onchange = function(){
-  var file = this.files[0];
-  if(!file) return;
-  if(file.size > 5 * 1024 * 1024){ showToast('That image is a bit too big (5MB max)'); this.value = ''; return; }
-  var previewImg = document.getElementById('adminPaymentQrPreview');
-  previewImg.src = URL.createObjectURL(file);
-  previewImg.style.display = 'block';
-  var ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-  var path = currentUser.id + '/settings/' + uidGen() + '.' + ext;
-  sb.storage.from('task-images').upload(path, file, { contentType: file.type }).then(function(result){
-    if(result.error){ showToast('QR upload failed — try again.'); return; }
-    adminPaymentQrUrl = sb.storage.from('task-images').getPublicUrl(path).data.publicUrl;
-    showToast('QR ready — click Save Payment Settings to apply it.');
-  });
-};
-
-document.getElementById('adminPaymentQrSaveBtn').onclick = function(){
-  var upiId = document.getElementById('adminPaymentUpiId').value.trim();
-  if(!adminPaymentQrUrl || !upiId){ showToast('Add both a QR code image and a UPI ID first.'); return; }
-  var btn = this;
-  btn.disabled = true; btn.textContent = 'Saving...';
-  Promise.all([
-    sb.from('app_settings').upsert({ key: 'payment_qr_url', value: adminPaymentQrUrl, updated_at: new Date().toISOString() }),
-    sb.from('app_settings').upsert({ key: 'payment_upi_id', value: upiId, updated_at: new Date().toISOString() })
-  ]).then(function(results){
-    btn.disabled = false; btn.textContent = 'Save Payment Settings';
-    if(results[0].error || results[1].error){ showToast('Could not save — please try again.'); return; }
-    showToast('Payment settings updated.');
-  });
-};
 
 document.getElementById('adminCampaignImageInput').onchange = function(){
   var file = this.files[0];
@@ -10731,15 +10697,29 @@ function openAdminDashboard(){
         '</div>'+
         '<p style="font-size:11px;color:#9AABCE;margin:0 0 6px;">'+b.role_category+' · Cancelled '+(b.cancellation_count||0)+' time(s)</p>'+
         (b.status === 'active' && !b.payment_confirmed ?
-          '<div style="background:#FEF3D8;border-radius:10px;padding:10px;margin-bottom:8px;">'+
-            '<p style="font-size:11px;color:#7B4F00;font-weight:700;margin:0 0 6px;">⏳ Payment not yet confirmed</p>'+
-            '<div style="display:flex;gap:6px;">'+
-              '<input type="number" class="admin-payout-input" data-id="'+b.id+'" placeholder="Therapist gets ₹" style="flex:1;padding:8px;border-radius:8px;border:1px solid #EEE0C4;font-size:11px;font-family:inherit;">'+
-              '<button class="admin-confirm-payment-btn" data-id="'+b.id+'" style="font-size:10px;font-weight:700;color:#fff;background:#6690D6;border:none;border-radius:8px;padding:8px 10px;cursor:pointer;white-space:nowrap;">Confirm</button>'+
-            '</div>'+
-          '</div>' :
-          (b.payment_confirmed && b.therapist_payout_amount ?
-            '<p style="font-size:10.5px;color:#3B8F63;margin:0 0 8px;">Therapist receives ₹'+b.therapist_payout_amount+'</p>' : ''
+          (b.amount_due ?
+            '<div style="background:#FEF3D8;border-radius:10px;padding:10px;margin-bottom:8px;">'+
+              '<p style="font-size:11px;color:#7B4F00;font-weight:700;margin:0;">⏳ Waiting for client to pay ₹'+b.amount_due+' (confirms automatically once paid)</p>'+
+            '</div>' :
+            '<div style="background:#FEF3D8;border-radius:10px;padding:10px;margin-bottom:8px;">'+
+              '<p style="font-size:11px;color:#7B4F00;font-weight:700;margin:0 0 6px;">Set the amount for this client to pay</p>'+
+              '<div style="display:flex;gap:6px;">'+
+                '<input type="number" class="admin-amount-due-input" data-id="'+b.id+'" placeholder="Amount (₹)" style="flex:1;padding:8px;border-radius:8px;border:1px solid #EEE0C4;font-size:11px;font-family:inherit;">'+
+                '<button class="admin-set-amount-due-btn" data-id="'+b.id+'" style="font-size:10px;font-weight:700;color:#fff;background:#6690D6;border:none;border-radius:8px;padding:8px 10px;cursor:pointer;white-space:nowrap;">Set Amount</button>'+
+              '</div>'+
+            '</div>'
+          ) :
+          (b.payment_confirmed ?
+            (b.therapist_payout_amount ?
+              '<p style="font-size:10.5px;color:#3B8F63;margin:0 0 8px;">Paid by client · Therapist receives ₹'+b.therapist_payout_amount+'</p>' :
+              '<div style="background:#EAF4EE;border-radius:10px;padding:10px;margin-bottom:8px;">'+
+                '<p style="font-size:11px;color:#3B8F63;font-weight:700;margin:0 0 6px;">✓ Client paid — set therapist payout</p>'+
+                '<div style="display:flex;gap:6px;">'+
+                  '<input type="number" class="admin-payout-input" data-id="'+b.id+'" placeholder="Therapist gets ₹" style="flex:1;padding:8px;border-radius:8px;border:1px solid #EEE0C4;font-size:11px;font-family:inherit;">'+
+                  '<button class="admin-confirm-payment-btn" data-id="'+b.id+'" style="font-size:10px;font-weight:700;color:#fff;background:#6690D6;border:none;border-radius:8px;padding:8px 10px;cursor:pointer;white-space:nowrap;">Set Payout</button>'+
+                '</div>'+
+              '</div>'
+            ) : ''
           )
         )+
         (b.status === 'active' ?
@@ -10750,10 +10730,18 @@ function openAdminDashboard(){
           '</div>' : ''
         )+
         (b.cancellation_charge_owed ?
-          '<div style="display:flex;align-items:center;justify-content:space-between;background:#FBE8E8;border-radius:10px;padding:8px 10px;margin-top:6px;">'+
-            '<span style="font-size:11px;color:#C77B7B;font-weight:700;">50% charge owed</span>'+
-            '<button class="admin-resolve-charge-btn" data-id="'+b.id+'" style="font-size:10px;font-weight:700;color:#3B8F63;background:none;border:1px solid #3B8F63;border-radius:8px;padding:4px 8px;cursor:pointer;">Mark Collected</button>'+
-          '</div>' : ''
+          (b.cancellation_amount_due ?
+            '<div style="background:#FBE8E8;border-radius:10px;padding:8px 10px;margin-top:6px;">'+
+              '<p style="font-size:11px;color:#C77B7B;font-weight:700;margin:0;">⏳ Waiting for ₹'+b.cancellation_amount_due+' cancellation charge (confirms automatically)</p>'+
+            '</div>' :
+            '<div style="background:#FBE8E8;border-radius:10px;padding:8px 10px;margin-top:6px;">'+
+              '<p style="font-size:11px;color:#C77B7B;font-weight:700;margin:0 0 6px;">Set the cancellation charge amount</p>'+
+              '<div style="display:flex;gap:6px;">'+
+                '<input type="number" class="admin-cancel-amount-input" data-id="'+b.id+'" placeholder="Amount (₹)" style="flex:1;padding:8px;border-radius:8px;border:1px solid #EEE0C4;font-size:11px;font-family:inherit;">'+
+                '<button class="admin-set-cancel-amount-btn" data-id="'+b.id+'" style="font-size:10px;font-weight:700;color:#fff;background:#C77B7B;border:none;border-radius:8px;padding:8px 10px;cursor:pointer;white-space:nowrap;">Set Amount</button>'+
+              '</div>'+
+            '</div>'
+          ) : ''
         )+
         (b.payment_locked ?
           '<div style="background:#EAF4EE;border-radius:10px;padding:8px 10px;margin-top:6px;">'+
@@ -10779,6 +10767,26 @@ function openAdminDashboard(){
       };
     });
 
+    document.querySelectorAll('.admin-set-amount-due-btn').forEach(function(btn){
+      btn.onclick = function(){
+        var input = document.querySelector('.admin-amount-due-input[data-id="'+btn.dataset.id+'"]');
+        var amount = input ? parseFloat(input.value) : null;
+        if(!amount || amount <= 0){ showToast('Enter a valid amount first.'); return; }
+        sb.from('expert_bookings').update({ amount_due: amount }).eq('id', btn.dataset.id).then(function(result){
+          if(!result.error){ showToast('Amount set — client can now pay.'); openAdminDashboard(); }
+        });
+      };
+    });
+    document.querySelectorAll('.admin-set-cancel-amount-btn').forEach(function(btn){
+      btn.onclick = function(){
+        var input = document.querySelector('.admin-cancel-amount-input[data-id="'+btn.dataset.id+'"]');
+        var amount = input ? parseFloat(input.value) : null;
+        if(!amount || amount <= 0){ showToast('Enter a valid amount first.'); return; }
+        sb.from('expert_bookings').update({ cancellation_amount_due: amount }).eq('id', btn.dataset.id).then(function(result){
+          if(!result.error){ showToast('Cancellation amount set — client can now pay.'); openAdminDashboard(); }
+        });
+      };
+    });
     document.querySelectorAll('.admin-confirm-payment-btn').forEach(function(btn){
       btn.onclick = function(){
         var payoutInput = document.querySelector('.admin-payout-input[data-id="'+btn.dataset.id+'"]');
@@ -10787,8 +10795,12 @@ function openAdminDashboard(){
           showToast('Enter the amount the therapist will receive first.');
           return;
         }
-        sb.from('expert_bookings').update({ payment_confirmed: true, therapist_payout_amount: payout }).eq('id', btn.dataset.id).then(function(result){
-          if(!result.error){ showToast('Payment confirmed.'); openAdminDashboard(); }
+        // Note: payment_confirmed is no longer set here -- that only ever happens via the
+        // Razorpay webhook, once it independently verifies the client's payment actually went
+        // through. This just records what the therapist should be paid, for a booking that's
+        // already confirmed paid by that point.
+        sb.from('expert_bookings').update({ therapist_payout_amount: payout }).eq('id', btn.dataset.id).then(function(result){
+          if(!result.error){ showToast('Therapist payout recorded.'); openAdminDashboard(); }
         });
       };
     });
@@ -10809,15 +10821,6 @@ function openAdminDashboard(){
         var isoValue = new Date(dateInput.value + 'T' + timeInput.value).toISOString();
         sb.from('expert_bookings').update({ session_date: isoValue }).eq('id', id).then(function(result){
           if(!result.error){ showToast('Session date set.'); syncSessionToCalendar(id); }
-        });
-      };
-    });
-
-    document.querySelectorAll('.admin-resolve-charge-btn').forEach(function(btn){
-      btn.onclick = function(){
-        var id = btn.dataset.id;
-        sb.from('expert_bookings').update({ cancellation_charge_owed: false }).eq('id', id).then(function(result){
-          if(!result.error) openAdminDashboard();
         });
       };
     });
@@ -12351,11 +12354,7 @@ function cancelSession(m){
       }
 
       if(chargePercent > 0){
-        showPaymentModal(
-          chargePercent + '% cancellation charge — ' + m.name,
-          "Hi! I've cancelled my session with " + m.name + " and paid the " + chargePercent + "% cancellation charge.",
-          function(){ showToast('Cancelled — thanks for letting us know about the payment.'); }
-        );
+        showToast("Cancelled — a " + chargePercent + "% cancellation charge applies. We'll let you know the exact amount shortly, in My Sessions & Cancellations.");
       } else {
         showToast('Session cancelled — the full amount carries forward to your next booking.');
       }
@@ -12577,6 +12576,7 @@ function shareCampaign(c){
 }
 
 function openDonateModal(c){
+  currentDonateCampaign = c;
   document.getElementById('donateModalTitle').textContent = c.title;
   document.getElementById('donateModalDescription').innerHTML = renderCampaignDescriptionHtml(c.description || '');
   document.getElementById('donateDonorName').value = appState.displayName || '';
@@ -12599,21 +12599,22 @@ document.getElementById('donateContinueBtn').onclick = function(){
   document.getElementById('donateModalBackdrop').style.display = 'none';
   document.getElementById('donateModal').style.display = 'none';
 
-  showPaymentModal(
-    'Donation of ₹' + amount.toLocaleString('en-IN') + ' — ' + currentDonateCampaign.title,
-    "Hi! I've donated ₹" + amount + " to " + currentDonateCampaign.title + " and wanted to let you know.",
-    function(){
-      sb.from('donations').insert({
-        campaign_id: currentDonateCampaign.id, donor_name: donorName || null, amount: amount,
-        payment_confirmed: false, user_id: (currentUser && currentUser.id) || null
-      }).then(function(result){
-        if(!result.error){
-          logAnalyticsEvent('donation_pledged');
-          renderProfileDonationWidget();
-        }
-      });
+  var donateBtn = document.getElementById('donateContinueBtn');
+  donateBtn.disabled = true;
+  donateBtn.textContent = 'Preparing…';
+  openRazorpayPayment(
+    { purpose: 'donation', campaign_id: currentDonateCampaign.id, amount: amount, donor_name: donorName || null, user_id: (currentUser && currentUser.id) || null },
+    {
+      description: currentDonateCampaign.title,
+      prefill: donorName ? { name: donorName } : {},
+      handler: function(){
+        logAnalyticsEvent('donation_pledged');
+        showToast('Thank you! Confirming your donation…');
+        setTimeout(renderProfileDonationWidget, 3000);
+      },
+      modal: { ondismiss: function(){ donateBtn.disabled = false; donateBtn.textContent = 'Continue to Payment'; } },
     },
-    true
+    function(){ donateBtn.disabled = false; donateBtn.textContent = 'Continue to Payment'; }
   );
 };
 
@@ -12750,14 +12751,22 @@ function openExpertDetail(idx){
     var payNowBtn = document.getElementById('expertDetailPayNowBtn');
     if(payNowBtn){
       payNowBtn.onclick = function(){
-        showPaymentModal(
-          "Session with " + m.name,
-          "Hi! I've paid for my session with " + m.name + " and wanted to let you know.",
-          function(){
-            trackNotificationAction('booked_session');
-            logAnalyticsEvent('booking_made');
-            showToast("Thanks! We'll confirm once your payment is verified.");
-          }
+        payNowBtn.disabled = true;
+        payNowBtn.textContent = 'Preparing…';
+        openRazorpayPayment(
+          { purpose: 'booking_payment', booking_id: activeBooking.id, user_id: currentUser.id },
+          {
+            description: 'Session with ' + m.name,
+            prefill: currentUser.name ? { name: currentUser.name } : {},
+            handler: function(){
+              trackNotificationAction('booked_session');
+              logAnalyticsEvent('booking_made');
+              showToast("Thanks! We'll confirm once your payment is verified.");
+              setTimeout(function(){ openExpertDetail(idx); }, 3000);
+            },
+            modal: { ondismiss: function(){ payNowBtn.disabled = false; payNowBtn.textContent = 'Pay Now'; } },
+          },
+          function(){ payNowBtn.disabled = false; payNowBtn.textContent = 'Pay Now'; }
         );
       };
     }
