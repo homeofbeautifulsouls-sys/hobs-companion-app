@@ -63,16 +63,8 @@
       <button class="preset-btn" data-amt="2500">₹2500</button>
     </div>
     <button class="primary" id="continueBtn">Continue to Payment</button>
-    <p style="font-size:11.5px;color:#9AABCE;text-align:center;margin:0;">A registered non-profit. Every contribution helps us keep mental health support accessible.</p>
-
-    <div class="qr-area" id="qrArea">
-      <img id="qrImage" src="paytm-qr.jpg" alt="Paytm QR Code">
-      <p class="upi" id="qrUpiId">UPI ID: 9426212083@ptyes</p>
-      <p style="font-size:12px;color:#5C6B94;margin:0 0 10px;">Scan with any UPI app to pay. Once you've paid, tap below to let us know.</p>
-      <p style="font-size:11.5px;color:#5C6B94;margin:0 0 16px;">Kindly text us on WhatsApp — <a href="https://wa.me/918320470976" style="color:#6690D6;font-weight:700;">+91 83204 70976</a> — to receive your 80G Income Tax Exemption donation receipt.</p>
-      <button class="primary" id="paidBtn">I've Paid</button>
-      <a href="https://wa.me/918320470976" target="_blank" rel="noopener" id="whatsappUsBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:none;background:#25A55A;color:#FFFFFF;font-size:15px;font-weight:700;cursor:pointer;text-align:center;text-decoration:none;box-sizing:border-box;margin-top:10px;">WhatsApp Us</a>
-    </div>
+    <p style="font-size:11.5px;color:#9AABCE;text-align:center;margin:0 0 10px;">A registered non-profit. Every contribution helps us keep mental health support accessible.</p>
+    <p style="font-size:11px;color:#9AABCE;text-align:center;margin:0;">For your 80G Income Tax Exemption receipt, WhatsApp us at <a href="https://wa.me/918320470976" style="color:#6690D6;font-weight:700;">+91 83204 70976</a> after donating.</p>
     <p class="status" id="statusMsg"></p>
   </div>
 
@@ -80,6 +72,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script>
   var SUPABASE_URL = 'https://adjvptkzyckkvewbfmzf.supabase.co';
   var SUPABASE_ANON_KEY = 'sb_publishable_OfcfAkUyxd9oXKeGvVxBIw_KxUV9TzE';
@@ -125,14 +118,6 @@
   }
   loadCampaign();
 
-  sb.from('app_settings').select('*').in('key', ['payment_qr_url','payment_upi_id']).then(function(result){
-    if(result.error || !result.data) return; // keep the static defaults already in the HTML
-    var settings = {};
-    result.data.forEach(function(row){ settings[row.key] = row.value; });
-    if(settings.payment_qr_url) document.getElementById('qrImage').src = settings.payment_qr_url;
-    if(settings.payment_upi_id) document.getElementById('qrUpiId').textContent = 'UPI ID: ' + settings.payment_upi_id;
-  });
-
   document.querySelectorAll('.preset-btn').forEach(function(btn){
     btn.onclick = function(){
       document.getElementById('donateAmount').value = btn.dataset.amt;
@@ -156,26 +141,59 @@
     }
     pendingAmount = amount;
     pendingName = document.getElementById('donorName').value.trim();
+    var btn = document.getElementById('continueBtn');
+    btn.disabled = true;
+    btn.textContent = 'Preparing payment…';
     document.getElementById('statusMsg').textContent = '';
-    document.getElementById('qrArea').style.display = 'block';
-    document.getElementById('qrArea').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  };
 
-  document.getElementById('paidBtn').onclick = function(){
-    sb.from('donations').insert({
-      campaign_id: activeCampaign.id, donor_name: pendingName || null, amount: pendingAmount, payment_confirmed: false
-    }).then(function(result){
-      if(result.error){
-        document.getElementById('statusMsg').textContent = 'Something went wrong — please try again.';
+    fetch('https://adjvptkzyckkvewbfmzf.supabase.co/functions/v1/create-razorpay-order', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ campaign_id: activeCampaign.id, amount: pendingAmount, donor_name: pendingName || null })
+    }).then(function(r){ return r.json(); }).then(function(order){
+      btn.disabled = false;
+      btn.textContent = 'Continue to Payment';
+      if(order.error){
+        document.getElementById('statusMsg').textContent = 'Could not start payment — please try again.';
         document.getElementById('statusMsg').style.color = '#C77B7B';
         return;
       }
-      document.getElementById('qrArea').style.display = 'none';
-      document.getElementById('statusMsg').textContent = 'Thank you! We\'ll confirm your donation shortly.';
-      document.getElementById('statusMsg').style.color = '#3B8F63';
-      document.getElementById('donateAmount').value = '';
-      document.getElementById('donorName').value = '';
-      loadCampaign();
+      var rzp = new Razorpay({
+        key: order.key_id,
+        amount: order.amount,
+        currency: order.currency,
+        order_id: order.order_id,
+        name: 'Home of Beautiful Souls Foundation',
+        description: activeCampaign.title,
+        prefill: pendingName ? { name: pendingName } : {},
+        theme: { color: '#6690D6' },
+        handler: function(response){
+          // A real payment just succeeded from Razorpay's own perspective, but this is still
+          // just the client saying so -- the donation only actually gets marked confirmed once
+          // razorpay-webhook independently verifies it server-side, which is why this message
+          // says "confirming" rather than "confirmed."
+          document.getElementById('statusMsg').textContent = 'Thank you! Confirming your payment…';
+          document.getElementById('statusMsg').style.color = '#3B8F63';
+          document.getElementById('donateAmount').value = '';
+          document.getElementById('donorName').value = '';
+          setTimeout(loadCampaign, 3000); // give the webhook a moment to land, then refresh the total
+        },
+        modal: {
+          ondismiss: function(){
+            document.getElementById('statusMsg').textContent = 'Payment cancelled — no charge was made.';
+            document.getElementById('statusMsg').style.color = '#5C6B94';
+          }
+        }
+      });
+      rzp.on('payment.failed', function(){
+        document.getElementById('statusMsg').textContent = 'Payment failed — please try again.';
+        document.getElementById('statusMsg').style.color = '#C77B7B';
+      });
+      rzp.open();
+    }).catch(function(){
+      btn.disabled = false;
+      btn.textContent = 'Continue to Payment';
+      document.getElementById('statusMsg').textContent = 'Something went wrong — please try again.';
+      document.getElementById('statusMsg').style.color = '#C77B7B';
     });
   };
 </script>
