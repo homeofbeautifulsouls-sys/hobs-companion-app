@@ -2193,7 +2193,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260731101057';
+  var CURRENT_BUILD = '20260731101646';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -3371,6 +3371,7 @@ document.getElementById('epSaveBtn').onclick = function(){
 
 // ================= MY SESSIONS & CANCELLATIONS (client self-service view) =================
 function openMyBookings(){
+  loadRazorpayCheckout(); // this screen can show cancellation-charge Pay Now buttons
   showOnly('panel-my-bookings');
   var wrap = document.getElementById('myBookingsList');
   wrap.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">Loading...</p>';
@@ -8971,31 +8972,34 @@ function getActiveBookingForCategory(category){
 // Razorpay's own signature server-side, can do that -- exactly the same trust boundary already
 // used on the web donate page.
 function openRazorpayPayment(orderRequestBody, checkoutOptions, onDismissedOrFailed){
-  loadRazorpayCheckout().then(function(){
+  // These two are independent network operations (loading Razorpay's script, and creating the
+  // order server-side) that were needlessly running one after the other -- real bug found via a
+  // direct user report of a 1-2s delay. Running them in parallel means the total wait is roughly
+  // the slower of the two, not the sum of both.
+  Promise.all([
+    loadRazorpayCheckout(),
     fetch('https://adjvptkzyckkvewbfmzf.supabase.co/functions/v1/create-razorpay-order', {
       method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify(orderRequestBody)
-    }).then(function(r){ return r.json(); }).then(function(order){
-      if(order.error){
-        showToast(order.error);
-        if(onDismissedOrFailed) onDismissedOrFailed();
-        return;
-      }
-      var rzp = new Razorpay(Object.assign({
-        key: order.key_id, amount: order.amount, currency: order.currency, order_id: order.order_id,
-        name: 'Home of Beautiful Souls Foundation', theme: { color: '#6690D6' },
-      }, checkoutOptions));
-      rzp.on('payment.failed', function(){
-        showToast('Payment failed — please try again.');
-        if(onDismissedOrFailed) onDismissedOrFailed();
-      });
-      rzp.open();
-    }).catch(function(){
-      showToast('Could not start payment — please try again.');
+    }).then(function(r){ return r.json(); })
+  ]).then(function(results){
+    var order = results[1];
+    if(order.error){
+      showToast(order.error);
+      if(onDismissedOrFailed) onDismissedOrFailed();
+      return;
+    }
+    var rzp = new Razorpay(Object.assign({
+      key: order.key_id, amount: order.amount, currency: order.currency, order_id: order.order_id,
+      name: 'Home of Beautiful Souls Foundation', theme: { color: '#6690D6' },
+    }, checkoutOptions));
+    rzp.on('payment.failed', function(){
+      showToast('Payment failed — please try again.');
       if(onDismissedOrFailed) onDismissedOrFailed();
     });
+    rzp.open();
   }).catch(function(){
-    showToast('Could not load the payment screen — check your connection and try again.');
+    showToast('Could not start payment — please try again.');
     if(onDismissedOrFailed) onDismissedOrFailed();
   });
 }
@@ -12576,6 +12580,7 @@ function shareCampaign(c){
 }
 
 function openDonateModal(c){
+  loadRazorpayCheckout(); // start loading now, before they even tap Continue to Payment
   currentDonateCampaign = c;
   document.getElementById('donateModalTitle').textContent = c.title;
   document.getElementById('donateModalDescription').innerHTML = renderCampaignDescriptionHtml(c.description || '');
@@ -12620,6 +12625,7 @@ document.getElementById('donateContinueBtn').onclick = function(){
 
 
 function openExpertDetail(idx){
+  loadRazorpayCheckout(); // this screen can show a Pay Now button; get a head start on it
   var m = TEAM_MEMBERS[idx];
   var initials = m.name.split(' ').filter(function(w){ return w!=='Dr.'; }).map(function(w){ return w[0]; }).slice(0,2).join('');
   var isDoctor = m.name.indexOf('Dr.') === 0;
