@@ -450,7 +450,7 @@
 
   <div id="authOverlay" style="position:absolute;inset:0;z-index:100;background:#FFF8F0;display:flex;flex-direction:column;justify-content:center;padding:32px 24px;box-sizing:border-box;">
     <div id="authLoadingState" style="display:flex;flex-direction:column;align-items:center;gap:14px;">
-      <img src="bob.png" alt="Bob" style="width:110px;filter:drop-shadow(0 8px 16px rgba(40,70,140,0.2));">
+      <img src="bob.jpg" alt="Bob" style="width:110px;filter:drop-shadow(0 8px 16px rgba(40,70,140,0.2));">
       <p id="bobSplashLine" style="text-align:center;font-size:14px;font-weight:600;color:#2E5090;margin:0;max-width:240px;">Hi, I'm Bob. Glad you're here.</p>
       <div style="width:22px;height:22px;border-radius:50%;border:3px solid #EEE0C4;border-top-color:#6690D6;animation:authspin 0.8s linear infinite;margin-top:6px;"></div>
     </div>
@@ -529,7 +529,7 @@
   </div>
 
   <div id="welcomeBackOverlay" style="position:absolute;inset:0;z-index:100;background:#75C3E9;display:none;cursor:pointer;">
-    <img id="welcomeBackImg" alt="Welcome back Home" style="width:100%;height:100%;object-fit:contain;display:block;">
+    <img id="welcomeBackImg" alt="Welcome back Home" style="width:100%;height:100%;object-fit:contain;display:block;" loading="lazy">
     <p style="position:absolute;bottom:calc(22px + env(safe-area-inset-bottom));left:0;right:0;text-align:center;color:#fff;font-size:11px;opacity:0.85;text-shadow:0 1px 3px rgba(0,0,0,0.5);">Tap anywhere to continue</p>
   </div>
 
@@ -633,7 +633,7 @@
   </div>
 
   <div class="header">
-    <img class="logo-img" id="headerLogo" src="logo.png" alt="HOBS logo">
+    <img class="logo-img" id="headerLogo" src="logo.png" alt="HOBS logo" loading="lazy">
     <div class="header-icons">
       <button id="headerChatBtn" class="icon-circle" style="border:none;cursor:pointer;">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
@@ -674,22 +674,22 @@
     <p class="home-section-sub">Tap anyone — they'll point you somewhere useful.</p>
     <div class="mascot-lineup" id="mascotLineup">
       <button class="mascot-figure" id="meetBobBtn">
-        <img src="bob.png" alt="Bob the elephant" id="bobHomeImg" onerror="if(window.bobImgFallback){bobImgFallback(this);}else{this.style.display='none';}">
+        <img src="bob.jpg" alt="Bob the elephant" id="bobHomeImg" onerror="if(window.bobImgFallback){bobImgFallback(this);}else{this.style.display='none';}" loading="lazy">
         <span class="mascot-figure-name">Bob</span>
         <span class="mascot-figure-helps" id="mascotHelpsBob">Anxiety, calming down</span>
       </button>
       <button class="mascot-figure" id="meetKunnuBtn">
-        <img src="kunnu.png" alt="Kunnu the cat" onerror="this.style.display='none'">
+        <img src="kunnu.jpg" alt="Kunnu the cat" onerror="this.style.display='none'" loading="lazy">
         <span class="mascot-figure-name">Kunnu</span>
         <span class="mascot-figure-helps" id="mascotHelpsKunnu">Feeling alone, need an ear</span>
       </button>
       <button class="mascot-figure" id="meetCookieBtn">
-        <img src="cookie.png" alt="Cookie the golden retriever" onerror="this.style.display='none'">
+        <img src="cookie.jpg" alt="Cookie the golden retriever" onerror="this.style.display='none'" loading="lazy">
         <span class="mascot-figure-name">Cookie</span>
         <span class="mascot-figure-helps" id="mascotHelpsCookie">Relationships, patterns</span>
       </button>
       <button class="mascot-figure" id="meetPoBtn">
-        <img src="po.png" alt="Po the panda" onerror="this.style.display='none'">
+        <img src="po.jpg" alt="Po the panda" onerror="this.style.display='none'" loading="lazy">
         <span class="mascot-figure-name">Po</span>
         <span class="mascot-figure-helps" id="mascotHelpsPo">Talking to a professional</span>
       </button>
@@ -945,7 +945,7 @@
     <textarea id="adminCampaignDescription" placeholder="Description — what this campaign is for" style="width:100%;min-height:60px;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;resize:vertical;"></textarea>
     <div style="margin-bottom:6px;">
       <label for="adminCampaignImageInput" style="display:block;font-size:11px;color:#9AABCE;margin-bottom:4px;">Campaign photo — shown on the donation page and in the preview when the link is shared</label>
-      <img id="adminCampaignImagePreview" style="display:none;width:100%;max-height:140px;object-fit:cover;border-radius:10px;border:1px solid #EEE0C4;margin-bottom:6px;">
+      <img id="adminCampaignImagePreview" style="display:none;width:100%;max-height:140px;object-fit:cover;border-radius:10px;border:1px solid #EEE0C4;margin-bottom:6px;" loading="lazy">
       <button id="adminCampaignImageRemoveBtn" type="button" style="display:none;width:100%;padding:8px;border-radius:8px;border:1px solid #F0C7C7;background:transparent;color:#C77B7B;font-size:11px;font-weight:700;cursor:pointer;margin-bottom:6px;">Remove photo</button>
       <input type="file" id="adminCampaignImageInput" accept="image/jpeg,image/png,image/webp" style="width:100%;font-size:11px;">
       <p id="adminCampaignImageStatus" style="font-size:10.5px;color:#9AABCE;margin:4px 0 0;"></p>
@@ -1181,7 +1181,7 @@
     <p class="prompt-sub" style="text-align:center;margin-bottom:22px;">Keep your details up to date.</p>
 
     <div style="text-align:center;margin-bottom:20px;">
-      <img id="epPhotoPreview" src="" style="display:none;width:88px;height:88px;border-radius:50%;object-fit:cover;margin:0 auto 10px;border:2px solid #EEE0C4;">
+      <img id="epPhotoPreview" src="" style="display:none;width:88px;height:88px;border-radius:50%;object-fit:cover;margin:0 auto 10px;border:2px solid #EEE0C4;" loading="lazy">
       <div id="epPhotoPlaceholder" style="width:88px;height:88px;border-radius:50%;background:#F0EEE8;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;color:#B0AA98;font-size:11px;">No photo</div>
       <input type="file" id="epPhotoInput" accept="image/*" style="display:none;">
       <button id="epPhotoBtn" type="button" style="background:none;border:1px solid #EEE0C4;border-radius:10px;padding:6px 14px;font-size:11.5px;font-weight:700;color:#6690D6;cursor:pointer;">Add / change photo</button>
@@ -1247,7 +1247,7 @@
 
   <div id="crisisResourceModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.5);z-index:70;"></div>
   <div id="crisisResourceModal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:calc(100% - 48px);max-width:380px;background:#FFFFFF;border-radius:20px;padding:26px 22px;box-sizing:border-box;z-index:71;box-shadow:0 10px 40px rgba(0,0,0,0.2);text-align:center;">
-    <img src="bob.png" alt="Bob" style="width:64px;height:64px;object-fit:contain;margin:0 auto 12px;display:block;">
+    <img src="bob.jpg" alt="Bob" style="width:64px;height:64px;object-fit:contain;margin:0 auto 12px;display:block;" loading="lazy">
     <p style="font-size:15px;font-weight:800;color:#2A2013;margin:0 0 10px;">I'm right here with you</p>
     <p style="font-size:13px;color:#5C6B94;line-height:1.65;margin:0 0 18px;">What you just wrote sounds like it's been really heavy to carry. I noticed, and I don't want you to sit with it alone — not for one more minute than you have to.</p>
     <div style="background:#FBF2F2;border-radius:14px;padding:14px;margin-bottom:14px;text-align:left;">
@@ -1477,7 +1477,7 @@
       Back
     </button>
     <div style="text-align:center;">
-      <img src="bob.png" alt="Bob" style="width:64px;height:64px;border-radius:50%;margin:0 auto 16px;display:block;">
+      <img src="bob.jpg" alt="Bob" style="width:64px;height:64px;border-radius:50%;margin:0 auto 16px;display:block;" loading="lazy">
       <p class="prompt-title">Saved</p>
       <p class="prompt-sub" style="max-width:280px;margin:0 auto 26px;">I'm glad you took a moment for this. Every time you put something down, that's real.</p>
       <div id="savedPitchArea"></div>
@@ -1494,7 +1494,7 @@
       Back
     </button>
     <div id="supportIntro" style="text-align:center;">
-      <img src="kunnu.png" alt="Kunnu" style="width:64px;height:64px;object-fit:contain;margin:0 auto 16px;display:block;">
+      <img src="kunnu.jpg" alt="Kunnu" style="width:64px;height:64px;object-fit:contain;margin:0 auto 16px;display:block;" loading="lazy">
       <p class="prompt-title">Support groups</p>
       <p class="prompt-sub" style="max-width:280px;margin:0 auto 24px;">Full groups are still being built. You don't have to carry this by yourself — join the list and we'll bring you in as soon as one's ready.</p>
       <div id="supportMascotTip"></div>
@@ -1551,7 +1551,7 @@
       Back
     </button>
     <div style="text-align:center;">
-      <img src="bob.png" alt="Bob" style="width:64px;height:64px;border-radius:50%;margin:0 auto 16px;display:block;">
+      <img src="bob.jpg" alt="Bob" style="width:64px;height:64px;border-radius:50%;margin:0 auto 16px;display:block;" loading="lazy">
       <p class="prompt-title">Your therapist's calendar</p>
       <p class="prompt-sub" style="max-width:280px;margin:0 auto 24px;">Booking isn't wired up yet in this prototype — this is where your therapist's open slots will show.</p>
       <button id="bookingDoneBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#2A2013;font-size:15px;font-weight:700;cursor:pointer;">Back to home</button>
@@ -1601,7 +1601,7 @@
 
   <div class="content" id="panel-profile" style="display:none;">
     <div style="text-align:center;margin-bottom:6px;">
-      <img id="profilePagePhoto" src="" style="display:none;width:72px;height:72px;border-radius:50%;object-fit:cover;margin:0 auto;border:2px solid #EEE0C4;">
+      <img id="profilePagePhoto" src="" style="display:none;width:72px;height:72px;border-radius:50%;object-fit:cover;margin:0 auto;border:2px solid #EEE0C4;" loading="lazy">
     </div>
     <p class="prompt-title" id="profilePageTitle" style="text-align:center;">You</p>
     <button id="profileSearchBtn" style="display:flex;align-items:center;gap:8px;width:100%;padding:12px 14px;border-radius:14px;border:1px solid #EEE0C4;background:#FFFFFF;color:#5C6B94;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:14px;">
@@ -1660,7 +1660,7 @@
       <div class="mood-chart-bars" id="moodChartBars"></div>
     </div>
     <div id="moodAffirmationCard" style="display:none;background:#FFFFFF;border:1px solid #EEE0C4;border-radius:16px;padding:14px 16px;margin-bottom:18px;align-items:center;gap:12px;">
-      <img src="bob.png" alt="Bob" style="width:38px;height:38px;border-radius:50%;flex-shrink:0;" onerror="this.style.display='none'">
+      <img src="bob.jpg" alt="Bob" style="width:38px;height:38px;border-radius:50%;flex-shrink:0;" onerror="this.style.display='none'" loading="lazy">
       <p id="moodAffirmationText" style="font-size:12.5px;color:#2E3A5A;font-weight:600;margin:0;line-height:1.5;"></p>
     </div>
     <button id="who5EntryBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:22px;">Bi-weekly follow-up</button>
@@ -1810,7 +1810,7 @@
 
   <div class="content" id="panel-bodydouble" style="display:none;padding:0;">
     <div style="position:relative;height:290px;overflow:hidden;">
-      <img src="bodydoubling.jpg" alt="Body Doubling Room" style="width:100%;height:100%;object-fit:cover;display:block;">
+      <img src="bodydoubling.jpg" alt="Body Doubling Room" style="width:100%;height:100%;object-fit:cover;display:block;" loading="lazy">
       <div style="position:absolute;top:0;left:0;width:100%;height:100%;background:linear-gradient(180deg, rgba(46,80,144,0.35) 0%, rgba(20,30,55,0.55) 100%);"></div>
       <button id="bodyDoubleCloseBtn" style="position:absolute;top:14px;left:14px;background:rgba(255,255,255,0.22);border:none;width:32px;height:32px;border-radius:50%;color:#FFFFFF;cursor:pointer;display:flex;align-items:center;justify-content:center;">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
@@ -1909,7 +1909,7 @@
     <input type="file" id="sheetImageInput" accept="image/*" style="display:none;">
     <button id="sheetAddPhotoBtn" style="width:100%;margin-top:8px;padding:9px;border-radius:14px;border:1px dashed #C7D2E8;background:transparent;color:#6690D6;font-size:11.5px;font-weight:600;cursor:pointer;">+ Add a photo</button>
     <div id="sheetImagePreviewArea" style="display:none;margin-top:10px;position:relative;">
-      <img id="sheetImagePreview" style="width:100%;max-height:180px;object-fit:cover;border-radius:14px;display:block;">
+      <img id="sheetImagePreview" style="width:100%;max-height:180px;object-fit:cover;border-radius:14px;display:block;" loading="lazy">
       <button id="sheetRemoveImageBtn" style="position:absolute;top:8px;right:8px;width:28px;height:28px;border-radius:50%;border:none;background:rgba(20,20,20,0.55);color:#FFF;font-size:14px;cursor:pointer;">&times;</button>
       <p id="sheetImageUploadStatus" style="font-size:10.5px;color:#9AABCE;margin:6px 0 0;"></p>
     </div>
@@ -1970,7 +1970,7 @@
 
   <div class="content" id="panel-calmroom" style="display:none;padding:0;">
     <div style="position:relative;height:100%;min-height:520px;overflow:hidden;">
-      <img id="calmRoomBg" class="calm-room-bg" src="calmroom-bg.jpg" alt="Calm room" onerror="this.style.display='none'; this.parentElement.style.background='linear-gradient(160deg,#6690D6,#2E5090)';">
+      <img id="calmRoomBg" class="calm-room-bg" src="calmroom-bg.jpg" alt="Calm room" onerror="this.style.display='none'; this.parentElement.style.background='linear-gradient(160deg,#6690D6,#2E5090)';" loading="lazy">
       <div class="calm-overlay"></div>
       <button id="calmRoomCloseBtn" style="position:absolute;top:14px;left:14px;z-index:5;background:rgba(255,255,255,0.22);border:none;width:32px;height:32px;border-radius:50%;color:#FFFFFF;cursor:pointer;display:flex;align-items:center;justify-content:center;">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
@@ -2069,19 +2069,19 @@
     </div>
     <div id="assistantTabBar" style="display:flex;gap:6px;padding:0 20px 12px;border-bottom:1px solid #F0E9D8;">
       <button class="assistant-tab" data-char="bob" style="flex:1;background:#6690D6;border:none;border-radius:10px;padding:8px 4px;text-align:center;cursor:pointer;">
-        <img src="bob.png" style="width:26px;height:26px;object-fit:contain;display:block;margin:0 auto 2px;">
+        <img src="bob.jpg" style="width:26px;height:26px;object-fit:contain;display:block;margin:0 auto 2px;" loading="lazy">
         <p style="font-size:10px;font-weight:800;color:#FFF8F0;margin:0;">Bob</p>
       </button>
       <button class="assistant-tab" data-char="kunnu" style="flex:1;background:transparent;border:none;border-radius:10px;padding:8px 4px;text-align:center;cursor:pointer;">
-        <img src="kunnu.png" style="width:26px;height:26px;object-fit:contain;display:block;margin:0 auto 2px;">
+        <img src="kunnu.jpg" style="width:26px;height:26px;object-fit:contain;display:block;margin:0 auto 2px;" loading="lazy">
         <p style="font-size:10px;font-weight:800;color:#9AABCE;margin:0;">Kunnu</p>
       </button>
       <button class="assistant-tab" data-char="po" style="flex:1;background:transparent;border:none;border-radius:10px;padding:8px 4px;text-align:center;cursor:pointer;">
-        <img src="po.png" style="width:26px;height:26px;object-fit:contain;display:block;margin:0 auto 2px;">
+        <img src="po.jpg" style="width:26px;height:26px;object-fit:contain;display:block;margin:0 auto 2px;" loading="lazy">
         <p style="font-size:10px;font-weight:800;color:#9AABCE;margin:0;">Po</p>
       </button>
       <button class="assistant-tab" data-char="cookie" style="flex:1;background:transparent;border:none;border-radius:10px;padding:8px 4px;text-align:center;cursor:pointer;">
-        <img src="cookie.png" style="width:26px;height:26px;object-fit:contain;display:block;margin:0 auto 2px;">
+        <img src="cookie.jpg" style="width:26px;height:26px;object-fit:contain;display:block;margin:0 auto 2px;" loading="lazy">
         <p style="font-size:10px;font-weight:800;color:#9AABCE;margin:0;">Cookie</p>
       </button>
     </div>
@@ -2193,7 +2193,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260731093549';
+  var CURRENT_BUILD = '20260731101057';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -3471,22 +3471,22 @@ var WALKTHROUGH_SLIDES = [
     body: "This is a space to check in with yourself — track your mood, write when you need to, keep on top of tasks without the pressure, and get support that actually fits what you're going through."
   },
   {
-    image: 'bob.png', imgStyle: 'width:150px;',
+    image: 'bob.jpg', imgStyle: 'width:150px;',
     name: 'Bob', heading: "I'm Bob.",
     body: "When anxiety gets loud, or your mind just won't slow down, I've got a few things that genuinely help. Find me under Breathe, whenever you need to come back to yourself."
   },
   {
-    image: 'kunnu.png', imgStyle: 'width:150px;',
+    image: 'kunnu.jpg', imgStyle: 'width:150px;',
     name: 'Kunnu', heading: "I'm Kunnu.",
     body: "Nobody should have to sit with the hard stuff alone. If you're feeling disconnected, come find me — I'll point you toward people who actually get it."
   },
   {
-    image: 'cookie.png', imgStyle: 'width:150px;',
+    image: 'cookie.jpg', imgStyle: 'width:150px;',
     name: 'Cookie', heading: "I'm Cookie!",
     body: "I believe people can heal, even when it's hard to believe it yourself. I've got worksheets that help untangle relationship patterns, one small step at a time."
   },
   {
-    image: 'po.png', imgStyle: 'width:150px;',
+    image: 'po.jpg', imgStyle: 'width:150px;',
     name: 'Po', heading: "I'm Po.",
     body: "Some things need more than an app — they need a real person. When you're ready for that, I'll help you find the right kind of support, gently and without pressure."
   }
@@ -3629,7 +3629,7 @@ function renderWalkthroughSlide(){
   wrap.style.opacity = '0';
   setTimeout(function(){
     wrap.innerHTML =
-      '<img src="'+s.image+'" alt="'+(s.name||'HOBS')+'" style="'+s.imgStyle+'margin-bottom:22px;filter:drop-shadow(0 10px 18px rgba(40,70,140,0.18));" onerror="this.style.display=\'none\'">'+
+      '<img src="'+s.image+'" alt="'+(s.name||'HOBS')+'" style="'+s.imgStyle+'margin-bottom:22px;filter:drop-shadow(0 10px 18px rgba(40,70,140,0.18));" onerror="this.style.display=\'none\'" loading="lazy">'+
       '<p style="font-size:19px;font-weight:800;color:#2E5090;margin:0 0 10px;">'+s.heading+'</p>'+
       '<p style="font-size:14px;color:#5C6B94;line-height:1.6;max-width:280px;margin:0;">'+s.body+'</p>';
     wrap.style.opacity = '1';
@@ -4559,10 +4559,10 @@ function setActiveNav(which){
 // user, so they get client + therapist tiers; an admin gets all three. Same characters, same
 // core identity throughout -- what expands is which actions are available under that identity.
 var ASSISTANT_CHARACTERS = {
-  bob: { name: 'Bob', img: 'bob.png', greeting: "Hey — I'm Bob. Come to me for a check-in, to breathe for a second, or just to land somewhere. What's going on?" },
-  kunnu: { name: 'Kunnu', img: 'kunnu.png', greeting: "I'm Kunnu. If you want to feel less alone right now, or want to share something with a professional, I'm here for that." },
-  po: { name: 'Po', img: 'po.png', greeting: "I'm Po. Talking to a professional, tasks, your calendar — tell me what needs doing." },
-  cookie: { name: 'Cookie', img: 'cookie.png', greeting: "I'm Cookie! Relationship stuff, old patterns, your progress — what's on your mind?" }
+  bob: { name: 'Bob', img: 'bob.jpg', greeting: "Hey — I'm Bob. Come to me for a check-in, to breathe for a second, or just to land somewhere. What's going on?" },
+  kunnu: { name: 'Kunnu', img: 'kunnu.jpg', greeting: "I'm Kunnu. If you want to feel less alone right now, or want to share something with a professional, I'm here for that." },
+  po: { name: 'Po', img: 'po.jpg', greeting: "I'm Po. Talking to a professional, tasks, your calendar — tell me what needs doing." },
+  cookie: { name: 'Cookie', img: 'cookie.jpg', greeting: "I'm Cookie! Relationship stuff, old patterns, your progress — what's on your mind?" }
 };
 
 function assistantUserTiers(){
@@ -4798,7 +4798,7 @@ function appendAssistantMessageDom(character, text){
   var char = ASSISTANT_CHARACTERS[character] || ASSISTANT_CHARACTERS.bob;
   var row = document.createElement('div');
   row.style.cssText = 'display:flex;gap:8px;align-items:flex-start;margin-bottom:12px;';
-  row.innerHTML = '<img src="'+char.img+'" style="width:30px;height:30px;object-fit:contain;flex-shrink:0;">'+
+  row.innerHTML = '<img src="'+char.img+'" style="width:30px;height:30px;object-fit:contain;flex-shrink:0;" loading="lazy">'+
     '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:9px 12px;font-size:12.5px;color:#2A2013;max-width:80%;"><strong style="display:block;font-size:10px;color:#9AABCE;margin-bottom:2px;">'+char.name+'</strong>'+text+'</div>';
   wrap.appendChild(row);
   wrap.scrollTop = wrap.scrollHeight;
@@ -5258,7 +5258,7 @@ async function renderChatList(){
       card.style.cssText = 'background:'+(isInvited ? '#FEF3D8' : '#FFFFFF')+';border:1px solid '+(isInvited ? '#EFD9A0' : '#EEE0C4')+';border-radius:14px;padding:14px;margin-bottom:10px;'+(isInvited ? '' : 'cursor:pointer;')+'display:flex;align-items:center;gap:12px;';
       var iconBg = room.type === 'support_group' ? '#6690D6' : room.type === 'coordination' ? '#C9A227' : '#9AABCE';
       var avatarHtml = room.icon_url
-        ? '<img src="'+room.icon_url+'" style="width:42px;height:42px;border-radius:50%;object-fit:cover;flex-shrink:0;">'
+        ? '<img src="'+room.icon_url+'" style="width:42px;height:42px;border-radius:50%;object-fit:cover;flex-shrink:0;" loading="lazy">'
         : '<div style="width:42px;height:42px;border-radius:50%;background:'+iconBg+'22;display:flex;align-items:center;justify-content:center;flex-shrink:0;">'+
           '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="'+iconBg+'" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>'+
         '</div>';
@@ -8590,7 +8590,7 @@ async function openChatRoomInfo(){
   var headerEl = document.getElementById('chatRoomInfoHeaderSection');
   var roomName = (room && room.name) || 'Group';
   var iconHtml = room && room.icon_url
-    ? '<img src="'+room.icon_url+'" style="width:72px;height:72px;border-radius:50%;object-fit:cover;">'
+    ? '<img src="'+room.icon_url+'" style="width:72px;height:72px;border-radius:50%;object-fit:cover;" loading="lazy">'
     : '<div style="width:72px;height:72px;border-radius:50%;background:#EAF0FB;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:800;color:#6690D6;">'+roomName.charAt(0).toUpperCase()+'</div>';
   var canEditNameIcon = iAmGroupAdmin && currentChatRoomType === 'support_group';
   headerEl.innerHTML =
@@ -9734,7 +9734,7 @@ function renderAdminPastCampaigns(){
     })).then(function(raisedAmounts){
       listEl.innerHTML = campaigns.map(function(c, i){
         var when = new Date(c.created_at).toLocaleDateString('en-IN', {day:'numeric', month:'short', year:'numeric'});
-        var thumb = c.image_url ? '<img src="'+c.image_url+'" style="width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0;">' : '<div style="width:44px;height:44px;border-radius:8px;background:#F0E9D8;flex-shrink:0;"></div>';
+        var thumb = c.image_url ? '<img src="'+c.image_url+'" style="width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0;" loading="lazy">' : '<div style="width:44px;height:44px;border-radius:8px;background:#F0E9D8;flex-shrink:0;"></div>';
         return '<div style="display:flex;gap:10px;align-items:center;background:#FFFFFF;border:1px solid #EEE0C4;border-radius:10px;padding:10px 12px;margin-bottom:6px;">'+
           thumb+
           '<div style="flex:1;min-width:0;">'+
@@ -11358,7 +11358,7 @@ function openTherapistClientDetail(userId, name){
     var consent = (results[4].data && results[4].data[0]) || null;
     var html = '';
     if(profile.photo_url){
-      html += '<div style="text-align:center;margin-bottom:14px;"><img src="'+profile.photo_url+'" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid #EEE0C4;"></div>';
+      html += '<div style="text-align:center;margin-bottom:14px;"><img src="'+profile.photo_url+'" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid #EEE0C4;" loading="lazy"></div>';
     }
     html += '<p style="font-size:11px;font-weight:700;color:#9AABCE;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 6px;">Safety Information</p>';
     if(profile.address || profile.emergency_contact_name){
@@ -12403,7 +12403,7 @@ function renderTeamList(){
     var idx = TEAM_MEMBERS.indexOf(m);
     var initials = m.name.split(' ').filter(function(w){ return w!=='Dr.'; }).map(function(w){ return w[0]; }).slice(0,2).join('');
     var photoInner = m.photo
-      ? '<img src="'+m.photo+'" alt="'+m.name+'" id="teamPhoto'+idx+'" style="width:100%;height:100%;object-fit:cover;" onerror="teamPhotoFallback(this, \''+initials+'\')">'
+      ? '<img src="'+m.photo+'" alt="'+m.name+'" id="teamPhoto'+idx+'" style="width:100%;height:100%;object-fit:cover;" onerror="teamPhotoFallback(this, \''+initials+'\')" loading="lazy">'
       : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#E7EEFB;color:#4A6FB5;font-weight:700;font-size:24px;">'+initials+'</div>';
 
     var activeBooking = getActiveBookingForCategory(m.roleCategory);
@@ -12666,7 +12666,7 @@ function openExpertDetail(idx){
   document.getElementById('expertDetailContent').innerHTML =
     '<div style="background:linear-gradient(165deg,#8FB0EA 0%,#6690D6 60%,#5372B8 100%);border-radius:24px;padding:28px 20px;text-align:center;margin-bottom:20px;">'+
       '<div style="width:96px;height:96px;border-radius:50%;background:rgba(255,255,255,0.25);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:26px;margin:0 auto 14px;overflow:hidden;border:3px solid rgba(255,255,255,0.5);">'+
-        (m.photo ? '<img src="'+m.photo+'" alt="'+m.name+'" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.textContent=\''+initials+'\';">' : initials)+
+        (m.photo ? '<img src="'+m.photo+'" alt="'+m.name+'" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.textContent=\''+initials+'\';" loading="lazy">' : initials)+
       '</div>'+
       '<p style="font-size:18px;font-weight:800;color:#fff;margin:0 0 4px;">'+m.name+'</p>'+
       '<p style="font-size:12.5px;color:rgba(255,255,255,0.85);margin:0 0 8px;">'+m.role+'</p>'+
@@ -13832,16 +13832,16 @@ function buildReportContent(testKey, t, testAnswersLocal){
 // lemons/sour candy) — these can double as self-harm substitutes for some people, so they're
 // left out here regardless of their legitimate clinical use elsewhere.
 var MASCOT_MINI_SVG = {
-  bob: '<img class="mascot-mini" src="bob.png" alt="Bob">',
-  kunnu: '<img class="mascot-mini" src="kunnu.png" alt="Kunnu">',
-  cookie: '<img class="mascot-mini" src="cookie.png" alt="Cookie">',
-  po: '<img class="mascot-mini" src="po.png" alt="Po">'
+  bob: '<img class="mascot-mini" src="bob.jpg" alt="Bob" loading="lazy">',
+  kunnu: '<img class="mascot-mini" src="kunnu.jpg" alt="Kunnu" loading="lazy">',
+  cookie: '<img class="mascot-mini" src="cookie.jpg" alt="Cookie" loading="lazy">',
+  po: '<img class="mascot-mini" src="po.jpg" alt="Po" loading="lazy">'
 };
 
 // Reusable mascot companion tip — drops a small dismissible card with a mascot's photo and a
 // short line into any container. Each tipId is remembered once dismissed (per device), so a
 // tip that's been dismissed doesn't keep resurfacing and become noise.
-var MASCOT_IMG_SRC = { bob:'bob.png', kunnu:'kunnu.png', cookie:'cookie.png', po:'po.png' };
+var MASCOT_IMG_SRC = { bob:'bob.jpg', kunnu:'kunnu.jpg', cookie:'cookie.jpg', po:'po.jpg' };
 function renderMascotTip(containerId, tipId, mascotKey, message){
   var container = document.getElementById(containerId);
   if(!container) return;
@@ -13849,7 +13849,7 @@ function renderMascotTip(containerId, tipId, mascotKey, message){
   if(dismissed.indexOf(tipId) !== -1){ container.innerHTML = ''; return; }
   container.innerHTML =
     '<div class="mascot-tip">' +
-      '<img src="' + MASCOT_IMG_SRC[mascotKey] + '" alt="' + mascotKey + '">' +
+      '<img src="' + MASCOT_IMG_SRC[mascotKey] + '" alt="' + mascotKey + '" loading="lazy">' +
       '<p class="mascot-tip-text">' + message + '</p>' +
       '<button class="mascot-tip-close" data-tip-id="' + tipId + '">&times;</button>' +
     '</div>';
@@ -14013,7 +14013,7 @@ function openGroundingDetail(key){
     vid.href = g.video.url; vid.target = '_blank'; vid.rel = 'noopener';
     var ytId = getYouTubeId(g.video.url);
     var thumbInner = ytId
-      ? '<img src="https://img.youtube.com/vi/'+ytId+'/hqdefault.jpg" alt="" class="video-link-thumb" onerror="this.style.display=\'none\';">'
+      ? '<img src="https://img.youtube.com/vi/'+ytId+'/hqdefault.jpg" alt="" class="video-link-thumb" onerror="this.style.display=\'none\';" loading="lazy">'
       : '';
     vid.innerHTML =
       '<span class="video-link-thumb-wrap">'+thumbInner+'<span class="video-link-play-overlay"><svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg></span></span>'+
