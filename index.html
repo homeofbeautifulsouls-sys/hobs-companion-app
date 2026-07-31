@@ -448,6 +448,11 @@
 <script>if(new URLSearchParams(window.location.search).has('dev')){ document.getElementById('devSimBar').style.display = 'flex'; }</script>
 <div class="phone">
 
+  <div id="paymentLoadingOverlay" style="display:none;position:absolute;inset:0;z-index:99;background:rgba(255,248,240,0.96);flex-direction:column;align-items:center;justify-content:center;gap:16px;">
+    <div style="width:36px;height:36px;border-radius:50%;border:4px solid #EEE0C4;border-top-color:#6690D6;animation:authspin 0.8s linear infinite;"></div>
+    <p style="font-size:13.5px;font-weight:700;color:#2E5090;margin:0;">Preparing payment…</p>
+  </div>
+
   <div id="authOverlay" style="position:absolute;inset:0;z-index:100;background:#FFF8F0;display:flex;flex-direction:column;justify-content:center;padding:32px 24px;box-sizing:border-box;">
     <div id="authLoadingState" style="display:flex;flex-direction:column;align-items:center;gap:14px;">
       <img src="bob.jpg" alt="Bob" style="width:110px;filter:drop-shadow(0 8px 16px rgba(40,70,140,0.2));">
@@ -2193,7 +2198,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260731101646';
+  var CURRENT_BUILD = '20260731150027';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -8972,6 +8977,10 @@ function getActiveBookingForCategory(category){
 // Razorpay's own signature server-side, can do that -- exactly the same trust boundary already
 // used on the web donate page.
 function openRazorpayPayment(orderRequestBody, checkoutOptions, onDismissedOrFailed){
+  var overlay = document.getElementById('paymentLoadingOverlay');
+  overlay.style.display = 'flex';
+  function hideOverlay(){ overlay.style.display = 'none'; }
+
   // These two are independent network operations (loading Razorpay's script, and creating the
   // order server-side) that were needlessly running one after the other -- real bug found via a
   // direct user report of a 1-2s delay. Running them in parallel means the total wait is roughly
@@ -8985,6 +8994,7 @@ function openRazorpayPayment(orderRequestBody, checkoutOptions, onDismissedOrFai
   ]).then(function(results){
     var order = results[1];
     if(order.error){
+      hideOverlay();
       showToast(order.error);
       if(onDismissedOrFailed) onDismissedOrFailed();
       return;
@@ -8992,13 +9002,20 @@ function openRazorpayPayment(orderRequestBody, checkoutOptions, onDismissedOrFai
     var rzp = new Razorpay(Object.assign({
       key: order.key_id, amount: order.amount, currency: order.currency, order_id: order.order_id,
       name: 'Home of Beautiful Souls Foundation', theme: { color: '#6690D6' },
+      modal: Object.assign({ ondismiss: function(){
+        hideOverlay();
+        if(checkoutOptions.modal && checkoutOptions.modal.ondismiss) checkoutOptions.modal.ondismiss();
+      } }, checkoutOptions.modal),
     }, checkoutOptions));
     rzp.on('payment.failed', function(){
+      hideOverlay();
       showToast('Payment failed — please try again.');
       if(onDismissedOrFailed) onDismissedOrFailed();
     });
     rzp.open();
+    setTimeout(hideOverlay, 400); // small buffer so Razorpay's own widget has a moment to actually render before our overlay disappears -- avoids a possible blank gap between the two
   }).catch(function(){
+    hideOverlay();
     showToast('Could not start payment — please try again.');
     if(onDismissedOrFailed) onDismissedOrFailed();
   });
