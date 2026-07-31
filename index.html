@@ -2216,7 +2216,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260727011125';
+  var CURRENT_BUILD = '20260731085432';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -3001,41 +3001,48 @@ function initPushNotifications(){
       console.error('Push registration error:', err);
     });
     Push.addListener('pushNotificationReceived', function(notification){
-      // Real bug found and fixed: this listener fires whenever the app PROCESS is alive --
-      // foreground OR backgrounded-but-not-killed -- not only when truly foregrounded, despite
-      // the previous comment here assuming otherwise. Our FCM payload (see notification-scheduler
-      // and send-push-notification) includes a top-level `notification` block specifically so
-      // Android still shows something when the app is fully killed. But that same block also
-      // makes Android auto-display it in the system tray whenever the app is backgrounded --
-      // and this handler was ALSO unconditionally posting its own LocalNotification every time,
-      // producing two separate tray entries for one push (confirmed directly: notification_log
-      // and notification_recipients each show exactly one send, so this was never a server-side
-      // duplicate -- purely this client-side double-post). Now only posts the local notification
-      // when the app is confirmed truly in the foreground, which is also the only state where
-      // Android does NOT already auto-display from the notification block, so there's no longer
-      // any state where both paths can fire for the same push.
+      // Real bug found and fixed (second time): the July 21 fix above this comment was solving
+      // a genuine duplicate-notification problem, but did so by assuming Android's own native
+      // auto-display is always reliable for backgrounded/killed apps, and skipping the JS-side
+      // post entirely whenever not confirmed foreground. That created a single point of failure:
+      // if native auto-display doesn't fire for ANY reason (confirmed one real cause already --
+      // a missing notification channel, fixed in v2.9, but there could be others, e.g. OEM
+      // battery/background restrictions), the notification is now just silently gone, with
+      // nothing else to catch it. Before July 21, this app ALWAYS explicitly posted a local
+      // notification via JS on receipt, which is a real guarantee, not dependent on Android's own
+      // background-display behavior at all -- restoring that guarantee here, for every state
+      // where this listener can even fire (foreground and backgrounded-but-alive; a fully killed
+      // app has no JS running at all, so that state still depends on native handling regardless).
+      // To avoid reintroducing the original double-post bug, a persisted per-notification-id
+      // guard (not a random id) now prevents THIS device from showing the exact same
+      // server-side notification twice -- it does not skip posting altogether the way the old
+      // foreground-only check did, so there's no state where the notification can go missing
+      // entirely, only (rarely, if native auto-display also fires) a possible duplicate, which is
+      // a far smaller problem than a silent miss.
       if(notification && notification.title){
         showToast(notification.title + (notification.body ? ': ' + notification.body : ''));
       }
-      var postLocalIfForeground = function(isForeground){
-        if(!isForeground) return; // backgrounded-but-alive: system tray already showed it, skip
-        if(window.Capacitor.Plugins.LocalNotifications){
-          window.Capacitor.Plugins.LocalNotifications.schedule({
-            notifications: [{
-              id: Math.floor(Math.random() * 2147483647),
-              title: notification.title || 'HOBS Companion',
-              body: notification.body || '',
-              extra: notification.data || {}
-            }]
-          }).catch(function(err){ console.error('Local notification post failed:', err); });
-        }
-      };
-      if(window.Capacitor.Plugins.App && window.Capacitor.Plugins.App.getState){
-        window.Capacitor.Plugins.App.getState().then(function(state){
-          postLocalIfForeground(!!(state && state.isActive));
-        }).catch(function(){ postLocalIfForeground(false); }); // can't confirm foreground -- err toward not duplicating
-      } else {
-        postLocalIfForeground(false);
+      var notifId = notification && notification.data && notification.data.notification_id;
+      var alreadyShownKey = 'hobs_shown_notif_ids';
+      var alreadyShown = [];
+      try { alreadyShown = JSON.parse(localStorage.getItem(alreadyShownKey) || '[]'); } catch(e){ alreadyShown = []; }
+      if(notifId && alreadyShown.indexOf(notifId) !== -1){
+        return; // this exact server-side notification was already shown on this device
+      }
+      if(window.Capacitor.Plugins.LocalNotifications){
+        window.Capacitor.Plugins.LocalNotifications.schedule({
+          notifications: [{
+            id: Math.floor(Math.random() * 2147483647),
+            title: notification.title || 'HOBS Companion',
+            body: notification.body || '',
+            extra: notification.data || {}
+          }]
+        }).catch(function(err){ console.error('Local notification post failed:', err); });
+      }
+      if(notifId){
+        alreadyShown.push(notifId);
+        if(alreadyShown.length > 50) alreadyShown = alreadyShown.slice(-50); // keep this bounded
+        try { localStorage.setItem(alreadyShownKey, JSON.stringify(alreadyShown)); } catch(e){ /* not critical if this fails */ }
       }
       // Note: receiving it (even while foregrounded) isn't the same as the person actually
       // engaging with it -- "opened" is tracked only on an actual tap, in the action handlers below.
