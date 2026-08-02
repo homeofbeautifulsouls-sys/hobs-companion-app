@@ -2227,7 +2227,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260802022746';
+  var CURRENT_BUILD = '20260802023609';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -4308,6 +4308,7 @@ function handleJournalSave(e){
   if(!saved){ showToast('Write something or pick a mood first'); return; }
   document.getElementById('panel-journal').style.display = 'none';
   resetJournalState();
+  renderHistory(); // keep the index current even though it's not the panel being shown right now
 
   if(isDistressed){
     renderGroundingList();
