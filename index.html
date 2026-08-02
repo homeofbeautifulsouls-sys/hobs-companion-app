@@ -1458,16 +1458,27 @@
     </div>
     <style>
       #journalText:empty:before { content: attr(data-placeholder); color: #150D06; opacity: 0.45; pointer-events: none; }
-      #journalText h2 { font-family:'Kalam',cursive; font-size: 26px; font-weight: 700; margin: 0.3em 0; }
-      .journal-toolbar-btn { width: 34px; height: 34px; border-radius: 8px; border: none; background: transparent; color: #5C4826; font-family: 'Kalam', cursive; font-size: 15px; cursor: pointer; display:flex; align-items:center; justify-content:center; }
+      #journalText h1 { font-family:'Kalam',cursive; font-size: 30px; font-weight: 700; margin: 0.3em 0; }
+      #journalText h2 { font-family:'Kalam',cursive; font-size: 25px; font-weight: 700; margin: 0.3em 0; }
+      #journalText h3 { font-family:'Kalam',cursive; font-size: 21px; font-weight: 700; margin: 0.3em 0; }
+      .journal-toolbar-btn { flex:0 0 auto; width: 32px; height: 32px; border-radius: 8px; border: none; background: transparent; color: #5C4826; font-family: 'Kalam', cursive; font-size: 14px; cursor: pointer; display:flex; align-items:center; justify-content:center; }
       .journal-toolbar-btn.active { background: #EEE0C4; color: #150D06; }
+      .journal-toolbar-sep { flex:0 0 auto; width:1px; background:#EEE0C4; margin:4px 3px; }
     </style>
-    <div id="journalToolbar" style="display:flex;gap:2px;margin-bottom:6px;border-bottom:1px solid #EEE0C4;padding-bottom:6px;">
-      <button type="button" class="journal-toolbar-btn" id="fmtHeadingBtn" data-cmd="heading" title="Heading" style="font-weight:700;">H</button>
+    <div id="journalToolbar" style="display:flex;gap:1px;margin-bottom:6px;border-bottom:1px solid #EEE0C4;padding-bottom:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;">
+      <button type="button" class="journal-toolbar-btn" id="fmtH1Btn" data-heading="H1" title="Heading 1" style="font-weight:700;">H1</button>
+      <button type="button" class="journal-toolbar-btn" id="fmtH2Btn" data-heading="H2" title="Heading 2" style="font-weight:700;">H2</button>
+      <button type="button" class="journal-toolbar-btn" id="fmtH3Btn" data-heading="H3" title="Heading 3" style="font-weight:700;">H3</button>
+      <div class="journal-toolbar-sep"></div>
       <button type="button" class="journal-toolbar-btn" id="fmtBoldBtn" data-cmd="bold" title="Bold" style="font-weight:700;">B</button>
       <button type="button" class="journal-toolbar-btn" id="fmtItalicBtn" data-cmd="italic" title="Italic" style="font-style:italic;">I</button>
       <button type="button" class="journal-toolbar-btn" id="fmtStrikeBtn" data-cmd="strikeThrough" title="Strikethrough" style="text-decoration:line-through;">S</button>
       <button type="button" class="journal-toolbar-btn" id="fmtUnderlineBtn" data-cmd="underline" title="Underline" style="text-decoration:underline;">U</button>
+      <div class="journal-toolbar-sep"></div>
+      <button type="button" class="journal-toolbar-btn" id="fmtAlignLeftBtn" data-align="justifyLeft" title="Align left"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg></button>
+      <button type="button" class="journal-toolbar-btn" id="fmtAlignCenterBtn" data-align="justifyCenter" title="Align center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="4.5" y1="18" x2="19.5" y2="18"/></svg></button>
+      <button type="button" class="journal-toolbar-btn" id="fmtAlignRightBtn" data-align="justifyRight" title="Align right"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="6" y1="18" x2="21" y2="18"/></svg></button>
+      <button type="button" class="journal-toolbar-btn" id="fmtAlignJustifyBtn" data-align="justifyFull" title="Justify"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
     </div>
     <div style="position:relative;">
       <div id="journalText" contenteditable="true" data-placeholder="Type here, or use the mic..." style="width:100%;min-height:calc(100vh - 520px);min-height:calc(100dvh - 520px);border-radius:4px;border:none;background:transparent;padding:6px 34px 14px 4px;font-size:19px;line-height:1.5;font-family:'Kalam',cursive;color:#150D06;caret-color:#150D06;box-sizing:border-box;margin-bottom:10px;transition:min-height .25s;outline:none;overflow-wrap:break-word;"></div>
@@ -2211,7 +2222,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260802014752';
+  var CURRENT_BUILD = '20260802020031';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -4023,32 +4034,54 @@ document.getElementById('demoHasTherapist').onchange = function(){
       refreshToolbarState();
     };
   });
-  document.getElementById('fmtHeadingBtn').onclick = function(e){
-    e.preventDefault();
-    journalTextEl.focus();
+  var alignValues = { fmtAlignLeftBtn:'left', fmtAlignCenterBtn:'center', fmtAlignRightBtn:'right', fmtAlignJustifyBtn:'justify' };
+  // Real bug found and fixed: execCommand('justifyCenter' etc) reported success and correct
+  // queryCommandState afterward, but produced no visible DOM change at all when tested directly
+  // in this app's actual context -- confirmed this wasn't a general execCommand problem (it
+  // worked correctly in isolated test pages), so rather than trust an API proven unreliable
+  // here, alignment is applied directly to the whole entry container. This means alignment is
+  // whole-entry rather than per-paragraph, a reasonable trade for a journal entry, and it
+  // actually works.
+  Object.keys(alignValues).forEach(function(btnId){
+    document.getElementById(btnId).onclick = function(e){
+      e.preventDefault();
+      journalTextEl.focus();
+      journalTextEl.style.textAlign = alignValues[btnId];
+      refreshToolbarState();
+    };
+  });
+  function currentBlockTag(){
     var sel = window.getSelection();
     var node = sel.anchorNode;
-    var inHeading = false;
     while(node && node !== journalTextEl){
-      if(node.nodeType === 1 && node.tagName === 'H2'){ inHeading = true; break; }
+      if(node.nodeType === 1 && /^H[1-3]$/.test(node.tagName)) return node.tagName;
       node = node.parentNode;
     }
-    document.execCommand('formatBlock', false, inHeading ? 'P' : 'H2');
-    refreshToolbarState();
-  };
+    return null;
+  }
+  ['H1','H2','H3'].forEach(function(level){
+    document.getElementById('fmt'+level+'Btn').onclick = function(e){
+      e.preventDefault();
+      journalTextEl.focus();
+      var current = currentBlockTag();
+      document.execCommand('formatBlock', false, current === level ? 'P' : level);
+      refreshToolbarState();
+    };
+  });
   function refreshToolbarState(){
     try {
       document.getElementById('fmtBoldBtn').classList.toggle('active', document.queryCommandState('bold'));
       document.getElementById('fmtItalicBtn').classList.toggle('active', document.queryCommandState('italic'));
       document.getElementById('fmtStrikeBtn').classList.toggle('active', document.queryCommandState('strikeThrough'));
       document.getElementById('fmtUnderlineBtn').classList.toggle('active', document.queryCommandState('underline'));
-      var sel = window.getSelection();
-      var node = sel.anchorNode, inHeading = false;
-      while(node && node !== journalTextEl){
-        if(node.nodeType === 1 && node.tagName === 'H2'){ inHeading = true; break; }
-        node = node.parentNode;
-      }
-      document.getElementById('fmtHeadingBtn').classList.toggle('active', inHeading);
+      var current = currentBlockTag();
+      ['H1','H2','H3'].forEach(function(level){
+        document.getElementById('fmt'+level+'Btn').classList.toggle('active', current === level);
+      });
+      var currentAlign = journalTextEl.style.textAlign || 'left';
+      Object.keys(alignValues).forEach(function(btnId){
+        document.getElementById(btnId).classList.toggle('active', alignValues[btnId] === currentAlign);
+      });
     } catch(err) { /* queryCommandState can throw in rare states -- not worth breaking the toolbar over */ }
   }
   document.addEventListener('selectionchange', function(){
@@ -4179,7 +4212,8 @@ document.getElementById('backBtn').onclick = function(){
 };
 function commitMainJournalIfDirty(){
   var textEl = document.getElementById('journalText');
-  var text = textEl.innerHTML; // rich content, what actually gets saved and displayed
+  var textAlign = textEl.style.textAlign || 'left';
+  var text = '<div style="text-align:'+textAlign+'">' + textEl.innerHTML + '</div>'; // rich content + alignment, what actually gets saved and displayed
   var plainText = textEl.textContent; // plain text, for the emptiness check and crisis detection only
   if(!selected.length && !plainText.trim()) return false;
 
@@ -4222,7 +4256,7 @@ function commitMainJournalIfDirty(){
 }
 
 function resetJournalState(){
-  document.getElementById('journalText').innerHTML = '';
+  document.getElementById('journalText').innerHTML = ''; document.getElementById('journalText').style.textAlign = 'left';
   editingEntryRef = null;
   document.getElementById('saveNoteBtn').textContent = 'Save entry';
   if(isExpanded){ document.getElementById('expandBtn').click(); }
@@ -5099,7 +5133,7 @@ document.getElementById('choiceJournalBtn').onclick = function(){
   // anyone who wants that ritual specifically.
   editingEntryRef = null;
   document.getElementById('journalDots').innerHTML = '';
-  document.getElementById('journalText').innerHTML = '';
+  document.getElementById('journalText').innerHTML = ''; document.getElementById('journalText').style.textAlign = 'left';
   document.getElementById('saveNoteBtn').textContent = 'Save entry';
   showOnly('panel-journal');
   setActiveNav('navJournal');
@@ -5907,7 +5941,15 @@ var editingEntryRef = null;
 function openEditEntrySheet(entry){
   editingEntryRef = entry;
   var rawText = entry.text || '';
-  document.getElementById('journalText').innerHTML = looksLikeHtml(rawText) ? rawText : plainTextToSafeHtml(rawText);
+  var journalTextEl = document.getElementById('journalText');
+  if(looksLikeHtml(rawText)){
+    var unwrapped = unwrapAlignedEntry(rawText);
+    journalTextEl.style.textAlign = unwrapped.align;
+    journalTextEl.innerHTML = unwrapped.inner;
+  } else {
+    journalTextEl.style.textAlign = 'left';
+    journalTextEl.innerHTML = plainTextToSafeHtml(rawText);
+  }
   toClearAndReselectMoodsForEdit(entry.moods || []);
   document.getElementById('saveNoteBtn').textContent = 'Save changes';
   // Opening a specific past entry skips the cover entirely (the book is already "open" at this
@@ -7509,6 +7551,14 @@ function stripHtmlTags(html){
 function looksLikeHtml(text){
   return /<[a-z][\s\S]*>/i.test(text || '');
 }
+// Alignment is saved as an outer wrapper div (see commitMainJournalIfDirty) since it lives on
+// the container's style, not in the rich content itself -- this extracts both pieces back out
+// when loading an entry for editing.
+function unwrapAlignedEntry(html){
+  var m = /^<div style="text-align:\s*(left|center|right|justify)\s*">([\s\S]*)<\/div>$/i.exec((html||'').trim());
+  if(m) return { align: m[1], inner: m[2] };
+  return { align: 'left', inner: html };
+}
 // Entries saved before rich text existed are plain text and may contain characters like < or >
 // that would be misread as real HTML tags if set directly as innerHTML (losing content, or
 // worse, rendering something unintended) -- this escapes those before display, and converts
@@ -9046,7 +9096,7 @@ document.getElementById('newJournalEntryFabBtn').onclick = function(){
   // already an unambiguous choice.
   editingEntryRef = null;
   document.getElementById('journalDots').innerHTML = '';
-  document.getElementById('journalText').innerHTML = '';
+  document.getElementById('journalText').innerHTML = ''; document.getElementById('journalText').style.textAlign = 'left';
   document.getElementById('saveNoteBtn').textContent = 'Save entry';
   showOnly('panel-journal');
   setActiveNav('navJournal');
