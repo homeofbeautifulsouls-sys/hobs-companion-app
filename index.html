@@ -2232,7 +2232,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260802190604';
+  var CURRENT_BUILD = '20260802191351';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -3871,7 +3871,7 @@ function loadUserDataFromSupabase(){
     var subsByTask = {};
     (subtasksRes.data || []).forEach(function(s){
       if(!subsByTask[s.task_id]) subsByTask[s.task_id] = [];
-      subsByTask[s.task_id].push({ id: s.id, title: s.title, done: s.done, sortOrder: s.sort_order || 0, image_url: s.image_url || null });
+      subsByTask[s.task_id].push({ id: s.id, title: s.title, done: s.done, sortOrder: s.sort_order || 0, image_url: s.image_url || null, alarmAt: s.alarm_at || null });
     });
     appState.tasksByDate = {};
     (tasksRes.data || []).forEach(function(t){
@@ -7888,7 +7888,7 @@ function openEditTaskSheet(task, dateKey){
   if(existingSubtasks.length){
     document.getElementById('sheetBreakdownToggle').style.display = 'none';
     subtaskArea.style.display = 'block';
-    existingSubtasks.forEach(function(st){ addSheetSubtaskRow(st.title, st.id, st.image_url); });
+    existingSubtasks.forEach(function(st){ addSheetSubtaskRow(st.title, st.id, st.image_url, st.alarmAt); });
   } else {
     document.getElementById('sheetBreakdownToggle').style.display = 'block';
     subtaskArea.style.display = 'none';
@@ -7988,7 +7988,7 @@ document.getElementById('sheetBreakdownToggle').onclick = function(){
   addSheetSubtaskRow();
 };
 
-function addSheetSubtaskRow(prefillText, existingId, prefillImageUrl){
+function addSheetSubtaskRow(prefillText, existingId, prefillImageUrl, prefillAlarmAt){
   var area = document.getElementById('sheetSubtaskArea');
   var existingAddBtn = document.getElementById('sheetAddStepBtn');
   if(existingAddBtn) existingAddBtn.remove();
@@ -7997,6 +7997,7 @@ function addSheetSubtaskRow(prefillText, existingId, prefillImageUrl){
   wrapper.style.cssText = 'margin-bottom:6px;';
   if(existingId) wrapper.dataset.subtaskId = existingId;
   wrapper.dataset.imageUrl = prefillImageUrl || '';
+  wrapper.dataset.alarmAt = prefillAlarmAt || '';
 
   var row = document.createElement('div');
   row.style.cssText = 'display:flex;gap:6px;align-items:flex-start;';
@@ -8012,6 +8013,35 @@ function addSheetSubtaskRow(prefillText, existingId, prefillImageUrl){
   var autoGrow = function(){ input.style.height = 'auto'; input.style.height = input.scrollHeight + 'px'; };
   input.addEventListener('input', autoGrow);
   row.appendChild(input);
+
+  var alarmInputWrap = document.createElement('div');
+  alarmInputWrap.style.cssText = 'display:none;margin-top:6px;gap:6px;';
+  var alarmDateInput = document.createElement('input');
+  alarmDateInput.type = 'date';
+  alarmDateInput.style.cssText = 'flex:1;padding:8px;border-radius:10px;border:1px solid #EEE0C4;font-family:inherit;font-size:12px;color:#2A2013;box-sizing:border-box;';
+  var alarmTimeInput = document.createElement('input');
+  alarmTimeInput.type = 'time';
+  alarmTimeInput.style.cssText = 'flex:1;padding:8px;border-radius:10px;border:1px solid #EEE0C4;font-family:inherit;font-size:12px;color:#2A2013;box-sizing:border-box;';
+  alarmInputWrap.appendChild(alarmDateInput);
+  alarmInputWrap.appendChild(alarmTimeInput);
+  if(prefillAlarmAt){
+    var pad = function(n){ return String(n).padStart(2,'0'); };
+    var pd = new Date(prefillAlarmAt);
+    alarmDateInput.value = pd.getFullYear() + '-' + pad(pd.getMonth()+1) + '-' + pad(pd.getDate());
+    alarmTimeInput.value = pad(pd.getHours()) + ':' + pad(pd.getMinutes());
+    alarmInputWrap.style.display = 'flex';
+  }
+
+  var alarmBtn = document.createElement('button');
+  alarmBtn.innerHTML = '🔔';
+  alarmBtn.title = 'Set an alarm for this step';
+  alarmBtn.style.cssText = 'background:'+(prefillAlarmAt ? '#DCEEF3' : '#F3F0E8')+';border:none;border-radius:8px;width:30px;height:30px;font-size:13px;cursor:pointer;flex-shrink:0;';
+  alarmBtn.onclick = function(){
+    var showing = alarmInputWrap.style.display === 'flex';
+    alarmInputWrap.style.display = showing ? 'none' : 'flex';
+    if(!showing) alarmDateInput.focus();
+  };
+  row.appendChild(alarmBtn);
 
   var photoBtn = document.createElement('button');
   photoBtn.innerHTML = '📷';
@@ -8031,6 +8061,7 @@ function addSheetSubtaskRow(prefillText, existingId, prefillImageUrl){
   delBtn.onclick = function(){ wrapper.remove(); renumberSheetSteps(); };
   row.appendChild(delBtn);
   wrapper.appendChild(row);
+  wrapper.appendChild(alarmInputWrap);
 
   var previewArea = document.createElement('div');
   previewArea.style.cssText = 'display:'+(prefillImageUrl ? 'flex' : 'none')+';align-items:center;gap:8px;margin:6px 0 0 0;';
@@ -8109,13 +8140,17 @@ function commitSheetTaskIfDirty(){
   var subtaskData = [];
   subtaskRows.forEach(function(row){
     var inp = row.querySelector('textarea');
-    if(inp && inp.value.trim()) subtaskData.push({ title: inp.value.trim(), imageUrl: row.dataset.imageUrl || null });
+    if(!inp || !inp.value.trim()) return;
+    var dateEl = row.querySelector('input[type="date"]');
+    var timeEl = row.querySelector('input[type="time"]');
+    var subAlarmIso = (dateEl && timeEl && dateEl.value && timeEl.value) ? new Date(dateEl.value + 'T' + timeEl.value).toISOString() : null;
+    subtaskData.push({ title: inp.value.trim(), imageUrl: row.dataset.imageUrl || null, alarmAt: subAlarmIso });
   });
 
   var localTask = {
     id: 'temp_' + uidGen(), title: title, duration: sheetDuration, repeat: sheetRepeat,
     priority: sheetPriority, deadline: deadlineIso, alarmAt: alarmIso, done: false, image_url: sheetTaskImageUrl,
-    subtasks: subtaskData.map(function(st){ return { id: 'temp_' + uidGen(), title: st.title, done:false, image_url: st.imageUrl }; })
+    subtasks: subtaskData.map(function(st){ return { id: 'temp_' + uidGen(), title: st.title, done:false, image_url: st.imageUrl, alarmAt: st.alarmAt }; })
   };
   getTasks(sheetTargetKey).push(localTask);
   saveState();
@@ -8130,7 +8165,7 @@ function commitSheetTaskIfDirty(){
   }, function(savedRow){
     localTask.id = savedRow.id; // swap temp ID for the real one
     if(subtaskData.length && currentUser && currentUser.id){
-      var rows = subtaskData.map(function(st){ return { user_id: currentUser.id, task_id: savedRow.id, title: st.title, done:false, image_url: st.imageUrl }; });
+      var rows = subtaskData.map(function(st){ return { user_id: currentUser.id, task_id: savedRow.id, title: st.title, done:false, image_url: st.imageUrl, alarm_at: st.alarmAt }; });
       sb.from('subtasks').insert(rows).select().then(function(subResult){
         if(!subResult.error){
           localTask.subtasks.forEach(function(st, i){ if(subResult.data[i]) st.id = subResult.data[i].id; });
@@ -8167,17 +8202,20 @@ function commitTaskEdit(title, deadlineIso, subtaskRows, alarmIso){
     var text = inp ? inp.value.trim() : '';
     if(!text) return; // blank row -- treated the same as removing that step
     var imageUrl = row.dataset.imageUrl || null;
+    var dateEl = row.querySelector('input[type="date"]');
+    var timeEl = row.querySelector('input[type="time"]');
+    var subAlarmIso = (dateEl && timeEl && dateEl.value && timeEl.value) ? new Date(dateEl.value + 'T' + timeEl.value).toISOString() : null;
     var existingId = row.dataset.subtaskId;
     if(existingId){
       keptIds.push(existingId);
       var existingSub = task.subtasks.find(function(s){ return String(s.id) === existingId; });
-      if(existingSub){ existingSub.title = text; existingSub.image_url = imageUrl; updatedSubtasks.push(existingSub); }
+      if(existingSub){ existingSub.title = text; existingSub.image_url = imageUrl; existingSub.alarmAt = subAlarmIso; updatedSubtasks.push(existingSub); }
     } else {
-      newSubtaskData.push({ title: text, imageUrl: imageUrl });
+      newSubtaskData.push({ title: text, imageUrl: imageUrl, alarmAt: subAlarmIso });
     }
   });
   var removedSubtasks = task.subtasks.filter(function(s){ return keptIds.indexOf(String(s.id)) === -1; });
-  var newSubtaskObjs = newSubtaskData.map(function(d){ return { id: 'temp_' + uidGen(), title: d.title, done:false, image_url: d.imageUrl }; });
+  var newSubtaskObjs = newSubtaskData.map(function(d){ return { id: 'temp_' + uidGen(), title: d.title, done:false, image_url: d.imageUrl, alarmAt: d.alarmAt }; });
   task.subtasks = task.subtasks.filter(function(s){ return keptIds.indexOf(String(s.id)) !== -1; }).concat(newSubtaskObjs);
 
   saveState();
@@ -8192,7 +8230,7 @@ function commitTaskEdit(title, deadlineIso, subtaskRows, alarmIso){
   }
   updatedSubtasks.forEach(function(s){
     if(String(s.id).indexOf('temp_') !== 0){
-      sb.from('subtasks').update({ title: s.title, image_url: s.image_url || null }).eq('id', s.id).then(function(){});
+      sb.from('subtasks').update({ title: s.title, image_url: s.image_url || null, alarm_at: s.alarmAt, alarm_notified: false }).eq('id', s.id).then(function(){});
     }
   });
   removedSubtasks.forEach(function(s){
@@ -8201,7 +8239,7 @@ function commitTaskEdit(title, deadlineIso, subtaskRows, alarmIso){
     }
   });
   if(newSubtaskObjs.length && currentUser && currentUser.id){
-    var rows = newSubtaskObjs.map(function(s){ return { user_id: currentUser.id, task_id: taskId, title: s.title, done:false, image_url: s.image_url || null }; });
+    var rows = newSubtaskObjs.map(function(s){ return { user_id: currentUser.id, task_id: taskId, title: s.title, done:false, image_url: s.image_url || null, alarm_at: s.alarmAt }; });
     sb.from('subtasks').insert(rows).select().then(function(subResult){
       if(!subResult.error){
         newSubtaskObjs.forEach(function(s, i){ if(subResult.data[i]) s.id = subResult.data[i].id; });
