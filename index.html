@@ -1456,8 +1456,21 @@
     <p style="font-family:'Kalam',cursive;font-size:14px;color:#3C2D14;max-width:280px;margin:0 auto 6px;" id="journalSub">Only if you'd like. Write it messy, half-finished, whatever comes — there's no right way to say it.</p>
     <p style="font-family:'Kalam',cursive;color:#5C4826;font-size:12px;margin:0 0 18px;">Private by default.</p>
     </div>
+    <style>
+      #journalText:empty:before { content: attr(data-placeholder); color: #150D06; opacity: 0.45; pointer-events: none; }
+      #journalText h2 { font-family:'Kalam',cursive; font-size: 26px; font-weight: 700; margin: 0.3em 0; }
+      .journal-toolbar-btn { width: 34px; height: 34px; border-radius: 8px; border: none; background: transparent; color: #5C4826; font-family: 'Kalam', cursive; font-size: 15px; cursor: pointer; display:flex; align-items:center; justify-content:center; }
+      .journal-toolbar-btn.active { background: #EEE0C4; color: #150D06; }
+    </style>
+    <div id="journalToolbar" style="display:flex;gap:2px;margin-bottom:6px;border-bottom:1px solid #EEE0C4;padding-bottom:6px;">
+      <button type="button" class="journal-toolbar-btn" id="fmtHeadingBtn" data-cmd="heading" title="Heading" style="font-weight:700;">H</button>
+      <button type="button" class="journal-toolbar-btn" id="fmtBoldBtn" data-cmd="bold" title="Bold" style="font-weight:700;">B</button>
+      <button type="button" class="journal-toolbar-btn" id="fmtItalicBtn" data-cmd="italic" title="Italic" style="font-style:italic;">I</button>
+      <button type="button" class="journal-toolbar-btn" id="fmtStrikeBtn" data-cmd="strikeThrough" title="Strikethrough" style="text-decoration:line-through;">S</button>
+      <button type="button" class="journal-toolbar-btn" id="fmtUnderlineBtn" data-cmd="underline" title="Underline" style="text-decoration:underline;">U</button>
+    </div>
     <div style="position:relative;">
-      <textarea id="journalText" placeholder="Type here, or use the mic..." style="width:100%;min-height:calc(100vh - 480px);min-height:calc(100dvh - 480px);border-radius:4px;border:none;background:transparent;padding:6px 34px 14px 4px;font-size:19px;line-height:1.5;font-family:'Kalam',cursive;color:#150D06;caret-color:#150D06;box-sizing:border-box;resize:none;margin-bottom:10px;transition:min-height .25s;"></textarea>
+      <div id="journalText" contenteditable="true" data-placeholder="Type here, or use the mic..." style="width:100%;min-height:calc(100vh - 520px);min-height:calc(100dvh - 520px);border-radius:4px;border:none;background:transparent;padding:6px 34px 14px 4px;font-size:19px;line-height:1.5;font-family:'Kalam',cursive;color:#150D06;caret-color:#150D06;box-sizing:border-box;margin-bottom:10px;transition:min-height .25s;outline:none;overflow-wrap:break-word;"></div>
       <div id="expandBtn" title="Expand" style="position:absolute;top:6px;right:2px;color:#5C4826;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0.6;">
         <svg id="expandIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m11-5v3a2 2 0 0 1-2 2h-3"/></svg>
       </div>
@@ -2198,7 +2211,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260731153503';
+  var CURRENT_BUILD = '20260802014752';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -3999,13 +4012,56 @@ document.getElementById('demoHasTherapist').onchange = function(){
   saveState();
 };
 
+(function(){
+  var journalTextEl = document.getElementById('journalText');
+  var simpleCmds = { fmtBoldBtn:'bold', fmtItalicBtn:'italic', fmtStrikeBtn:'strikeThrough', fmtUnderlineBtn:'underline' };
+  Object.keys(simpleCmds).forEach(function(btnId){
+    document.getElementById(btnId).onclick = function(e){
+      e.preventDefault();
+      journalTextEl.focus();
+      document.execCommand(simpleCmds[btnId], false, null);
+      refreshToolbarState();
+    };
+  });
+  document.getElementById('fmtHeadingBtn').onclick = function(e){
+    e.preventDefault();
+    journalTextEl.focus();
+    var sel = window.getSelection();
+    var node = sel.anchorNode;
+    var inHeading = false;
+    while(node && node !== journalTextEl){
+      if(node.nodeType === 1 && node.tagName === 'H2'){ inHeading = true; break; }
+      node = node.parentNode;
+    }
+    document.execCommand('formatBlock', false, inHeading ? 'P' : 'H2');
+    refreshToolbarState();
+  };
+  function refreshToolbarState(){
+    try {
+      document.getElementById('fmtBoldBtn').classList.toggle('active', document.queryCommandState('bold'));
+      document.getElementById('fmtItalicBtn').classList.toggle('active', document.queryCommandState('italic'));
+      document.getElementById('fmtStrikeBtn').classList.toggle('active', document.queryCommandState('strikeThrough'));
+      document.getElementById('fmtUnderlineBtn').classList.toggle('active', document.queryCommandState('underline'));
+      var sel = window.getSelection();
+      var node = sel.anchorNode, inHeading = false;
+      while(node && node !== journalTextEl){
+        if(node.nodeType === 1 && node.tagName === 'H2'){ inHeading = true; break; }
+        node = node.parentNode;
+      }
+      document.getElementById('fmtHeadingBtn').classList.toggle('active', inHeading);
+    } catch(err) { /* queryCommandState can throw in rare states -- not worth breaking the toolbar over */ }
+  }
+  document.addEventListener('selectionchange', function(){
+    if(document.activeElement === journalTextEl) refreshToolbarState();
+  });
+})();
 document.getElementById('expandBtn').onclick = function(){
   isExpanded = !isExpanded;
   var ta = document.getElementById('journalText');
   document.getElementById('journalChromeTop').style.display = isExpanded ? 'none' : 'block';
   document.getElementById('journalChromeBottom').style.display = isExpanded ? 'none' : 'block';
   var vhUnit = (window.CSS && CSS.supports && CSS.supports('height', '100dvh')) ? 'dvh' : 'vh';
-  ta.style.minHeight = isExpanded ? 'calc(100'+vhUnit+' - 220px)' : 'calc(100'+vhUnit+' - 480px)';
+  ta.style.minHeight = isExpanded ? 'calc(100'+vhUnit+' - 260px)' : 'calc(100'+vhUnit+' - 520px)';
   document.getElementById('expandIcon').innerHTML = isExpanded
     ? '<path d="M9 3v4a2 2 0 0 1-2 2H3m18 0h-4a2 2 0 0 1-2-2V3M3 15h4a2 2 0 0 1 2 2v4m6-6h4a2 2 0 0 1 2 2v4"/>'
     : '<path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m11-5v3a2 2 0 0 1-2 2h-3"/>';
@@ -4123,8 +4179,9 @@ document.getElementById('backBtn').onclick = function(){
 };
 function commitMainJournalIfDirty(){
   var textEl = document.getElementById('journalText');
-  var text = textEl.value;
-  if(!selected.length && !text.trim()) return false;
+  var text = textEl.innerHTML; // rich content, what actually gets saved and displayed
+  var plainText = textEl.textContent; // plain text, for the emptiness check and crisis detection only
+  if(!selected.length && !plainText.trim()) return false;
 
   if(editingEntryRef){
     // Editing an existing entry in place, not creating a new one. Sharing status is left
@@ -4145,7 +4202,7 @@ function commitMainJournalIfDirty(){
       saveEntryToSupabase(entry);
     }
     logAnalyticsEvent('journal_edited');
-    maybeShowCrisisResources(text);
+    maybeShowCrisisResources(plainText);
     return true;
   }
 
@@ -4160,12 +4217,12 @@ function commitMainJournalIfDirty(){
   saveEntryToSupabase(entry);
   trackNotificationAction(selected.length ? 'logged_mood' : 'wrote_journal_entry');
   logAnalyticsEvent(selected.length ? 'mood_logged' : 'journal_written');
-  maybeShowCrisisResources(text);
+  maybeShowCrisisResources(plainText);
   return true;
 }
 
 function resetJournalState(){
-  document.getElementById('journalText').value = '';
+  document.getElementById('journalText').innerHTML = '';
   editingEntryRef = null;
   document.getElementById('saveNoteBtn').textContent = 'Save entry';
   if(isExpanded){ document.getElementById('expandBtn').click(); }
@@ -5042,7 +5099,7 @@ document.getElementById('choiceJournalBtn').onclick = function(){
   // anyone who wants that ritual specifically.
   editingEntryRef = null;
   document.getElementById('journalDots').innerHTML = '';
-  document.getElementById('journalText').value = '';
+  document.getElementById('journalText').innerHTML = '';
   document.getElementById('saveNoteBtn').textContent = 'Save entry';
   showOnly('panel-journal');
   setActiveNav('navJournal');
@@ -5733,7 +5790,7 @@ function renderHistory(){
       // classic book-index visual, "Title .......... 12"), built with a flexible dotted
       // border-bottom spacer between two fixed-width text elements so the dots always fill
       // whatever space is left, rather than a plain flex row with a gap.
-      var snippet = e.text ? e.text.replace(/\s+/g,' ').trim() : '';
+      var snippet = e.text ? stripHtmlTags(e.text).replace(/\s+/g,' ').trim() : '';
       if(snippet.length > 40) snippet = snippet.slice(0, 40) + '…';
       var moodStr = e.moods.map(function(m){ return m.label; }).join(', ');
       card.innerHTML =
@@ -5849,7 +5906,8 @@ function renderHistory(){
 var editingEntryRef = null;
 function openEditEntrySheet(entry){
   editingEntryRef = entry;
-  document.getElementById('journalText').value = entry.text || '';
+  var rawText = entry.text || '';
+  document.getElementById('journalText').innerHTML = looksLikeHtml(rawText) ? rawText : plainTextToSafeHtml(rawText);
   toClearAndReselectMoodsForEdit(entry.moods || []);
   document.getElementById('saveNoteBtn').textContent = 'Save changes';
   // Opening a specific past entry skips the cover entirely (the book is already "open" at this
@@ -6131,7 +6189,8 @@ document.getElementById('micBtn').onclick = function(){
           var ta = document.getElementById('journalText');
           var newText = (result.data.text || '').trim();
           if(newText){
-            ta.value = (ta.value ? ta.value.replace(/\s*$/, ' ') : '') + newText;
+            var needsSpace = ta.textContent && !/\s$/.test(ta.textContent);
+            ta.appendChild(document.createTextNode((needsSpace ? ' ' : '') + newText));
           } else {
             showToast("Didn't catch any speech in that recording");
           }
@@ -7436,6 +7495,29 @@ function drawMindmap(){
 
 // ---- Share sheet ----
 var toastTimer;
+// Journal entries can now contain rich text (bold/italic/etc, stored as HTML) instead of plain
+// text. These helpers keep every OTHER part of the app (search, crisis detection, index
+// snippets) working against plain text regardless, since raw HTML tags mixed into a substring
+// search or a keyword scan would silently degrade both -- and for crisis detection specifically,
+// a degraded scan is a real safety concern, not just a cosmetic one.
+function stripHtmlTags(html){
+  if(!html) return '';
+  var tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  return tmp.textContent || '';
+}
+function looksLikeHtml(text){
+  return /<[a-z][\s\S]*>/i.test(text || '');
+}
+// Entries saved before rich text existed are plain text and may contain characters like < or >
+// that would be misread as real HTML tags if set directly as innerHTML (losing content, or
+// worse, rendering something unintended) -- this escapes those before display, and converts
+// plain newlines to <br> so old entries still look the same as they always did.
+function plainTextToSafeHtml(text){
+  var div = document.createElement('div');
+  div.textContent = text || '';
+  return div.innerHTML.replace(/\n/g, '<br>');
+}
 function showToast(msg){
   var t = document.getElementById('toastMsg');
   t.textContent = msg; t.classList.add('show');
@@ -8832,9 +8914,10 @@ document.getElementById('searchInput').addEventListener('input', function(){
 
   var results = [];
   appState.entries.forEach(function(e){
-    if(e.text && e.text.toLowerCase().indexOf(q) !== -1){
+    var plainEntryText = e.text ? stripHtmlTags(e.text) : '';
+    if(plainEntryText && plainEntryText.toLowerCase().indexOf(q) !== -1){
       var dateStr = new Date(e.date).toLocaleDateString('en-US', { month:'short', day:'numeric' });
-      results.push({ type:'Journal · ' + dateStr, text:e.text, action:function(){ renderHistory(); showOnly('panel-history'); setActiveNav('navJournal'); } });
+      results.push({ type:'Journal · ' + dateStr, text:plainEntryText, action:function(){ renderHistory(); showOnly('panel-history'); setActiveNav('navJournal'); } });
     }
   });
   Object.keys(appState.tasksByDate).forEach(function(key){
@@ -8963,7 +9046,7 @@ document.getElementById('newJournalEntryFabBtn').onclick = function(){
   // already an unambiguous choice.
   editingEntryRef = null;
   document.getElementById('journalDots').innerHTML = '';
-  document.getElementById('journalText').value = '';
+  document.getElementById('journalText').innerHTML = '';
   document.getElementById('saveNoteBtn').textContent = 'Save entry';
   showOnly('panel-journal');
   setActiveNav('navJournal');
