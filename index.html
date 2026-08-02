@@ -2227,7 +2227,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260802125322';
+  var CURRENT_BUILD = '20260802130514';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -3844,7 +3844,7 @@ function loadUserDataFromSupabase(){
     // entry" button skipped the Supabase sync entirely. Without this rescue step, the very next
     // line (replacing appState.entries with the fresh server list) would silently and
     // permanently discard them, since they don't exist server-side to be fetched back.
-    var unsyncedLocalEntries = (appState.entries || []).filter(function(e){ return !e._serverConfirmed && !e._syncInFlight; });
+    var unsyncedLocalEntries = (appState.entries || []).filter(function(e){ return !e.id && !e._syncInFlight; });
 
     appState.entries = (entriesRes.data || []).map(function(row){
       return {
@@ -4245,7 +4245,7 @@ function commitMainJournalIfDirty(){
     entry.moods = selected.map(function(b){ return {label:b.label, color:b.base}; });
     entry.text = text;
     saveState();
-    if(entry._serverConfirmed){
+    if(entry.id){
       sb.from('entries').update({
         moods: entry.moods, text: entry.text || ''
       }).eq('id', entry.id).then(function(){});
@@ -5879,7 +5879,7 @@ function renderHistory(){
         ev.stopPropagation();
         e.sharedWithTherapist = true;
         saveState();
-        if(e._serverConfirmed) sb.from('entries').update({ shared_with_therapist: true }).eq('id', e.id).then(function(){});
+        if(e.id) sb.from('entries').update({ shared_with_therapist: true }).eq('id', e.id).then(function(){});
         if(e.type === 'worksheet' && e.worksheetKey && currentUser){
           sb.from('worksheet_responses').update({ shared_with_therapist: true }).eq('user_id', currentUser.id).eq('worksheet_key', e.worksheetKey).then(function(){});
         }
@@ -5958,7 +5958,7 @@ function renderHistory(){
       ev.stopPropagation();
       e.archived = !historyShowingArchived;
       saveState();
-      if(e._serverConfirmed) sb.from('entries').update({ archived: e.archived }).eq('id', e.id).then(function(result){
+      if(e.id) sb.from('entries').update({ archived: e.archived }).eq('id', e.id).then(function(result){
         if(result.error){ e.archived = !e.archived; saveState(); showToast("Couldn't update — please try again"); renderHistory(); }
       });
       showToast(historyShowingArchived ? 'Entry restored' : 'Entry archived');
