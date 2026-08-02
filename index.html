@@ -2227,7 +2227,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260802023609';
+  var CURRENT_BUILD = '20260802125322';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -3844,14 +3844,14 @@ function loadUserDataFromSupabase(){
     // entry" button skipped the Supabase sync entirely. Without this rescue step, the very next
     // line (replacing appState.entries with the fresh server list) would silently and
     // permanently discard them, since they don't exist server-side to be fetched back.
-    var unsyncedLocalEntries = (appState.entries || []).filter(function(e){ return !e.id && !e._syncInFlight; });
+    var unsyncedLocalEntries = (appState.entries || []).filter(function(e){ return !e._serverConfirmed && !e._syncInFlight; });
 
     appState.entries = (entriesRes.data || []).map(function(row){
       return {
         id: row.id, date: row.created_at, moods: row.moods || [], text: row.text || '',
         type: row.type, worksheetName: row.worksheet_name, categoryName: row.category_name,
         color: row.category_color, sharedWithTherapist: row.shared_with_therapist,
-        worksheetKey: row.worksheet_key, archived: row.archived || false
+        worksheetKey: row.worksheet_key, archived: row.archived || false, _serverConfirmed: true
       };
     });
 
@@ -4245,13 +4245,14 @@ function commitMainJournalIfDirty(){
     entry.moods = selected.map(function(b){ return {label:b.label, color:b.base}; });
     entry.text = text;
     saveState();
-    if(entry.id){
+    if(entry._serverConfirmed){
       sb.from('entries').update({
         moods: entry.moods, text: entry.text || ''
       }).eq('id', entry.id).then(function(){});
     } else {
-      // This entry was never actually synced in the first place (from before this whole class
-      // of bug was fixed) -- treat editing it as the moment to finally save it for real.
+      // This entry hasn't been confirmed synced yet (either still in flight, or from before this
+      // whole class of bug was fixed) -- route through the same idempotent save path rather than
+      // an update that might not find a matching row yet.
       saveEntryToSupabase(entry);
     }
     logAnalyticsEvent('journal_edited');
@@ -4260,6 +4261,7 @@ function commitMainJournalIfDirty(){
   }
 
   var entry = {
+    id: generateClientId(),
     date: new Date().toISOString(),
     moods: selected.map(function(b){ return {label:b.label, color:b.base}; }),
     text: text,
@@ -5178,7 +5180,7 @@ function commitQuickJournalIfDirty(){
     return { label: m.label, color: 'hsl('+m.h+','+m.s+'%,'+m.l+'%)' };
   });
   var shared = document.getElementById('quickJournalShareCheck').checked;
-  var entry = { date: new Date().toISOString(), moods: moodObjs, text: text, sharedWithTherapist: shared };
+  var entry = { id: generateClientId(), date: new Date().toISOString(), moods: moodObjs, text: text, sharedWithTherapist: shared };
   appState.entries.unshift(entry);
   saveState();
   saveEntryToSupabase(entry);
@@ -5320,6 +5322,7 @@ function saveEntryToSupabase(entry){
   setTimeout(function(){ entry._syncInFlight = false; }, 8000); // safety net -- syncToSupabase has no failure callback, so a genuine failure would otherwise leave this stuck true forever, permanently blocking the rescue path from ever retrying it
   return new Promise(function(resolve){
     syncToSupabase('entries', {
+      id: entry.id || undefined, // stable client id, if this entry already has one -- ensures a repeat call (whatever the actual cause) updates the same row instead of syncToSupabase minting a new random id and creating a genuine duplicate row
       moods: entry.moods, text: entry.text || '',
       type: entry.type || 'journal', worksheet_name: entry.worksheetName || null,
       category_name: entry.categoryName || null, category_color: entry.color || null,
@@ -5330,6 +5333,7 @@ function saveEntryToSupabase(entry){
       entry.id = savedRow.id;
       entry.date = savedRow.created_at;
       entry._syncInFlight = false;
+      entry._serverConfirmed = true;
       resolve(savedRow);
     });
     if(!currentUser || !currentUser.id){ entry._syncInFlight = false; resolve(null); } // saved locally + queued; don't block the caller
@@ -5875,7 +5879,7 @@ function renderHistory(){
         ev.stopPropagation();
         e.sharedWithTherapist = true;
         saveState();
-        if(e.id) sb.from('entries').update({ shared_with_therapist: true }).eq('id', e.id).then(function(){});
+        if(e._serverConfirmed) sb.from('entries').update({ shared_with_therapist: true }).eq('id', e.id).then(function(){});
         if(e.type === 'worksheet' && e.worksheetKey && currentUser){
           sb.from('worksheet_responses').update({ shared_with_therapist: true }).eq('user_id', currentUser.id).eq('worksheet_key', e.worksheetKey).then(function(){});
         }
@@ -5915,10 +5919,19 @@ function renderHistory(){
         fullCard.style.cssText = 'position:fixed;left:-9999px;top:0;width:360px;background:#F3ECD9;border:1px solid #D9C9A0;border-radius:14px;padding:20px;box-sizing:border-box;font-family:Georgia,serif;';
         var fullDateStr = new Date(e.date).toLocaleDateString(undefined, {month:'long', day:'numeric', year:'numeric'});
         var fullMoodStr = e.moods.map(function(m){ return m.label; }).join(', ');
+        var bodyHtml;
+        if(!e.text){
+          bodyHtml = '(No note added)';
+        } else if(looksLikeHtml(e.text)){
+          var unwrapped = unwrapAlignedEntry(e.text);
+          bodyHtml = unwrapped.inner;
+        } else {
+          bodyHtml = plainTextToSafeHtml(e.text);
+        }
         fullCard.innerHTML =
           '<p style="font-size:11px;color:#8A7448;margin:0 0 10px;">'+fullDateStr+'</p>'+
           (fullMoodStr ? '<p style="font-size:11.5px;color:#6690D6;font-style:italic;margin:0 0 12px;">'+fullMoodStr+'</p>' : '')+
-          '<p style="font-size:14px;color:#2A2013;line-height:1.6;margin:0;white-space:pre-wrap;">'+(e.text ? e.text.replace(/</g,'&lt;') : '(No note added)')+'</p>';
+          '<div style="font-size:14px;color:#2A2013;line-height:1.6;">'+bodyHtml+'</div>';
         document.body.appendChild(fullCard);
         html2canvas(fullCard, { backgroundColor:'#FFFFFF', scale:2 }).then(function(canvas){
           document.body.removeChild(fullCard);
@@ -5945,7 +5958,7 @@ function renderHistory(){
       ev.stopPropagation();
       e.archived = !historyShowingArchived;
       saveState();
-      if(e.id) sb.from('entries').update({ archived: e.archived }).eq('id', e.id).then(function(result){
+      if(e._serverConfirmed) sb.from('entries').update({ archived: e.archived }).eq('id', e.id).then(function(result){
         if(result.error){ e.archived = !e.archived; saveState(); showToast("Couldn't update — please try again"); renderHistory(); }
       });
       showToast(historyShowingArchived ? 'Entry restored' : 'Entry archived');
@@ -6970,7 +6983,7 @@ document.getElementById('dayMoodSaveBtn').onclick = function(){
     var m = moods.find(function(mm){ return mm.label === label; });
     return { label: m.label, color: 'hsl('+m.h+','+m.s+'%,'+m.l+'%)' };
   });
-  var entry = { date: dateObj.toISOString(), moods: moodObjs, text: '', sharedWithTherapist: false };
+  var entry = { id: generateClientId(), date: dateObj.toISOString(), moods: moodObjs, text: '', sharedWithTherapist: false };
   appState.entries.unshift(entry);
   saveState();
   saveEntryToSupabase(entry);
@@ -11617,7 +11630,14 @@ function openTherapistClientDetail(userId, name){
             }
             return '<p style="font-size:11.5px;color:#2A2013;margin:0 0 10px;"><strong style="color:#6690D6;">'+when+':</strong> '+label.replace(/</g,'&lt;')+'</p>'+answersHtml;
           }
-          var label = e.text ? e.text.replace(/</g,'&lt;').replace(/\n/g, '<br>') : '(no text)';
+          var label;
+          if(!e.text){
+            label = '(no text)';
+          } else if(looksLikeHtml(e.text)){
+            label = unwrapAlignedEntry(e.text).inner;
+          } else {
+            label = plainTextToSafeHtml(e.text);
+          }
           return '<p style="font-size:11.5px;color:#2A2013;margin:0 0 10px;"><strong style="color:#6690D6;">'+when+':</strong> '+label+'</p>';
         }).join('')+
         '</div>';
@@ -14455,6 +14475,7 @@ function commitWorksheetIfDirty(){
     return true;
   }
   var entry = {
+    id: generateClientId(),
     date: new Date().toISOString(), type:'worksheet', moods:[], text:'',
     worksheetName: w.name, categoryName: cat.name, color: cat.color,
     worksheetKey: currentWorksheetKey,
@@ -14526,6 +14547,7 @@ document.getElementById('worksheetSaveBtn').onclick = function(){
     }
   } else {
     var entry = {
+      id: generateClientId(),
       date: new Date().toISOString(), type:'worksheet', moods:[], text:'',
       worksheetName: w.name, categoryName: cat.name, color: cat.color,
       worksheetKey: currentWorksheetKey,
