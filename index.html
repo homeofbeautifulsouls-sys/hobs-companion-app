@@ -2232,7 +2232,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260802191351';
+  var CURRENT_BUILD = '20260805083721';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -11388,7 +11388,8 @@ function renderTherapistAppointmentsList(){
         ? '<div style="display:flex;gap:6px;margin-top:8px;">'+
             '<button class="therapist-appt-edit-btn" data-user-id="'+b.user_id+'" data-booking-id="'+b.id+'" data-name="'+name.replace(/"/g,'&quot;')+'" data-session-date="'+b.session_date+'" style="flex:1;font-size:10.5px;font-weight:700;color:#6690D6;background:none;border:1px solid #C7D2E8;border-radius:8px;padding:6px;cursor:pointer;">Edit time</button>'+
             '<button class="therapist-appt-cancel-btn" data-booking-id="'+b.id+'" style="flex:1;font-size:10.5px;font-weight:700;color:#C77B7B;background:none;border:1px solid #EFC7C7;border-radius:8px;padding:6px;cursor:pointer;">Cancel</button>'+
-          '</div>'
+          '</div>'+
+          '<a href="'+buildGoogleCalendarLink('Session with '+name, new Date(b.session_date), 'via HOBS Companion')+'" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="display:block;text-align:center;margin-top:6px;font-size:10.5px;font-weight:700;color:#6690D6;background:none;border:1px solid #C7D2E8;border-radius:8px;padding:6px;text-decoration:none;">+ Add to Calendar</a>'
         : '';
       // Real ask: tapping a row -- past ones especially -- should open full detail and session
       // notes (view what's there, or add them if missing), not just sit as a read-only summary
