@@ -2232,7 +2232,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260805084437';
+  var CURRENT_BUILD = '20260805141738';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -2260,11 +2260,14 @@
 
   checkForUpdate(); // cold launch / fresh load
 
+  function refreshGcalCardIfPresent(){
+    if(typeof renderGcalConnectionCard === 'function' && document.getElementById('gcalConnectionCard')) renderGcalConnectionCard();
+  }
   document.addEventListener('visibilitychange', function(){
-    if(document.visibilityState === 'visible') checkForUpdate();
+    if(document.visibilityState === 'visible'){ checkForUpdate(); refreshGcalCardIfPresent(); }
   });
-  window.addEventListener('focus', checkForUpdate);
-  window.addEventListener('pageshow', checkForUpdate);
+  window.addEventListener('focus', function(){ checkForUpdate(); refreshGcalCardIfPresent(); });
+  window.addEventListener('pageshow', function(){ checkForUpdate(); refreshGcalCardIfPresent(); });
 
   // The previous fix corrected document.addEventListener('resume', ...) (wrong, old Cordova
   // convention) to window.Capacitor.Plugins.App.addListener('resume', ...) (the real API) --
@@ -2536,6 +2539,11 @@ if (IS_NATIVE_APP && window.Capacitor?.Plugins?.App) {
       sb.auth.getSession().then(function(result){
         if(!result.data.session) location.reload();
       }).catch(function(){});
+      // The connection may have just been completed in a separate browser tab (the OAuth flow
+      // can land there rather than back in the app) -- the app has no other way of knowing that
+      // happened until it re-checks. Safe to call unconditionally: it no-ops if this screen
+      // isn't currently showing.
+      if(typeof renderGcalConnectionCard === 'function') renderGcalConnectionCard();
     }
   });
 
