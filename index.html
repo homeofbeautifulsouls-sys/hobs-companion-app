@@ -2261,7 +2261,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260806010239';
+  var CURRENT_BUILD = '20260806010852';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -12080,6 +12080,7 @@ async function renderGcalEventsList(){
 }
 
 var gcalEditingEventId = null;
+var gcalOwnConnectedEmail = null;
 function populateGcalClientPicker(){
   var select = document.getElementById('gcalEventEditClient');
   select.innerHTML = '<option value="">Loading clients…</option>';
@@ -12090,6 +12091,7 @@ function populateGcalClientPicker(){
   ]).then(function(results){
     var bookingsRes = results[0], profilesRes = results[1], connRes = results[2];
     var ownConnectedEmail = (connRes.data && connRes.data.google_email) ? connRes.data.google_email.toLowerCase() : null;
+    gcalOwnConnectedEmail = ownConnectedEmail;
     var profileByUserId = {};
     (profilesRes.data || []).forEach(function(p){ profileByUserId[p.user_id] = p; });
     var selfUserIds = (profilesRes.data || [])
@@ -12102,7 +12104,6 @@ function populateGcalClientPicker(){
       seen[b.user_id] = true;
       var p = profileByUserId[b.user_id];
       if(!p || !p.email) return;
-      if(ownConnectedEmail && p.email.toLowerCase() === ownConnectedEmail) return; // this is the therapist's own connected account, not a real client
       clients.push({ id: b.user_id, name: p.name || p.email, email: p.email });
     });
     select.innerHTML = '<option value="">No client (just for me)</option>' +
@@ -12138,7 +12139,13 @@ document.getElementById('newGcalEventFabBtn').onclick = function(){ openGcalEven
 document.getElementById('gcalEventEditSaveBtn').onclick = async function(){
   var title = document.getElementById('gcalEventEditTitle').value.trim();
   if(!title){ showToast('Give it a title first'); return; }
-  var attendeeEmail = document.getElementById('gcalEventEditClient').value || null;
+  var selectedClientEmail = document.getElementById('gcalEventEditClient').value || null;
+  var isOwnCalendarEmail = selectedClientEmail && gcalOwnConnectedEmail && selectedClientEmail.toLowerCase() === gcalOwnConnectedEmail;
+  // Google's Calendar API doesn't handle being asked to add the calendar's own owner as an
+  // attendee on their own event well (this is the likely real cause of a previous hang) -- so
+  // the client is still tracked for the save, just not sent to Google as an attendee in this
+  // specific case.
+  var attendeeEmail = isOwnCalendarEmail ? null : selectedClientEmail;
   var startIso = new Date(document.getElementById('gcalEventEditStartDate').value+'T'+document.getElementById('gcalEventEditStartTime').value).toISOString();
   var endIso = new Date(document.getElementById('gcalEventEditEndDate').value+'T'+document.getElementById('gcalEventEditEndTime').value).toISOString();
   if(new Date(endIso) <= new Date(startIso)){ showToast('End time needs to be after the start'); return; }
@@ -12164,7 +12171,10 @@ document.getElementById('gcalEventEditSaveBtn').onclick = async function(){
     showToast((data && data.error) || "Couldn't save — please try again.");
     return;
   }
-  showToast(isCreate ? (attendeeEmail ? 'Added and invited to your calendar' : 'Added to your calendar') : 'Updated on your calendar');
+  var successMsg = isCreate
+    ? (attendeeEmail ? 'Added and invited to your calendar' : (isOwnCalendarEmail ? 'Added — this client shares your calendar email, so no separate invite was needed' : 'Added to your calendar'))
+    : 'Updated on your calendar';
+  showToast(successMsg);
   closeGcalEventEditSheet();
   renderGcalEventsList();
 };
