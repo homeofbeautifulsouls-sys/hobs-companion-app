@@ -2261,7 +2261,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260806005348';
+  var CURRENT_BUILD = '20260806010239';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -12085,9 +12085,11 @@ function populateGcalClientPicker(){
   select.innerHTML = '<option value="">Loading clients…</option>';
   Promise.all([
     sb.from('expert_bookings').select('user_id').eq('expert_name', appState.therapistExpertName).in('status', ['active','change_requested']),
-    sb.from('profiles').select('user_id,name,email,therapist_expert_name')
+    sb.from('profiles').select('user_id,name,email,therapist_expert_name'),
+    sb.from('professional_calendar_connections').select('google_email').eq('user_id', currentUser.id).maybeSingle()
   ]).then(function(results){
-    var bookingsRes = results[0], profilesRes = results[1];
+    var bookingsRes = results[0], profilesRes = results[1], connRes = results[2];
+    var ownConnectedEmail = (connRes.data && connRes.data.google_email) ? connRes.data.google_email.toLowerCase() : null;
     var profileByUserId = {};
     (profilesRes.data || []).forEach(function(p){ profileByUserId[p.user_id] = p; });
     var selfUserIds = (profilesRes.data || [])
@@ -12099,7 +12101,9 @@ function populateGcalClientPicker(){
       if(selfUserIds.indexOf(b.user_id) !== -1 || seen[b.user_id]) return;
       seen[b.user_id] = true;
       var p = profileByUserId[b.user_id];
-      if(p && p.email) clients.push({ id: b.user_id, name: p.name || p.email, email: p.email });
+      if(!p || !p.email) return;
+      if(ownConnectedEmail && p.email.toLowerCase() === ownConnectedEmail) return; // this is the therapist's own connected account, not a real client
+      clients.push({ id: b.user_id, name: p.name || p.email, email: p.email });
     });
     select.innerHTML = '<option value="">No client (just for me)</option>' +
       clients.map(function(c){ return '<option value="'+c.email.replace(/"/g,'&quot;')+'">'+c.name.replace(/</g,'&lt;')+'</option>'; }).join('');
@@ -12140,14 +12144,22 @@ document.getElementById('gcalEventEditSaveBtn').onclick = async function(){
   if(new Date(endIso) <= new Date(startIso)){ showToast('End time needs to be after the start'); return; }
   var isCreate = !gcalEditingEventId;
   this.textContent = isCreate ? 'Adding…' : 'Saving…'; this.disabled = true;
+  var btn = this;
   var { data: sessionData } = await sb.auth.getSession();
-  var { data, error } = await sb.functions.invoke('google-calendar-sync', {
+  var invokePromise = sb.functions.invoke('google-calendar-sync', {
     body: isCreate
       ? { action: 'create_external_event', title: title, start_time: startIso, end_time: endIso, attendee_email: attendeeEmail }
       : { action: 'update_external_event', google_event_id: gcalEditingEventId, title: title, start_time: startIso, end_time: endIso, attendee_email: attendeeEmail },
     headers: { Authorization: 'Bearer ' + sessionData.session.access_token }
   });
-  this.textContent = isCreate ? 'Add to Google Calendar' : 'Save to Google Calendar'; this.disabled = false;
+  var timeoutPromise = new Promise(function(resolve){ setTimeout(function(){ resolve({ timedOut: true }); }, 15000); });
+  var result = await Promise.race([invokePromise, timeoutPromise]);
+  btn.textContent = isCreate ? 'Add to Google Calendar' : 'Save to Google Calendar'; btn.disabled = false;
+  if(result.timedOut){
+    showToast("This is taking too long — check your connection and try again.");
+    return;
+  }
+  var data = result.data, error = result.error;
   if(error || (data && data.error)){
     showToast((data && data.error) || "Couldn't save — please try again.");
     return;
