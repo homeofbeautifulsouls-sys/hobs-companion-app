@@ -2261,7 +2261,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260806011401';
+  var CURRENT_BUILD = '20260806013258';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -12054,7 +12054,7 @@ async function renderGcalEventsList(){
   gcalEventsListInFlight = true;
   list.innerHTML = '<p style="font-size:11px;color:#9AABCE;margin:0;">Loading…</p>';
   var { data, error } = await sb.from('professional_busy_blocks')
-    .select('google_event_id,title,start_time,end_time')
+    .select('google_event_id,title,start_time,end_time,attendee_email')
     .eq('professional_user_id', currentUser.id)
     .gte('end_time', new Date().toISOString())
     .order('start_time', { ascending: true })
@@ -12068,20 +12068,20 @@ async function renderGcalEventsList(){
     var start = new Date(e.start_time), end = new Date(e.end_time);
     var dateStr = start.toLocaleDateString(undefined, { weekday:'short', month:'short', day:'numeric' });
     var timeStr = start.toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' }) + ' – ' + end.toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' });
-    return '<button class="gcal-event-row" data-event-id="'+e.google_event_id+'" data-title="'+(e.title||'Busy').replace(/"/g,'&quot;')+'" data-start="'+e.start_time+'" data-end="'+e.end_time+'" style="display:block;width:100%;text-align:left;background:none;border:none;padding:10px 0;border-bottom:1px solid #F3F0E8;cursor:pointer;">'+
+    return '<button class="gcal-event-row" data-event-id="'+e.google_event_id+'" data-title="'+(e.title||'Busy').replace(/"/g,'&quot;')+'" data-start="'+e.start_time+'" data-end="'+e.end_time+'" data-attendee="'+(e.attendee_email||'').replace(/"/g,'&quot;')+'" style="display:block;width:100%;text-align:left;background:none;border:none;padding:10px 0;border-bottom:1px solid #F3F0E8;cursor:pointer;">'+
       '<p style="font-size:12.5px;color:#2A2013;margin:0 0 2px;font-weight:600;">'+(e.title||'Busy').replace(/</g,'&lt;')+'</p>'+
       '<p style="font-size:11px;color:#9AABCE;margin:0;">'+dateStr+' · '+timeStr+'</p>'+
     '</button>';
   }).join('');
   gcalEventsListInFlight = false;
   list.querySelectorAll('.gcal-event-row').forEach(function(row){
-    row.onclick = function(){ openGcalEventEditSheet(row.dataset.eventId, row.dataset.title, row.dataset.start, row.dataset.end); };
+    row.onclick = function(){ openGcalEventEditSheet(row.dataset.eventId, row.dataset.title, row.dataset.start, row.dataset.end, row.dataset.attendee); };
   });
 }
 
 var gcalEditingEventId = null;
 var gcalOwnConnectedEmail = null;
-function populateGcalClientPicker(){
+function populateGcalClientPicker(preselectEmail){
   var select = document.getElementById('gcalEventEditClient');
   select.innerHTML = '<option value="">Loading clients…</option>';
   Promise.all([
@@ -12108,14 +12108,15 @@ function populateGcalClientPicker(){
     });
     select.innerHTML = '<option value="">No client (just for me)</option>' +
       clients.map(function(c){ return '<option value="'+c.email.replace(/"/g,'&quot;')+'">'+c.name.replace(/</g,'&lt;')+'</option>'; }).join('');
+    if(preselectEmail) select.value = preselectEmail;
   }).catch(function(){
     select.innerHTML = '<option value="">No client (just for me)</option>';
   });
 }
-function openGcalEventEditSheet(googleEventId, title, startIso, endIso){
+function openGcalEventEditSheet(googleEventId, title, startIso, endIso, attendeeEmail){
   gcalEditingEventId = googleEventId; // null means creating a new event
   document.getElementById('gcalEventEditTitle').value = title || '';
-  populateGcalClientPicker();
+  populateGcalClientPicker(attendeeEmail || null);
   var pad = function(n){ return String(n).padStart(2,'0'); };
   var s = startIso ? new Date(startIso) : new Date(Date.now() + 60*60*1000);
   var e = endIso ? new Date(endIso) : new Date(s.getTime() + 60*60*1000);
