@@ -1906,6 +1906,24 @@
     </div>
   </div>
 
+  <div id="gcalEventEditBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.4);z-index:60;"></div>
+  <div id="gcalEventEditSheet" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;max-height:85vh;overflow-y:auto;background:#FFFFFF;border-radius:24px 24px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom));box-sizing:border-box;z-index:61;box-shadow:0 -10px 30px rgba(0,0,0,0.15);">
+    <button id="gcalEventEditCloseBtn" style="background:none;border:none;cursor:pointer;padding:0;margin-bottom:18px;color:#5C6B94;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <p style="font-size:11px;color:#9AABCE;margin:0 0 4px;">Editing on your Google Calendar</p>
+    <input id="gcalEventEditTitle" type="text" style="width:100%;padding:10px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:14px;color:#2A2013;box-sizing:border-box;margin-bottom:10px;">
+    <div style="display:flex;gap:6px;margin-bottom:6px;">
+      <input id="gcalEventEditStartDate" type="date" style="flex:1;padding:10px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:13px;color:#2A2013;box-sizing:border-box;">
+      <input id="gcalEventEditStartTime" type="time" style="flex:1;padding:10px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:13px;color:#2A2013;box-sizing:border-box;">
+    </div>
+    <p style="text-align:center;font-size:11px;color:#9AABCE;margin:2px 0;">to</p>
+    <div style="display:flex;gap:6px;margin-bottom:16px;">
+      <input id="gcalEventEditEndDate" type="date" style="flex:1;padding:10px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:13px;color:#2A2013;box-sizing:border-box;">
+      <input id="gcalEventEditEndTime" type="time" style="flex:1;padding:10px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:13px;color:#2A2013;box-sizing:border-box;">
+    </div>
+    <button id="gcalEventEditSaveBtn" style="width:100%;padding:12px;border-radius:12px;border:none;background:#4285F4;color:#fff;font-size:13.5px;font-weight:700;cursor:pointer;">Save to Google Calendar</button>
+  </div>
   <div id="addTaskSheetBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.4);z-index:60;"></div>
   <div id="addTaskSheet" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;max-height:85vh;overflow-y:auto;background:#FFFFFF;border-radius:24px 24px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom));box-sizing:border-box;z-index:61;box-shadow:0 -10px 30px rgba(0,0,0,0.15);">
     <button id="sheetCloseBtn" style="background:none;border:none;cursor:pointer;padding:0;margin-bottom:18px;color:#5C6B94;">
@@ -2236,7 +2254,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260806001335';
+  var CURRENT_BUILD = '20260806002028';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -12026,7 +12044,7 @@ async function renderGcalEventsList(){
   if(!list) return;
   list.innerHTML = '<p style="font-size:11px;color:#9AABCE;margin:0;">Loading…</p>';
   var { data, error } = await sb.from('professional_busy_blocks')
-    .select('title,start_time,end_time')
+    .select('google_event_id,title,start_time,end_time')
     .eq('professional_user_id', currentUser.id)
     .gte('end_time', new Date().toISOString())
     .order('start_time', { ascending: true })
@@ -12039,12 +12057,57 @@ async function renderGcalEventsList(){
     var start = new Date(e.start_time), end = new Date(e.end_time);
     var dateStr = start.toLocaleDateString(undefined, { weekday:'short', month:'short', day:'numeric' });
     var timeStr = start.toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' }) + ' – ' + end.toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' });
-    return '<div style="padding:10px 0;border-bottom:1px solid #F3F0E8;">'+
+    return '<button class="gcal-event-row" data-event-id="'+e.google_event_id+'" data-title="'+(e.title||'Busy').replace(/"/g,'&quot;')+'" data-start="'+e.start_time+'" data-end="'+e.end_time+'" style="display:block;width:100%;text-align:left;background:none;border:none;padding:10px 0;border-bottom:1px solid #F3F0E8;cursor:pointer;">'+
       '<p style="font-size:12.5px;color:#2A2013;margin:0 0 2px;font-weight:600;">'+(e.title||'Busy').replace(/</g,'&lt;')+'</p>'+
       '<p style="font-size:11px;color:#9AABCE;margin:0;">'+dateStr+' · '+timeStr+'</p>'+
-    '</div>';
+    '</button>';
   }).join('');
+  list.querySelectorAll('.gcal-event-row').forEach(function(row){
+    row.onclick = function(){ openGcalEventEditSheet(row.dataset.eventId, row.dataset.title, row.dataset.start, row.dataset.end); };
+  });
 }
+
+var gcalEditingEventId = null;
+function openGcalEventEditSheet(googleEventId, title, startIso, endIso){
+  gcalEditingEventId = googleEventId;
+  document.getElementById('gcalEventEditTitle').value = title;
+  var pad = function(n){ return String(n).padStart(2,'0'); };
+  var s = new Date(startIso), e = new Date(endIso);
+  document.getElementById('gcalEventEditStartDate').value = s.getFullYear()+'-'+pad(s.getMonth()+1)+'-'+pad(s.getDate());
+  document.getElementById('gcalEventEditStartTime').value = pad(s.getHours())+':'+pad(s.getMinutes());
+  document.getElementById('gcalEventEditEndDate').value = e.getFullYear()+'-'+pad(e.getMonth()+1)+'-'+pad(e.getDate());
+  document.getElementById('gcalEventEditEndTime').value = pad(e.getHours())+':'+pad(e.getMinutes());
+  document.getElementById('gcalEventEditBackdrop').style.display = 'block';
+  document.getElementById('gcalEventEditSheet').style.display = 'block';
+}
+function closeGcalEventEditSheet(){
+  document.getElementById('gcalEventEditBackdrop').style.display = 'none';
+  document.getElementById('gcalEventEditSheet').style.display = 'none';
+  gcalEditingEventId = null;
+}
+document.getElementById('gcalEventEditCloseBtn').onclick = closeGcalEventEditSheet;
+document.getElementById('gcalEventEditBackdrop').onclick = closeGcalEventEditSheet;
+document.getElementById('gcalEventEditSaveBtn').onclick = async function(){
+  var title = document.getElementById('gcalEventEditTitle').value.trim();
+  if(!title){ showToast('Give it a title first'); return; }
+  var startIso = new Date(document.getElementById('gcalEventEditStartDate').value+'T'+document.getElementById('gcalEventEditStartTime').value).toISOString();
+  var endIso = new Date(document.getElementById('gcalEventEditEndDate').value+'T'+document.getElementById('gcalEventEditEndTime').value).toISOString();
+  if(new Date(endIso) <= new Date(startIso)){ showToast('End time needs to be after the start'); return; }
+  this.textContent = 'Saving…'; this.disabled = true;
+  var { data: sessionData } = await sb.auth.getSession();
+  var { data, error } = await sb.functions.invoke('google-calendar-sync', {
+    body: { action: 'update_external_event', google_event_id: gcalEditingEventId, title: title, start_time: startIso, end_time: endIso },
+    headers: { Authorization: 'Bearer ' + sessionData.session.access_token }
+  });
+  this.textContent = 'Save to Google Calendar'; this.disabled = false;
+  if(error || (data && data.error)){
+    showToast((data && data.error) || "Couldn't save — please try again.");
+    return;
+  }
+  showToast('Updated on your calendar');
+  closeGcalEventEditSheet();
+  renderGcalEventsList();
+};
 
 // Handles the redirect back from Google (?code=...&state=gcal_connect in the URL) --
 // exchanges the code for tokens via the Edge Function, then cleans the URL so a page refresh
