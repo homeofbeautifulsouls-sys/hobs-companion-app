@@ -2261,7 +2261,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260806013258';
+  var CURRENT_BUILD = '20260806015049';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -12154,15 +12154,18 @@ document.getElementById('gcalEventEditSaveBtn').onclick = async function(){
   this.textContent = isCreate ? 'Adding…' : 'Saving…'; this.disabled = true;
   var btn = this;
   try {
-    var { data: sessionData } = await sb.auth.getSession();
-    var invokePromise = sb.functions.invoke('google-calendar-sync', {
-      body: isCreate
-        ? { action: 'create_external_event', title: title, start_time: startIso, end_time: endIso, attendee_email: attendeeEmail }
-        : { action: 'update_external_event', google_event_id: gcalEditingEventId, title: title, start_time: startIso, end_time: endIso, attendee_email: attendeeEmail },
-      headers: { Authorization: 'Bearer ' + sessionData.session.access_token }
-    });
+    var wholeOperation = (async function(){
+      var { data: sessionData } = await sb.auth.getSession();
+      if(!sessionData || !sessionData.session) throw new Error('No active session — please sign in again.');
+      return await sb.functions.invoke('google-calendar-sync', {
+        body: isCreate
+          ? { action: 'create_external_event', title: title, start_time: startIso, end_time: endIso, attendee_email: attendeeEmail }
+          : { action: 'update_external_event', google_event_id: gcalEditingEventId, title: title, start_time: startIso, end_time: endIso, attendee_email: attendeeEmail },
+        headers: { Authorization: 'Bearer ' + sessionData.session.access_token }
+      });
+    })();
     var timeoutPromise = new Promise(function(resolve){ setTimeout(function(){ resolve({ timedOut: true }); }, 15000); });
-    var result = await Promise.race([invokePromise, timeoutPromise]);
+    var result = await Promise.race([wholeOperation, timeoutPromise]);
     if(result.timedOut){
       showToast("This is taking too long — check your connection and try again.");
       return;
@@ -12183,7 +12186,7 @@ document.getElementById('gcalEventEditSaveBtn').onclick = async function(){
     // stuck on "Saving...") meant nothing after the failure point ever ran, including the
     // button reset -- this guarantees it always resets regardless of what actually goes wrong.
     console.error('Calendar event save error:', err);
-    showToast("Something went wrong saving this — please try again.");
+    showToast((err && err.message) || "Something went wrong saving this — please try again.");
   } finally {
     btn.textContent = isCreate ? 'Add to Google Calendar' : 'Save to Google Calendar'; btn.disabled = false;
   }
@@ -12194,11 +12197,21 @@ document.getElementById('gcalEventEditDeleteBtn').onclick = async function(){
   this.textContent = 'Deleting…'; this.disabled = true;
   var btn = this;
   try {
-    var { data: sessionData } = await sb.auth.getSession();
-    var { data, error } = await sb.functions.invoke('google-calendar-sync', {
-      body: { action: 'delete_external_event', google_event_id: gcalEditingEventId },
-      headers: { Authorization: 'Bearer ' + sessionData.session.access_token }
-    });
+    var wholeOperation = (async function(){
+      var { data: sessionData } = await sb.auth.getSession();
+      if(!sessionData || !sessionData.session) throw new Error('No active session — please sign in again.');
+      return await sb.functions.invoke('google-calendar-sync', {
+        body: { action: 'delete_external_event', google_event_id: gcalEditingEventId },
+        headers: { Authorization: 'Bearer ' + sessionData.session.access_token }
+      });
+    })();
+    var timeoutPromise = new Promise(function(resolve){ setTimeout(function(){ resolve({ timedOut: true }); }, 15000); });
+    var result = await Promise.race([wholeOperation, timeoutPromise]);
+    if(result.timedOut){
+      showToast("This is taking too long — check your connection and try again.");
+      return;
+    }
+    var data = result.data, error = result.error;
     if(error || (data && data.error)){
       showToast((data && data.error) || "Couldn't delete — please try again.");
       return;
@@ -12208,7 +12221,7 @@ document.getElementById('gcalEventEditDeleteBtn').onclick = async function(){
     renderGcalEventsList();
   } catch(err) {
     console.error('Calendar event delete error:', err);
-    showToast("Something went wrong deleting this — please try again.");
+    showToast((err && err.message) || "Something went wrong deleting this — please try again.");
   } finally {
     btn.textContent = 'Delete event'; btn.disabled = false;
   }
