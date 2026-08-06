@@ -1061,10 +1061,7 @@
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Calendar</p>
     <div id="gcalConnectionCard" style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:14px;padding:16px;margin-bottom:18px;"></div>
     <div id="gcalEventsListSection" style="display:none;margin-bottom:18px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-        <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0;">Your Google Calendar</p>
-        <a id="gcalNewEventBtn" href="https://calendar.google.com/calendar/r/eventedit" target="_blank" rel="noopener" style="width:26px;height:26px;border-radius:50%;background:#4285F4;color:#fff;display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:16px;font-weight:700;line-height:1;">+</a>
-      </div>
+      <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Your Google Calendar</p>
       <div id="gcalEventsList"></div>
     </div>
     <div id="therapistCalChangeRequestsSection" style="display:none;margin-bottom:18px;"></div>
@@ -2122,6 +2119,9 @@
   <button id="newJournalEntryFabBtn" title="New journal entry" style="display:none;position:absolute;right:16px;bottom:200px;width:52px;height:52px;border-radius:50%;border:none;background:#3B8F63;box-shadow:0 4px 14px rgba(0,0,0,0.18);cursor:pointer;z-index:55;align-items:center;justify-content:center;padding:0;">
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFF8F0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
   </button>
+  <button id="newGcalEventFabBtn" title="New calendar event" style="display:none;position:absolute;right:16px;bottom:200px;width:52px;height:52px;border-radius:50%;border:none;background:#3B8F63;box-shadow:0 4px 14px rgba(0,0,0,0.18);cursor:pointer;z-index:55;align-items:center;justify-content:center;padding:0;">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFF8F0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+  </button>
   <button id="assistantFabBtn" style="position:absolute;right:16px;bottom:136px;width:52px;height:52px;border-radius:50%;border:none;background:#6690D6;box-shadow:0 4px 14px rgba(0,0,0,0.18);cursor:pointer;z-index:55;display:flex;align-items:center;justify-content:center;padding:0;">
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFF8F0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
   </button>
@@ -2258,7 +2258,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260806003034';
+  var CURRENT_BUILD = '20260806004727';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -11213,6 +11213,7 @@ function switchTherapistDashTab(tabKey){
     tab.style.background = isActive ? '#6690D6' : 'transparent';
     tab.style.color = isActive ? '#FFF8F0' : '#9AABCE';
   });
+  document.getElementById('newGcalEventFabBtn').style.display = (tabKey === 'schedule') ? 'flex' : 'none';
   if(tabKey === 'schedule'){ renderGcalConnectionCard(); renderCalendarChangeRequests(); renderTherapistAppointmentsList(); }
 }
 document.querySelectorAll('.therapist-dash-tab').forEach(function(tab){
@@ -12043,9 +12044,11 @@ async function renderGcalConnectionCard(){
 // The visible list of what's actually on the professional's connected Google Calendar --
 // separate from the busy-block data existing purely to compute availability, this is the same
 // data shown as something a person can actually read and recognize, per direct request.
+var gcalEventsListInFlight = false;
 async function renderGcalEventsList(){
   var list = document.getElementById('gcalEventsList');
-  if(!list) return;
+  if(!list || gcalEventsListInFlight) return;
+  gcalEventsListInFlight = true;
   list.innerHTML = '<p style="font-size:11px;color:#9AABCE;margin:0;">Loading…</p>';
   var { data, error } = await sb.from('professional_busy_blocks')
     .select('google_event_id,title,start_time,end_time')
@@ -12055,6 +12058,7 @@ async function renderGcalEventsList(){
     .limit(30);
   if(error || !data || !data.length){
     list.innerHTML = '<p style="font-size:11px;color:#9AABCE;margin:0;">Nothing on your calendar in the next 90 days.</p>';
+    gcalEventsListInFlight = false;
     return;
   }
   list.innerHTML = data.map(function(e){
@@ -12066,6 +12070,7 @@ async function renderGcalEventsList(){
       '<p style="font-size:11px;color:#9AABCE;margin:0;">'+dateStr+' · '+timeStr+'</p>'+
     '</button>';
   }).join('');
+  gcalEventsListInFlight = false;
   list.querySelectorAll('.gcal-event-row').forEach(function(row){
     row.onclick = function(){ openGcalEventEditSheet(row.dataset.eventId, row.dataset.title, row.dataset.start, row.dataset.end); };
   });
@@ -12073,14 +12078,17 @@ async function renderGcalEventsList(){
 
 var gcalEditingEventId = null;
 function openGcalEventEditSheet(googleEventId, title, startIso, endIso){
-  gcalEditingEventId = googleEventId;
-  document.getElementById('gcalEventEditTitle').value = title;
+  gcalEditingEventId = googleEventId; // null means creating a new event
+  document.getElementById('gcalEventEditTitle').value = title || '';
   var pad = function(n){ return String(n).padStart(2,'0'); };
-  var s = new Date(startIso), e = new Date(endIso);
+  var s = startIso ? new Date(startIso) : new Date(Date.now() + 60*60*1000);
+  var e = endIso ? new Date(endIso) : new Date(s.getTime() + 60*60*1000);
   document.getElementById('gcalEventEditStartDate').value = s.getFullYear()+'-'+pad(s.getMonth()+1)+'-'+pad(s.getDate());
   document.getElementById('gcalEventEditStartTime').value = pad(s.getHours())+':'+pad(s.getMinutes());
   document.getElementById('gcalEventEditEndDate').value = e.getFullYear()+'-'+pad(e.getMonth()+1)+'-'+pad(e.getDate());
   document.getElementById('gcalEventEditEndTime').value = pad(e.getHours())+':'+pad(e.getMinutes());
+  document.getElementById('gcalEventEditDeleteBtn').style.display = googleEventId ? 'block' : 'none';
+  document.getElementById('gcalEventEditSaveBtn').textContent = googleEventId ? 'Save to Google Calendar' : 'Add to Google Calendar';
   document.getElementById('gcalEventEditBackdrop').style.display = 'block';
   document.getElementById('gcalEventEditSheet').style.display = 'block';
 }
@@ -12091,24 +12099,28 @@ function closeGcalEventEditSheet(){
 }
 document.getElementById('gcalEventEditCloseBtn').onclick = closeGcalEventEditSheet;
 document.getElementById('gcalEventEditBackdrop').onclick = closeGcalEventEditSheet;
+document.getElementById('newGcalEventFabBtn').onclick = function(){ openGcalEventEditSheet(null, '', null, null); };
 document.getElementById('gcalEventEditSaveBtn').onclick = async function(){
   var title = document.getElementById('gcalEventEditTitle').value.trim();
   if(!title){ showToast('Give it a title first'); return; }
   var startIso = new Date(document.getElementById('gcalEventEditStartDate').value+'T'+document.getElementById('gcalEventEditStartTime').value).toISOString();
   var endIso = new Date(document.getElementById('gcalEventEditEndDate').value+'T'+document.getElementById('gcalEventEditEndTime').value).toISOString();
   if(new Date(endIso) <= new Date(startIso)){ showToast('End time needs to be after the start'); return; }
-  this.textContent = 'Saving…'; this.disabled = true;
+  var isCreate = !gcalEditingEventId;
+  this.textContent = isCreate ? 'Adding…' : 'Saving…'; this.disabled = true;
   var { data: sessionData } = await sb.auth.getSession();
   var { data, error } = await sb.functions.invoke('google-calendar-sync', {
-    body: { action: 'update_external_event', google_event_id: gcalEditingEventId, title: title, start_time: startIso, end_time: endIso },
+    body: isCreate
+      ? { action: 'create_external_event', title: title, start_time: startIso, end_time: endIso }
+      : { action: 'update_external_event', google_event_id: gcalEditingEventId, title: title, start_time: startIso, end_time: endIso },
     headers: { Authorization: 'Bearer ' + sessionData.session.access_token }
   });
-  this.textContent = 'Save to Google Calendar'; this.disabled = false;
+  this.textContent = isCreate ? 'Add to Google Calendar' : 'Save to Google Calendar'; this.disabled = false;
   if(error || (data && data.error)){
     showToast((data && data.error) || "Couldn't save — please try again.");
     return;
   }
-  showToast('Updated on your calendar');
+  showToast(isCreate ? 'Added to your calendar' : 'Updated on your calendar');
   closeGcalEventEditSheet();
   renderGcalEventsList();
 };
