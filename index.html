@@ -1913,6 +1913,9 @@
     </button>
     <p style="font-size:11px;color:#9AABCE;margin:0 0 4px;">Editing on your Google Calendar</p>
     <input id="gcalEventEditTitle" type="text" style="width:100%;padding:10px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:14px;color:#2A2013;box-sizing:border-box;margin-bottom:10px;">
+    <select id="gcalEventEditClient" style="width:100%;padding:10px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:13px;color:#2A2013;box-sizing:border-box;margin-bottom:10px;background:#fff;">
+      <option value="">No client (just for me)</option>
+    </select>
     <div style="display:flex;gap:6px;margin-bottom:6px;">
       <input id="gcalEventEditStartDate" type="date" style="flex:1;padding:10px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:13px;color:#2A2013;box-sizing:border-box;">
       <input id="gcalEventEditStartTime" type="time" style="flex:1;padding:10px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:13px;color:#2A2013;box-sizing:border-box;">
@@ -2258,7 +2261,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260806004727';
+  var CURRENT_BUILD = '20260806005348';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -12077,9 +12080,37 @@ async function renderGcalEventsList(){
 }
 
 var gcalEditingEventId = null;
+function populateGcalClientPicker(){
+  var select = document.getElementById('gcalEventEditClient');
+  select.innerHTML = '<option value="">Loading clients…</option>';
+  Promise.all([
+    sb.from('expert_bookings').select('user_id').eq('expert_name', appState.therapistExpertName).in('status', ['active','change_requested']),
+    sb.from('profiles').select('user_id,name,email,therapist_expert_name')
+  ]).then(function(results){
+    var bookingsRes = results[0], profilesRes = results[1];
+    var profileByUserId = {};
+    (profilesRes.data || []).forEach(function(p){ profileByUserId[p.user_id] = p; });
+    var selfUserIds = (profilesRes.data || [])
+      .filter(function(p){ return p.therapist_expert_name === appState.therapistExpertName; })
+      .map(function(p){ return p.user_id; });
+    var seen = {};
+    var clients = [];
+    (bookingsRes.data || []).forEach(function(b){
+      if(selfUserIds.indexOf(b.user_id) !== -1 || seen[b.user_id]) return;
+      seen[b.user_id] = true;
+      var p = profileByUserId[b.user_id];
+      if(p && p.email) clients.push({ id: b.user_id, name: p.name || p.email, email: p.email });
+    });
+    select.innerHTML = '<option value="">No client (just for me)</option>' +
+      clients.map(function(c){ return '<option value="'+c.email.replace(/"/g,'&quot;')+'">'+c.name.replace(/</g,'&lt;')+'</option>'; }).join('');
+  }).catch(function(){
+    select.innerHTML = '<option value="">No client (just for me)</option>';
+  });
+}
 function openGcalEventEditSheet(googleEventId, title, startIso, endIso){
   gcalEditingEventId = googleEventId; // null means creating a new event
   document.getElementById('gcalEventEditTitle').value = title || '';
+  populateGcalClientPicker();
   var pad = function(n){ return String(n).padStart(2,'0'); };
   var s = startIso ? new Date(startIso) : new Date(Date.now() + 60*60*1000);
   var e = endIso ? new Date(endIso) : new Date(s.getTime() + 60*60*1000);
@@ -12103,6 +12134,7 @@ document.getElementById('newGcalEventFabBtn').onclick = function(){ openGcalEven
 document.getElementById('gcalEventEditSaveBtn').onclick = async function(){
   var title = document.getElementById('gcalEventEditTitle').value.trim();
   if(!title){ showToast('Give it a title first'); return; }
+  var attendeeEmail = document.getElementById('gcalEventEditClient').value || null;
   var startIso = new Date(document.getElementById('gcalEventEditStartDate').value+'T'+document.getElementById('gcalEventEditStartTime').value).toISOString();
   var endIso = new Date(document.getElementById('gcalEventEditEndDate').value+'T'+document.getElementById('gcalEventEditEndTime').value).toISOString();
   if(new Date(endIso) <= new Date(startIso)){ showToast('End time needs to be after the start'); return; }
@@ -12111,8 +12143,8 @@ document.getElementById('gcalEventEditSaveBtn').onclick = async function(){
   var { data: sessionData } = await sb.auth.getSession();
   var { data, error } = await sb.functions.invoke('google-calendar-sync', {
     body: isCreate
-      ? { action: 'create_external_event', title: title, start_time: startIso, end_time: endIso }
-      : { action: 'update_external_event', google_event_id: gcalEditingEventId, title: title, start_time: startIso, end_time: endIso },
+      ? { action: 'create_external_event', title: title, start_time: startIso, end_time: endIso, attendee_email: attendeeEmail }
+      : { action: 'update_external_event', google_event_id: gcalEditingEventId, title: title, start_time: startIso, end_time: endIso, attendee_email: attendeeEmail },
     headers: { Authorization: 'Bearer ' + sessionData.session.access_token }
   });
   this.textContent = isCreate ? 'Add to Google Calendar' : 'Save to Google Calendar'; this.disabled = false;
@@ -12120,7 +12152,7 @@ document.getElementById('gcalEventEditSaveBtn').onclick = async function(){
     showToast((data && data.error) || "Couldn't save — please try again.");
     return;
   }
-  showToast(isCreate ? 'Added to your calendar' : 'Updated on your calendar');
+  showToast(isCreate ? (attendeeEmail ? 'Added and invited to your calendar' : 'Added to your calendar') : 'Updated on your calendar');
   closeGcalEventEditSheet();
   renderGcalEventsList();
 };
