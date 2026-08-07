@@ -2265,7 +2265,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260806150742';
+  var CURRENT_BUILD = '20260807004446';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -2279,13 +2279,39 @@
     var lastCheck = parseInt(sessionStorage.getItem('hobs_last_update_check') || '0', 10);
     if(Date.now() - lastCheck < 30000) return;
     sessionStorage.setItem('hobs_last_update_check', String(Date.now()));
-    fetch('version.json?t=' + Date.now(), { cache: 'no-store' })
+    // Self-contained check, not the global IS_NATIVE_APP -- that's defined later in the file,
+    // after this code already needs to run on cold launch.
+    var isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+    // Relative path only makes sense for the remote-loaded (web) context -- in a bundled native
+    // app that path resolves to the local, bundled copy, which never changes, so this would
+    // never detect a real update at all. Needs an absolute URL to an actual remote copy.
+    var versionCheckUrl = isNative
+      ? (window.REMOTE_VERSION_CHECK_URL || null)
+      : ('version.json?t=' + Date.now());
+    if(!versionCheckUrl) return; // not configured yet -- nothing to check against
+    fetch(versionCheckUrl + (isNative ? (versionCheckUrl.indexOf('?') === -1 ? '?' : '&') + 't=' + Date.now() : ''), { cache: 'no-store' })
       .then(function(r){ return r.json(); })
       .then(function(data){
         if(data && data.build && data.build !== CURRENT_BUILD){
-          // Force a genuinely fresh fetch, not a cached reload -- appending a cache-busting
-          // param so the WebView can't serve this specific request from its HTTP cache either.
-          window.location.href = window.location.pathname + '?v=' + data.build;
+          if(isNative){
+            // Real architectural difference for the bundled app: the UI now lives inside the
+            // APK itself, not on a remote server, so reloading this page fetches nothing new --
+            // there's no newer version to reload *to*. The only real update path is a new APK.
+            // This shows a calm, dismissible banner rather than silently doing nothing, and
+            // never blocks the app from being used while someone decides whether to update.
+            if(!document.getElementById('nativeUpdateBanner')){
+              var banner = document.createElement('div');
+              banner.id = 'nativeUpdateBanner';
+              banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#3B8F63;color:#fff;padding:12px 16px;text-align:center;font-size:12.5px;z-index:9999;display:flex;align-items:center;justify-content:center;gap:10px;';
+              banner.innerHTML = '<span>A newer version of the app is available.</span><a href="'+(window.APK_DOWNLOAD_URL || '#')+'" style="color:#fff;font-weight:700;text-decoration:underline;">Update</a><button style="background:none;border:none;color:#fff;font-size:16px;cursor:pointer;padding:0 4px;">&times;</button>';
+              banner.querySelector('button').onclick = function(){ banner.remove(); };
+              document.body.appendChild(banner);
+            }
+          } else {
+            // Force a genuinely fresh fetch, not a cached reload -- appending a cache-busting
+            // param so the WebView can't serve this specific request from its HTTP cache either.
+            window.location.href = window.location.pathname + '?v=' + data.build;
+          }
         }
       })
       .catch(function(){}); // best-effort -- never block the app loading over this
@@ -2473,6 +2499,10 @@ document.getElementById('logoutBtn').onclick = function(){
 
 var IS_NATIVE_APP = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
 var WEB_APP_URL = 'https://homeofbeautifulsouls-sys.github.io/hobs-companion-app/';
+// TODO: fill in once Hostinger hosting is set up. Until then these are intentionally null --
+// the native update-check safely no-ops rather than checking against a URL that doesn't exist.
+var REMOTE_VERSION_CHECK_URL = 'https://app.homeofbeautifulsouls.com/version.json';
+var APK_DOWNLOAD_URL = 'https://app.homeofbeautifulsouls.com/HOBS-Companion.apk';
 var NATIVE_CALLBACK_URL = 'hobscompanion://callback';
 
 document.getElementById('authGoogleBtn').onclick = function(){
