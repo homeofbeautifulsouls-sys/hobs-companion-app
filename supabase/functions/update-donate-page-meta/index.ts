@@ -49,7 +49,7 @@ Deno.serve(async (req: Request) => {
     const description = plainDescription.length <= 300 ? plainDescription : plainDescription.slice(0, plainDescription.lastIndexOf(" ", 297)) + "…";
     // Falls back to the app's own logo (already hosted on the same repo) if no campaign
     // photo has been set, so a share preview is never blank even before any image is uploaded.
-    const imageUrl = (campaign && campaign.image_url) || "https://homeofbeautifulsouls-sys.github.io/hobs-companion-app/logo.png";
+    const imageUrl = (campaign && campaign.image_url) || "https://app.homeofbeautifulsouls.com/logo.png";
 
     // 2. Fetch the current donate.html + its sha (required by GitHub to update an existing file).
     const ghHeaders = { Authorization: `Bearer ${GITHUB_PAT}`, Accept: "application/vnd.github+json" };
