@@ -2023,6 +2023,9 @@
     </div>
   </div>
   <div class="toast-msg" id="toastMsg"></div>
+  <div id="connectionBanner" style="display:none;position:fixed;top:0;left:0;right:0;background:#8FA8C7;color:#fff;padding:10px 16px;text-align:center;font-size:12px;font-weight:600;z-index:99999;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+    Having trouble connecting. What you've already saved is safe — we'll sync again once you're back online.
+  </div>
   <canvas id="confettiCanvas"></canvas>
 
   <div class="content" id="panel-tips" style="display:none;">
@@ -2263,7 +2266,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260807115759';
+  var CURRENT_BUILD = '20260807131024';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -2456,6 +2459,51 @@ function retryPendingSync(){
   });
   if(queue.length > 0) showToast('Caught up on ' + queue.length + ' unsaved item(s) from earlier.');
 }
+
+var connectionBannerVisible = false;
+var consecutiveFailedChecks = 0;
+function showConnectionBanner(){
+  if(connectionBannerVisible) return;
+  connectionBannerVisible = true;
+  document.getElementById('connectionBanner').style.display = 'block';
+}
+function hideConnectionBanner(){
+  if(!connectionBannerVisible) return;
+  connectionBannerVisible = false;
+  document.getElementById('connectionBanner').style.display = 'none';
+  retryPendingSync();
+}
+function checkSupabaseConnection(){
+  // A real reachability check against Supabase itself, not just navigator.onLine -- a device can
+  // have an active network interface (WiFi connected, etc.) while Supabase specifically is
+  // unreachable, which is exactly the gap a plain online/offline listener alone would miss.
+  var controller = new AbortController();
+  var timeoutId = setTimeout(function(){ controller.abort(); }, 8000);
+  fetch(SUPABASE_URL + '/auth/v1/health', { signal: controller.signal, cache: 'no-store' })
+    .then(function(res){
+      clearTimeout(timeoutId);
+      // Any actual HTTP response -- including a 401, which this specific endpoint returns
+      // without auth -- proves the request reached the server and back. Only a thrown
+      // exception below (network failure, timeout, abort) means it genuinely didn't.
+      consecutiveFailedChecks = 0;
+      hideConnectionBanner();
+    })
+    .catch(function(){
+      clearTimeout(timeoutId);
+      handleFailedCheck();
+    });
+}
+function handleFailedCheck(){
+  consecutiveFailedChecks++;
+  // Requires two consecutive failures (roughly 20+ seconds of genuine trouble) before showing
+  // anything -- a single slow or dropped request is normal and shouldn't alarm anyone.
+  if(consecutiveFailedChecks >= 2) showConnectionBanner();
+}
+window.addEventListener('offline', function(){ consecutiveFailedChecks = 2; showConnectionBanner(); });
+window.addEventListener('online', function(){ consecutiveFailedChecks = 0; checkSupabaseConnection(); });
+setInterval(function(){
+  if(document.visibilityState === 'visible') checkSupabaseConnection();
+}, 20000);
 
 var authMode = 'signin';
 var justSignedUpWithChecksConfirmed = false; // set true right after a fresh signup where the 18+/ToS checkboxes were already checked -- lets onboarding-save skip showing the redundant basic ToS gate right after
