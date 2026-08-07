@@ -1,4 +1,5 @@
-success" callback can be spoofed, interrupted, or simply
+// Real payment confirmation happens here, verified server-side, never trusted from the client
+// alone -- a client-reported "success" callback can be spoofed, interrupted, or simply
 // never fire even after a real successful payment. Verifies Razorpay's HMAC-SHA256 signature
 // against the raw request body before touching anything, using the webhook secret configured
 // in Razorpay's dashboard (a separate secret from the API key/secret pair).
