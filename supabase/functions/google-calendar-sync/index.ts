@@ -15,8 +15,18 @@
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
 const GOOGLE_CLIENT_ID = Deno.env.get("GOOGLE_CALENDAR_CLIENT_ID");
 const GOOGLE_CLIENT_SECRET = Deno.env.get("GOOGLE_CALENDAR_CLIENT_SECRET");
+
+async function getCallerIdFromJWT(authHeader: string): Promise<string | null> {
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    headers: { apikey: SUPABASE_ANON_KEY ?? "", Authorization: authHeader },
+  });
+  if (!res.ok) return null;
+  const json = await res.json().catch(() => null);
+  return json?.id || null;
+}
 
 async function dbFetch(path: string) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
@@ -178,6 +188,14 @@ Deno.serve(async (req) => {
       }
 
       if (body.action === "register_watch") {
+        // Real security fix: this previously had zero auth check, letting anyone trigger a
+        // watch registration for an arbitrary user_id. The only genuine caller is
+        // google-calendar-oauth's own server-side code (confirmed directly), so this now
+        // requires the service-role key, same trust boundary already used for renew_watches.
+        const authHeader = req.headers.get("Authorization");
+        if (authHeader !== `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`) {
+          return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
         const result = await registerWatchForUser(body.user_id);
         if (!result.ok) return new Response(JSON.stringify({ error: result.reason }), { status: result.reason === "No connection found" ? 404 : 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -192,6 +210,31 @@ Deno.serve(async (req) => {
 
         const profRows = await dbFetch(`profiles?therapist_expert_name=eq.${encodeURIComponent(booking.expert_name)}&is_therapist=eq.true&select=user_id`);
         const professional = Array.isArray(profRows) ? profRows[0] : null;
+
+        // Real security fix: this previously had zero auth check, letting anyone trigger real
+        // calendar mutations (and the downstream cancellation policy) for an arbitrary
+        // booking_id. Allowed callers now: the trusted service-role key (legitimate internal/
+        // scheduled calls), or a real JWT belonging to the booking's own client, the assigned
+        // professional, or an admin -- never a client-supplied identity claim.
+        const authHeader = req.headers.get("Authorization") ?? "";
+        const isTrustedServerCall = authHeader === `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`;
+        if (!isTrustedServerCall) {
+          const callerId = await getCallerIdFromJWT(authHeader);
+          if (!callerId) {
+            return new Response(JSON.stringify({ error: "Not authenticated" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          }
+          const isBookingOwner = callerId === booking.user_id;
+          const isAssignedProfessional = professional && callerId === professional.user_id;
+          let isAdmin = false;
+          if (!isBookingOwner && !isAssignedProfessional) {
+            const callerProfileRows = await dbFetch(`profiles?user_id=eq.${callerId}&select=is_admin`);
+            isAdmin = Array.isArray(callerProfileRows) && callerProfileRows[0]?.is_admin === true;
+          }
+          if (!isBookingOwner && !isAssignedProfessional && !isAdmin) {
+            return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          }
+        }
+
         if (!professional) return new Response(JSON.stringify({ skipped: "No professional account for this expert" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
         const connRows = await dbFetch(`professional_calendar_connections?user_id=eq.${professional.user_id}&select=*`);

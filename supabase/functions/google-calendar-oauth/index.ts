@@ -151,7 +151,7 @@ Deno.serve(async (req) => {
       // a second authenticated round-trip afterward.
       fetch(`${SUPABASE_URL}/functions/v1/google-calendar-sync`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
         body: JSON.stringify({ action: "register_watch", user_id: userId }),
       }).catch((e) => console.error("Could not register calendar watch:", e));
 
