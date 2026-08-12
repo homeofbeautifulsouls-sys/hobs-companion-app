@@ -2266,7 +2266,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260807173344';
+  var CURRENT_BUILD = '20260812211459';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -2392,6 +2392,7 @@ window.addEventListener('unhandledrejection', function(e){
 });
 
 var currentUser = null;
+var lastKnownUserId = null; // tracks the owner even through a moment where currentUser itself is transiently unavailable (e.g. mid-reload), specifically so offline-queued writes can still be correctly attributed
 var pendingSyncQueue = [];
 try {
   var storedQueue = localStorage.getItem('hobs_pending_sync');
@@ -2430,7 +2431,7 @@ function syncToSupabase(table, payload, onSuccess){
     var fullPayload = Object.assign({}, payload, { id: clientId, user_id: currentUser.id });
     sb.from(table).upsert(fullPayload, { onConflict: 'id' }).select().single().then(function(result){
       if(result.error){
-        pendingSyncQueue.push({ table: table, payload: fullPayload, queuedAt: new Date().toISOString() });
+        pendingSyncQueue.push({ table: table, payload: fullPayload, ownerUserId: currentUser.id, queuedAt: new Date().toISOString() });
         savePendingSyncQueue();
         return;
       }
@@ -2438,7 +2439,7 @@ function syncToSupabase(table, payload, onSuccess){
     });
   } else {
     var clientId2 = payload.id || generateClientId();
-    pendingSyncQueue.push({ table: table, payload: Object.assign({}, payload, { id: clientId2 }), queuedAt: new Date().toISOString() });
+    pendingSyncQueue.push({ table: table, payload: Object.assign({}, payload, { id: clientId2 }), ownerUserId: lastKnownUserId, queuedAt: new Date().toISOString() });
     savePendingSyncQueue();
   }
 }
@@ -2446,9 +2447,11 @@ function syncToSupabase(table, payload, onSuccess){
 function retryPendingSync(){
   if(!currentUser || !currentUser.id || pendingSyncQueue.length === 0) return;
   var queue = pendingSyncQueue;
-  pendingSyncQueue = [];
+  var toRetry = queue.filter(function(item){ return item.ownerUserId === currentUser.id; });
+  var toKeep = queue.filter(function(item){ return item.ownerUserId !== currentUser.id; });
+  pendingSyncQueue = toKeep;
   savePendingSyncQueue();
-  queue.forEach(function(item){
+  toRetry.forEach(function(item){
     var itemId = item.payload.id || generateClientId();
     sb.from(item.table).upsert(Object.assign({}, item.payload, { id: itemId, user_id: currentUser.id }), { onConflict: 'id' }).then(function(result){
       if(result.error){
@@ -2457,7 +2460,7 @@ function retryPendingSync(){
       }
     });
   });
-  if(queue.length > 0) showToast('Caught up on ' + queue.length + ' unsaved item(s) from earlier.');
+  if(toRetry.length > 0) showToast('Caught up on ' + toRetry.length + ' unsaved item(s) from earlier.');
 }
 
 var connectionBannerVisible = false;
@@ -2882,6 +2885,7 @@ document.getElementById('authSubmitBtn').onclick = function(){
 
 function onAuthSuccess(user){
   currentUser = user;
+  lastKnownUserId = user.id;
   // Real bug found and fixed: the welcome-back image previously only started downloading at
   // the exact instant it needed to display, with zero head start -- on a slow connection this
   // showed as a visible flash of the overlay's own blue background before the picture painted.
