@@ -48,6 +48,16 @@ async function createRazorpayOrder(amountRupees: number, notes: Record<string, s
   return { ok: res.ok, amountPaise, json };
 }
 
+async function fetchExistingRazorpayOrder(orderId: string) {
+  const res = await fetch(`https://api.razorpay.com/v1/orders/${orderId}`, {
+    headers: { Authorization: "Basic " + btoa(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`) },
+  });
+  const json = await res.json();
+  // "created" or "attempted" both mean this order is still genuinely open for payment --
+  // "paid" means it's already done (shouldn't be reused for a new attempt).
+  return { ok: res.ok, json, isStillOpen: res.ok && (json.status === "created" || json.status === "attempted") };
+}
+
 Deno.serve(async (req) => {
   const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "content-type" };
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -121,7 +131,7 @@ Deno.serve(async (req) => {
           status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const bookings = await dbFetch(`expert_bookings?id=eq.${booking_id}&user_id=eq.${user_id}&select=id,amount_due,cancellation_amount_due,expert_name`);
+      const bookings = await dbFetch(`expert_bookings?id=eq.${booking_id}&user_id=eq.${user_id}&select=id,amount_due,cancellation_amount_due,expert_name,payment_confirmed,cancellation_charge_owed,razorpay_order_id,cancellation_razorpay_order_id`);
       if (!Array.isArray(bookings) || bookings.length === 0) {
         return new Response(JSON.stringify({ error: "Booking not found for this user" }), {
           status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -135,6 +145,22 @@ Deno.serve(async (req) => {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+
+      // Idempotency check: if this exact booking+purpose already has an outstanding order that
+      // Razorpay confirms is still genuinely open (not yet paid), reuse it rather than creating
+      // a second one and orphaning the first.
+      const isBookingPayment = purpose === "booking_payment";
+      const alreadyPaid = isBookingPayment ? booking.payment_confirmed === true : booking.cancellation_charge_owed === false;
+      const existingOrderId = isBookingPayment ? booking.razorpay_order_id : booking.cancellation_razorpay_order_id;
+      if (!alreadyPaid && existingOrderId) {
+        const existing = await fetchExistingRazorpayOrder(existingOrderId);
+        if (existing.isStillOpen) {
+          return new Response(JSON.stringify({ order_id: existing.json.id, amount: existing.json.amount, currency: existing.json.currency, key_id: RAZORPAY_KEY_ID }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
+
       const order = await createRazorpayOrder(Number(amount), { purpose, booking_id, expert_name: booking.expert_name || "" });
       if (!order.ok) {
         return new Response(JSON.stringify({ error: "Could not create Razorpay order", detail: order.json }), {
