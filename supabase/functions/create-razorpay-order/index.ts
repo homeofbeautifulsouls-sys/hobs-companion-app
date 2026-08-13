@@ -34,6 +34,19 @@ async function dbFetch(path: string) {
   return text ? JSON.parse(text) : null;
 }
 
+async function dbRpc(fn: string, args: Record<string, unknown>) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+    method: "POST",
+    headers: {
+      apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(args),
+  });
+  const text = await res.text();
+  return { ok: res.ok, data: text ? JSON.parse(text) : null };
+}
+
 async function createRazorpayOrder(amountRupees: number, notes: Record<string, string>) {
   const amountPaise = Math.round(amountRupees * 100);
   const res = await fetch("https://api.razorpay.com/v1/orders", {
@@ -152,7 +165,7 @@ Deno.serve(async (req) => {
       const isBookingPayment = purpose === "booking_payment";
       const alreadyPaid = isBookingPayment ? booking.payment_confirmed === true : booking.cancellation_charge_owed === false;
       const existingOrderId = isBookingPayment ? booking.razorpay_order_id : booking.cancellation_razorpay_order_id;
-      if (!alreadyPaid && existingOrderId) {
+      if (!alreadyPaid && existingOrderId && existingOrderId !== "CREATING") {
         const existing = await fetchExistingRazorpayOrder(existingOrderId);
         if (existing.isStillOpen) {
           return new Response(JSON.stringify({ order_id: existing.json.id, amount: existing.json.amount, currency: existing.json.currency, key_id: RAZORPAY_KEY_ID }), {
@@ -161,13 +174,42 @@ Deno.serve(async (req) => {
         }
       }
 
+      // Real fix: closes the genuine race two simultaneous FIRST requests could hit -- both
+      // seeing no existing order, both creating separate Razorpay orders, one silently
+      // overwriting the other's saved order_id. Atomically claims the right to create an order
+      // first (a "CREATING" sentinel, only one concurrent caller can ever win this). The loser
+      // polls for the winner's real order_id instead of independently creating a competing one.
+      const orderIdField = purpose === "booking_payment" ? "razorpay_order_id" : "cancellation_razorpay_order_id";
+      const claimResult = await dbRpc("claim_razorpay_order_slot", { p_booking_id: booking_id, p_purpose: purpose });
+
+      if (!claimResult.ok || claimResult.data !== true) {
+        // Someone else is already creating (or just created) this exact order -- poll briefly
+        // for their result rather than racing them.
+        for (let attempt = 0; attempt < 8; attempt++) {
+          await new Promise((r) => setTimeout(r, 500));
+          const refetched = await dbFetch(`expert_bookings?id=eq.${booking_id}&select=${orderIdField}`);
+          const currentValue = Array.isArray(refetched) && refetched[0] ? refetched[0][orderIdField] : null;
+          if (currentValue && currentValue !== "CREATING") {
+            const existing = await fetchExistingRazorpayOrder(currentValue);
+            return new Response(JSON.stringify({ order_id: currentValue, amount: existing.json.amount, currency: existing.json.currency, key_id: RAZORPAY_KEY_ID }), {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+        }
+        return new Response(JSON.stringify({ error: "Another request for this payment is still in progress -- please try again in a moment" }), {
+          status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       const order = await createRazorpayOrder(Number(amount), { purpose, booking_id, expert_name: booking.expert_name || "" });
       if (!order.ok) {
+        // Release the claim on failure so a genuine retry is possible, rather than leaving the
+        // booking permanently stuck on the "CREATING" sentinel.
+        await dbWrite(`expert_bookings?id=eq.${booking_id}`, "PATCH", { [orderIdField]: null });
         return new Response(JSON.stringify({ error: "Could not create Razorpay order", detail: order.json }), {
           status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const orderIdField = purpose === "booking_payment" ? "razorpay_order_id" : "cancellation_razorpay_order_id";
       const update = await dbWrite(`expert_bookings?id=eq.${booking_id}`, "PATCH", { [orderIdField]: order.json.id });
       if (!update.ok) {
         return new Response(JSON.stringify({ error: "Could not save booking payment record", detail: update.data }), {
