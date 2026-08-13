@@ -2266,7 +2266,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260813085052';
+  var CURRENT_BUILD = '20260813085429';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -5705,14 +5705,14 @@ async function appendChatMessageBubble(msg){
   var bubble = document.createElement('div');
   bubble.style.cssText = 'display:flex;flex-direction:column;'+(isMine ? 'align-items:flex-end;' : 'align-items:flex-start;')+'margin-bottom:8px;';
   var timeStr = new Date(msg.created_at).toLocaleTimeString(undefined, {hour:'numeric', minute:'2-digit'});
-  var text = msg.deleted ? '<em>Message deleted</em>' : (msg.text || '').replace(/</g,'&lt;');
+  var text = msg.deleted ? '<em>Message deleted</em>' : escapeHtml(msg.text || '');
   // Sender name shown for group chats only (obvious who's who in a 1-on-1) -- respects the
   // alias resolution above, so a support group correctly hides real identity in exactly this
   // label, which is the one place it would otherwise leak.
   var senderLabel = '';
   if(currentChatRoomType === 'support_group' && !isMine){
     var name = await resolveDisplayNameForCurrentRoom(msg.sender_id);
-    senderLabel = '<p style="margin:0 0 2px;font-size:10.5px;font-weight:700;color:#6690D6;">'+name+'</p>';
+    senderLabel = '<p style="margin:0 0 2px;font-size:10.5px;font-weight:700;color:#6690D6;">'+escapeHtml(name)+'</p>';
   }
   var bubbleInner = document.createElement('div');
   bubbleInner.style.cssText = 'max-width:75%;background:'+(isMine ? '#6690D6' : '#FFFFFF')+';color:'+(isMine ? '#FFF8F0' : '#2A2013')+';border-radius:16px;padding:9px 13px;box-shadow:0 1px 3px rgba(42,32,19,0.08);';
@@ -5750,7 +5750,7 @@ async function renderPollCard(msg, list){
   card.style.cssText = 'max-width:88%;background:#FFFFFF;border:1px solid #EEE0C4;border-radius:16px;padding:13px 14px;box-shadow:0 1px 3px rgba(42,32,19,0.08);';
   card.innerHTML =
     '<p style="margin:0 0 3px;font-size:10.5px;font-weight:700;color:#6690D6;">🐘 Bob</p>'+
-    '<p style="margin:0 0 10px;font-size:13.5px;font-weight:600;color:#2A2013;">'+(msg.text||'').replace(/</g,'&lt;')+'</p>'+
+    '<p style="margin:0 0 10px;font-size:13.5px;font-weight:600;color:#2A2013;">'+escapeHtml(msg.text||'')+'</p>'+
     '<div id="poll-options-' + msg.poll_id + '"></div>';
   wrap.appendChild(card);
   list.appendChild(wrap);
@@ -5777,7 +5777,7 @@ async function refreshPollOptions(pollId){
     return '<div class="poll-option-row" data-option-id="'+opt.id+'" data-poll-id="'+pollId+'" style="position:relative;margin-bottom:7px;padding:9px 11px;border-radius:10px;border:1px solid '+(isMine ? '#6690D6' : '#EEE0C4')+';cursor:pointer;overflow:hidden;">'+
       '<div style="position:absolute;top:0;left:0;bottom:0;width:'+pct+'%;background:'+(isMine ? '#EAF0FB' : '#F7F4EC')+';z-index:0;transition:width 0.3s ease;"></div>'+
       '<div style="position:relative;z-index:1;display:flex;justify-content:space-between;align-items:center;gap:8px;">'+
-        '<span style="font-size:12.5px;color:#2A2013;'+(isMine ? 'font-weight:700;' : '')+'">'+(isMine ? '✓ ' : '')+opt.option_text.replace(/</g,'&lt;')+'</span>'+
+        '<span style="font-size:12.5px;color:#2A2013;'+(isMine ? 'font-weight:700;' : '')+'">'+(isMine ? '✓ ' : '')+escapeHtml(opt.option_text)+'</span>'+
         '<span style="font-size:10.5px;color:#9AABCE;flex-shrink:0;">'+optVotes+' · '+pct+'%</span>'+
       '</div>'+
     '</div>';
@@ -9095,7 +9095,7 @@ async function openChatRoomInfo(){
     aliasRow.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#FEF3D8;border:1px solid #EFD9A0;border-radius:10px;margin-bottom:14px;';
     aliasRow.innerHTML =
       '<div><p style="font-size:11px;color:#7B4F00;margin:0 0 2px;">Your name in this group</p>'+
-      '<p style="font-size:13.5px;font-weight:700;color:#2A2013;margin:0;">'+((myMembership && myMembership.display_alias) || 'Not set — showing as "A group member"')+'</p></div>';
+      '<p style="font-size:13.5px;font-weight:700;color:#2A2013;margin:0;">'+((myMembership && myMembership.display_alias) ? escapeHtml(myMembership.display_alias) : 'Not set — showing as "A group member"')+'</p></div>';
     var editBtn = document.createElement('button');
     editBtn.textContent = 'Edit';
     editBtn.style.cssText = 'font-size:11px;font-weight:700;color:#7B4F00;background:none;border:1px solid #EFD9A0;border-radius:8px;padding:5px 10px;cursor:pointer;';
@@ -9113,7 +9113,7 @@ async function openChatRoomInfo(){
     var roleLabel = m.role === 'admin' ? 'Admin' : m.role === 'co_admin' ? 'Co-admin' : '';
     var statusLabel = m.status === 'invited' ? ' · Invited' : '';
     row.innerHTML =
-      '<div><span style="font-size:13px;font-weight:600;color:#2A2013;">'+name+'</span>'+
+      '<div><span style="font-size:13px;font-weight:600;color:#2A2013;">'+escapeHtml(name)+'</span>'+
       (roleLabel ? ' <span style="font-size:10px;color:#6690D6;font-weight:700;">'+roleLabel+'</span>' : '')+
       '<span style="font-size:10.5px;color:#9AABCE;">'+statusLabel+'</span></div>';
     if(iAmGroupAdmin && m.role === 'member' && m.status === 'joined' && m.user_id !== currentUser.id){
@@ -13204,6 +13204,11 @@ var currentDonateCampaign = null;
 // lines to paragraph breaks. Real bug fixed here -- this widget used to inject c.description
 // directly with no escaping, no bold support, and no paragraph breaks at all, so a longer
 // description with **emphasis** rendered as one unbroken wall of text with literal asterisks.
+function escapeHtml(s){
+  return (s == null ? '' : String(s))
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
 function escapeHtmlForCampaign(s){
   return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
