@@ -2266,7 +2266,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260813091504';
+  var CURRENT_BUILD = '20260813111432';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -9519,20 +9519,25 @@ function pickSessionTimeForBooking(booking, m){
     return;
   }
   showSlotPicker(m, function(chosenSlot){
-    sb.from('expert_bookings').update({
-      requested_session_date: chosenSlot.slot_date, time_request_status: 'pending'
-    }).eq('id', booking.id).then(function(){});
-    sb.from('expert_availability_slots').update({ is_booked: true, booked_by: currentUser.id }).eq('id', chosenSlot.id).then(function(){});
-    booking.requested_session_date = chosenSlot.slot_date;
-    booking.time_request_status = 'pending';
-    booking._reservedSlotId = chosenSlot.id; // remembered locally in case it needs releasing on rejection
-    logAnalyticsEvent('session_time_requested');
-    sb.functions.invoke('send-push-notification', {
-      body: { alertProfessionalSessionBooked: true, expertName: m.name }
-    }).catch(function(){}); // best-effort
-    showToast("Time requested — " + m.name.split(' ')[0] + " will confirm, propose another time, or let you know if it doesn't work.");
-    var idx = TEAM_MEMBERS.findIndex(function(tm){ return tm.name === m.name; });
-    if(idx !== -1) openExpertDetail(idx);
+    sb.rpc('reserve_availability_slot', { slot_id: chosenSlot.id, reserving_user_id: currentUser.id }).then(function(reserveResult){
+      if(reserveResult.error || reserveResult.data !== true){
+        showToast("Sorry, someone just took that time — please pick another.");
+        return;
+      }
+      sb.from('expert_bookings').update({
+        requested_session_date: chosenSlot.slot_date, time_request_status: 'pending'
+      }).eq('id', booking.id).then(function(){});
+      booking.requested_session_date = chosenSlot.slot_date;
+      booking.time_request_status = 'pending';
+      booking._reservedSlotId = chosenSlot.id; // remembered locally in case it needs releasing on rejection
+      logAnalyticsEvent('session_time_requested');
+      sb.functions.invoke('send-push-notification', {
+        body: { alertProfessionalSessionBooked: true, expertName: m.name }
+      }).catch(function(){}); // best-effort
+      showToast("Time requested — " + m.name.split(' ')[0] + " will confirm, propose another time, or let you know if it doesn't work.");
+      var idx = TEAM_MEMBERS.findIndex(function(tm){ return tm.name === m.name; });
+      if(idx !== -1) openExpertDetail(idx);
+    });
   }, function(){
     showToast("No times available right now — we'll reach out to schedule.");
   });
