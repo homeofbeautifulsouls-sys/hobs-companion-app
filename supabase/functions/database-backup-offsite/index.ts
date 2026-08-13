@@ -104,6 +104,25 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "No primary backup found to mirror yet" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // Real fix: verify the primary backup actually completed successfully before mirroring it,
+    // rather than blindly bundling whatever files happen to exist. Refuses to publish an
+    // offsite snapshot if the primary backup was ever incomplete.
+    const manifestRes = await fetch(`${SUPABASE_URL}/storage/v1/object/database-backups/${latestTimestamp}/_manifest.json`, {
+      headers: { apikey: SUPABASE_SERVICE_ROLE_KEY ?? "", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+    });
+    if (!manifestRes.ok) {
+      return new Response(JSON.stringify({ error: `No manifest found for ${latestTimestamp} -- refusing to mirror a backup whose completeness can't be verified. This backup run may predate the manifest feature, or the primary backup may still be in progress.` }), {
+        status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const manifest = await manifestRes.json();
+    if (manifest.success !== true) {
+      return new Response(JSON.stringify({
+        error: `Primary backup ${latestTimestamp} was incomplete (${manifest.succeeded_tables}/${manifest.expected_tables} tables) -- refusing to publish a partial offsite snapshot as if it were complete.`,
+        manifest,
+      }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     const filesRes = await fetch(`${SUPABASE_URL}/storage/v1/object/list/database-backups`, {
       method: "POST",
       headers: { apikey: SUPABASE_SERVICE_ROLE_KEY ?? "", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, "Content-Type": "application/json" },
@@ -119,6 +138,7 @@ Deno.serve(async (req) => {
     const bundle: Record<string, string> = {};
     const readErrors: Record<string, string> = {};
     for (const file of (files || [])) {
+      if (file.name === "_manifest.json") continue;
       const path = `${latestTimestamp}/${file.name}`;
       try {
         const fileRes = await fetch(`${SUPABASE_URL}/storage/v1/object/database-backups/${path}`, {

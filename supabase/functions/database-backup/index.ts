@@ -95,6 +95,24 @@ Deno.serve(async (req) => {
     }
 
     const success = Object.keys(errors).length === 0;
+
+    // Real gap addressed: without this, the offsite backup (which mirrors whatever files exist
+    // in the most recent folder) has no way to tell whether this run actually completed
+    // successfully, and could silently publish a partial snapshot as if it were complete.
+    const manifest = {
+      timestamp, expected_tables: TABLES_TO_BACKUP.length,
+      succeeded_tables: Object.keys(results).length, success,
+      errors: Object.keys(errors).length ? errors : undefined,
+    };
+    await fetch(`${SUPABASE_URL}/storage/v1/object/database-backups/${timestamp}/_manifest.json`, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_SERVICE_ROLE_KEY ?? "", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(manifest),
+    });
+
     return new Response(
       JSON.stringify({ success, timestamp, tables_backed_up: results, errors: Object.keys(errors).length ? errors : undefined }),
       { status: success ? 200 : 207, headers: { ...corsHeaders, "Content-Type": "application/json" } },
