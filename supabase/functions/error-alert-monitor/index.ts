@@ -83,9 +83,9 @@ Deno.serve(async (req) => {
       }
     }
 
-    await dbWrite("app_config", "POST", { key: CONFIG_KEY, value: new Date().toISOString(), updated_at: new Date().toISOString() }, "resolution=merge-duplicates,return=minimal");
-
     if (alerts.length === 0) {
+      // Nothing to alert on -- safe to advance immediately, there's nothing that could be lost.
+      await dbWrite("app_config", "POST", { key: CONFIG_KEY, value: new Date().toISOString(), updated_at: new Date().toISOString() }, "resolution=merge-duplicates,return=minimal");
       return new Response(JSON.stringify({ checked: errors.length, alerted: false }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -94,6 +94,8 @@ Deno.serve(async (req) => {
     const adminIds = (Array.isArray(admins) ? admins : []).map((a: any) => a.user_id);
     if (adminIds.length === 0) {
       console.error("error-alert-monitor: no admin users found to notify");
+      // Deliberately NOT advancing the timestamp -- no admins to tell yet doesn't mean these
+      // errors have been handled; leave them for the next run to retry.
       return new Response(JSON.stringify({ checked: errors.length, alerted: false, reason: "no admins found" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     const pushRes = await fetch(`${SUPABASE_URL}/functions/v1/send-push-notification`, {
@@ -110,8 +112,14 @@ Deno.serve(async (req) => {
     const pushResult = await pushRes.json().catch(() => ({}));
     if (!pushRes.ok) {
       console.error("error-alert-monitor: send-push-notification failed", pushRes.status, JSON.stringify(pushResult));
+      // Deliberately NOT advancing the timestamp here -- the alert was never actually
+      // delivered, so the next run needs to see these same errors again and retry, not skip
+      // past them as if they'd been handled.
       return new Response(JSON.stringify({ checked: errors.length, alerted: false, pushError: pushResult, pushStatus: pushRes.status }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
+
+    // Only advance the timestamp once the alert has genuinely, successfully been delivered.
+    await dbWrite("app_config", "POST", { key: CONFIG_KEY, value: new Date().toISOString(), updated_at: new Date().toISOString() }, "resolution=merge-duplicates,return=minimal");
 
     return new Response(JSON.stringify({ checked: errors.length, alerted: true, alerts }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {

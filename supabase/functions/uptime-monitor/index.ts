@@ -79,6 +79,7 @@ Deno.serve(async (req) => {
 
     const results = [];
     const stateChanges = [];
+    const pendingStatusWrites: { configKey: string; newStatus: string }[] = [];
 
     for (const target of TARGETS) {
       const result = await checkTarget(target.url);
@@ -94,31 +95,54 @@ Deno.serve(async (req) => {
         }
       }
 
-      await dbWrite("app_config", "POST", { key: target.configKey, value: newStatus, updated_at: new Date().toISOString() }, "resolution=merge-duplicates,return=minimal");
+      pendingStatusWrites.push({ configKey: target.configKey, newStatus });
       results.push({ target: target.name, ...result });
     }
 
-    if (stateChanges.length > 0) {
-      const admins = await dbFetch(`profiles?is_admin=eq.true&select=user_id`);
-      const adminIds = (Array.isArray(admins) ? admins : []).map((a: any) => a.user_id);
-      if (adminIds.length > 0) {
-        const pushRes = await fetch(`${SUPABASE_URL}/functions/v1/send-push-notification`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
-          body: JSON.stringify({
-            serverCallerId: null,
-            userIds: adminIds,
-            title: "HOBS Companion: uptime status change",
-            body: stateChanges.join(" "),
-            notificationType: "uptime_alert",
-          }),
-        });
-        const pushResult = await pushRes.json().catch(() => ({}));
-        if (!pushRes.ok) console.error("uptime-monitor: send-push-notification failed", pushRes.status, JSON.stringify(pushResult));
+    async function commitPendingStatusWrites(){
+      for (const w of pendingStatusWrites) {
+        await dbWrite("app_config", "POST", { key: w.configKey, value: w.newStatus, updated_at: new Date().toISOString() }, "resolution=merge-duplicates,return=minimal");
       }
     }
 
-    return new Response(JSON.stringify({ results, stateChanges }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    if (stateChanges.length === 0) {
+      // No transition to tell anyone about -- safe to commit immediately, nothing could be lost.
+      await commitPendingStatusWrites();
+      return new Response(JSON.stringify({ results, stateChanges }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    const admins = await dbFetch(`profiles?is_admin=eq.true&select=user_id`);
+    const adminIds = (Array.isArray(admins) ? admins : []).map((a: any) => a.user_id);
+    if (adminIds.length > 0) {
+      const pushRes = await fetch(`${SUPABASE_URL}/functions/v1/send-push-notification`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+        body: JSON.stringify({
+          serverCallerId: null,
+          userIds: adminIds,
+          title: "HOBS Companion: uptime status change",
+          body: stateChanges.join(" "),
+          notificationType: "uptime_alert",
+        }),
+      });
+      const pushResult = await pushRes.json().catch(() => ({}));
+      if (!pushRes.ok) {
+        console.error("uptime-monitor: send-push-notification failed", pushRes.status, JSON.stringify(pushResult));
+        // Deliberately NOT committing the status writes -- the alert was never actually
+        // delivered, so the next run needs to see the same prior status and detect this same
+        // transition again, rather than silently treating it as already handled.
+        return new Response(JSON.stringify({ results, stateChanges, alertDelivered: false }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    } else {
+      console.error("uptime-monitor: no admin users found to notify");
+      // Same reasoning -- nobody was actually told, so don't commit yet.
+      return new Response(JSON.stringify({ results, stateChanges, alertDelivered: false, reason: "no admins found" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Only commit the new statuses once the alert has genuinely, successfully been delivered.
+    await commitPendingStatusWrites();
+
+    return new Response(JSON.stringify({ results, stateChanges, alertDelivered: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
     console.error("uptime-monitor error:", err);
     return new Response(JSON.stringify({ error: "Something went wrong.", detail: String(err) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
