@@ -128,10 +128,11 @@ async function registerWatchForUser(userId: string): Promise<{ ok: boolean; reas
   if (!accessToken) return { ok: false, reason: "Reconnect needed" };
 
   const channelId = crypto.randomUUID();
+  const channelSecret = crypto.randomUUID() + crypto.randomUUID(); // long, unguessable -- this is what actually authenticates future webhook calls for this channel
   const watchRes = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${conn.google_calendar_id}/events/watch`, {
     method: "POST",
     headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ id: channelId, type: "web_hook", address: `${SUPABASE_URL}/functions/v1/google-calendar-sync` }),
+    body: JSON.stringify({ id: channelId, type: "web_hook", address: `${SUPABASE_URL}/functions/v1/google-calendar-sync`, token: channelSecret }),
   });
   const watchData = await watchRes.json();
   if (!watchRes.ok) {
@@ -153,13 +154,14 @@ async function registerWatchForUser(userId: string): Promise<{ ok: boolean; reas
     watch_channel_id: channelId,
     watch_resource_id: watchData.resourceId,
     watch_expires_at: new Date(Number(watchData.expiration)).toISOString(),
+    watch_channel_secret: channelSecret,
   }, "return=minimal");
 
   return { ok: true };
 }
 
 Deno.serve(async (req) => {
-  const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-goog-channel-id, x-goog-resource-id, x-goog-resource-state, x-scheduler-secret" };
+  const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-goog-channel-id, x-goog-resource-id, x-goog-resource-state, x-goog-channel-token, x-scheduler-secret" };
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
@@ -354,6 +356,16 @@ Deno.serve(async (req) => {
     const conns = await dbFetch(`professional_calendar_connections?watch_channel_id=eq.${channelId}&select=*`);
     const conn = Array.isArray(conns) ? conns[0] : null;
     if (!conn) return new Response("ok", { headers: corsHeaders }); // unknown/stale channel, nothing to do
+
+    // Real security fix: a channel id alone isn't cryptographic authentication -- verify the
+    // secret token generated at registration time and echoed back by Google on every real
+    // notification for this channel actually matches what's stored, before trusting anything
+    // this notification implies (which can trigger real consequences like cancellation logic).
+    const receivedChannelToken = req.headers.get("x-goog-channel-token");
+    if (!conn.watch_channel_secret || receivedChannelToken !== conn.watch_channel_secret) {
+      console.error("Webhook rejected: channel token mismatch for channel", channelId);
+      return new Response("ok", { headers: corsHeaders }); // don't leak *why* to a potential forger
+    }
 
     const accessToken = await getValidAccessToken(conn);
     if (!accessToken) return new Response("ok", { headers: corsHeaders }); // reconnect notice already sent above
