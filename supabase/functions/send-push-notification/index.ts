@@ -260,6 +260,18 @@ Deno.serve(async (req) => {
     // assigned professional when they book a session time. Content and recipient (looked up by
     // name, not supplied by the client) are both server-controlled.
     if (payload.alertProfessionalSessionBooked === true && typeof payload.expertName === "string") {
+      // Real security fix: previously trusted expertName as supplied by the client with zero
+      // check that the caller actually has any real relationship with that professional --
+      // confirmed directly. Now requires a genuine, active booking between them first.
+      const { data: callerBookings } = await restGet(
+        `expert_bookings?user_id=eq.${callerId}&expert_name=eq.${encodeURIComponent(payload.expertName)}&status=in.(active,pending,change_requested)&select=id&limit=1`
+      );
+      if (!callerBookings || callerBookings.length === 0) {
+        return new Response(JSON.stringify({ error: "No active booking found with this professional" }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       const { data: callerProfile3Arr } = await restGet(`profiles?user_id=eq.${callerId}&select=name,email`);
       const callerProfile3 = callerProfile3Arr && callerProfile3Arr[0];
       const { data: pros } = await restGet(
@@ -321,9 +333,29 @@ Deno.serve(async (req) => {
 
     const isSelfOnly = userId === callerId && !userIds && !all;
     if (!isSelfOnly && !isTrustedServerCall) {
-      const { data: callerProfileArr } = await restGet(`profiles?user_id=eq.${callerId}&select=is_admin,is_therapist`);
+      const { data: callerProfileArr } = await restGet(`profiles?user_id=eq.${callerId}&select=is_admin,is_therapist,therapist_expert_name`);
       const callerProfile = callerProfileArr && callerProfileArr[0];
-      const isStaffCaller = !!callerProfile && (callerProfile.is_admin || callerProfile.is_therapist);
+      const isAdminCaller = !!callerProfile && callerProfile.is_admin === true;
+      const isTherapistCaller = !!callerProfile && callerProfile.is_therapist === true;
+
+      // Real security fix: a therapist previously had the exact same broad access as an admin
+      // here -- confirmed directly, including being able to broadcast to everyone (all:true) or
+      // target any arbitrary userId, not just their own clients. Now a therapist can never
+      // broadcast, and can only ever target people with a genuine, active booking with them
+      // specifically -- verified server-side, never trusted from what the client claims.
+      let isTherapistNotifyingOwnClients = false;
+      if (isTherapistCaller && !all && callerProfile.therapist_expert_name) {
+        const targetIds: string[] = userId ? [userId] : (Array.isArray(userIds) ? userIds : []);
+        if (targetIds.length > 0) {
+          const idList = targetIds.map((id) => `"${id}"`).join(",");
+          const { data: clientBookings } = await restGet(
+            `expert_bookings?user_id=in.(${idList})&expert_name=eq.${encodeURIComponent(callerProfile.therapist_expert_name)}&status=in.(active,pending,change_requested)&select=user_id`
+          );
+          const verifiedClientIds = new Set((clientBookings || []).map((b: any) => b.user_id));
+          isTherapistNotifyingOwnClients = targetIds.every((id) => verifiedClientIds.has(id));
+        }
+      }
+      const isStaffCaller = isAdminCaller || isTherapistNotifyingOwnClients;
 
       // Real gap found and fixed: this used to require admin/therapist status for ANY
       // notification to someone else, with no exception for regular chat -- meaning a support
