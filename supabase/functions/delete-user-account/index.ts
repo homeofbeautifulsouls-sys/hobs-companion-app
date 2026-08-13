@@ -119,46 +119,42 @@ async function deleteAllDataFor(adminClient: ReturnType<typeof createClient>, us
   // database rows referencing them -- profile photos, task attachments, and session
   // attachments were all being left behind in storage indefinitely after "deletion".
   //
-  // task-images is cleanly prefixed by {user_id}/ for everything this user ever uploaded
-  // (profile-photos, campaigns, settings subfolders) -- one list+remove sweep covers all of it.
-  await deleteStorageFolder(adminClient, "task-images", userId);
+  // Storage deletion happens BEFORE the database transaction below, deliberately -- these
+  // storage buckets are keyed by user_id/booking_id, and expert_bookings rows (needed to find
+  // session-attachments folders) get deleted as part of the atomic database step. Doing this
+  // first means if storage cleanup fails, the database is untouched and nothing has to be
+  // rolled back; the alternative order would require compensating for a partial DB commit.
+  const storageErrors: string[] = [];
+  try {
+    await deleteStorageFolder(adminClient, "task-images", userId);
+    await deleteStorageFolder(adminClient, "private-user-images", userId);
+  } catch (e) {
+    storageErrors.push(`task-images/private-user-images: ${String(e)}`);
+  }
 
-  // session-attachments is keyed by {bookingId}/, not by user directly, so the booking ids
-  // have to be captured BEFORE expert_bookings rows are deleted further down, or there'd be no
-  // way to find which folders belonged to this user at all.
   const { data: bookings } = await adminClient.from("expert_bookings").select("id").eq("user_id", userId);
   if (bookings) {
     for (const booking of bookings) {
-      await deleteStorageFolder(adminClient, "session-attachments", booking.id);
+      try {
+        await deleteStorageFolder(adminClient, "session-attachments", booking.id);
+      } catch (e) {
+        storageErrors.push(`session-attachments/${booking.id}: ${String(e)}`);
+      }
     }
   }
-
-  for (const table of HARD_DELETE_TABLES) {
-    await adminClient.from(table).delete().eq("user_id", userId);
-  }
-  for (const table of PROFESSIONAL_HARD_DELETE_TABLES) {
-    await adminClient.from(table).delete().eq("professional_user_id", userId);
+  if (storageErrors.length > 0) {
+    throw new Error("Storage cleanup failed, stopping before touching any data: " + storageErrors.join("; "));
   }
 
-  // SOFT-TOUCH: a coordination chat_room is built around a specific client (see chat_rooms.
-  // client_id) -- found on the same deeper pass. The room and its messages stay (a therapist's
-  // continuity of care record for THEIR side of things), but the reference to the now-deleted
-  // client is cleared rather than left pointing at someone who no longer exists.
-  await adminClient.from("chat_rooms").update({ client_id: null }).eq("client_id", userId);
-
-  // SOFT-TOUCH: chat messages -- hard-deleting these would leave real gaps in other people's
-  // conversation history (a support group mid-discussion, a coordination thread). The app
-  // already has a "deleted" flag it actively respects in rendering (shows "Message deleted"),
-  // so use that existing, already-supported path instead of a destructive delete.
-  await adminClient.from("chat_messages").update({ deleted: true, text: null }).eq("sender_id", userId);
-
-  // SOFT-TOUCH: donations -- a financial/accounting record, plausibly needed for 80G tax
-  // receipt and bookkeeping purposes independent of the donor's account existing. Strip the
-  // identifying fields, keep the transaction record itself (amount, date, campaign, confirmed
-  // status) intact.
-  await adminClient.from("donations").update({ user_id: null, donor_name: null }).eq("user_id", userId);
-
-  await adminClient.from("profiles").delete().eq("user_id", userId);
+  // Real fix: this used to be ~20 separate, individually-unchecked delete/update calls that
+  // could fail partway through and still report success. Now a single call to a genuinely
+  // atomic Postgres function (see supabase/migrations/delete_user_data_atomic.sql) -- if ANY
+  // statement inside it fails, the whole thing rolls back together, automatically, with no
+  // partial-deletion state ever possible.
+  const { error: dbError } = await adminClient.rpc("delete_user_data_atomic", { target_user_id: userId });
+  if (dbError) {
+    throw new Error("Database deletion failed (fully rolled back, nothing was partially deleted): " + dbError.message);
+  }
 }
 
 Deno.serve(async (req) => {
