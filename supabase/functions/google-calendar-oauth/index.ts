@@ -54,11 +54,17 @@ async function resolveActingUserId(authHeader: string | null, stateToken: string
   if (sessionUser) return sessionUser.id;
 
   if (!stateToken) return null;
-  const rows = await dbFetch(`gcal_connect_state_tokens?token=eq.${stateToken}&select=user_id,expires_at,used`);
-  const row = Array.isArray(rows) ? rows[0] : null;
-  if (!row || row.used || new Date(row.expires_at).getTime() < Date.now()) return null;
-  await dbWrite(`gcal_connect_state_tokens?token=eq.${stateToken}`, "PATCH", { used: true });
-  return row.user_id;
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/consume_gcal_state_token`, {
+    method: "POST",
+    headers: {
+      apikey: SUPABASE_SERVICE_ROLE_KEY ?? "", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ token_value: stateToken }),
+  });
+  if (!res.ok) return null;
+  const resultUserId = await res.json().catch(() => null);
+  return resultUserId || null; // the RPC returns null if no matching, still-valid, not-yet-used token existed
 }
 
 Deno.serve(async (req) => {
