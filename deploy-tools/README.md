@@ -11,8 +11,10 @@ Real, tested rollback protection for deploys to app.homeofbeautifulsouls.com.
 ## Usage
 ```
 npm install
-node safe_deploy.js <source-directory> [file1] [file2] ...
+HOSTINGER_API_TOKEN="your-token-here" node safe_deploy.js <source-directory> [file1] [file2] ...
 ```
+The Hostinger API token is required as an environment variable -- it is deliberately NOT hardcoded in this script (a real security issue found and fixed: it previously was, meaning anyone with repo access or a copy of any handoff zip had the live, working token in plain-text source). See CREDENTIALS.md for the actual token value.
+
 If no files are listed, it deploys all managed files (index.html, donate.html, privacy-policy.html, terms-of-service.html, delete-account.html, supabase.min.js, fonts.css, version.json).
 
 ## Verified behavior (tested directly, not just written)

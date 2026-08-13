@@ -6,7 +6,11 @@ const tus = require('tus-js-client');
 const fs = require('fs');
 const path = require('path');
 
-const API_TOKEN = 'EDgEf8bqD0AFbFwHCEwi08tT5ChL7S45RPTrYAGH67904747';
+const API_TOKEN = process.env.HOSTINGER_API_TOKEN;
+if (!API_TOKEN) {
+  console.error('FATAL: HOSTINGER_API_TOKEN environment variable is not set. This script no longer hardcodes the token in source -- set it before running, e.g.:\n  HOSTINGER_API_TOKEN="your-token-here" node safe_deploy.js <source-dir> [files...]');
+  process.exit(1);
+}
 const USERNAME = 'u533396600';
 const DOMAIN = 'app.homeofbeautifulsouls.com';
 const BASE_URL = 'https://developers.hostinger.com/';
