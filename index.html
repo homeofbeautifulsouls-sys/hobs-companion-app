@@ -2266,7 +2266,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260813085429';
+  var CURRENT_BUILD = '20260813091504';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -3401,18 +3401,20 @@ document.getElementById('epPhotoInput').onchange = function(){
   btn.textContent = 'Uploading...'; btn.disabled = true;
   var ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
   var path = currentUser.id + '/profile-photos/' + Date.now() + '.' + ext;
-  sb.storage.from('task-images').upload(path, file).then(function(result){
+  sb.storage.from('private-user-images').upload(path, file).then(function(result){
     if(result.error){
       btn.textContent = 'Add / change photo'; btn.disabled = false;
       showToast('Could not upload photo — please try again.');
       return;
     }
-    var publicUrl = sb.storage.from('task-images').getPublicUrl(path).data.publicUrl;
-    document.getElementById('epPhotoPreview').src = publicUrl;
-    document.getElementById('epPhotoPreview').style.display = 'block';
-    document.getElementById('epPhotoPlaceholder').style.display = 'none';
-    document.getElementById('epPhotoPreview').dataset.pendingUrl = publicUrl;
-    btn.textContent = 'Add / change photo'; btn.disabled = false;
+    sb.storage.from('private-user-images').createSignedUrl(path, 31536000).then(function(signResult){
+      var publicUrl = signResult.data ? signResult.data.signedUrl : null;
+      document.getElementById('epPhotoPreview').src = publicUrl;
+      document.getElementById('epPhotoPreview').style.display = 'block';
+      document.getElementById('epPhotoPlaceholder').style.display = 'none';
+      document.getElementById('epPhotoPreview').dataset.pendingUrl = publicUrl;
+      btn.textContent = 'Add / change photo'; btn.disabled = false;
+    });
   });
 };
 
@@ -8219,10 +8221,11 @@ function addSheetSubtaskRow(prefillText, existingId, prefillImageUrl, prefillAla
     previewArea.style.display = 'flex';
     var ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
     var path = currentUser.id + '/' + uidGen() + '.' + ext;
-    sb.storage.from('task-images').upload(path, file, { contentType: file.type }).then(function(result){
+    sb.storage.from('private-user-images').upload(path, file, { contentType: file.type }).then(function(result){
       if(result.error){ showToast('Photo upload failed — try again'); return; }
-      var publicUrlResult = sb.storage.from('task-images').getPublicUrl(path);
-      wrapper.dataset.imageUrl = publicUrlResult.data.publicUrl;
+      sb.storage.from('private-user-images').createSignedUrl(path, 31536000).then(function(signResult){
+        wrapper.dataset.imageUrl = signResult.data ? signResult.data.signedUrl : '';
+      });
     });
   };
 
@@ -8420,15 +8423,16 @@ document.getElementById('sheetImageInput').onchange = function(e){
 
   var ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
   var path = currentUser.id + '/' + uidGen() + '.' + ext;
-  sb.storage.from('task-images').upload(path, file, { contentType: file.type }).then(function(result){
+  sb.storage.from('private-user-images').upload(path, file, { contentType: file.type }).then(function(result){
     if(result.error){
       statusEl.textContent = 'Upload failed — try again';
       statusEl.style.color = '#C77B7B';
       return;
     }
-    var publicUrlResult = sb.storage.from('task-images').getPublicUrl(path);
-    sheetTaskImageUrl = publicUrlResult.data.publicUrl;
-    statusEl.textContent = '';
+    sb.storage.from('private-user-images').createSignedUrl(path, 31536000).then(function(signResult){
+      sheetTaskImageUrl = signResult.data ? signResult.data.signedUrl : null;
+      statusEl.textContent = '';
+    });
   });
 };
 document.getElementById('sheetRemoveImageBtn').onclick = function(){
