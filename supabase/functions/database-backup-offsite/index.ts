@@ -19,6 +19,13 @@ const HOSTINGER_API_TOKEN = Deno.env.get("HOSTINGER_API_TOKEN");
 const HOSTINGER_USERNAME = "u533396600";
 const HOSTINGER_BACKUP_DOMAIN = "db-backups-offsite.homeofbeautifulsouls.com";
 
+// Real gap addressed: the offsite backup previously only covered database rows, not the actual
+// uploaded files in Storage -- profile photos, task images, session attachments aren't
+// reconstructable from the database alone. app-releases is deliberately excluded: those are
+// just APK build artifacts, regenerable from source + the keystore already in CREDENTIALS.md,
+// not irreplaceable user content.
+const STORAGE_BUCKETS_TO_BACKUP = ["task-images", "private-user-images", "session-attachments"];
+
 async function uploadToHostingerOffsite(filename: string, bytes: Uint8Array): Promise<{ ok: boolean; detail: string }> {
   if (!HOSTINGER_API_TOKEN) return { ok: false, detail: "HOSTINGER_API_TOKEN not configured" };
   try {
@@ -127,14 +134,72 @@ Deno.serve(async (req) => {
     const bundleBytes = new TextEncoder().encode(JSON.stringify({ timestamp: latestTimestamp, files: bundle }));
     const uploadResult = await uploadToHostingerOffsite(`${latestTimestamp}.json`, bundleBytes);
 
+    // Mirror the actual Storage objects too -- not just database rows. One file at a time,
+    // matching the same resource-safe pattern already proven for the database backup above.
+    const storageResults: Record<string, string> = {};
+    let storageAttempted = 0;
+    let storageSucceeded = 0;
+    for (const bucket of STORAGE_BUCKETS_TO_BACKUP) {
+      const listRes = await fetch(`${SUPABASE_URL}/storage/v1/object/list/${bucket}`, {
+        method: "POST",
+        headers: { apikey: SUPABASE_SERVICE_ROLE_KEY ?? "", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ prefix: "", limit: 1000, search: "" }),
+      });
+      if (!listRes.ok) continue;
+      const entries = await listRes.json();
+
+      // Real bug fixed here, caught via direct verification against the actual file listing:
+      // the real folder structure is often two levels deep ({user_id}/profile-photos/{file}),
+      // not just one -- a fixed single-level recursion silently missed most real files.
+      // Recurses to any depth instead.
+      async function listAllFilesRecursive(prefix: string): Promise<string[]> {
+        const res = await fetch(`${SUPABASE_URL}/storage/v1/object/list/${bucket}`, {
+          method: "POST",
+          headers: { apikey: SUPABASE_SERVICE_ROLE_KEY ?? "", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ prefix, limit: 1000 }),
+        });
+        if (!res.ok) return [];
+        const items = await res.json();
+        const results: string[] = [];
+        for (const item of (items || [])) {
+          const itemPath = prefix ? `${prefix}${item.name}` : item.name;
+          if (item.id === null) {
+            const nested = await listAllFilesRecursive(`${itemPath}/`);
+            results.push(...nested);
+          } else {
+            results.push(itemPath);
+          }
+        }
+        return results;
+      }
+      const allFiles: string[] = await listAllFilesRecursive("");
+
+      for (const filePath of allFiles) {
+        storageAttempted++;
+        try {
+          const fileRes = await fetch(`${SUPABASE_URL}/storage/v1/object/${bucket}/${filePath}`, {
+            headers: { apikey: SUPABASE_SERVICE_ROLE_KEY ?? "", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+          });
+          if (!fileRes.ok) { storageResults[`${bucket}/${filePath}`] = `Could not read: ${fileRes.status}`; continue; }
+          const fileBytes = new Uint8Array(await fileRes.arrayBuffer());
+          const offsiteResult = await uploadToHostingerOffsite(`storage/${bucket}/${filePath}`, fileBytes);
+          storageResults[`${bucket}/${filePath}`] = offsiteResult.ok ? "OK" : offsiteResult.detail;
+          if (offsiteResult.ok) storageSucceeded++;
+        } catch (err) {
+          storageResults[`${bucket}/${filePath}`] = err instanceof Error ? err.message : String(err);
+        }
+      }
+    }
+
     return new Response(
       JSON.stringify({
         mirrored_timestamp: latestTimestamp,
         files_bundled: Object.keys(bundle).length,
         read_errors: Object.keys(readErrors).length ? readErrors : undefined,
         upload_result: uploadResult,
+        storage_objects: { attempted: storageAttempted, succeeded: storageSucceeded, results: storageResults },
       }),
-      { status: uploadResult.ok ? 200 : 207, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      { status: (uploadResult.ok && storageSucceeded === storageAttempted) ? 200 : 207, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err) {
     return new Response(
