@@ -14,6 +14,18 @@ const TABLES_TO_BACKUP = [
   "profiles", "entries", "tasks", "subtasks", "expert_bookings", "donations",
   "donation_campaigns", "test_results", "professional_calendar_connections",
   "professional_busy_blocks", "session_calendar_events", "calendar_change_requests",
+  // Real gap found and fixed: the list above was missing 27 of the database's 39 tables,
+  // including entire categories of real, often irreplaceable content -- confirmed via a direct
+  // comparison against the live schema, not assumed complete. Deliberately covers everything
+  // except gcal_connect_state_tokens, which is genuinely ephemeral (expires in minutes) and has
+  // no backup value.
+  "chat_messages", "chat_rooms", "chat_room_members", "chat_polls", "chat_poll_options",
+  "chat_poll_votes", "chat_poll_history", "consent_agreements", "who5_entries",
+  "worksheet_responses", "period_logs", "credit_log", "expert_availability_slots", "experts",
+  "support_group_sessions", "therapist_external_clients", "therapist_invites",
+  "therapist_cancellation_log", "app_config", "app_settings", "app_releases",
+  "app_update_reminders", "app_analytics_events", "error_logs", "notification_log",
+  "notification_recipients",
 ];
 
 async function fetchAllRows(table: string): Promise<any[]> {
