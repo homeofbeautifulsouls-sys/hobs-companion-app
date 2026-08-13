@@ -67,6 +67,41 @@ Deno.serve(async (req) => {
     const results: Record<string, number> = {};
     const errors: Record<string, string> = {};
 
+    // Real gap addressed here, surfaced by an actual restore drill (not just reasoned about):
+    // nearly every table foreign-keys to auth.users(id), but that table was never part of the
+    // backup at all -- a genuine restore into a fresh project would fail on almost every table
+    // without this. auth.users isn't queryable via the regular REST API, so this uses the Auth
+    // Admin API instead, exporting only what's needed to satisfy foreign keys and identify
+    // accounts (id, email, phone, timestamps) -- deliberately not exporting password hashes or
+    // other Auth-internal secrets.
+    try {
+      const authUsers: any[] = [];
+      let page = 1;
+      while (true) {
+        const authRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users?page=${page}&per_page=1000`, {
+          headers: { apikey: SUPABASE_SERVICE_ROLE_KEY ?? "", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+        });
+        if (!authRes.ok) throw new Error(`Auth admin API returned ${authRes.status}`);
+        const authJson = await authRes.json();
+        const pageUsers = authJson.users || [];
+        for (const u of pageUsers) {
+          authUsers.push({ id: u.id, email: u.email, phone: u.phone, created_at: u.created_at, last_sign_in_at: u.last_sign_in_at, email_confirmed_at: u.email_confirmed_at });
+        }
+        if (pageUsers.length < 1000) break;
+        page++;
+      }
+      const authBody = JSON.stringify({ table: "auth.users", exported_at: new Date().toISOString(), row_count: authUsers.length, rows: authUsers }, null, 0);
+      const authUploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/database-backups/${timestamp}/_auth_users.json`, {
+        method: "POST",
+        headers: { apikey: SUPABASE_SERVICE_ROLE_KEY ?? "", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, "Content-Type": "application/json" },
+        body: authBody,
+      });
+      if (authUploadRes.ok) results["auth.users"] = authUsers.length;
+      else errors["auth.users"] = `Upload failed: ${authUploadRes.status}`;
+    } catch (err) {
+      errors["auth.users"] = err instanceof Error ? err.message : String(err);
+    }
+
     for (const table of TABLES_TO_BACKUP) {
       try {
         const rows = await fetchAllRows(table);
@@ -100,7 +135,7 @@ Deno.serve(async (req) => {
     // in the most recent folder) has no way to tell whether this run actually completed
     // successfully, and could silently publish a partial snapshot as if it were complete.
     const manifest = {
-      timestamp, expected_tables: TABLES_TO_BACKUP.length,
+      timestamp, expected_tables: TABLES_TO_BACKUP.length + 1, // +1 for auth.users
       succeeded_tables: Object.keys(results).length, success,
       errors: Object.keys(errors).length ? errors : undefined,
     };
