@@ -2266,7 +2266,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260812211459';
+  var CURRENT_BUILD = '20260813085052';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -9380,6 +9380,14 @@ function openRazorpayPayment(orderRequestBody, checkoutOptions, onDismissedOrFai
   overlay.style.display = 'flex';
   function hideOverlay(){ overlay.style.display = 'none'; }
 
+  // Include the real session token if one exists -- required now that the backend verifies the
+  // caller's identity for booking/cancellation payments (real money tied to a specific person).
+  // Donations intentionally work with no session at all, same as before.
+  sb.auth.getSession().then(function(sessionResult){
+    var accessToken = sessionResult && sessionResult.data && sessionResult.data.session ? sessionResult.data.session.access_token : null;
+    var fetchHeaders = {'Content-Type':'application/json'};
+    if(accessToken) fetchHeaders['Authorization'] = 'Bearer ' + accessToken;
+
   // These two are independent network operations (loading Razorpay's script, and creating the
   // order server-side) that were needlessly running one after the other -- real bug found via a
   // direct user report of a 1-2s delay. Running them in parallel means the total wait is roughly
@@ -9387,7 +9395,7 @@ function openRazorpayPayment(orderRequestBody, checkoutOptions, onDismissedOrFai
   Promise.all([
     loadRazorpayCheckout(),
     fetch('https://adjvptkzyckkvewbfmzf.supabase.co/functions/v1/create-razorpay-order', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
+      method: 'POST', headers: fetchHeaders,
       body: JSON.stringify(orderRequestBody)
     }).then(function(r){ return r.json(); })
   ]).then(function(results){
@@ -9418,6 +9426,7 @@ function openRazorpayPayment(orderRequestBody, checkoutOptions, onDismissedOrFai
     showToast('Could not start payment — please try again.');
     if(onDismissedOrFailed) onDismissedOrFailed();
   });
+  }); // closes sb.auth.getSession().then()
 }
 
 function showPolicyModal(onContinue){

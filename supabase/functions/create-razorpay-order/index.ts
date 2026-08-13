@@ -2,6 +2,16 @@ const RAZORPAY_KEY_ID = Deno.env.get("RAZORPAY_KEY_ID")!;
 const RAZORPAY_KEY_SECRET = Deno.env.get("RAZORPAY_KEY_SECRET")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+
+async function getCallerIdFromJWT(authHeader: string): Promise<string | null> {
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    headers: { apikey: SUPABASE_ANON_KEY, Authorization: authHeader },
+  });
+  if (!res.ok) return null;
+  const json = await res.json().catch(() => null);
+  return json?.id || null;
+}
 
 async function dbWrite(path: string, method: string, body: unknown) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
@@ -92,6 +102,23 @@ Deno.serve(async (req) => {
       if (!booking_id || !user_id) {
         return new Response(JSON.stringify({ error: "booking_id and user_id are required" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      // Real security fix: previously trusted user_id as supplied by the browser, with no
+      // verification the caller actually WAS that person -- confirmed directly, and fixed here
+      // rather than trusting the client at all. Donations stay unauthenticated by design (a
+      // public donation page shouldn't require login); real money tied to a specific person's
+      // booking requires proof they actually are that person.
+      const authHeader = req.headers.get("Authorization") ?? "";
+      const callerId = await getCallerIdFromJWT(authHeader);
+      if (!callerId) {
+        return new Response(JSON.stringify({ error: "Not authenticated" }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (callerId !== user_id) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       const bookings = await dbFetch(`expert_bookings?id=eq.${booking_id}&user_id=eq.${user_id}&select=id,amount_due,cancellation_amount_due,expert_name`);
