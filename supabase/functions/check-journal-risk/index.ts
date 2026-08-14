@@ -15,16 +15,48 @@
 // down exactly the check meant to help quickly.
 //
 // Request body: { "text": string }
-// Response: { "riskDetected": boolean }
-// On any failure (missing API key, API error, malformed response), fails CLOSED to riskDetected:
-// false rather than erroring the caller -- the client-side keyword check is still the first line
-// of defense either way, and this is a supplementary safety net, not the only check.
+// Response: { "riskDetected": boolean, "classifierAvailable": boolean }
+//
+// Real fix here, traced against the actual client code rather than assumed: every failure path
+// previously returned riskDetected:false with no honest signal that the classifier hadn't
+// actually run -- the client only ever checked riskDetected, so "AI said no risk" and "AI never
+// ran" were indistinguishable everywhere that mattered. classifierAvailable is now explicit:
+// false means this check genuinely did not run, for any reason (not configured, API error,
+// malformed response, an exception) -- riskDetected is only ever a meaningful true/false when
+// classifierAvailable is true. On any failure, this also logs to error_logs so the existing
+// error-alert-monitor can catch a sustained pattern -- a single miss isn't an emergency (the
+// keyword check still runs either way), but persistent unavailability of this safety layer is a
+// real gap worth surfacing, not silently swallowing forever.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+async function logUnavailability(reason: string, detail: string) {
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/error_logs`, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        "Content-Type": "application/json", Prefer: "return=minimal",
+      },
+      body: JSON.stringify({
+        // Stable, category-only message (no variable detail) so error-alert-monitor's exact-
+        // string grouping correctly recognizes repeated failures as the same known issue,
+        // rather than treating each one as a brand-new error type -- the actual variable detail
+        // still goes in `stack` for anyone investigating a specific occurrence.
+        message: `check-journal-risk: classifier unavailable (${reason})`,
+        stack: detail,
+        created_at: new Date().toISOString(),
+      }),
+    });
+  } catch {
+    // Logging the failure shouldn't itself be able to throw and break the caller.
+  }
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -77,17 +109,18 @@ Deno.serve(async (req) => {
 
     const { text } = await req.json();
     if (typeof text !== "string" || !text.trim()) {
-      return new Response(JSON.stringify({ riskDetected: false }), {
+      // Genuinely, correctly nothing to check -- this is a real "no risk" determination, not a
+      // classifier failure, so classifierAvailable is honestly true here.
+      return new Response(JSON.stringify({ riskDetected: false, classifierAvailable: true }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     if (!ANTHROPIC_API_KEY) {
-      // Not configured yet -- fail closed, don't block the caller, don't error loudly for
-      // something that isn't the user's fault.
       console.error("check-journal-risk: ANTHROPIC_API_KEY not set");
-      return new Response(JSON.stringify({ riskDetected: false, configured: false }), {
+      await logUnavailability("not_configured", "ANTHROPIC_API_KEY not set");
+      return new Response(JSON.stringify({ riskDetected: false, classifierAvailable: false }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -111,7 +144,8 @@ Deno.serve(async (req) => {
     if (!anthropicRes.ok) {
       const errBody = await anthropicRes.text().catch(() => "");
       console.error("check-journal-risk: Anthropic API error", anthropicRes.status, errBody);
-      return new Response(JSON.stringify({ riskDetected: false, apiError: true }), {
+      await logUnavailability("api_error", `HTTP ${anthropicRes.status}: ${errBody.slice(0, 500)}`);
+      return new Response(JSON.stringify({ riskDetected: false, classifierAvailable: false }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -120,23 +154,27 @@ Deno.serve(async (req) => {
     const result = await anthropicRes.json();
     const rawText = result?.content?.[0]?.text || "";
     let riskDetected = false;
+    let classifierAvailable = true;
     try {
       const parsed = JSON.parse(rawText.trim());
       riskDetected = parsed.riskDetected === true;
     } catch {
-      // Malformed response from the model -- fail closed rather than guess.
       console.error("check-journal-risk: could not parse model response:", rawText);
+      classifierAvailable = false;
+      await logUnavailability("malformed_response", `Could not parse: ${rawText.slice(0, 500)}`);
     }
 
-    return new Response(JSON.stringify({ riskDetected }), {
+    return new Response(JSON.stringify({ riskDetected, classifierAvailable }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
     console.error("check-journal-risk error:", err);
+    await logUnavailability("exception", String(err));
     // Fail closed -- never let this function's own error surface as a scary failure to the user
-    // mid-journal-entry.
-    return new Response(JSON.stringify({ riskDetected: false, error: String(err) }), {
+    // mid-journal-entry. The classifier genuinely didn't run, though, so classifierAvailable
+    // says so honestly.
+    return new Response(JSON.stringify({ riskDetected: false, classifierAvailable: false, error: String(err) }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
