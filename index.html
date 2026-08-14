@@ -2266,7 +2266,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260814053900';
+  var CURRENT_BUILD = '20260814130605';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -2563,12 +2563,24 @@ var GOOGLE_CALENDAR_REDIRECT_URI = 'https://homeofbeautifulsouls-sys.github.io/h
 
 document.getElementById('authGoogleBtn').onclick = function(){
   hideAuthError();
+  // Real root-cause fix: Google has blocked OAuth sign-in from embedded WebViews since 2021
+  // (403 disallowed_useragent) -- signInWithOAuth's default behavior navigates using the app's
+  // own embedded WebView, which is exactly what gets blocked, forcing Android to bounce the
+  // whole flow out to a separate, disconnected Chrome process with no reliable way back into
+  // the app. skipBrowserRedirect avoids that default navigation entirely; on native, the
+  // resulting URL is opened via Capacitor's Browser plugin instead -- a real Chrome Custom Tab,
+  // which Google does accept, and which the Calendar-connect flow elsewhere in this app already
+  // uses successfully for this exact reason.
   sb.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: IS_NATIVE_APP ? NATIVE_CALLBACK_URL : WEB_APP_URL }
+    options: { redirectTo: IS_NATIVE_APP ? NATIVE_CALLBACK_URL : WEB_APP_URL, skipBrowserRedirect: IS_NATIVE_APP }
   }).then(function(result){
-    if(result.error) showAuthError(result.error.message);
-    // On success, the browser navigates away to Google and back — no further code runs here.
+    if(result.error){ showAuthError(result.error.message); return; }
+    if(IS_NATIVE_APP && result.data?.url && window.Capacitor?.Plugins?.Browser){
+      window.Capacitor.Plugins.Browser.open({ url: result.data.url, presentationStyle: 'popover' });
+    }
+    // On the web (non-native), the browser navigates away to Google and back on its own — no
+    // further code runs here.
   });
 };
 
@@ -2754,6 +2766,11 @@ if (IS_NATIVE_APP && window.Capacitor?.Plugins?.App) {
         }
 
         console.log("Session created");
+
+        // Needed now that this flow opens via Capacitor's Browser plugin -- without this the
+        // tab would linger open even after a successful sign-in, matching the same
+        // close-after-success pattern already used in the Authorization Code Flow branch above.
+        window.Capacitor?.Plugins?.Browser?.close().catch(function(){});
 
         onAuthSuccess(result.data.user);
 
