@@ -16,7 +16,7 @@ const GOOGLE_CLIENT_SECRET = Deno.env.get("GOOGLE_CALENDAR_CLIENT_SECRET");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-const REDIRECT_URI = "https://homeofbeautifulsouls-sys.github.io/hobs-companion-app/";
+const REDIRECT_URI = "https://app.homeofbeautifulsouls.com/";
 
 async function getAuthedUser(authHeader: string | null) {
   if (!authHeader) return null;
