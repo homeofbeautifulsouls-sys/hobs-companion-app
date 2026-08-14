@@ -2266,7 +2266,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260814175257';
+  var CURRENT_BUILD = '20260814182150';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -4378,8 +4378,14 @@ document.getElementById('backBtn').onclick = function(){
     showToast('Saved');
   }
   document.getElementById('panel-journal').style.display = 'none';
-  document.getElementById('panel-bubbles').style.display = 'block';
-  setActiveNav('navHome');
+  if(journalWritingOrigin === 'panel-history'){
+    renderHistory(); // guarantees the index reflects a just-saved change immediately, not only after leaving and returning a second time
+    document.getElementById('panel-history').style.display = 'block';
+    setActiveNav('navJournal');
+  } else {
+    document.getElementById('panel-bubbles').style.display = 'block';
+    setActiveNav('navHome');
+  }
 };
 function commitMainJournalIfDirty(){
   var textEl = document.getElementById('journalText');
@@ -4983,7 +4989,7 @@ var ASSISTANT_COMMANDS = [
   { character: 'po', tier: 'client', patterns: [/connect/i, /\btherapist\b/i, /book.*(session|professional|someone|appointment)/i, /find.*(help|therapist|someone)/i, /(i want|i need|i'?d like).*(psychiatrist|counsel|professional)/i, /talk.*(professional|someone qualified)/i],
     reply: "Let's get you someone real to talk to.", action: assistantGoTo(function(){ renderTeamList(); showOnly('panel-team'); }, 'navYou') },
   { character: 'po', tier: 'client', patterns: [/\bjournal\b/i, /(want|need|let'?s|gonna).*write/i, /write.*(down|entry|about)/i, /new entry/i],
-    reply: "Say less — here you go.", action: assistantGoTo(function(){ showOnly('panel-journal'); }, 'navJournal') },
+    reply: "Say less — here you go.", action: assistantGoTo(function(){ editingEntryRef = null; journalWritingOrigin = 'panel-bubbles'; showOnly('panel-journal'); }, 'navJournal') },
   { character: 'po', tier: 'client', patterns: [/\btask/i, /\bcalendar\b/i, /\bschedule\b/i, /to.?do/i, /add.*(step|thing)/i],
     reply: "On it.", action: assistantGoTo(function(){ showOnly('panel-calendar'); renderTodayCard(); }, 'navTasks') },
   { character: 'po', tier: 'therapist', patterns: [/log.*(appointment|session)/i],
@@ -5061,7 +5067,7 @@ function assistantAskTopic(){
     }},
     { label: 'I just need to write it out', onSelect: function(){
       renderAssistantMessage('bob', "Then let's get it down somewhere safe.");
-      setTimeout(assistantGoTo(function(){ showOnly('panel-journal'); }, 'navJournal'), 500);
+      setTimeout(assistantGoTo(function(){ editingEntryRef = null; journalWritingOrigin = 'panel-bubbles'; showOnly('panel-journal'); }, 'navJournal'), 500);
     }},
     { label: "I'm feeling overwhelmed", onSelect: function(){
       renderAssistantMessage('bob', "Okay. Let's slow things down together first.");
@@ -5160,7 +5166,7 @@ function processAssistantInput(text){
       setTimeout(assistantGoTo(function(){ renderTeamList(); showOnly('panel-team'); }, 'navYou'), 500);
     } else if(/write|journal|down/i.test(text)){
       renderAssistantMessage('bob', "Then let's get it down somewhere safe.");
-      setTimeout(assistantGoTo(function(){ showOnly('panel-journal'); }, 'navJournal'), 500);
+      setTimeout(assistantGoTo(function(){ editingEntryRef = null; journalWritingOrigin = 'panel-bubbles'; showOnly('panel-journal'); }, 'navJournal'), 500);
     } else if(/overwhelm|calm|breathe|anxious/i.test(text)){
       renderAssistantMessage('bob', "Okay. Let's slow things down together first.");
       setTimeout(assistantGoTo(function(){ renderGroundingList(); showOnly('panel-grounding'); }, 'navBreathe'), 500);
@@ -5307,6 +5313,7 @@ document.getElementById('choiceJournalBtn').onclick = function(){
   // mood-check-in flow (bubbles -> Continue) is untouched and still exists on its own for
   // anyone who wants that ritual specifically.
   editingEntryRef = null;
+  journalWritingOrigin = 'panel-bubbles';
   document.getElementById('journalDots').innerHTML = '';
   document.getElementById('journalText').innerHTML = ''; document.getElementById('journalText').style.textAlign = 'left';
   document.getElementById('saveNoteBtn').textContent = 'Save entry';
@@ -6129,8 +6136,10 @@ function renderHistory(){
 // Editing a past journal/mood entry -- reuses the main journal panel's UI (mood picker + text
 // area) rather than building a whole separate edit screen, since the fields are identical.
 var editingEntryRef = null;
+var journalWritingOrigin = 'panel-bubbles'; // where "Back" should return to -- set at each entry point below, since this panel is reached from more than one place
 function openEditEntrySheet(entry){
   editingEntryRef = entry;
+  journalWritingOrigin = 'panel-history';
   var rawText = entry.text || '';
   var journalTextEl = document.getElementById('journalText');
   if(looksLikeHtml(rawText)){
@@ -9357,6 +9366,7 @@ document.getElementById('newJournalEntryFabBtn').onclick = function(){
   // of entry" choice overlay here, since tapping a dedicated "new journal entry" button is
   // already an unambiguous choice.
   editingEntryRef = null;
+  journalWritingOrigin = 'panel-history';
   document.getElementById('journalDots').innerHTML = '';
   document.getElementById('journalText').innerHTML = ''; document.getElementById('journalText').style.textAlign = 'left';
   document.getElementById('saveNoteBtn').textContent = 'Save entry';
