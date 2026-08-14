@@ -326,9 +326,27 @@ Once Google sign-in was confirmed working, finished switching Calendar OAuth's r
 from GitHub Pages to `app.homeofbeautifulsouls.com` (already registered in Google Cloud
 Console from earlier troubleshooting). GitHub Pages is no longer used for anything in this app.
 
+### 29. Journal "Back" button hardcoded to Home, and the index not reflecting a just-saved edit
+**What broke:** editing a journal entry and tapping "Back" always landed on Home instead of the
+journal index, and even when the index was reached some other way afterward, a just-saved edit
+didn't show until leaving and coming back a second time.
+**Root cause:** `backBtn`'s handler unconditionally navigated to `panel-bubbles` (Home)
+regardless of where the journal writer was actually opened from — editing an entry, and the
+index page's own "new entry" FAB, both always come from `panel-history` (the index) — and never
+called `renderHistory()` before leaving, so the index could still be showing stale content
+until something else happened to trigger a fresh render.
+**Fix:** added explicit origin tracking (`journalWritingOrigin`), set at every entry point to
+this panel (6 total, including 3 assistant-triggered ones where a stale origin from a previous
+edit could otherwise leak into a later new-entry flow). The back button now returns to wherever
+the user actually came from, and always re-renders the index first if that's where it's going.
+**Verified with real browser tests covering all three real flows**: FAB entry from the index
+correctly returns to the index; entry from Home's choice overlay correctly returns Home; and
+editing an existing entry and tapping back now shows the edited text immediately, with no
+second navigation needed.
+
 ---
 
-## Standing lessons (do not re-learn these)
+
 
 - **The `on_conflict` bug has now been found and fixed three separate times** (July session, Aug
   5, Aug 14) in three different tables/functions, because each fix was applied locally rather
