@@ -1,17 +1,175 @@
-# HOBS Companion — Bug & Resolution Log
+# HOBS Companion — Complete Bug & Resolution Log (Full Project History)
 
-Every confirmed bug found and fixed, in order, with how it was verified. This exists because
-losing track of what was already found and fixed wastes real time re-diagnosing the same
-problem twice — keep this updated going forward, every session, no exceptions.
+Every confirmed bug found and fixed across every development session, from the beginning of
+this project through today, in chronological order. Built by going back through the actual
+session transcripts, not just summary memory — so this is as accurate as the real record
+allows. Keep this updated every session going forward, without exception.
 
-Format per entry: **What broke** → **Root cause** → **Fix** → **How it was verified** → **Commit**
+**A pattern that shows up repeatedly below and matters more than any single entry**: the same
+root cause (a missing `on_conflict` parameter on an upsert, described in three separate entries
+in this log — July, August 5–6, and August 14) was found and fixed multiple times across
+different months, in different files, because the fix wasn't generalized into a rule the first
+time. See "Standing lessons" at the bottom.
 
 ---
 
-## August 6–13, 2026 — External security audit (23 findings, 18 confirmed real and fixed)
+## July 22–23, 2026 — Early development session
+- **Confirmed-session badge showed no date/time** even when the booking had one — fixed to
+  match the equivalent pending-request badge.
+- **Coordination-room contamination incident**: a test admin account shared the same
+  professional name as Akash's real account; leftover test data leaked two real chat rooms into
+  real accounts (Akash's and a real client's). Cleaned up; test-admin identity permanently
+  renamed with its own dedicated entry so this class of contamination can't repeat. Also fixed
+  an underlying UX gap found alongside: every coordination room was generically named "Care
+  coordination" with no client name attached.
+- **Journal entry duplication**: root cause was a race condition in the shared save/retry
+  function. Fixed; confirmed zero new duplicates after. Two rounds of leftover pre-fix duplicate
+  data found and cleaned directly from the database.
+- **AppTheme.NoActionBarLaunch never switched back**: the splash-screen theme was applied via
+  the manifest but nothing ever called `setTheme()` to switch back afterward, so the app fell
+  back to whatever the `<application>`-level default theme was instead of the intended one.
 
-Full detail for each of these lives in its own git commit message (`git log`), which is the
-authoritative record — this is a summary index, not a replacement for it.
+## July 22–23, 2026 (continued) — Notifications, analytics, donations
+- **Duplicate push notifications**: root cause was `pushNotificationReceived` firing whenever
+  the app process is alive (foreground OR backgrounded-but-not-killed), not just foreground as
+  an old code comment assumed. Android auto-displays the FCM notification while backgrounded,
+  AND the JS handler was also unconditionally posting its own local notification for the same
+  push. Fixed to only post locally when `App.getState().isActive` confirms true foreground.
+- **"Shows no support group joined" despite being one**: `profiles.has_support_group` was a
+  separate, legacy flag that never gets set when someone joins a real support group via
+  `chat_room_members` — same bug shape as an earlier `has_therapist` fix. Fixed by deriving from
+  real `chat_room_members` data, OR'd with the legacy flag.
+- **Missing safe-area-inset-bottom** on the shared `.share-sheet-card` CSS class (used by 3
+  overlays) — every other modal had gotten this fix in an earlier session; this one class was
+  missed, causing a sheet's Cancel button to sit flush against on-screen nav buttons.
+- **Textareas app-wide were fixed-height with no way to expand** — made auto-growing. A real
+  regression caught during this same fix: measuring `scrollHeight` while a tab is `display:none`
+  always reads 0, which would have locked in a broken 0px height — fixed with a visibility guard.
+- **Donation campaign link previews had no image at all** (`donate.html` had `og:title`/
+  `og:description` but no `og:image`). Fixed, but took three self-inflicted bugs along the way,
+  each caught by diffing against a saved pre-bug copy rather than assumed fine: a UTF-8
+  corruption, a tag-duplication bug from a regex that only matched half the block, and a cleanup
+  script that accidentally deleted `donate.html`'s entire style block.
+
+## July 23–26, 2026 — Handoff, deletion flow, welcome-back animation, layouts
+- **Storage `.list()` is not recursive** — a file uploaded to `{userId}/profile-photos/photo.png`
+  was being completely missed because `.list(userId)` only sees direct children, found via a
+  real test with an actual uploaded file.
+- Self-service account deletion (in-app + web page) built for Play Store compliance.
+- Welcome-back screen page-turn animation, day-detail/tasklist landing redesigns, calendar grid
+  removal, image preload bug fixes — feature work, no major regressions recorded.
+
+## July 26–27, 2026 — Mood bubbles, React planning (paused), notifications, tests rebuild
+- **Duplicate notifications** (a second, separate root cause from the one fixed July 22–23):
+  `app_update` reminders were handled in two completely separate places — one firing
+  independently at 9am local time, unaware of the dedicated `send-apk-update-notification` daily
+  cron (6am UTC) which already had its own proper per-release dedup via `app_update_reminders`.
+  Neither system knew the other existed, so every eligible user got double-notified.
+- **Journal duplicates** investigated further (see July 22–23 fix above — this session confirmed
+  it held).
+- **Scheduled/recurring push notifications reported as not showing up** despite FCM confirming
+  successful delivery every time, while ad-hoc notifications worked fine — investigated as part
+  of the notification channel native fix that shipped in APK v2.9.
+- App icon fixed (Bob mascot was missing/wrong on the launcher icon).
+- Complete rebuild of the tests flow: back/forward navigation, PDF removal, HubSpot wiring moved
+  to a database trigger.
+
+## July 31, 2026 — HubSpot, notifications, Razorpay, performance
+- **HubSpot integration was silently failing**: using the CRM Notes API instead of the Forms
+  API, which behaved differently than expected for this use case. Fixed.
+- **Notification delivery bug root-caused to a July 21 code change** (a regression introduced
+  weeks earlier, only diagnosed now).
+- Razorpay payment integration built out (donations + therapy sessions + cancellation charges).
+- App performance work: image optimization, caching, donation widget.
+- **Journal scroll bug** fixed.
+- New Tasklist constellation UI concept/prototype started.
+
+## August 2, 2026 — Constellation UI, rich text, journal bugs, task alarms
+- **Floating assistant button rendering on top of sheet buttons**: a sheet's z-index (11) was
+  far lower than the floating button's (55) — raised to match the tier already used for other
+  modals (60/61).
+- **Multiple severe journal bugs found and fixed**: a duplicate-entries root cause (separate
+  from the earlier July fix — a different code path), the entry index not refreshing after
+  edits, share-as-image rendering raw HTML instead of formatted text, and the therapist view
+  also rendering raw HTML instead of formatted text.
+- **Critical regressions introduced and then caught within the same session**: a `_serverConfirmed`
+  flag bug and entry duplication in the index — both introduced while fixing the above, caught
+  before shipping, fixed.
+- Task alarm feature built: new DB columns, an isolated Edge Function, a cron job, task-level UI,
+  and a z-index overlap bug fixed along the way.
+- Journal rich-text formatting added (H1/H2/H3, bold, italic, strike, underline, alignment,
+  bullets, numbers).
+
+## August 5, 2026 — Google Calendar OAuth debugging marathon
+- **[Regressed later, refixed August 14 — see below] OAuth reconnection silently never saved.**
+  The `exchange_code` write to `professional_calendar_connections` was a plain `POST` insert
+  against a table with a unique constraint on `user_id`. Every reconnect attempt after the first
+  violated that constraint and failed, while the app still reported success to the client.
+  Confirmed directly: `connected_at` on the real account's row was still the original connection
+  date despite multiple recent "successful" reconnect attempts. Fixed with `?on_conflict=user_id`.
+- **The exact same missing-`on_conflict` bug existed independently** in the busy-block calendar
+  sync write (`professional_busy_blocks`, unique constraint on
+  `(professional_user_id, google_event_id)`) — found by proactively checking for the same
+  pattern elsewhere after fixing the first instance, not by a separate bug report. Fixed the
+  same way.
+- **`return=minimal` responses have no body** — every `return=minimal` call in the calendar sync
+  function was silently at risk of throwing when its response was parsed as JSON, just never
+  exercised by earlier testing since those specific code paths weren't reached yet. Fixed to only
+  parse when there's actually content.
+- **Backfill only ever looked forward** — a newly connected account started completely blank
+  regardless of what already existed on the calendar, since the watch mechanism only caught
+  future changes. Added a 90-day-forward backfill on connect.
+
+## August 6, 2026 — Google Calendar bug-fixing marathon, GitHub Pages outage, architecture migration
+- **Google Calendar API was never enabled** for the underlying Google Cloud project — confirmed
+  via Google's own error message. This blocked the OAuth flow, the backfill, and everything else
+  at the root. Fixed by Akash directly in Google Cloud Console — not something fixable in code.
+- **"Reconnect" appeared to work but the app kept showing "Reconnection needed."** The connection
+  status card was never refreshed after returning from the OAuth flow. Fixed by hooking the
+  refresh into the app's existing `visibilitychange`/`focus`/`pageshow` pattern, since Capacitor's
+  `resume` event doesn't reliably fire when the OAuth flow completes in a detached browser tab
+  instead of returning to the native app directly.
+- **Backfill only looked forward, still** — extended to also backfill 90 days back; re-running
+  against the real account went from 79 to 245 events backfilled.
+- **Client picker briefly, incorrectly excluded a real client** whose email happened to match the
+  therapist's own connected calendar email. Reverted the over-broad fix; handled the actual edge
+  case (Google doesn't accept a calendar owner as their own attendee) by simply not sending that
+  one email as an attendee, while still tracking and saving the event normally.
+- **The stuck "Saving..." button — the most time spent on any single bug in that session.**
+  Traced through several wrong hypotheses (self-as-attendee, Google API timing, notification
+  settings) before finding the real cause: the 15-second client-side timeout only wrapped the
+  network call itself, not the `sb.auth.getSession()` call immediately before it — if that
+  specific call hung, the timeout never engaged and the button stayed stuck forever, with the
+  underlying request often having already succeeded server-side regardless.
+- **A GitHub Pages outage took down the entire native app** — root cause: the APK loaded its UI
+  remotely from GitHub Pages instead of bundling it locally, so a GitHub-side outage meant the
+  app couldn't even open. This was the trigger for the architectural decision to bundle the UI
+  locally into the APK (Capacitor local bundle) instead of loading it remotely — the single
+  biggest architectural fix in this project's history, since it removes an entire class of
+  "third-party outage breaks the app" risk. APK v3.0 shipped with this change.
+
+## August 6–13, 2026 — Hostinger migration, security audit, monitoring, backups
+Full detail already recorded in the "External security audit" section below — 18 confirmed
+findings, summarized there rather than duplicated here. Also from this stretch, recorded
+separately since it predates the formal audit:
+- **6 deployed Edge Functions were missing from the git repo entirely** (existed live on
+  Supabase, never committed) — discovered while auditing what was actually deployed vs. what was
+  in version control. Recovered and committed.
+- **`renderGcalConnectionCard()` crashed on `currentUser.id` unguarded** — confirmed via
+  production error logs as the single most common real error in the entire app (65 of 75 total
+  ever logged), caused by this function firing on `visibilitychange`/`focus`/`pageshow` regardless
+  of auth state. Fixed with a null check.
+- **`create-razorpay-order`, `send-task-alarms`, `send-apk-update-notification` were truncated**
+  in the git repo (incomplete file contents committed at some point) — repaired.
+- **`safe_deploy.js` had two real bugs**: a silent failure (never checking the response) and a
+  `serverCallerId` UUID type mismatch — both caught and fixed before trusting deploy results.
+- **The architecture doc contradicted the real setup**: it said "Hosting: GitHub Pages" well
+  after the migration to Hostinger had happened — fixed to state Hostinger as the single
+  authoritative host.
+
+---
+
+## August 13–14, 2026 — External security audit (23 findings, 18 confirmed real and fixed)
 
 ### Critical (Tier 0)
 1. **Cross-account offline queue leak** — a shared device's offline sync queue had no ownership
@@ -35,9 +193,9 @@ authoritative record — this is a summary index, not a replacement for it.
 7. **Booking slot double-booking** — fixed with `reserve_availability_slot`, verified: 5
    simultaneous requests for the same slot, exactly 1 succeeded.
 8. **Razorpay order overwrite/orphan** — first fix (Aug 13) only handled reusing an
-   already-saved order, not two simultaneous *first* requests. **This was corrected on
-   Aug 14** after being caught in external review: added `claim_razorpay_order_slot`, verified
-   with 5 genuinely simultaneous first-time requests — all 5 returned the identical order_id.
+   already-saved order, not two simultaneous *first* requests. **Corrected on Aug 14** after
+   being caught in external review: added `claim_razorpay_order_slot`, verified with 5
+   genuinely simultaneous first-time requests — all 5 returned the identical order_id.
 9. **OAuth state-token reuse** — fixed with `consume_gcal_state_token`, verified: 5 concurrent
    requests, exactly 1 got the real result, caught and fixed a real `uuid` vs `text` type
    mismatch along the way.
@@ -83,7 +241,7 @@ authoritative record — this is a summary index, not a replacement for it.
 
 ---
 
-## August 14, 2026 — Native app OAuth investigation (this was the big one)
+## August 14, 2026 — Native app OAuth investigation
 
 A single connected chain of real bugs, found by actually testing on a real device rather than
 assuming each fix was sufficient. Recorded in detail because this exact class of bug (custom
@@ -146,7 +304,7 @@ Custom Tab on Android, regardless of correct usage.
 `resume` listener re-checking connection status) but wasn't communicating clearly what to do.
 Made the banner explicitly instruct tapping the Custom Tab's own back arrow.
 
-### 27. Calendar-connect's save silently failed while reporting success
+### 27. Calendar-connect's save silently failed while reporting success — the on_conflict bug's third appearance
 **What broke:** the banner said "Calendar connected!" but the app kept showing "needs
 reconnecting" immediately after.
 **Root cause:** confirmed directly against the real database — `professional_calendar_connections`
@@ -154,7 +312,9 @@ has a genuine unique constraint on `user_id`. The save used a plain `POST` with 
 `on_conflict` parameter, which PostgREST requires to upsert against an existing row. Once a
 connection already existed (it did, from August 5), the insert failed outright — and the
 result was never checked, so the failure was silently swallowed while the function still
-returned `success: true`.
+returned `success: true`. **This is the exact same bug class already found and fixed twice
+before — August 5 (this same function) and August 5 (the busy-block sync) — that had regressed
+back to the broken version by the time this was found again.**
 **Fix:** added `on_conflict=user_id`, and now checks the actual result before ever reporting
 success. Applied the same fix to the `refresh_token` action's save (same unchecked pattern).
 **Verified directly against the real, live table:** confirmed the stale Aug 5 data, then
@@ -168,18 +328,32 @@ Console from earlier troubleshooting). GitHub Pages is no longer used for anythi
 
 ---
 
-## Standing lessons worth not re-learning
-- **A build succeeding is not the same as a fix being verified.** Every fix above that claimed
-  "resolved" without being tested against real, live data or a real device turned out to still
-  have a gap, more than once, in the same session.
+## Standing lessons (do not re-learn these)
+
+- **The `on_conflict` bug has now been found and fixed three separate times** (July session, Aug
+  5, Aug 14) in three different tables/functions, because each fix was applied locally rather
+  than turned into a rule. **The rule, stated once, for good: every `POST` intended as an upsert
+  against a table with a unique constraint needs an explicit `on_conflict=<column>` parameter —
+  PostgREST will never infer it — and every write's actual result must be checked before ever
+  reporting success to the caller.** If a future session touches any `dbWrite`/upsert call, check
+  this first, don't rediscover it.
+- **A build succeeding is not the same as a fix being verified.** Multiple fixes across this
+  project's history — not just August 14 — turned out to still have a gap when actually tested
+  against real data or a real device, more than once in the same session.
 - **`window.Capacitor` (and everything under it) only exists inside the app's own native
   WebView.** A page loaded in an external browser tab or Custom Tab — even one the app itself
   opened — never has it. Code that assumes otherwise silently no-ops instead of erroring.
-- **Every `dbWrite`/upsert call must check its actual result before claiming success**, and
-  every `POST` intended as an upsert against a table with a unique constraint needs an explicit
-  `on_conflict` parameter — PostgREST will not infer it.
-- **Native build assets (AndroidManifest.xml, and anything else Capacitor's tooling
-  regenerates) must be explicitly, permanently saved to the repo.** If it only exists in the
-  ephemeral build folder, it does not survive to the next session, silently.
-- **When testing a fix on a real device, confirm the installed version number first.** A "still
-  broken" report may just mean the old build is still installed.
+- **Native build assets (AndroidManifest.xml, and anything else Capacitor's tooling regenerates)
+  must be explicitly, permanently saved to the repo.** If it only exists in the ephemeral build
+  folder, it does not survive to the next session.
+- **When testing a fix on a real device, confirm the installed version number first.** More than
+  one "still broken" report across this project turned out to mean the old build was still
+  installed, not that the fix failed.
+- **Storage's `.list()` is not recursive.** Anything iterating stored files needs to walk
+  subfolders explicitly or it will silently miss real files.
+- **Any place a timeout wraps a network call needs to wrap every await in that chain**, not just
+  the "main" one — the stuck "Saving..." button bug came from a timeout that didn't cover an
+  earlier `getSession()` call in the same function.
+- **Proactively check for the same bug pattern elsewhere in the codebase once one instance is
+  found**, rather than only fixing the reported instance — this caught the busy-block sync
+  `on_conflict` bug in August before it was ever separately reported.
