@@ -24,15 +24,15 @@
 
             <!-- Real fix: registers the custom scheme Supabase's own "Sign in with Google" flow
                  redirects to after successful authentication (hobscompanion://callback). Without
-                 this, Android has no app to hand that URL to -- the redirect silently dies and
+                 this, Android has no app to hand that URL to: the redirect silently dies and
                  the user is stranded on Google's account picker with no way back into the app.
                  The JS-side appUrlOpen handler already correctly parses this exact URL pattern
-                 (its "Token Flow" branch) -- this was purely a missing registration. -->
+                 (its "Token Flow" branch): this was purely a missing registration. -->
             <intent-filter android:autoVerify="false">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="hobscompanion" android:host="callback" />
+                <data android:scheme="hobscompanion" />
             </intent-filter>
 
         </activity>
