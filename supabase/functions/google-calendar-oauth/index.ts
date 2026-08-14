@@ -139,7 +139,7 @@ Deno.serve(async (req) => {
       } catch (_e) { /* non-critical, proceed without it */ }
 
       const now = Date.now();
-      await dbWrite("professional_calendar_connections", "POST", {
+      const saveResult = await dbWrite("professional_calendar_connections?on_conflict=user_id", "POST", {
         user_id: userId,
         google_email: googleEmail,
         access_token: tokenData.access_token,
@@ -150,6 +150,13 @@ Deno.serve(async (req) => {
         last_refreshed_at: new Date(now).toISOString(),
         needs_reconnect: false,
       });
+      if (!saveResult.ok) {
+        const errBody = await saveResult.text().catch(() => "");
+        console.error("Could not save calendar connection:", saveResult.status, errBody);
+        return new Response(JSON.stringify({ error: "Connected to Google, but couldn't save the connection -- please try again." }), {
+          status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
       // Starts instant sync right away -- registered server-side here rather than as a
       // separate frontend call, since this landing page might have no active session at all
@@ -201,11 +208,17 @@ Deno.serve(async (req) => {
       }
 
       const now = Date.now();
-      await dbWrite(`professional_calendar_connections?user_id=eq.${user.id}`, "PATCH", {
+      const refreshSaveResult = await dbWrite(`professional_calendar_connections?user_id=eq.${user.id}`, "PATCH", {
         access_token: tokenData.access_token,
         access_token_expires_at: new Date(now + tokenData.expires_in * 1000).toISOString(),
         last_refreshed_at: new Date(now).toISOString(),
       });
+      if (!refreshSaveResult.ok) {
+        console.error("Could not save refreshed token:", refreshSaveResult.status);
+        return new Response(JSON.stringify({ error: "Refreshed with Google, but couldn't save it -- please try again." }), {
+          status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
