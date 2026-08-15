@@ -416,6 +416,31 @@ automatically" claim against the real client code before publishing it.
 
 ---
 
+### 35. Crisis AI didn't run "everywhere" -- audited every free-text field, found 3 real gaps
+Direct instruction: extend the two-layer crisis check to every genuine client-authored
+free-text field in the app, not just journal entries. Audited every textarea/contenteditable
+directly rather than assuming coverage.
+
+**Real chat messages** (support group / direct chat) had the instant keyword layer but were
+silently missing the AI layer entirely -- calling the raw pattern check directly instead of the
+shared function wrapping both. Someone expressing something indirectly to a peer group,
+unmonitored, would never have gotten the AI layer's chance to catch it.
+
+**Worksheet reflection fields** (confirmed genuinely free text by checking the rendering code)
+had no crisis coverage at all.
+
+**The intake note** ("anything you'd like us to know") -- genuine first-contact free text,
+potentially before ever being connected with a professional -- had no crisis coverage at all.
+
+Deliberately did not extend this to staff-authored fields (therapist bios, session notes about
+a client, admin messages) -- this is for client self-expression, not clinical documentation.
+
+Verified all three with real tests against the live Groq classifier using indirect/metaphorical
+language specifically, since that's the entire point of the AI layer over keyword matching --
+all three genuinely triggered the crisis resource modal.
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 - **The `on_conflict` bug has now been found and fixed three separate times** (July session, Aug
