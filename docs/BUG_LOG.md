@@ -344,7 +344,22 @@ correctly returns to the index; entry from Home's choice overlay correctly retur
 editing an existing entry and tapping back now shows the edited text immediately, with no
 second navigation needed.
 
+### 30. Client Schedule swipe-between-tabs worked inconsistently
+**What broke:** swiping left/right on the therapist dashboard's tabs (including "My Client
+Schedule") worked sometimes and not others.
+**Root cause:** the swipe handler excluded `.gcal-event-row` (individual appointment rows) from
+starting a swipe — but that class is purely a tap-to-open button with no horizontal drag
+interaction of its own, so there was never a real conflict to protect against. This silently
+disabled the swipe whenever a finger happened to land on an event row, which is most of the
+visible screen area on the Schedule tab specifically, since that tab is mostly a list of these
+rows — exactly matching the "sometimes working" symptom.
+**Fix:** removed the unnecessary exclusion, kept the genuine one (the edit sheet, a real modal).
+**Verified with a real test**: simulated a swipe starting directly on a full-width fake event
+row and confirmed it now correctly switches tabs.
+
 ---
+
+## Standing lessons (do not re-learn these)
 
 
 
