@@ -70,13 +70,14 @@ CIN: <span>U85300GJ2020NPL118743</span></p>
 <p><strong>Data sharing.</strong> We do not sell, rent, or share Google Calendar data with any third party. It is used exclusively for the scheduling functionality described above.</p>
 
 <h2>3. Where your data is stored</h2>
-<p>Your data is stored securely with Supabase, our database and backend provider, on cloud infrastructure located in Japan. Push notifications and usage analytics are processed through Google Firebase, which operates on Google's global infrastructure.</p>
+<p>Your data is stored securely with Supabase, our database and backend provider, on cloud infrastructure located in Japan. Push notifications and usage analytics are processed through Google Firebase, which operates on Google's global infrastructure. If you write a journal entry, its text is also sent to Groq, an AI inference provider, for the sole purpose of the second-layer crisis-detection check described in Section 5 below — Groq's policy is that this data is not retained for training and is not used to improve their models.</p>
 <p>Access to your data within our systems is restricted using row-level security — in plain terms, our database is configured so that, by default, each person can only read their own data, and only designated admin or therapist accounts (for clients under their active care) can see more, and only what's relevant to that care relationship.</p>
 
 <h2>4. Who we share information with</h2>
 <ul>
   <li><strong>Your therapist</strong>, if you book a session — limited to what's relevant to your care (e.g. shared journal entries you've explicitly marked as shared, session notes, booking history). Your therapist does not see mood or journal entries you haven't chosen to share.</li>
   <li><strong>Google/Firebase</strong>, for delivering push notifications and for aggregated usage analytics.</li>
+  <li><strong>Groq</strong>, an AI inference provider, for the second-layer crisis-detection check on journal entries described in Section 5. This is a classification-only use — Groq does not retain this data for training or to improve their models.</li>
   <li><strong>We do not sell your data.</strong> We do not share your data with advertisers. We do not use your mental health data for any purpose other than providing and improving the App and your care.</li>
 </ul>
 
@@ -86,6 +87,7 @@ CIN: <span>U85300GJ2020NPL118743</span></p>
   <li>This data is never used for advertising, profiling, or any commercial purpose.</li>
   <li>It is not shared with employers, insurers, or any third party without your explicit action to share it (e.g. choosing to share an entry with your therapist).</li>
   <li>If a screening response indicates possible self-harm risk, the App surfaces crisis resources directly (iCall's helpline and India's emergency number) — this is a safety feature, not a data-sharing action, and does not notify any third party automatically.</li>
+  <li>Journal entries are checked for possible crisis signals using two layers: an instant on-device keyword check, and a second check that sends the entry's text to Groq (an AI provider) for a more careful read of indirect or metaphorical language a keyword check alone can miss. If either layer detects a possible signal, the App shows you crisis resources directly — this does not notify your therapist, an admin, or anyone else automatically.</li>
 </ul>
 
 <div class="crisis">
