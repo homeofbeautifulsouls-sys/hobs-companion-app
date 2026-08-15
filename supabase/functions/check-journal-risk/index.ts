@@ -7,8 +7,23 @@
 // thoughtful, safety-aware person would: not just literal phrases, but the pattern-of-mind behind
 // abstract, wishful, or death-focused writing.
 //
-// This is a genuinely safety-positive use of the API -- classification only, no user-facing
-// generation, no data retained beyond the single request/response.
+// Uses Groq (llama-3.3-70b-versatile), not a closed frontier model -- this was the actual
+// decision made when this feature was designed, specifically because Groq's free tier doesn't
+// charge and doesn't retain this data for training or use it to improve their models. For a
+// feature that processes people's most vulnerable writing, that matters more here than almost
+// anywhere else in this app. A prior version of this file used ANTHROPIC_API_KEY -- a real
+// regression from that original decision, corrected here.
+//
+// Note for whoever touches this next: Groq's own docs list this model as deprecated
+// (recommending migration to openai/gpt-oss-120b or qwen/qwen3.6-27b), but it was confirmed
+// directly, still genuinely working as of August 2026. If it ever actually stops working, do
+// NOT just drop in one of those replacements with the same low max_tokens -- confirmed directly
+// that gpt-oss-120b is a reasoning model that burns its token budget on internal reasoning
+// before ever reaching the JSON output, and fails outright at max_tokens:50. A reasoning-model
+// replacement needs either a much higher token budget or a non-reasoning alternative instead.
+//
+// This is a genuinely safety-positive use of an AI API -- classification only, no user-facing
+// generation.
 //
 // Auth: requires a valid Supabase user JWT. Any signed-in user can call this for their OWN
 // journal text -- there's no reason to restrict it further, and restricting it would only slow
@@ -30,7 +45,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -117,42 +132,44 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (!ANTHROPIC_API_KEY) {
-      console.error("check-journal-risk: ANTHROPIC_API_KEY not set");
-      await logUnavailability("not_configured", "ANTHROPIC_API_KEY not set");
+    if (!GROQ_API_KEY) {
+      console.error("check-journal-risk: GROQ_API_KEY not set");
+      await logUnavailability("not_configured", "GROQ_API_KEY not set");
       return new Response(JSON.stringify({ riskDetected: false, classifierAvailable: false }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
+    const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
+        Authorization: `Bearer ${GROQ_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
+        model: "llama-3.3-70b-versatile",
         max_tokens: 50,
-        system: CLASSIFIER_SYSTEM_PROMPT,
-        messages: [{ role: "user", content: text.slice(0, 4000) }],
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: CLASSIFIER_SYSTEM_PROMPT },
+          { role: "user", content: text.slice(0, 4000) },
+        ],
       }),
     });
 
-    if (!anthropicRes.ok) {
-      const errBody = await anthropicRes.text().catch(() => "");
-      console.error("check-journal-risk: Anthropic API error", anthropicRes.status, errBody);
-      await logUnavailability("api_error", `HTTP ${anthropicRes.status}: ${errBody.slice(0, 500)}`);
+    if (!groqRes.ok) {
+      const errBody = await groqRes.text().catch(() => "");
+      console.error("check-journal-risk: Groq API error", groqRes.status, errBody);
+      await logUnavailability("api_error", `HTTP ${groqRes.status}: ${errBody.slice(0, 500)}`);
       return new Response(JSON.stringify({ riskDetected: false, classifierAvailable: false }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const result = await anthropicRes.json();
-    const rawText = result?.content?.[0]?.text || "";
+    const result = await groqRes.json();
+    const rawText = result?.choices?.[0]?.message?.content || "";
     let riskDetected = false;
     let classifierAvailable = true;
     try {
