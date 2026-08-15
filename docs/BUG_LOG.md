@@ -357,9 +357,40 @@ rows — exactly matching the "sometimes working" symptom.
 **Verified with a real test**: simulated a swipe starting directly on a full-width fake event
 row and confirmed it now correctly switches tabs.
 
----
+### 31. App always waited for full server confirmation before showing anything — the "why is this slower than other apps" fix
+**What broke:** every app open showed a loading spinner and waited for the server to fully
+confirm the session before showing anything at all, even for a returning user with a perfectly
+valid cached session.
+**Real answer to a fair question**: other apps don't avoid this exact same check, they hide it —
+showing the last-known screen immediately from local cache, correcting course in the background
+only if that assumption turns out wrong.
+**Fix:** a synchronous, local-only check for a cached Supabase session plus the same cached
+`appState` flags `onAuthSuccess` already uses to decide which screen to show — if both agree
+this is a fully onboarded returning user, skip straight to the home screen with cached data
+while the real confirmation happens invisibly underneath.
+**Caught a real bug in the first attempt before shipping**: the initial version read `appState`
+nearly 200 lines before it was actually declared and populated from cache, silently throwing
+and being swallowed by its own `try/catch` every single time — the optimistic path would never
+have fired at all despite looking correct on inspection. Relocated to run after `appState` is
+genuinely populated.
+**Verified with real browser tests covering all four cases**: no cached session (unchanged);
+cached + fully onboarded (genuinely skips the spinner, confirmed no glitch popup once real data
+settles); cached but onboarding incomplete (correctly does not skip); and confirmed the
+fallback correctness check fires when fresh data reveals a real gate is actually needed.
 
-## Standing lessons (do not re-learn these)
+### 32. Splash screen had an unconditional 1.2-second minimum delay
+Found while investigating the above: `MIN_SPLASH_MS` was a fixed, unconditional 1.2-second
+delay applied to every single app open, purely for pacing, regardless of how fast the actual
+session check resolved. Cut to 400ms.
+
+### 33. Experts/team list load was blocking the entire boot sequence
+Found while investigating the above: the app waited on 8 separate network calls fully
+completing before showing anything — 7 parallel data queries plus a fully separate
+experts/team-list load that isn't needed until much later (confirmed by checking every real
+use of `TEAM_MEMBERS`: all inside later panels or button click handlers). Removed from the
+blocking path.
+
+
 
 
 
