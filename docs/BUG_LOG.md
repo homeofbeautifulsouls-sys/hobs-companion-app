@@ -441,6 +441,34 @@ all three genuinely triggered the crisis resource modal.
 
 ---
 
+### 36. Built real, generated character voices for Bob, Kunnu, Po, and Cookie
+Not a bug fix -- a real feature build, recorded here because of what testing caught along the
+way. Grounded each character's system prompt in the actual bible retrieved from past sessions
+(confirmed accurate directly), using Groq (llama-3.3-70b-versatile) -- same free, already-proven
+model as crisis detection.
+
+**Real hallucination caught by testing, not assumed safe from the prompt alone**: a first test
+run had Kunnu invent a specific offer ("I know someone who's been through this, want to meet
+them?") that isn't a real app capability. Fixed by explicitly prohibiting invented specific
+offers/introductions/features in the shared safety rules -- retested and confirmed Kunnu now
+correctly references the real support group feature instead.
+
+Verified with real adversarial tests: Bob correctly refuses to diagnose when asked directly; Po
+correctly declines to invent a price and redirects to a real person; Cookie correctly stays in
+character when asked to admit being an AI; crisis detection (the same two-layer check used
+everywhere else) confirmed firing correctly on indirect language while still generating a
+genuine reply alongside it.
+
+**Also closed a gap in the assistant's existing crisis coverage** while wiring this in, same bug
+pattern as the chat-message fix: the assistant only ever ran the instant keyword layer, never
+the AI layer -- meaning indirect crisis language typed into the assistant was never caught.
+
+Verified fully end to end with a real browser test: typing indicator, real network call, genuine
+in-character reply displayed, for a free-form message matching none of the 16 existing
+navigation patterns.
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 - **The `on_conflict` bug has now been found and fixed three separate times** (July session, Aug
