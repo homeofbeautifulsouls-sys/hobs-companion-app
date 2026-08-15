@@ -2266,7 +2266,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260815123347';
+  var CURRENT_BUILD = '20260815123916';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -2921,7 +2921,13 @@ function onAuthSuccess(user){
     preloadImg.src = src;
   });
   prefetchDonationWidgetData(); // fire-and-forget in the background -- never blocks sign-in on this
-  Promise.all([loadUserDataFromSupabase(), loadExpertsFromSupabase()]).then(function(){
+  // Real fix: the experts/team list isn't needed to render the initial home screen at all --
+  // every real use of TEAM_MEMBERS is either inside a later panel (Team, booking) or inside a
+  // button's click handler (by which point this background load has had plenty of time to
+  // finish). Previously blocked the entire boot sequence on this finishing too, adding a full
+  // extra network round-trip before anything could show.
+  loadExpertsFromSupabase();
+  loadUserDataFromSupabase().then(function(){
     var overlay = document.getElementById('authOverlay');
     overlay.style.display = 'none';
     void overlay.offsetHeight; // force immediate reflow so the change paints right away
