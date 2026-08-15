@@ -2266,7 +2266,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260815124202';
+  var CURRENT_BUILD = '20260815125138';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -2937,6 +2937,19 @@ function onAuthSuccess(user){
     syncDeviceInfo();
     checkUnreadNotifications();
     maybeSilentlyRefreshGoogleCalendarToken();
+    // If the optimistic boot path already showed the home screen, and fresh data confirms the
+    // same "fully onboarded, no gates needed" state it guessed from cache, there's nothing left
+    // to do here -- re-running showWelcomeBackScreen() would pop its full-screen overlay on top
+    // of a UI the person is already looking at, a real, jarring glitch for no reason. Still
+    // falls through to the normal gate logic below if fresh data reveals the guess was wrong
+    // (a real gate is actually needed) -- correctness there matters more than avoiding a rare
+    // UI hiccup in that specific, uncommon case.
+    if(optimisticBootTaken && appState.onboardingComplete && appState.basicTosSigned &&
+       !(appState.userHasAnyClinicalConnection && !appState.consentSigned && !appState.isTherapist) &&
+       appState.hasSeenIntro){
+      renderHomeGreeting();
+      return;
+    }
     if(!appState.onboardingComplete){
       showOnboarding();
     } else if(!appState.basicTosSigned){
@@ -3889,23 +3902,18 @@ function afterSplashMinimum(fn){
   setTimeout(fn, wait);
 }
 
-// Check for an existing session on load (keeps people signed in between visits)
-sb.auth.getSession().then(function(result){
-  if(result.data.session && result.data.session.user){
-    afterSplashMinimum(function(){ onAuthSuccess(result.data.session.user); });
-  } else {
-    afterSplashMinimum(function(){
-      document.getElementById('authLoadingState').style.display = 'none';
-      document.getElementById('authFormContent').style.display = 'block';
-    });
-  }
-}).catch(function(){
-  afterSplashMinimum(function(){
-    document.getElementById('authLoadingState').style.display = 'none';
-    document.getElementById('authFormContent').style.display = 'block';
-  });
-});
-
+// Real architectural fix: previously always waited for the server to confirm a session before
+// showing anything at all, even when there was a perfectly good cached session sitting in
+// local storage from last time. Other apps don't skip this check -- they hide it, showing the
+// last-known screen immediately and only correcting course in the background if needed. Same
+// idea here: a synchronous, local-only check (no network call) for a cached Supabase session,
+// combined with the cached appState flags already loaded above (the exact same ones
+// onAuthSuccess uses to decide which screen to show) -- if both agree this is a fully onboarded
+// returning user, skip the spinner entirely and go straight to the home screen with whatever
+// data is already cached, while the real session confirmation and fresh data load happen
+// invisibly underneath. Anything less certain (new user, incomplete onboarding, no cached
+// session at all) falls through to the exact same proven spinner-then-decide flow as before.
+var optimisticBootTaken = false;
 // ================= LOAD REAL DATA FROM SUPABASE INTO appState =================
 function loadUserDataFromSupabase(){
   var uid = currentUser.id;
@@ -4064,6 +4072,66 @@ var appState = getDefaultAppState();
     if(raw){ var loaded = JSON.parse(raw); for(var k in loaded){ appState[k] = loaded[k]; } }
   } catch(e){}
 })();
+
+// Real architectural fix: previously always waited for the server to confirm a session before
+// showing anything at all, even when there was a perfectly good cached session sitting in
+// local storage from last time. Other apps don't skip this check -- they hide it, showing the
+// last-known screen immediately and only correcting course in the background if needed. Same
+// idea here: a synchronous, local-only check (no network call) for a cached Supabase session,
+// combined with the cached appState flags just loaded above (the exact same ones onAuthSuccess
+// uses to decide which screen to show) -- if both agree this is a fully onboarded returning
+// user, skip the spinner entirely and go straight to the home screen with whatever data is
+// already cached, while the real session confirmation and fresh data load happen invisibly
+// underneath. Anything less certain (new user, incomplete onboarding, no cached session at
+// all) falls through to the exact same proven spinner-then-decide flow as before.
+var optimisticBootTaken = false;
+(function attemptOptimisticBoot(){
+  try {
+    var authStorageKey = 'sb-' + SUPABASE_URL.replace('https://', '').split('.')[0] + '-auth-token';
+    var cachedSessionRaw = localStorage.getItem(authStorageKey);
+    var hasCachedSession = !!(cachedSessionRaw && JSON.parse(cachedSessionRaw).access_token);
+    var looksFullyOnboarded = appState.onboardingComplete && appState.basicTosSigned && appState.hasSeenIntro &&
+      !(appState.userHasAnyClinicalConnection && !appState.consentSigned && !appState.isTherapist);
+    if(hasCachedSession && looksFullyOnboarded){
+      optimisticBootTaken = true;
+      document.getElementById('authOverlay').style.display = 'none';
+      showOnly('panel-bubbles');
+      renderHomeGreeting();
+    }
+  } catch(e){ /* anything unexpected here just falls through to the normal, proven flow below */ }
+})();
+
+// Check for an existing session on load (keeps people signed in between visits)
+sb.auth.getSession().then(function(result){
+  if(result.data.session && result.data.session.user){
+    if(optimisticBootTaken){
+      // Already showing the app optimistically -- confirm and refresh with real data
+      // invisibly, no spinner, no re-navigation, nothing for the person to notice.
+      onAuthSuccess(result.data.session.user);
+    } else {
+      afterSplashMinimum(function(){ onAuthSuccess(result.data.session.user); });
+    }
+  } else if(optimisticBootTaken){
+    // Rare: the optimistic guess was wrong (session token present locally but genuinely
+    // invalid/revoked, not just expired -- expired-but-refreshable is handled transparently by
+    // the SDK and wouldn't reach this branch at all). Fall back to a real sign-in, same as if
+    // the optimistic path had never been attempted.
+    document.getElementById('authOverlay').style.display = 'flex';
+    document.getElementById('authLoadingState').style.display = 'none';
+    document.getElementById('authFormContent').style.display = 'block';
+  } else {
+    afterSplashMinimum(function(){
+      document.getElementById('authLoadingState').style.display = 'none';
+      document.getElementById('authFormContent').style.display = 'block';
+    });
+  }
+}).catch(function(){
+  afterSplashMinimum(function(){
+    document.getElementById('authLoadingState').style.display = 'none';
+    document.getElementById('authFormContent').style.display = 'block';
+  });
+});
+
 function saveState(){
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(appState)); } catch(e){}
 }
