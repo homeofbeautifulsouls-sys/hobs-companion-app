@@ -390,9 +390,33 @@ experts/team-list load that isn't needed until much later (confirmed by checking
 use of `TEAM_MEMBERS`: all inside later panels or button click handlers). Removed from the
 blocking path.
 
+### 34. Crisis AI was silently using the wrong provider entirely
+**What broke:** the fail-open semantics fix (#21, Aug 13–14) patched how `check-journal-risk`
+handled failure, but never questioned why it was reading `ANTHROPIC_API_KEY` at all.
+**Real, confirmed root cause**: a prior session had explicitly decided on Groq specifically —
+free, and Groq's policy doesn't retain data for training or model improvement, which matters
+more for a feature processing people's most vulnerable writing than almost anything else in
+this app. This decision was found only by directly searching past conversation history, not
+recalled — it had been silently lost somewhere between sessions.
+**Fix:** rewrote for Groq's actual API (OpenAI-compatible chat completions, not Anthropic's
+Messages format).
+**Caught a real bug during testing before considering this done**: the first model tried
+(`openai/gpt-oss-120b`) is a reasoning model that burns its token budget on internal reasoning
+before ever reaching the JSON output — failed outright at `max_tokens:50` on every single real
+test, confirmed via the actual logged errors. Switched to `llama-3.3-70b-versatile` (a
+non-reasoning model, matching the original decision), confirmed directly against Groq's real
+API to still be genuinely working despite Groq's own docs listing it as deprecated.
+**Verified with 4 real classification tests**: neutral text, a direct statement, an indirect/
+metaphorical expression (the entire reason this AI layer exists over pure keyword matching),
+and ordinary grief with no risk theme — all four correctly classified, `classifierAvailable:
+true` confirmed on every real request.
+**Also updated the Privacy Policy** to disclose Groq, honoring the explicit commitment made
+when this feature was originally designed — verified the "doesn't notify anyone else
+automatically" claim against the real client code before publishing it.
 
+---
 
-
+## Standing lessons (do not re-learn these)
 
 - **The `on_conflict` bug has now been found and fixed three separate times** (July session, Aug
   5, Aug 14) in three different tables/functions, because each fix was applied locally rather
