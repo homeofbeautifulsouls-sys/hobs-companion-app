@@ -2266,7 +2266,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260815125138';
+  var CURRENT_BUILD = '20260815133413';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -4759,6 +4759,10 @@ document.getElementById('intakeSubmitBtn').onclick = function(){
   // creates a pending request, same as the rest of the request-and-assign booking flow, so it
   // shows up for admin to act on.
   var note = document.getElementById('intakeNote').value.trim();
+  // Real gap closed: this is genuine first-contact free text -- someone could reasonably
+  // express real distress here before ever being connected with a professional -- and had no
+  // crisis coverage at all.
+  if(note) maybeShowCrisisResources(note);
   if(currentUser && currentUser.id){
     sb.from('expert_bookings').insert({
       user_id: currentUser.id, expert_name: 'Not specified — see intake note', role_category: 'Therapist',
@@ -5949,12 +5953,11 @@ async function sendChatMessage(){
   if(!text || !currentChatRoomId) return;
   input.value = '';
 
-  // Same keyword-based crisis check pattern already used on journal entries -- instant local
-  // reaction, run before the message even finishes sending, applied here since crisis safety
-  // needs to cover every message in every room type, not just journaling.
-  if(SELF_HARM_SIGNAL_PATTERNS.some(function(p){ return p.test(text); })){
-    showCrisisResourceModal();
-  }
+  // Real gap closed: this previously only ran the instant keyword layer directly, missing the
+  // second AI layer entirely -- calling the shared function instead now covers both, the same
+  // as journal entries. Crisis safety needs to cover every message in every room type, not just
+  // journaling, and not just the layer that happens to be free/instant.
+  maybeShowCrisisResources(text);
 
   var optimisticMsg = { id: 'temp-'+Date.now(), sender_id: currentUser.id, text: text, created_at: new Date().toISOString(), deleted: false };
   appendChatMessageBubble(optimisticMsg);
@@ -15063,6 +15066,12 @@ function commitWorksheetIfDirty(){
     if(val && val.trim()) hasContent = true;
   });
   if(!hasContent) return false;
+  // Real gap closed: worksheet reflection fields are genuinely free text (confirmed directly --
+  // every field here renders as a textarea unconditionally) and previously had no crisis
+  // coverage at all, despite being exactly the kind of reflective writing where someone might
+  // express something concerning. Combines all the field text into one check, same pattern as
+  // journal saves -- once per save, not per keystroke.
+  maybeShowCrisisResources(Object.values(data).join(' '));
   appState.worksheetEntries[currentWorksheetKey] = data;
   // Real bug found in a later audit: worksheet_responses (the actual answers) was already
   // correctly fixed to upsert by worksheet_key, but this entries-side "journal history" label
