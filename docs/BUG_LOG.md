@@ -469,6 +469,22 @@ navigation patterns.
 
 ---
 
+### 37. Share-as-image genuinely broken on native -- required Capacitor plugins were never installed
+**What broke:** "Couldn't share the image on this device right now" on every real attempt to
+share a journal entry as an image, reported directly with a real screenshot.
+**Root cause, confirmed directly, not assumed:** `shareImageFromCanvas()` was written assuming
+`@capacitor/filesystem` and `@capacitor/share` existed, but neither was ever actually installed
+-- confirmed missing from both `package.json` and `node_modules`.
+**Deeper issue, same bug class as AndroidManifest.xml:** `package.json` itself had never been
+saved to the persistent repo at all -- meaning every plugin this project uses, including ones
+that already worked, was at risk of being silently lost on a future from-scratch rebuild.
+**Fix:** installed both plugins, ran `npx cap sync android` to register them natively, and
+saved `package.json`/`package-lock.json` permanently to `android-native-assets/build-config/`.
+**Verified directly against the real compiled APK**, not just the install log: confirmed 82
+real references to `FilesystemPlugin`/`SharePlugin` in the actual compiled bytecode.
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 - **The `on_conflict` bug has now been found and fixed three separate times** (July session, Aug
