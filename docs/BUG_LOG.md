@@ -506,6 +506,28 @@ genuinely separate code paths, and each needs to be found and checked independen
 
 ---
 
+### 39. A brief loading screen still showed even for returning, already-logged-in users
+**What broke:** despite the optimistic-boot fix (#31), a loading screen still briefly appeared
+on every app open, even when already logged in.
+**Real root cause, confirmed directly:** this is Android's own native, OS-level cold-start
+splash (`Theme.SplashScreen`, referenced in `styles.xml`) -- it runs before any JS executes at
+all, completely separate from and untouchable by the optimistic-boot fix or anything else in
+`index.html`. It was showing a distinct "Bob" mascot image, which read as its own loading
+screen moment regardless of how fast the JS-level logic ran underneath it.
+**Fix:** replaced all 11 density/orientation splash.png variants with a solid color exactly
+matching the app's real background (`#FFF8F0`, the same color `#authOverlay` genuinely uses) --
+the native cold-start window still exists (can't be fully eliminated on modern Android), but
+now visually disappears into the app instead of reading as a distinct screen.
+**Verified rigorously, not just "build succeeded"**: release builds rename/obfuscate resource
+filenames, so confirmed by decoding the real resource table and checking the actual compiled
+pixel data -- found the exact splash dimensions with the exact target color baked into the real
+APK, not the original mascot image.
+**Also saved `package.json`/`package-lock.json` and the splash images themselves permanently**
+to `android-native-assets/`, the same lesson as `AndroidManifest.xml` -- native build assets
+that only exist in the ephemeral environment don't survive to the next session.
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 - **The `on_conflict` bug has now been found and fixed three separate times** (July session, Aug
