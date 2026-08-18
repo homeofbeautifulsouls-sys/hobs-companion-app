@@ -485,6 +485,27 @@ real references to `FilesystemPlugin`/`SharePlugin` in the actual compiled bytec
 
 ---
 
+### 38. The journal-index bug wasn't actually fixed the first time -- a second, separate navigation path
+**What broke:** after fix #29 shipped, the exact same symptom was still reported: editing an
+entry and going back still didn't show the change until leaving and returning a second time.
+**Real root cause, finally found:** the phone's hardware/gesture back button uses a completely
+separate navigation mechanism (`panelHistoryStack`, inside the `backButton` App listener) from
+the on-screen back arrow fix #29 addressed. This path correctly returns to wherever the user
+came from (it's genuinely stack-based), but never called `renderHistory()` when popping back to
+the journal index -- meaning anyone using the phone's native back gesture (very likely the
+actual common usage pattern, not tapping the on-screen arrow) never benefited from fix #29 at
+all.
+**Fix:** added the same `renderHistory()` call to this second path.
+**Verified properly this time**: mocked a real, minimal `window.Capacitor` surface via
+Playwright's `addInitScript` so the app's actual `addListener('backButton', ...)` call
+genuinely registers, then invoked that real, captured listener directly -- not a simulated
+approximation of hardware-back behavior. Confirmed the edit reflects immediately.
+**Lesson:** confirming a fix works for one navigation path (the on-screen button) is not the
+same as confirming the bug is fixed -- the same UI outcome can be reachable through multiple,
+genuinely separate code paths, and each needs to be found and checked independently.
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 - **The `on_conflict` bug has now been found and fixed three separate times** (July session, Aug
