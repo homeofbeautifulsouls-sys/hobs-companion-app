@@ -2266,7 +2266,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260815135249';
+  var CURRENT_BUILD = '20260818164520';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -2650,6 +2650,12 @@ if (IS_NATIVE_APP && window.Capacitor?.Plugins?.App) {
     if(panelHistoryStack.length > 1){
       panelHistoryStack.pop(); // remove the current panel from the stack
       var previousPanel = panelHistoryStack[panelHistoryStack.length - 1] || 'panel-bubbles'; // peek, don't pop -- showOnly() below will no-op its own push since this already matches the new top of stack
+      // Real, separate bug fixed here: this never refreshed the journal index when popping
+      // back to it via the hardware/gesture back button -- a genuinely different code path
+      // from the on-screen back arrow, which already had this fix. Landing here right after
+      // a save (currentPanel === 'panel-journal' above) left the index showing stale content
+      // until navigated away and back a second time.
+      if(previousPanel === 'panel-history') renderHistory();
       showOnly(previousPanel);
       if(previousPanel === 'panel-bubbles') setActiveNav('navHome');
     } else {
