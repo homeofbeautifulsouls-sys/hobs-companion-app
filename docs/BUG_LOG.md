@@ -528,6 +528,28 @@ that only exist in the ephemeral environment don't survive to the next session.
 
 ---
 
+### 40. A brief loading flash still showed on every open -- two genuinely separate layers, both needed fixing
+**What broke:** even after the native splash fix (#39), a loading screen still flashed briefly
+on every app open, "both times" (native cold-start, and the JS-level overlay).
+**Real root cause, layer two:** `authOverlay` had `display:flex` hardcoded directly in the HTML
+markup -- meaning it painted visible on first render before any JavaScript, including the
+optimistic-boot check itself, had a chance to run. This happened on every single app open
+regardless of whether the optimistic path would ultimately apply, since the browser paints the
+markup's default state before executing the script that would decide to keep it hidden.
+**Fix:** defaults to hidden in the markup now. The path that genuinely needs it (no cached
+session, or not fully onboarded) explicitly shows it and its own spinner instead of relying on
+a hardcoded default.
+**A real methodology lesson from verifying this**: an external MutationObserver-based browser
+test initially seemed to show the overlay still briefly flashing to `flex` before correcting to
+`none` -- which looked like the fix hadn't worked. Direct instrumentation added inside the
+actual function itself (console logging the real branch taken and the real state at each step)
+definitively showed the underlying logic was correct all along -- the earlier observer-based
+result was an artifact of the test's own setup, not a real bug. When a fix seems verified-wrong
+by an indirect test, add direct instrumentation to the real code path before concluding the fix
+itself is broken.
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 - **The `on_conflict` bug has now been found and fixed three separate times** (July session, Aug
