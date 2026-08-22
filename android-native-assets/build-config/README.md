@@ -16,3 +16,15 @@ actually installed -- causing every native "share as image" attempt to silently 
 On every Android rebuild: copy this package.json into hobs-android-build/, run `npm install`,
 then `npx cap sync android` to regenerate the native plugin registration -- do not skip this or
 assume the ephemeral environment already has the right plugins installed.
+
+## app-build.gradle
+
+Added August 22, 2026 -- discovered mid-rebuild that this file (versionCode, versionName, and
+the entire release signing configuration) had never been persisted either, despite the signing
+keystore itself finally being saved that same day. Every rebuild before this point silently
+regenerated a default, unsigned-release build.gradle from Capacitor's own template, which
+happened to work only because the same live session's memory carried the correct values forward
+each time -- exactly the kind of gap a sandbox reset was guaranteed to eventually expose.
+
+On every Android rebuild, copy this file to android/app/build.gradle, then bump versionCode/
+versionName above whatever was last actually shipped before building.
