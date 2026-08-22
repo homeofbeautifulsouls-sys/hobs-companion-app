@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "442987955585",
+    "project_id": "hobs-companion",
+    "storage_bucket": "hobs-companion.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:442987955585:android:2698f82849b04e819c5480",
+        "android_client_info": {
+          "package_name": "com.hobsfoundation.companion"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyApSp1iKU-ORGcEUfqTo3jjyiKFbbDJ-78"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
