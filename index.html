@@ -2266,7 +2266,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260818220814';
+  var CURRENT_BUILD = '20260823172730';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -4480,6 +4480,44 @@ document.getElementById('backBtn').onclick = function(){
     setActiveNav('navHome');
   }
 };
+function journalDraftKey(){
+  return editingEntryRef ? ('hobs_journal_draft_edit_' + editingEntryRef.id) : 'hobs_journal_draft_new';
+}
+var journalDraftSaveTimer = null;
+function scheduleJournalDraftSave(){
+  clearTimeout(journalDraftSaveTimer);
+  journalDraftSaveTimer = setTimeout(function(){
+    var textEl = document.getElementById('journalText');
+    var plain = textEl.textContent;
+    if(!plain.trim()) return; // nothing worth protecting yet
+    try {
+      localStorage.setItem(journalDraftKey(), JSON.stringify({
+        html: textEl.innerHTML,
+        textAlign: textEl.style.textAlign || 'left',
+        savedAt: new Date().toISOString(),
+      }));
+    } catch(e) { /* storage full or unavailable -- the real, recognized-exit save paths still work regardless */ }
+  }, 1500); // real pause in typing, not every keystroke -- frequent enough to catch a crash without hammering storage
+}
+function restoreJournalDraftIfAny(){
+  try {
+    var raw = localStorage.getItem(journalDraftKey());
+    if(!raw) return;
+    var draft = JSON.parse(raw);
+    var textEl = document.getElementById('journalText');
+    // For an edit, only worth restoring if it's genuinely different from the entry's own saved
+    // text -- otherwise this is just a stale draft from a normal, already-successful save.
+    if(editingEntryRef && draft.html === textEl.innerHTML) { localStorage.removeItem(journalDraftKey()); return; }
+    textEl.innerHTML = draft.html;
+    textEl.style.textAlign = draft.textAlign || 'left';
+    var when = new Date(draft.savedAt);
+    showToast('Restored an unsaved draft from ' + when.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}));
+  } catch(e) { /* a corrupted or unreadable draft just means falling through to the normal, empty state */ }
+}
+function clearJournalDraft(){
+  try { localStorage.removeItem(journalDraftKey()); } catch(e) {}
+}
+document.getElementById('journalText').addEventListener('input', scheduleJournalDraftSave);
 function commitMainJournalIfDirty(){
   var textEl = document.getElementById('journalText');
   var textAlign = textEl.style.textAlign || 'left';
@@ -4508,6 +4546,7 @@ function commitMainJournalIfDirty(){
     }
     logAnalyticsEvent('journal_edited');
     maybeShowCrisisResources(plainText);
+    clearJournalDraft();
     return true;
   }
 
@@ -4524,6 +4563,7 @@ function commitMainJournalIfDirty(){
   trackNotificationAction(selected.length ? 'logged_mood' : 'wrote_journal_entry');
   logAnalyticsEvent(selected.length ? 'mood_logged' : 'journal_written');
   maybeShowCrisisResources(plainText);
+  clearJournalDraft();
   return true;
 }
 
@@ -5450,6 +5490,7 @@ document.getElementById('choiceJournalBtn').onclick = function(){
   document.getElementById('journalDots').innerHTML = '';
   document.getElementById('journalText').innerHTML = ''; document.getElementById('journalText').style.textAlign = 'left';
   document.getElementById('saveNoteBtn').textContent = 'Save entry';
+  restoreJournalDraftIfAny();
   showOnly('panel-journal');
   setActiveNav('navJournal');
   var panel = document.getElementById('panel-journal');
@@ -6282,6 +6323,7 @@ function openEditEntrySheet(entry){
     journalTextEl.style.textAlign = 'left';
     journalTextEl.innerHTML = plainTextToSafeHtml(rawText);
   }
+  restoreJournalDraftIfAny();
   toClearAndReselectMoodsForEdit(entry.moods || []);
   document.getElementById('saveNoteBtn').textContent = 'Save changes';
   // Opening a specific past entry skips the cover entirely (the book is already "open" at this
@@ -9502,6 +9544,7 @@ document.getElementById('newJournalEntryFabBtn').onclick = function(){
   document.getElementById('journalDots').innerHTML = '';
   document.getElementById('journalText').innerHTML = ''; document.getElementById('journalText').style.textAlign = 'left';
   document.getElementById('saveNoteBtn').textContent = 'Save entry';
+  restoreJournalDraftIfAny();
   showOnly('panel-journal');
   setActiveNav('navJournal');
   var panel = document.getElementById('panel-journal');
