@@ -550,6 +550,21 @@ itself is broken.
 
 ---
 
+### 41. Crisis classifier silently down since the previous day -- Groq deprecated the model
+**What broke:** classifierAvailable was false on every real request, confirmed by testing two
+real, genuinely heavy journal entries directly (with explicit permission).
+**Root cause:** Groq fully removed llama-3.3-70b-versatile (404 model_not_found) -- exactly
+the risk flagged in this file's own comments when built, now realized.
+**Fix:** switched to openai/gpt-oss-safeguard-20b, a model OpenAI built specifically for
+safety classification against a custom policy -- a genuine upgrade, not just a replacement.
+**Verified against real content before shipping**: with reasoning_effort:medium, both real
+entries correctly returned riskDetected:true; confirmed reasoning_effort:low was insufficient
+and missed the same indirect, metaphorical content.
+**Also fixed the same dead reference in character-chat-reply** (still live/reachable via the
+assistant's fallback path) and redeployed.
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 - **The `on_conflict` bug has now been found and fixed three separate times** (July session, Aug
