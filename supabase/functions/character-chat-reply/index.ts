@@ -7,7 +7,7 @@
 // experience, and the standard for every generated line is whether it sounds like a genuine
 // piece of that person, not a chatbot doing an impression of a character description.
 //
-// Uses Groq (llama-3.3-70b-versatile) -- the same model and provider already proven working
+// Uses Groq -- the same provider already proven working for crisis detection, kept
 // for crisis detection, kept deliberately free, kept on the same model so there's only one
 // deprecation risk to track instead of two (see check-journal-risk for that note).
 //
@@ -184,8 +184,9 @@ Deno.serve(async (req) => {
         method: "POST",
         headers: { Authorization: `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
-          max_tokens: 50,
+          model: "openai/gpt-oss-safeguard-20b",
+          max_tokens: 2000,
+          reasoning_effort: "medium",
           response_format: { type: "json_object" },
           messages: [
             { role: "system", content: CRISIS_CLASSIFIER_PROMPT },
@@ -218,8 +219,9 @@ Deno.serve(async (req) => {
       method: "POST",
       headers: { Authorization: `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        max_tokens: 150,
+        model: "openai/gpt-oss-20b",
+        max_tokens: 1500,
+        reasoning_effort: "low",
         temperature: 0.8,
         messages: [
           { role: "system", content: CHARACTER_PROMPTS[character] },

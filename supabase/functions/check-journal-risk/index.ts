@@ -7,20 +7,24 @@
 // thoughtful, safety-aware person would: not just literal phrases, but the pattern-of-mind behind
 // abstract, wishful, or death-focused writing.
 //
-// Uses Groq (llama-3.3-70b-versatile), not a closed frontier model -- this was the actual
-// decision made when this feature was designed, specifically because Groq's free tier doesn't
-// charge and doesn't retain this data for training or use it to improve their models. For a
-// feature that processes people's most vulnerable writing, that matters more here than almost
-// anywhere else in this app. A prior version of this file used ANTHROPIC_API_KEY -- a real
-// regression from that original decision, corrected here.
+// Uses Groq (openai/gpt-oss-safeguard-20b), not a closed frontier model -- kept on Groq
+// specifically because it's free and doesn't retain this data for training or use it to
+// improve their models. For a feature processing people's most vulnerable writing, that
+// matters more here than almost anywhere else in this app.
 //
-// Note for whoever touches this next: Groq's own docs list this model as deprecated
-// (recommending migration to openai/gpt-oss-120b or qwen/qwen3.6-27b), but it was confirmed
-// directly, still genuinely working as of August 2026. If it ever actually stops working, do
-// NOT just drop in one of those replacements with the same low max_tokens -- confirmed directly
-// that gpt-oss-120b is a reasoning model that burns its token budget on internal reasoning
-// before ever reaching the JSON output, and fails outright at max_tokens:50. A reasoning-model
-// replacement needs either a much higher token budget or a non-reasoning alternative instead.
+// Real incident, August 23, 2026: the previous model (llama-3.3-70b-versatile) was fully
+// deprecated and removed by Groq -- confirmed via live error logs showing 404 model_not_found,
+// silently failing since at least the day before this was caught, meaning real journal entries
+// went unclassified during that window. Switched to gpt-oss-safeguard-20b, a model OpenAI built
+// specifically for bring-your-own-policy safety classification -- a genuine upgrade over
+// repurposing a general chat model, not just a same-tier replacement. Verified directly against
+// real user content before shipping: reasoning_effort must be "medium", not "low" -- confirmed
+// directly that "low" missed genuinely indirect, metaphorical risk language that "medium"
+// correctly caught, reasoning carefully through the ambiguity rather than pattern-matching.
+//
+// If this model is ever deprecated too: check Groq's currently available models directly
+// (https://api.groq.com/openai/v1/models) before assuming any specific replacement -- do not
+// trust a model name found in documentation or training data without confirming it's live.
 //
 // This is a genuinely safety-positive use of an AI API -- classification only, no user-facing
 // generation.
@@ -148,8 +152,9 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        max_tokens: 50,
+        model: "openai/gpt-oss-safeguard-20b",
+        max_tokens: 2000,
+        reasoning_effort: "medium",
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: CLASSIFIER_SYSTEM_PROMPT },
