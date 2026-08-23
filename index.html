@@ -2266,7 +2266,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260823174615';
+  var CURRENT_BUILD = '20260823180102';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -2394,13 +2394,12 @@ window.addEventListener('unhandledrejection', function(e){
 var currentUser = null;
 var lastKnownUserId = null; // tracks the owner even through a moment where currentUser itself is transiently unavailable (e.g. mid-reload), specifically so offline-queued writes can still be correctly attributed
 var pendingSyncQueue = [];
-try {
-  var storedQueue = localStorage.getItem('hobs_pending_sync');
-  if(storedQueue) pendingSyncQueue = JSON.parse(storedQueue);
-} catch(e){}
+hobsStorageGet('hobs_pending_sync').then(function(storedQueue){
+  try { if(storedQueue) pendingSyncQueue = JSON.parse(storedQueue); } catch(e){}
+});
 
 function savePendingSyncQueue(){
-  try { localStorage.setItem('hobs_pending_sync', JSON.stringify(pendingSyncQueue)); } catch(e){}
+  hobsStorageSet('hobs_pending_sync', JSON.stringify(pendingSyncQueue));
 }
 
 // Guarantees a save is never silently lost, even if currentUser is unexpectedly
@@ -4060,6 +4059,77 @@ function loadUserDataFromSupabase(){
   });
 }
 
+// ================= Robust on-device storage =================
+// Native: app-private Filesystem storage (Directory.Data) -- no permission prompt needed (this
+// directory is private to the app, unlike shared/external storage which does need one), much
+// higher capacity than localStorage, and far less likely to be cleared under storage pressure.
+// Web: completely unchanged, still plain localStorage -- Filesystem access isn't meaningfully
+// available in a browser tab the same way, and there's no reason to touch what already works
+// there.
+//
+// Deliberately NOT touched here: Supabase's own session-token storage. That's the login
+// library's own internal mechanism, not something this app manages -- duplicating or migrating
+// it would be a real risk for no real benefit.
+var HOBS_FS_DIR = 'hobs-data'; // subfolder within the app's private storage, keeps this app's own files clearly separated from anything else that directory might ever hold
+function hobsStorageAvailable(){
+  return IS_NATIVE_APP && !!(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem);
+}
+function hobsStorageGet(key){
+  if(!hobsStorageAvailable()){
+    try { return Promise.resolve(localStorage.getItem(key)); } catch(e){ return Promise.resolve(null); }
+  }
+  return window.Capacitor.Plugins.Filesystem.readFile({
+    path: HOBS_FS_DIR + '/' + key + '.json', directory: 'DATA', encoding: 'utf8',
+  }).then(function(result){ return result.data; })
+    .catch(function(){ return null; }); // the file simply not existing yet is a normal, expected case here, not a real error to log
+}
+function hobsStorageSet(key, value){
+  if(!hobsStorageAvailable()){
+    try { localStorage.setItem(key, value); } catch(e){}
+    return Promise.resolve();
+  }
+  return window.Capacitor.Plugins.Filesystem.writeFile({
+    path: HOBS_FS_DIR + '/' + key + '.json', data: value, directory: 'DATA', encoding: 'utf8', recursive: true,
+  }).catch(function(e){ console.error('hobsStorageSet failed for', key, e); });
+}
+function hobsStorageRemove(key){
+  if(!hobsStorageAvailable()){
+    try { localStorage.removeItem(key); } catch(e){}
+    return Promise.resolve();
+  }
+  return window.Capacitor.Plugins.Filesystem.deleteFile({
+    path: HOBS_FS_DIR + '/' + key + '.json', directory: 'DATA',
+  }).catch(function(){}); // fine if it never existed in the first place
+}
+// One-time migration: the first time this runs on a device that already has real data sitting
+// in the old localStorage keys, copy each one into the new Filesystem storage. The old
+// localStorage copy is deliberately left in place afterward, not deleted -- a safe, real
+// rollback path if anything about the new storage ever needs investigating, at the cost of a
+// few harmless, unused kilobytes left behind in the old location.
+var HOBS_MIGRATION_FLAG_KEY = 'hobs_fs_migration_done_v1';
+function migrateLocalStorageToFilesystemIfNeeded(){
+  if(!hobsStorageAvailable()) return Promise.resolve(); // nothing to migrate on web, this only matters on native
+  var alreadyDone;
+  try { alreadyDone = localStorage.getItem(HOBS_MIGRATION_FLAG_KEY); } catch(e){ alreadyDone = null; }
+  if(alreadyDone) return Promise.resolve();
+  // Deliberately NOT included: hobs_dismissed_tips and hobs_seen_confirmations. Both are read
+  // synchronously in the middle of existing render functions -- migrating them would mean
+  // restructuring those functions to handle a promise, real risk for genuinely trivial data (a
+  // handful of dismissed-tip/seen-notification IDs that will never approach any storage limit).
+  // Left on localStorage, unmigrated, rather than half-migrating data that's copied but never
+  // actually read from the new location again.
+  var keysToMigrate = ['hobs_prototype_state_v1', 'hobs_pending_sync'];
+  var migrations = keysToMigrate.map(function(key){
+    var oldValue;
+    try { oldValue = localStorage.getItem(key); } catch(e){ oldValue = null; }
+    if(oldValue === null) return Promise.resolve(); // nothing under this key for this device -- a fresh install, or it was never used
+    return hobsStorageSet(key, oldValue);
+  });
+  return Promise.all(migrations).then(function(){
+    try { localStorage.setItem(HOBS_MIGRATION_FLAG_KEY, new Date().toISOString()); } catch(e){}
+  });
+}
+
 var STORAGE_KEY = 'hobs_prototype_state_v1';
 function getDefaultAppState(){
   return {
@@ -4074,29 +4144,12 @@ function getDefaultAppState(){
   };
 }
 var appState = getDefaultAppState();
-(function loadState(){
-  try {
-    var raw = localStorage.getItem(STORAGE_KEY);
-    if(raw){ var loaded = JSON.parse(raw); for(var k in loaded){ appState[k] = loaded[k]; } }
-  } catch(e){}
-})();
-
-// Real architectural fix: previously always waited for the server to confirm a session before
-// showing anything at all, even when there was a perfectly good cached session sitting in
-// local storage from last time. Other apps don't skip this check -- they hide it, showing the
-// last-known screen immediately and only correcting course in the background if needed. Same
-// idea here: a synchronous, local-only check (no network call) for a cached Supabase session,
-// combined with the cached appState flags just loaded above (the exact same ones onAuthSuccess
-// uses to decide which screen to show) -- if both agree this is a fully onboarded returning
-// user, skip the spinner entirely and go straight to the home screen with whatever data is
-// already cached, while the real session confirmation and fresh data load happen invisibly
-// underneath. Anything less certain (new user, incomplete onboarding, no cached session at
-// all) falls through to the exact same proven spinner-then-decide flow as before.
 var optimisticBootTaken = false;
-(function attemptOptimisticBoot(){
+
+function attemptOptimisticBoot(){
   try {
     var authStorageKey = 'sb-' + SUPABASE_URL.replace('https://', '').split('.')[0] + '-auth-token';
-    var cachedSessionRaw = localStorage.getItem(authStorageKey);
+    var cachedSessionRaw = localStorage.getItem(authStorageKey); // Supabase's own storage, untouched by this migration -- see the note above hobsStorageGet
     var hasCachedSession = !!(cachedSessionRaw && JSON.parse(cachedSessionRaw).access_token);
     var looksFullyOnboarded = appState.onboardingComplete && appState.basicTosSigned && appState.hasSeenIntro &&
       !(appState.userHasAnyClinicalConnection && !appState.consentSigned && !appState.isTherapist);
@@ -4105,25 +4158,36 @@ var optimisticBootTaken = false;
       showOnly('panel-bubbles');
       renderHomeGreeting();
     } else {
-      // Real fix: authOverlay now defaults to hidden in the markup itself (fixing a genuine
-      // flash-before-JS-runs issue for the optimistic path above), so the path that genuinely
-      // needs it must now explicitly show it and its own loading spinner, rather than relying
-      // on a display:flex that used to be hardcoded into the HTML by default.
       var overlay = document.getElementById('authOverlay');
       overlay.style.display = 'flex';
       document.getElementById('authLoadingState').style.display = 'flex';
     }
   } catch(e){
-    // Same reasoning as above -- if anything unexpected happened, still need the overlay
-    // visible so the normal, proven flow below has something to work with.
     var overlay = document.getElementById('authOverlay');
     overlay.style.display = 'flex';
     document.getElementById('authLoadingState').style.display = 'flex';
   }
-})();
+}
 
-// Check for an existing session on load (keeps people signed in between visits)
-sb.auth.getSession().then(function(result){
+// The full boot chain, explicitly, deterministically sequenced: migrate old data if needed ->
+// load appState from the (possibly-upgraded) storage -> decide whether to boot optimistically
+// -> only then check the real session. Real race avoided here: getSession() used to run fully
+// independently, safe when loading state was purely synchronous -- now that the load can be a
+// genuine async Filesystem read on native, getSession() is deliberately chained after it
+// finishes rather than running concurrently, so optimisticBootTaken is always correctly set by
+// the time getSession()'s own callback checks it.
+migrateLocalStorageToFilesystemIfNeeded().then(function(){
+  return hobsStorageGet(STORAGE_KEY);
+}).then(function(raw){
+  try {
+    if(raw){ var loaded = JSON.parse(raw); for(var k in loaded){ appState[k] = loaded[k]; } }
+  } catch(e){}
+}).catch(function(){ /* fall through to attemptOptimisticBoot with default appState -- same safe fallback as before */ })
+  .then(function(){
+    attemptOptimisticBoot();
+    // Check for an existing session on load (keeps people signed in between visits)
+    return sb.auth.getSession();
+  }).then(function(result){
   if(result.data.session && result.data.session.user){
     if(optimisticBootTaken){
       // Already showing the app optimistically -- confirm and refresh with real data
@@ -4154,7 +4218,8 @@ sb.auth.getSession().then(function(result){
 });
 
 function saveState(){
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(appState)); } catch(e){}
+  try { JSON.stringify(appState); } catch(e){ return; } // fail fast and loud in dev if appState ever becomes non-serializable, before attempting any storage write
+  hobsStorageSet(STORAGE_KEY, JSON.stringify(appState));
 }
 
 var moods = [
@@ -4492,32 +4557,29 @@ function scheduleJournalDraftSave(){
     var textEl = document.getElementById('journalText');
     var plain = textEl.textContent;
     if(!plain.trim()) return; // nothing worth protecting yet
-    try {
-      localStorage.setItem(journalDraftKey(), JSON.stringify({
-        html: textEl.innerHTML,
-        textAlign: textEl.style.textAlign || 'left',
-        savedAt: new Date().toISOString(),
-      }));
-    } catch(e) { /* storage full or unavailable -- the real, recognized-exit save paths still work regardless */ }
+    hobsStorageSet(journalDraftKey(), JSON.stringify({
+      html: textEl.innerHTML,
+      textAlign: textEl.style.textAlign || 'left',
+      savedAt: new Date().toISOString(),
+    }));
   }, 1500); // real pause in typing, not every keystroke -- frequent enough to catch a crash without hammering storage
 }
 function restoreJournalDraftIfAny(){
-  try {
-    var raw = localStorage.getItem(journalDraftKey());
+  hobsStorageGet(journalDraftKey()).then(function(raw){
     if(!raw) return;
     var draft = JSON.parse(raw);
     var textEl = document.getElementById('journalText');
     // For an edit, only worth restoring if it's genuinely different from the entry's own saved
     // text -- otherwise this is just a stale draft from a normal, already-successful save.
-    if(editingEntryRef && draft.html === textEl.innerHTML) { localStorage.removeItem(journalDraftKey()); return; }
+    if(editingEntryRef && draft.html === textEl.innerHTML) { hobsStorageRemove(journalDraftKey()); return; }
     textEl.innerHTML = draft.html;
     textEl.style.textAlign = draft.textAlign || 'left';
     var when = new Date(draft.savedAt);
     showToast('Restored an unsaved draft from ' + when.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}));
-  } catch(e) { /* a corrupted or unreadable draft just means falling through to the normal, empty state */ }
+  }).catch(function(){ /* a corrupted or unreadable draft just means falling through to the normal, empty state */ });
 }
 function clearJournalDraft(){
-  try { localStorage.removeItem(journalDraftKey()); } catch(e) {}
+  hobsStorageRemove(journalDraftKey());
 }
 document.getElementById('journalText').addEventListener('input', scheduleJournalDraftSave);
 function commitMainJournalIfDirty(){
