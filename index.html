@@ -2266,7 +2266,7 @@
 // signal and layers several independent ones, including a plain timer that doesn't depend on
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
-  var CURRENT_BUILD = '20260823172730';
+  var CURRENT_BUILD = '20260823174615';
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -2425,13 +2425,14 @@ function generateClientId(){
   });
 }
 
-function syncToSupabase(table, payload, onSuccess){
+function syncToSupabase(table, payload, onSuccess, onConflictCol){
+  onConflictCol = onConflictCol || 'id';
   if(currentUser && currentUser.id){
     var clientId = payload.id || generateClientId();
-    var fullPayload = Object.assign({}, payload, { id: clientId, user_id: currentUser.id });
-    sb.from(table).upsert(fullPayload, { onConflict: 'id' }).select().single().then(function(result){
+    var fullPayload = Object.assign({}, payload, onConflictCol === 'id' ? { id: clientId } : {}, { user_id: currentUser.id });
+    sb.from(table).upsert(fullPayload, { onConflict: onConflictCol }).select().single().then(function(result){
       if(result.error){
-        pendingSyncQueue.push({ table: table, payload: fullPayload, ownerUserId: currentUser.id, queuedAt: new Date().toISOString() });
+        pendingSyncQueue.push({ table: table, payload: fullPayload, ownerUserId: currentUser.id, queuedAt: new Date().toISOString(), onConflictCol: onConflictCol });
         savePendingSyncQueue();
         return;
       }
@@ -2439,7 +2440,7 @@ function syncToSupabase(table, payload, onSuccess){
     });
   } else {
     var clientId2 = payload.id || generateClientId();
-    pendingSyncQueue.push({ table: table, payload: Object.assign({}, payload, { id: clientId2 }), ownerUserId: lastKnownUserId, queuedAt: new Date().toISOString() });
+    pendingSyncQueue.push({ table: table, payload: Object.assign({}, payload, onConflictCol === 'id' ? { id: clientId2 } : {}), ownerUserId: lastKnownUserId, queuedAt: new Date().toISOString(), onConflictCol: onConflictCol });
     savePendingSyncQueue();
   }
 }
@@ -2452,8 +2453,9 @@ function retryPendingSync(){
   pendingSyncQueue = toKeep;
   savePendingSyncQueue();
   toRetry.forEach(function(item){
-    var itemId = item.payload.id || generateClientId();
-    sb.from(item.table).upsert(Object.assign({}, item.payload, { id: itemId, user_id: currentUser.id }), { onConflict: 'id' }).then(function(result){
+    var itemId = item.onConflictCol === 'id' ? (item.payload.id || generateClientId()) : undefined;
+    var payloadToSend = Object.assign({}, item.payload, itemId ? { id: itemId } : {}, { user_id: currentUser.id });
+    sb.from(item.table).upsert(payloadToSend, { onConflict: item.onConflictCol || 'id' }).then(function(result){
       if(result.error){
         pendingSyncQueue.push(item);
         savePendingSyncQueue();
@@ -4535,9 +4537,7 @@ function commitMainJournalIfDirty(){
     entry.text = text;
     saveState();
     if(entry.id){
-      sb.from('entries').update({
-        moods: entry.moods, text: entry.text || ''
-      }).eq('id', entry.id).then(function(){});
+      syncToSupabase('entries', { id: entry.id, moods: entry.moods, text: entry.text || '' });
     } else {
       // This entry hasn't been confirmed synced yet (either still in flight, or from before this
       // whole class of bug was fixed) -- route through the same idempotent save path rather than
@@ -6214,9 +6214,9 @@ function renderHistory(){
         ev.stopPropagation();
         e.sharedWithTherapist = true;
         saveState();
-        if(e.id) sb.from('entries').update({ shared_with_therapist: true }).eq('id', e.id).then(function(){});
+        if(e.id) syncToSupabase('entries', { id: e.id, shared_with_therapist: true });
         if(e.type === 'worksheet' && e.worksheetKey && currentUser){
-          sb.from('worksheet_responses').update({ shared_with_therapist: true }).eq('user_id', currentUser.id).eq('worksheet_key', e.worksheetKey).then(function(){});
+          syncToSupabase('worksheet_responses', { worksheet_key: e.worksheetKey, shared_with_therapist: true }, null, 'user_id,worksheet_key');
         }
         renderHistory();
       };
@@ -6293,9 +6293,7 @@ function renderHistory(){
       ev.stopPropagation();
       e.archived = !historyShowingArchived;
       saveState();
-      if(e.id) sb.from('entries').update({ archived: e.archived }).eq('id', e.id).then(function(result){
-        if(result.error){ e.archived = !e.archived; saveState(); showToast("Couldn't update — please try again"); renderHistory(); }
-      });
+      if(e.id) syncToSupabase('entries', { id: e.id, archived: e.archived });
       showToast(historyShowingArchived ? 'Entry restored' : 'Entry archived');
       renderHistory();
     };
@@ -6868,12 +6866,10 @@ document.getElementById('periodDateModalSaveBtn').onclick = function(){
   btn.disabled = true; btn.textContent = 'Saving...';
 
   if(periodDateModalMode === 'end'){
-    sb.from('period_logs').update({ end_date: dateVal }).eq('id', periodOngoingLogId).then(function(result){
-      btn.disabled = false; btn.textContent = 'Save';
-      if(result.error){ showToast('Could not save — please try again.'); return; }
-      closePeriodDateModal();
-      renderPeriodTracker();
-    });
+    syncToSupabase('period_logs', { id: periodOngoingLogId, end_date: dateVal });
+    btn.disabled = false; btn.textContent = 'Save';
+    closePeriodDateModal();
+    renderPeriodTracker();
     return;
   }
 
@@ -6885,23 +6881,19 @@ document.getElementById('periodDateModalSaveBtn').onclick = function(){
   };
 
   if(periodDateModalMode === 'start'){
-    payload.user_id = currentUser.id;
     payload.start_date = dateVal;
-    sb.from('period_logs').insert(payload).then(function(result){
-      btn.disabled = false; btn.textContent = 'Save';
-      if(result.error){ showToast('Could not save — please try again.'); return; }
-      logAnalyticsEvent('period_logged');
-      closePeriodDateModal();
-      renderPeriodTracker();
-    });
+    syncToSupabase('period_logs', payload);
+    btn.disabled = false; btn.textContent = 'Save';
+    logAnalyticsEvent('period_logged');
+    closePeriodDateModal();
+    renderPeriodTracker();
   } else { // edit
+    payload.id = periodEditingLogId;
     payload.start_date = dateVal;
-    sb.from('period_logs').update(payload).eq('id', periodEditingLogId).then(function(result){
-      btn.disabled = false; btn.textContent = 'Save';
-      if(result.error){ showToast('Could not save — please try again.'); return; }
-      closePeriodDateModal();
-      renderPeriodTracker();
-    });
+    syncToSupabase('period_logs', payload);
+    btn.disabled = false; btn.textContent = 'Save';
+    closePeriodDateModal();
+    renderPeriodTracker();
   }
 };
 
@@ -7612,7 +7604,7 @@ function buildTaskItemElement(task, opts){
               sub.title = newTitle;
               saveState();
               if(String(sub.id).indexOf('temp_') !== 0){
-                sb.from('subtasks').update({ title: newTitle }).eq('id', sub.id).then(function(r){ if(r.error) console.error(r.error); });
+                syncToSupabase('subtasks', { id: sub.id, title: newTitle });
               }
             }
             renderTaskListCal();
@@ -7657,7 +7649,7 @@ function buildTaskItemElement(task, opts){
         saveState();
         reordered.forEach(function(s){
           if(String(s.id).indexOf('temp_') !== 0){
-            sb.from('subtasks').update({ sort_order: s.sortOrder }).eq('id', s.id).then(function(){});
+            syncToSupabase('subtasks', { id: s.id, sort_order: s.sortOrder });
           }
         });
       });
@@ -7770,7 +7762,7 @@ function renderTaskListCal(){
       task.priority = newPriority;
       saveState();
       if(String(task.id).indexOf('temp_') !== 0){
-        sb.from('tasks').update({ priority: newPriority }).eq('id', task.id).then(function(){});
+        syncToSupabase('tasks', { id: task.id, priority: newPriority });
       }
     }
     renderTaskListCal();
@@ -7809,10 +7801,10 @@ function toggleSubtask(taskId, subId){
   saveState();
   renderTaskListCal();
   if(String(subId).indexOf('temp_') !== 0){
-    sb.from('subtasks').update({ done: sub.done }).eq('id', subId).then(function(r){ if(r.error) console.error(r.error); });
+    syncToSupabase('subtasks', { id: subId, done: sub.done });
   }
   if(parentDoneChanged && String(taskId).indexOf('temp_') !== 0){
-    sb.from('tasks').update({ done: task.done }).eq('id', taskId).then(function(r){ if(r.error) console.error(r.error); });
+    syncToSupabase('tasks', { id: taskId, done: task.done });
   }
   if(sub.done){
     var newBadge = checkAchievements();
@@ -7840,11 +7832,11 @@ function toggleTaskCal(taskId){
 
   saveState(); renderTaskListCal();
   if(String(taskId).indexOf('temp_') !== 0){
-    sb.from('tasks').update({ done: task.done }).eq('id', taskId).then(function(r){ if(r.error) console.error(r.error); });
+    syncToSupabase('tasks', { id: taskId, done: task.done });
   }
   cascadedSubtaskIds.forEach(function(subId){
     if(String(subId).indexOf('temp_') !== 0){
-      sb.from('subtasks').update({ done: task.done }).eq('id', subId).then(function(r){ if(r.error) console.error(r.error); });
+      syncToSupabase('subtasks', { id: subId, done: task.done });
     }
   });
 
@@ -8499,11 +8491,10 @@ function commitSheetTaskIfDirty(){
   }, function(savedRow){
     localTask.id = savedRow.id; // swap temp ID for the real one
     if(subtaskData.length && currentUser && currentUser.id){
-      var rows = subtaskData.map(function(st){ return { user_id: currentUser.id, task_id: savedRow.id, title: st.title, done:false, image_url: st.imageUrl, alarm_at: st.alarmAt }; });
-      sb.from('subtasks').insert(rows).select().then(function(subResult){
-        if(!subResult.error){
-          localTask.subtasks.forEach(function(st, i){ if(subResult.data[i]) st.id = subResult.data[i].id; });
-        }
+      subtaskData.forEach(function(st, i){
+        var subId = generateClientId();
+        localTask.subtasks[i].id = subId;
+        syncToSupabase('subtasks', { id: subId, task_id: savedRow.id, title: st.title, done: false, image_url: st.imageUrl, alarm_at: st.alarmAt });
       });
     }
   });
@@ -8557,14 +8548,14 @@ function commitTaskEdit(title, deadlineIso, subtaskRows, alarmIso){
   if(sheetTargetKey === activeDayKey) renderTaskListCal();
 
   if(String(taskId).indexOf('temp_') !== 0){
-    sb.from('tasks').update({
-      title: title, duration: sheetDuration, repeat: sheetRepeat,
+    syncToSupabase('tasks', {
+      id: taskId, title: title, duration: sheetDuration, repeat: sheetRepeat,
       priority: sheetPriority, deadline: deadlineIso, alarm_at: alarmIso, alarm_notified: false, image_url: sheetTaskImageUrl
-    }).eq('id', taskId).then(function(result){ if(result.error) console.error(result.error); });
+    });
   }
   updatedSubtasks.forEach(function(s){
     if(String(s.id).indexOf('temp_') !== 0){
-      sb.from('subtasks').update({ title: s.title, image_url: s.image_url || null, alarm_at: s.alarmAt, alarm_notified: false }).eq('id', s.id).then(function(){});
+      syncToSupabase('subtasks', { id: s.id, title: s.title, image_url: s.image_url || null, alarm_at: s.alarmAt, alarm_notified: false });
     }
   });
   removedSubtasks.forEach(function(s){
@@ -8573,11 +8564,10 @@ function commitTaskEdit(title, deadlineIso, subtaskRows, alarmIso){
     }
   });
   if(newSubtaskObjs.length && currentUser && currentUser.id){
-    var rows = newSubtaskObjs.map(function(s){ return { user_id: currentUser.id, task_id: taskId, title: s.title, done:false, image_url: s.image_url || null, alarm_at: s.alarmAt }; });
-    sb.from('subtasks').insert(rows).select().then(function(subResult){
-      if(!subResult.error){
-        newSubtaskObjs.forEach(function(s, i){ if(subResult.data[i]) s.id = subResult.data[i].id; });
-      }
+    newSubtaskObjs.forEach(function(s){
+      var subId = generateClientId();
+      s.id = subId;
+      syncToSupabase('subtasks', { id: subId, task_id: taskId, title: s.title, done: false, image_url: s.image_url || null, alarm_at: s.alarmAt });
     });
   }
 
@@ -15184,9 +15174,7 @@ function commitWorksheetIfDirty(){
     existingEntry.date = new Date().toISOString();
     saveState();
     if(existingEntry.id && currentUser && currentUser.id){
-      sb.from('entries').update({ created_at: existingEntry.date }).eq('id', existingEntry.id).then(function(result){
-        if(result.error) console.error('worksheet entry update failed:', result.error);
-      });
+      syncToSupabase('entries', { id: existingEntry.id, created_at: existingEntry.date });
     }
     upsertWorksheetResponse(currentWorksheetKey, currentWorksheetCategory, data);
     return true;
@@ -15212,12 +15200,10 @@ function commitWorksheetIfDirty(){
 // (user_id, worksheet_key).
 function upsertWorksheetResponse(worksheetKey, categoryKey, data){
   if(!currentUser || !currentUser.id) return;
-  sb.from('worksheet_responses').upsert({
-    user_id: currentUser.id, worksheet_key: worksheetKey, category_key: categoryKey,
+  syncToSupabase('worksheet_responses', {
+    worksheet_key: worksheetKey, category_key: categoryKey,
     answers: data, updated_at: new Date().toISOString()
-  }, { onConflict: 'user_id,worksheet_key' }).then(function(result){
-    if(result.error) console.error('worksheet upsert failed:', result.error);
-  });
+  }, null, 'user_id,worksheet_key');
 }
 
 function openWorksheetDetail(key){
@@ -15258,9 +15244,7 @@ document.getElementById('worksheetSaveBtn').onclick = function(){
     existingEntry.date = new Date().toISOString();
     saveState();
     if(existingEntry.id && currentUser && currentUser.id){
-      sb.from('entries').update({ created_at: existingEntry.date }).eq('id', existingEntry.id).then(function(result){
-        if(result.error) console.error('worksheet entry update failed:', result.error);
-      });
+      syncToSupabase('entries', { id: existingEntry.id, created_at: existingEntry.date });
     }
   } else {
     var entry = {
