@@ -585,6 +585,14 @@ never need rediscovering again.
 
 ## Standing lessons (do not re-learn these)
 
+**Run `deployment/verify-before-deploy.sh` before every single deploy, web or Android, no
+exceptions.** This exists because the keystore, the manifest, package.json, the app's own
+signing config, google-services.json, MainActivity.java, and every image asset were each found
+missing separately, reactively, after something had already broken for the real user -- the
+same root cause every time: something the app needs that was never verified to exist before
+shipping. This script checks all of it in one pass and fails loudly if anything is missing.
+Skipping this check is how the exact same class of bug happens again.
+
 - **The `on_conflict` bug has now been found and fixed three separate times** (July session, Aug
   5, Aug 14) in three different tables/functions, because each fix was applied locally rather
   than turned into a rule. **The rule, stated once, for good: every `POST` intended as an upsert
