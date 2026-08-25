@@ -605,6 +605,30 @@ genuinely imperceptible and not worth redesigning the layout over.
 
 ---
 
+### 44. Bubble collision fix (#43) didn't fully hold on the real device -- added a guaranteed cap
+**What happened:** the dimension-timing fix from #43 was verified in testing but the person
+confirmed, on the real device, running the exact shipped version, that bubbles were still
+visibly colliding at extreme speed.
+**Real, likely cause found on review:** `step()`'s very first call is synchronous (`step();`),
+while the dimension-correction fix runs via `requestAnimationFrame` -- which is always
+asynchronous. This means the very first animation frame can still run before the dimension fix
+has had a chance to execute, defeating it for exactly the frame that matters most.
+**Real fix, not dependent on timing this time:** added a hard velocity cap directly in the
+physics step -- regardless of how many forces stack up in a single frame or what caused them,
+no bubble's speed can ever exceed a fixed maximum. This guarantees the visible symptom cannot
+occur, rather than only trying to prevent every possible cause of it.
+**Verified against the actual worst case**, not just the original two-bubble scenario: forced
+every bubble into the same corner simultaneously (maximum possible compounding collision force)
+and confirmed peak speed never exceeds the cap.
+**Also added a diagnostic** reporting real field dimensions and real peak speed from actual
+devices, to get definitive confirmation rather than relying on simulated testing alone.
+**Lesson**: a fix verified in isolated testing can still fail on a real device if there's an
+async/sync timing gap between the fix and the very first execution of what it's protecting --
+worth checking for a defensive, timing-independent version of a fix when the first one doesn't
+fully hold.
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 **Run `deployment/verify-before-deploy.sh` before every single deploy, web or Android, no

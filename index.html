@@ -4354,6 +4354,7 @@ bubbles.forEach(function(b){
   b.el = el;
 });
 
+var bubbleDiagFrameCount = 0, bubbleDiagPeakSpeed = 0, bubbleDiagInitialFw = fw, bubbleDiagInitialFh = fh, bubbleDiagSent = false;
 function step(){
   for(var i=0;i<bubbles.length;i++){
     var b = bubbles[i];
@@ -4370,10 +4371,35 @@ function step(){
         b.vx += (dx/dist)*force; b.vy += (dy/dist)*force;
       }
     }
-    b.vx*=0.92; b.vy*=0.92; b.x+=b.vx; b.y+=b.vy;
+    b.vx*=0.92; b.vy*=0.92;
+    // Defensive fix: multiple simultaneous close neighbors can each add up to 0.4 force in a
+    // single frame, additively -- this can still produce a visually "insane speed" collision
+    // even with the dimension-timing fix in place, if several bubbles end up close together at
+    // once for any reason. Capping the resulting speed directly guarantees this specific
+    // symptom can't happen, regardless of what produced the underlying force.
+    var speed = Math.sqrt(b.vx*b.vx + b.vy*b.vy), maxSpeed = 2.5;
+    if(speed > maxSpeed){ b.vx = (b.vx/speed)*maxSpeed; b.vy = (b.vy/speed)*maxSpeed; }
+    if(speed > bubbleDiagPeakSpeed) bubbleDiagPeakSpeed = speed;
+    b.x+=b.vx; b.y+=b.vy;
     if(b.x<0){b.x=0;b.vx*=-0.5;} if(b.x>fw-b.size){b.x=fw-b.size;b.vx*=-0.5;}
     if(b.y<0){b.y=0;b.vy*=-0.5;} if(b.y>fh-b.size-22){b.y=fh-b.size-22;b.vy*=-0.5;}
     b.wrap.style.left=b.x+'px'; b.wrap.style.top=b.y+'px';
+  }
+  // TEMPORARY diagnostic -- real data needed on real devices, not just simulated testing.
+  bubbleDiagFrameCount++;
+  if(bubbleDiagFrameCount === 60 && !bubbleDiagSent){
+    bubbleDiagSent = true;
+    try {
+      sb.from('error_logs').insert({
+        user_id: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null,
+        message: 'BUBBLE_FIELD_DIAG: ' + JSON.stringify({
+          initialFw: bubbleDiagInitialFw, initialFh: bubbleDiagInitialFh,
+          finalFw: fw, finalFh: fh,
+          peakSpeedFirstSecond: bubbleDiagPeakSpeed
+        }),
+        stack: '', page_url: 'bubble-field-diagnostic'
+      }).then(function(){});
+    } catch(diagErr){}
   }
   requestAnimationFrame(step);
 }
