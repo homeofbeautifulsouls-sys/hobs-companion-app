@@ -30,6 +30,13 @@ for f in index.html version.json donate.html privacy-policy.html terms-of-servic
   [ -f "$SITE_DIR/$f" ] && cp "$SITE_DIR/$f" "$STAGE_DIR/"
 done
 [ -d "$SITE_DIR/fonts" ] && cp -r "$SITE_DIR/fonts" "$STAGE_DIR/"
+# Real bug found August 25, 2026: every image went missing from both the website and every APK
+# after the sandbox reset because this list never included them. android-native-assets/web-images/
+# is the authoritative, complete list -- always copy every file in it.
+if [ -d "$SITE_DIR/android-native-assets/web-images" ]; then
+  cp "$SITE_DIR"/android-native-assets/web-images/*.jpg "$STAGE_DIR/" 2>/dev/null
+  cp "$SITE_DIR"/android-native-assets/web-images/*.png "$STAGE_DIR/" 2>/dev/null
+fi
 
 ZIPFILE="/tmp/site_deploy_${TIMESTAMP}.zip"
 (cd "$STAGE_DIR" && zip -r "$ZIPFILE" . -x ".*" > /dev/null)
