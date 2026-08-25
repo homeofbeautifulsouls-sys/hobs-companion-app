@@ -4153,6 +4153,28 @@ function attemptOptimisticBoot(){
     var hasCachedSession = !!(cachedSessionRaw && JSON.parse(cachedSessionRaw).access_token);
     var looksFullyOnboarded = appState.onboardingComplete && appState.basicTosSigned && appState.hasSeenIntro &&
       !(appState.userHasAnyClinicalConnection && !appState.consentSigned && !appState.isTherapist);
+    // TEMPORARY diagnostic -- real data needed to see why the optimistic path isn't taking on
+    // a real device, rather than guessing further. Remove once the real cause is found.
+    try {
+      sb.from('error_logs').insert({
+        user_id: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null,
+        message: 'OPTIMISTIC_BOOT_DIAG: ' + JSON.stringify({
+          authStorageKey: authStorageKey,
+          hasCachedSessionRaw: !!cachedSessionRaw,
+          cachedSessionRawLength: cachedSessionRaw ? cachedSessionRaw.length : 0,
+          hasCachedSession: hasCachedSession,
+          onboardingComplete: appState.onboardingComplete,
+          basicTosSigned: appState.basicTosSigned,
+          hasSeenIntro: appState.hasSeenIntro,
+          userHasAnyClinicalConnection: appState.userHasAnyClinicalConnection,
+          consentSigned: appState.consentSigned,
+          isTherapist: appState.isTherapist,
+          looksFullyOnboarded: looksFullyOnboarded,
+        }),
+        stack: '',
+        page_url: 'optimistic-boot-diagnostic'
+      }).then(function(){});
+    } catch(diagErr){}
     if(hasCachedSession && looksFullyOnboarded){
       optimisticBootTaken = true;
       showOnly('panel-bubbles');
@@ -4201,6 +4223,14 @@ migrateLocalStorageToFilesystemIfNeeded().then(function(){
     // invalid/revoked, not just expired -- expired-but-refreshable is handled transparently by
     // the SDK and wouldn't reach this branch at all). Fall back to a real sign-in, same as if
     // the optimistic path had never been attempted.
+    // TEMPORARY diagnostic -- confirming this exact branch is what's firing on the real device.
+    try {
+      sb.from('error_logs').insert({
+        user_id: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null,
+        message: 'OPTIMISTIC_BOOT_REVERTED: getSession returned no valid session despite optimisticBootTaken being true. session=' + JSON.stringify(result.data.session) + ' error=' + JSON.stringify(result.error),
+        stack: '', page_url: 'optimistic-boot-reverted-diagnostic'
+      }).then(function(){});
+    } catch(diagErr){}
     document.getElementById('authOverlay').style.display = 'flex';
     document.getElementById('authLoadingState').style.display = 'none';
     document.getElementById('authFormContent').style.display = 'block';
@@ -4243,6 +4273,24 @@ var bubbles = moods.map(function(m){
   var x = m.x * (fw - size);
   var y = fh - size - m.y * (fh - size);
   return {label:m.label, x:x, y:y, mx:m.x, my:m.y, vx:(Math.random()-0.5)*0.2, vy:(Math.random()-0.5)*0.2, size:size, h:m.h, s:m.s, l:m.l, phase:Math.random()*6.28};
+});
+// Real, confirmed bug fix: field.offsetWidth/offsetHeight can genuinely still be 0 here (falling
+// back to the hardcoded 300x340 default) if this runs before the browser has completed a layout
+// pass for this panel -- setting style.display doesn't force one synchronously. Confirmed with
+// real numbers that this specifically placed Heavy and Numb too close together at that fallback
+// size, triggering a strong repulsion force from the very first frame -- looked like the bubbles
+// violently colliding. Fix: once a real layout pass has definitely happened (guaranteed by
+// requestAnimationFrame), re-check the real dimensions and recalculate positions if they were
+// initialized against the wrong ones.
+requestAnimationFrame(function(){
+  var realFw = field.offsetWidth, realFh = field.offsetHeight;
+  if(realFw && realFh && (realFw !== fw || realFh !== fh)){
+    fw = realFw; fh = realFh;
+    bubbles.forEach(function(b){
+      b.x = b.mx * (fw - b.size);
+      b.y = fh - b.size - b.my * (fh - b.size);
+    });
+  }
 });
 
 var selected = [];

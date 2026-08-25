@@ -583,6 +583,28 @@ never need rediscovering again.
 
 ---
 
+### 43. Mood bubbles violently "colliding" on app open -- real physics bug, root-caused with numbers
+**What broke:** the Heavy and Numb mood bubbles appeared to collide at extreme speed briefly
+when the app opened.
+**Root cause, confirmed with real math, not assumption:** bubble positions are calculated from
+the mood-selector field's actual rendered size -- but if this runs before the browser has
+completed a layout pass for that panel (setting style.display doesn't force one synchronously),
+it silently falls back to a hardcoded 300x340 default. Calculated exactly: at that fallback
+size, Heavy and Numb start out only 43.6px apart when the physics needs at least 87px between
+them -- triggering a strong repulsion force (0.199, half the engine's max) from the very first
+animation frame.
+**Fix:** once a real layout pass has definitely happened (guaranteed by requestAnimationFrame),
+recheck the real field dimensions and recalculate every bubble's position if they were
+initialized against the wrong ones.
+**Verified with real, forced-scenario tests**, not just reasoning: confirmed the exact buggy
+initial state reproduces the reported overlap, and confirmed the fix's recalculation logic
+genuinely corrects it once real dimensions are available. Also found two much smaller,
+pre-existing 1-2px overlaps elsewhere in the layout (Hopeful/Numb, Tired/Calm) -- calculated
+their resulting force at roughly 25x weaker than the actual reported bug, confirming they're
+genuinely imperceptible and not worth redesigning the layout over.
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 **Run `deployment/verify-before-deploy.sh` before every single deploy, web or Android, no
