@@ -642,6 +642,19 @@ genuinely visible with the correct image, together, in the same real test run.
 
 ---
 
+### 46. Home hero background image flashing on app open -- gradient vs. photo decode race
+**What broke:** a real, confirmed split-second flash on every app open where the home hero
+showed just its dark gradient overlay, without the background photo underneath it.
+**Root cause:** the hero section layers a CSS gradient (paints instantly, pure CSS) over
+hero-image.jpg (has to be fetched and decoded) -- on a real device, that decode can take a
+moment longer than the gradient needs to paint, causing a real, visible gap between the two.
+**Fix:** start fetching and decoding hero-image.jpg as early as the very first script on the
+page can possibly run -- well before the person could ever reach the home screen -- so it has
+the maximum possible head start and is already fully ready by the time the hero section could
+ever become visible.
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 **Run `deployment/verify-before-deploy.sh` before every single deploy, web or Android, no

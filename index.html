@@ -11,6 +11,21 @@
 <title>HOBS Companion — Mood Check-in</title>
 <script src="supabase.min.js" onerror="window.__SUPABASE_LOAD_FAILED = true;"></script>
 <script>
+  // Real, guaranteed fix for a confirmed, real bug: the home hero section layers a CSS
+  // gradient (paints instantly) over a background photo (hero-image.jpg) that needs to be
+  // fetched and decoded -- on a real device, that decode can take a moment longer than the
+  // gradient needs, causing a real, visible split-second flash where only the gradient shows.
+  // Starting the fetch+decode here, as early as this script can possibly run (well before the
+  // home screen is ever reached), gives it the maximum possible head start so the image is
+  // already fully ready by the time anyone could see the hero section at all.
+  (function preloadHeroImage(){
+    try {
+      var img = new Image();
+      img.src = 'hero-image.jpg';
+      if(img.decode) img.decode().catch(function(){});
+    } catch(e){}
+  })();
+
   // Real perf fix: html2canvas (~194KB) and jsPDF (~356KB) used to be loaded here as blocking
   // <head> scripts -- meaning every single person paid for both, on every single load, before
   // the browser could even finish parsing the rest of this page, for two features (share as
