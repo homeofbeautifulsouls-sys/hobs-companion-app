@@ -565,6 +565,24 @@ assistant's fallback path) and redeployed.
 
 ---
 
+### 42. Hostinger deployment finally, genuinely fixed -- real mechanism found and saved
+**The problem:** since the environment reset, no working method existed to deploy to the real
+website. Every guess at a direct file-upload REST endpoint returned 404 across many attempts.
+**The real fix:** Hostinger's own official MCP server (`hostinger-api-mcp`, installable from
+npm) handles the actual resumable TUS upload protocol internally via its
+`hosting_deployStaticWebsite` tool -- nothing about that protocol needs to be hand-built.
+**Process followed for the production rollout**: deployed to staging first, verified directly
+against the live staging URL (not just the tool's success message); ran a genuinely unmocked
+functional test of the exact file about to ship (real login, real save, real reload, zero
+uncaught errors); backed up the current live production files; deployed to production; then
+verified with three independent checks -- version match, new-code markers present, every other
+static file still served -- and finally a full real login test against the actual live
+production URL itself, not a local copy.
+**Saved permanently**: `deployment/deploy-to-hostinger.sh`, a reusable script -- this should
+never need rediscovering again.
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 - **The `on_conflict` bug has now been found and fixed three separate times** (July session, Aug
