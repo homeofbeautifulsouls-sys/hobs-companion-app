@@ -2944,17 +2944,16 @@ function onAuthSuccess(user){
     syncDeviceInfo();
     checkUnreadNotifications();
     maybeSilentlyRefreshGoogleCalendarToken();
-    // If the optimistic boot path already showed the home screen, and fresh data confirms the
-    // same "fully onboarded, no gates needed" state it guessed from cache, there's nothing left
-    // to do here -- re-running showWelcomeBackScreen() would pop its full-screen overlay on top
-    // of a UI the person is already looking at, a real, jarring glitch for no reason. Still
-    // falls through to the normal gate logic below if fresh data reveals the guess was wrong
-    // (a real gate is actually needed) -- correctness there matters more than avoiding a rare
-    // UI hiccup in that specific, uncommon case.
+    // Welcome-back screen always shows, even after the optimistic boot path already rendered
+    // home directly -- confirmed this is the actual wanted behavior, not the "avoid a jarring
+    // glitch" tradeoff a prior session assumed. renderHomeGreeting() here is effectively a
+    // harmless re-render (the optimistic path already called it) since the welcome-back overlay
+    // layers on top regardless.
     if(optimisticBootTaken && appState.onboardingComplete && appState.basicTosSigned &&
        !(appState.userHasAnyClinicalConnection && !appState.consentSigned && !appState.isTherapist) &&
        appState.hasSeenIntro){
       renderHomeGreeting();
+      showWelcomeBackScreen();
       return;
     }
     if(!appState.onboardingComplete){

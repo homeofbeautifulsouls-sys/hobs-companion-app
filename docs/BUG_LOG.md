@@ -629,6 +629,19 @@ fully hold.
 
 ---
 
+### 45. Welcome-back screen restored on the fast boot path -- was a deliberate but wrong tradeoff
+**What happened:** a prior session's optimistic-boot work deliberately skipped the "Welcome back
+Home" screen (bob-welcome-back.jpg) whenever the fast boot path was taken, reasoning that
+popping it over an already-visible home screen would be "a jarring glitch." Confirmed directly:
+this was the wrong tradeoff -- the welcome-back screen was an intentional, wanted feature, not
+something to sacrifice for the fast boot.
+**Fix:** the welcome-back screen now always shows, even after the optimistic path has already
+rendered home directly.
+**Verified directly**: confirmed `optimisticBootTaken: true` and the welcome-back overlay
+genuinely visible with the correct image, together, in the same real test run.
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 **Run `deployment/verify-before-deploy.sh` before every single deploy, web or Android, no
