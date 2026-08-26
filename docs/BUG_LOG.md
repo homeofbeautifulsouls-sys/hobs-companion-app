@@ -741,6 +741,30 @@ background actually painted, not just whether the element hosting it was there).
 
 ---
 
+### 51. Real architectural fix, replacing many rounds of patching individual flash symptoms
+**The real, underlying problem, finally addressed directly**: no matter how each individual
+visible glitch was fixed (missing images, panel visibility, hero background), there was always
+some non-zero window between the native splash disappearing and the app's JS being fully ready
+-- and whatever happened to be visible during that window kept changing shape with each fix,
+because the actual root cause (a window existing at all) was never addressed.
+**Real fix**: installed the official @capacitor/splash-screen plugin and configured
+`launchAutoHide: false`, holding the native splash open until the app's own JS explicitly calls
+`SplashScreen.hide()` -- only once the boot decision is fully made (login form vs. home screen)
+and, if showing home, every image the first visible screen needs is confirmed loaded (with a
+2-second safety timeout so one failed image can never hang the splash forever). This guarantees
+there is nothing to see in between -- the splash gives way directly to the final, correct,
+fully-ready screen.
+**Verified directly** with a real, persistent mock of the native Filesystem and the new
+SplashScreen plugin (fixed a real test-methodology flaw along the way: an in-memory mock
+doesn't survive a real page reload, backing it with actual localStorage does): confirmed the
+splash is hidden exactly once, at the correct moment, on both the fast (optimistic) and slow
+(login form) boot paths.
+**Also saved capacitor.config.ts permanently** -- discovered it had never been persisted at
+all, the same gap found repeatedly this session, fixed proactively this time rather than after
+losing it.
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 **Run `deployment/verify-before-deploy.sh` before every single deploy, web or Android, no
