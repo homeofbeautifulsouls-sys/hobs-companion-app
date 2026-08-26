@@ -107,6 +107,7 @@ Deno.serve(async (req) => {
         title: "HOBS Companion: error activity detected",
         body,
         notificationType: "error_alert",
+        data: { type: "error_alert" },
       }),
     });
     const pushResult = await pushRes.json().catch(() => ({}));

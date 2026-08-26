@@ -670,6 +670,28 @@ Home" fallback despite the room_id already being present in the data the whole t
 
 ---
 
+### 48. Two more real bugs found from direct reports -- fixed and verified, not assumed
+**Bug A: welcome-back screen appeared visibly late, after the bubbles were already moving.**
+Root cause: it was called from inside an async session-confirmation callback, not synchronously
+during the fast boot path -- meaning the home screen (and its bubble animation) rendered and
+became visible first, with the welcome-back overlay only popping in afterward. Fixed by calling
+it synchronously, in attemptOptimisticBoot() itself, so it appears before the bubbles are ever
+visible. Removed the now-redundant duplicate call from the async path.
+**Bug B: tapping the admin error/uptime alert notifications did nothing.** Same root pattern as
+#47 (chat_message): confirmed via real, live data that error-alert-monitor and uptime-monitor
+both send their push notifications with a completely empty data payload -- notification_type is
+tracked in the database for logging, but was never actually included in what gets sent to the
+device, so there was nothing for the tap handler to route on. Fixed both Edge Functions to
+include the type in the real push payload (confirmed send-push-notification already fully
+supports this), and added routing to the admin dashboard's system tab, where these actually
+live.
+**Both verified directly**: the welcome-back timing fix confirmed the overlay is already visible
+before a freshly-attached observer could even catch the change (i.e., very early); the alert
+routing fix confirmed via direct function calls that both types correctly open the dashboard and
+switch to the right tab.
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 **Run `deployment/verify-before-deploy.sh` before every single deploy, web or Android, no

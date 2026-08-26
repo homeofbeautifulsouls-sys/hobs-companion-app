@@ -123,6 +123,7 @@ Deno.serve(async (req) => {
           title: "HOBS Companion: uptime status change",
           body: stateChanges.join(" "),
           notificationType: "uptime_alert",
+          data: { type: "uptime_alert" },
         }),
       });
       const pushResult = await pushRes.json().catch(() => ({}));

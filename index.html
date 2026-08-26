@@ -2959,16 +2959,13 @@ function onAuthSuccess(user){
     syncDeviceInfo();
     checkUnreadNotifications();
     maybeSilentlyRefreshGoogleCalendarToken();
-    // Welcome-back screen always shows, even after the optimistic boot path already rendered
-    // home directly -- confirmed this is the actual wanted behavior, not the "avoid a jarring
-    // glitch" tradeoff a prior session assumed. renderHomeGreeting() here is effectively a
-    // harmless re-render (the optimistic path already called it) since the welcome-back overlay
-    // layers on top regardless.
+    // Welcome-back screen and home greeting are now both already shown synchronously in
+    // attemptOptimisticBoot() itself, the moment the optimistic path is taken -- nothing left
+    // to do here for that case. Calling either again here would mean showing the welcome-back
+    // overlay twice in quick succession.
     if(optimisticBootTaken && appState.onboardingComplete && appState.basicTosSigned &&
        !(appState.userHasAnyClinicalConnection && !appState.consentSigned && !appState.isTherapist) &&
        appState.hasSeenIntro){
-      renderHomeGreeting();
-      showWelcomeBackScreen();
       return;
     }
     if(!appState.onboardingComplete){
@@ -3295,6 +3292,9 @@ function handleNotificationTap(notifData){
     renderProfile(); showOnly('panel-profile'); setActiveNav('navYou');
   } else if((type === 'new_client_connected' || type === 'session_booked_alert') && appState.isTherapist){
     openTherapistDashboard();
+  } else if((type === 'error_alert' || type === 'uptime_alert') && appState.isAdmin){
+    openAdminDashboard();
+    switchAdminDashTab('system');
   } else if(type === 'chat_message' && notifData.room_id){
     openChatRoom(notifData.room_id);
   } else {
@@ -4169,32 +4169,15 @@ function attemptOptimisticBoot(){
     var hasCachedSession = !!(cachedSessionRaw && JSON.parse(cachedSessionRaw).access_token);
     var looksFullyOnboarded = appState.onboardingComplete && appState.basicTosSigned && appState.hasSeenIntro &&
       !(appState.userHasAnyClinicalConnection && !appState.consentSigned && !appState.isTherapist);
-    // TEMPORARY diagnostic -- real data needed to see why the optimistic path isn't taking on
-    // a real device, rather than guessing further. Remove once the real cause is found.
-    try {
-      sb.from('error_logs').insert({
-        user_id: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null,
-        message: 'OPTIMISTIC_BOOT_DIAG: ' + JSON.stringify({
-          authStorageKey: authStorageKey,
-          hasCachedSessionRaw: !!cachedSessionRaw,
-          cachedSessionRawLength: cachedSessionRaw ? cachedSessionRaw.length : 0,
-          hasCachedSession: hasCachedSession,
-          onboardingComplete: appState.onboardingComplete,
-          basicTosSigned: appState.basicTosSigned,
-          hasSeenIntro: appState.hasSeenIntro,
-          userHasAnyClinicalConnection: appState.userHasAnyClinicalConnection,
-          consentSigned: appState.consentSigned,
-          isTherapist: appState.isTherapist,
-          looksFullyOnboarded: looksFullyOnboarded,
-        }),
-        stack: '',
-        page_url: 'optimistic-boot-diagnostic'
-      }).then(function(){});
-    } catch(diagErr){}
     if(hasCachedSession && looksFullyOnboarded){
       optimisticBootTaken = true;
       showOnly('panel-bubbles');
       renderHomeGreeting();
+      // Real fix: calling this here, synchronously, means it appears instantly -- before the
+      // bubbles are ever visible at all -- rather than waiting on an async session-confirmation
+      // round-trip, which let the home screen (and its settling bubble animation) render and
+      // become visible first, with the welcome-back overlay only popping in late afterward.
+      showWelcomeBackScreen();
     } else {
       var overlay = document.getElementById('authOverlay');
       overlay.style.display = 'flex';
