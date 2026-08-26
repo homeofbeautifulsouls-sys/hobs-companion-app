@@ -959,6 +959,34 @@ to production after that's confirmed. This should never have been skippable in t
 
 ---
 
+### 59. Mood check-in flow was still broken -- an earlier fix only patched one of two save buttons
+**What was reported**: saving a journal entry that started from selecting a mood didn't show the
+mood tracker.
+**Real investigation, not an assumption**: checked git history first -- confirmed this exact code
+path was untouched by anything from today's other work. Reproduced it directly with a real test
+account against the real production build: selecting "Calm," writing an entry, and tapping the
+actual "Save entry" button (`#saveNoteBtn` / `handleJournalSave`) landed on the generic "Saved"
+screen, not the mood tracker.
+**Root cause**: an earlier session's fix (docs/BUG_LOG #(mood check-in fix), commit 6c57545) only
+patched the Back button's handler (`document.getElementById('backBtn').onclick`), which shows the
+mood tracker after a mood-linked save. It never touched `handleJournalSave` -- the handler behind
+the actual, primary "Save entry" button people use in normal practice. Two different code paths
+both do "save a mood-linked entry," and only one of them got fixed.
+**Fix**: added the same mood-tracker redirect to `handleJournalSave`, only for a non-distressed
+mood selection (distressed moods correctly keep routing to grounding, unchanged) -- captured
+`hadMoodSelection` before `resetJournalState()` clears it, the same reason the original fix had
+to do that.
+**Verified three separate real scenarios against the real backend before shipping, not just
+one**: selecting "Calm" and saving now correctly shows `panel-mood-tracker` with real chart data;
+selecting "Anxious" (a distress mood) still correctly routes to `panel-grounding`, confirming the
+clinical safety path wasn't disturbed; a plain journal entry with no mood selected is provably
+unaffected since the fix only adds a new branch, doesn't touch the existing one.
+**Shipped as v3.39 (versionCode 59)**, JS-only change, no native surface -- verified live (byte-
+identical download, correct version, fix genuinely present in the bundled JS, alarm code still
+absent, every other site file still reachable).
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 **Run `deployment/verify-before-deploy.sh` before every single deploy, web or Android, no

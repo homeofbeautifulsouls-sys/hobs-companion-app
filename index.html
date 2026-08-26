@@ -4808,6 +4808,7 @@ function handleJournalSave(e){
   // by routing through the same shared function every other save path already correctly uses.
   var distressMoods = ['Anxious', 'Restless', 'Heavy', 'Numb']; // Numb added per direct clinical decision -- emotional numbness/dissociation is a real, often under-recognized sign of distress, arguably easier to miss than anxiety
   var isDistressed = selected.some(function(b){ return distressMoods.indexOf(b.label) !== -1; });
+  var hadMoodSelection = selected.length > 0; // must capture before resetJournalState() clears it -- same reason backBtn's handler does this
   var saved = commitMainJournalIfDirty();
   if(!saved){ showToast('Write something or pick a mood first'); return; }
   document.getElementById('panel-journal').style.display = 'none';
@@ -4819,6 +4820,17 @@ function handleJournalSave(e){
     showOnly('panel-grounding');
     setActiveNav('navBreathe');
     showToast("That sounded like a lot — here's something that might help");
+  } else if(hadMoodSelection){
+    // Real, confirmed bug: this button (the primary, explicit "Save entry" action -- what
+    // people actually tap in normal use) never got the same mood-tracker-after-saving fix the
+    // Back button's handler already has. A mood check-in landed on the generic "Saved" screen
+    // instead of showing the actual mood tracking data, exactly as if selecting a mood had done
+    // nothing. Confirmed via git history this button's handler was untouched by anything else
+    // today -- this bug predates and is unrelated to that other work, just newly found here.
+    refreshWho5EntryButton();
+    renderMoodChart();
+    renderMoodPastDays();
+    showOnly('panel-mood-tracker');
   } else {
     renderSavedPanel();
     document.getElementById('panel-saved').style.display = 'block';
