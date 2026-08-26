@@ -851,6 +851,32 @@ confirmed still reachable after the deploy.
 
 ---
 
+### 55. Shipped a genuine version downgrade -- APK install failed on the real device ("package appears to be invalid")
+**What happened:** built v3.16 (versionCode 36) for the alarm feature by bumping the repo's
+stored `app-build.gradle` (versionCode 35/"3.15") by one. Deployed it, told Akash it was ready --
+he tried to install it and Android refused outright.
+**Real root cause, found immediately by checking ground truth instead of the repo:** the repo's
+stored version number was badly stale. Querying `profiles.app_version_code` /
+`app_version_name` (which the app itself reports on every session via Capacitor's
+`App.getInfo()` -- real, ground-truth data, not a file that has to be manually kept in sync)
+showed Akash's actual installed app was already at **versionCode 55, versionName "3.35"** --
+confirmed as the true max across every account, not just his. 20 versions of real, shipped
+builds had never been persisted back into this repo's `app-build.gradle`. Building 36 on top of
+the stale 35 was a genuine downgrade; same-signature downgrades are exactly what Android's
+installer silently refuses, which is what produced the generic "package appears to be invalid"
+message rather than a clearer version-conflict one.
+**Fix:** rebuilt as versionCode 56 / versionName "3.36" -- verified strictly above the real max
+found in `profiles`, not just the repo's number plus one. Re-verified everything from scratch
+(signing SHA-256, package/version via `aapt`, all 5 new alarm classes still in the `.dex`,
+`version.json` still matching what's baked into the APK) before redeploying, and confirmed the
+redeployed live APK is byte-for-byte identical (SHA-256) to what was built and verified locally.
+**Standing fix, not just a one-time correction:** `docs/MASTER.md`'s Android build instructions
+now say explicitly to check `select max(app_version_code), max(app_version_name) from profiles`
+before ever bumping the version -- the repo's own stored number is not to be trusted as current,
+only as a lower bound.
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 **Run `deployment/verify-before-deploy.sh` before every single deploy, web or Android, no

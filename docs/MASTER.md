@@ -235,7 +235,16 @@ cp ../hobs-repo/android-native-assets/mainactivity/MainActivity.java android/app
 cp ../hobs-repo/android-native-assets/alarm-feature/*.java android/app/src/main/java/com/hobsfoundation/companion/
 cp ../hobs-repo/android-native-assets/alarm-feature/res-layout/activity_alarm.xml android/app/src/main/res/layout/activity_alarm.xml
 cp ../hobs-repo/android-native-assets/build-config/app-build.gradle android/app/build.gradle
-# then bump versionCode/versionName in that build.gradle above whatever was last shipped
+# then bump versionCode/versionName above whatever was ACTUALLY last shipped -- do not trust
+# the value already sitting in this repo's app-build.gradle to be current. Real, confirmed
+# incident (Aug 26, 2026): the repo had versionCode 35/"3.15" while the real installed app was
+# already at versionCode 55/"3.35" -- 20 versions of undocumented drift from builds that were
+# never persisted back here. Building versionCode 36 on top of that stale baseline produced a
+# genuine downgrade, which Android's installer silently refused ("package appears to be
+# invalid"). Verify the TRUE current version first, every time, with:
+#   select max(app_version_code), max(app_version_name) from profiles;
+# (the app reports its own real installed version here via Capacitor's App.getInfo() on every
+# session -- this is ground truth, the repo's file is not) -- then bump strictly above that.
 npx cap sync android
 ```
 Also need a real Android SDK + JDK 21 in the environment (`apt-get install openjdk-21-jdk-headless`,
@@ -267,7 +276,7 @@ the one exception — do not "fix" it by removing the reference or generating a 
 
 ## 7. Full bug history and standing lessons
 
-**Do not skip this.** `docs/BUG_LOG.md` (890 lines as of this writing) contains 54 detailed,
+**Do not skip this.** `docs/BUG_LOG.md` (930 lines as of this writing) contains 55 detailed,
 real, root-caused bug entries plus a running list of standing lessons at its top. Reading it in
 full before starting work is the single highest-leverage thing a new session can do — several of
 the bugs in it were caused by not knowing something an earlier entry in the same file already
