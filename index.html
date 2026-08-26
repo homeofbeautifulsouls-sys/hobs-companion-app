@@ -5156,20 +5156,32 @@ function showOnly(panelId){
       window.Capacitor.Plugins.PrivacyScreen.disable().catch(function(){});
     }
   }
-  // Real, confirmed bug (found via a live report, reproduced with the actual captured hardware
-  // back-button listener, not guessed): this always pushed forward, even when panelId is
-  // literally the screen just below the current one on the stack -- exactly what every on-screen
-  // "Back" button does. That silently duplicated the previous screen back onto the stack instead
-  // of properly popping to it, so the hardware/gesture back button (which only ever pops) then
-  // needed one extra press per on-screen Back tap to actually leave -- confusingly landing back
-  // on a screen already left, or, with enough of these stacked up over a session, exiting the
-  // app at an unexpected, seemingly random point. Detected by checking whether panelId matches
-  // the screen just below the top: that's specifically and only what "going back" ever looks
-  // like, so this is safe to pop for -- genuine forward navigation to a new screen still pushes
-  // exactly as before.
-  var isGoingBackToPreviousPanel = panelHistoryStack.length > 1 &&
-    panelHistoryStack[panelHistoryStack.length - 2] === panelId;
-  if(isGoingBackToPreviousPanel){
+  // Real, confirmed bug -- diagnosed properly this time, not patched narrowly. Checked every
+  // single call site in the whole file that navigates to one of the 5 bottom-nav destination
+  // screens (panel-bubbles/Home, panel-calendar/Tasklist, panel-history/Journal,
+  // panel-grounding/Breathe, panel-profile/You): every one of them, with no exception, is always
+  // either a bottom-nav tab tap or a "return to this tab's own root" action -- never a genuine
+  // deep link that should preserve unrelated prior history. But showOnly() treated every one of
+  // those exactly like drilling into a brand new detail screen, pushing onto the same single
+  // linear stack. That meant a normal session of switching Home -> Journal -> Tasklist -> Home
+  // left the hardware back button replaying that *entire tab-switching history* one step at a
+  // time -- landing on whatever tab was visited two or three taps ago, or exiting at a point
+  // that had nothing to do with where the person actually was. Standard Android bottom
+  // navigation is never supposed to work this way: switching tabs is lateral, not a step deeper
+  // in a hierarchy.
+  var TOP_LEVEL_TAB_PANELS = ['panel-bubbles', 'panel-calendar', 'panel-history', 'panel-grounding', 'panel-profile'];
+  if(TOP_LEVEL_TAB_PANELS.indexOf(panelId) !== -1){
+    // Collapses to just Home, plus this tab if it isn't Home itself -- so back always predictably
+    // unwinds whatever's open within the current tab first, then reaches that tab's root, then
+    // Home, then exits. Any deeper screen already pushed within this tab (a specific task day, a
+    // journal entry, a worksheet) still sits on top of this and is popped first, unaffected.
+    var newTopLevelStack = panelId === 'panel-bubbles' ? ['panel-bubbles'] : ['panel-bubbles', panelId];
+    if(previousPanel !== panelId) logScreenView(panelId, previousPanel);
+    panelHistoryStack = newTopLevelStack;
+  } else if(panelHistoryStack.length > 1 && panelHistoryStack[panelHistoryStack.length - 2] === panelId){
+    // Separate, narrower case (bug #60): an on-screen "Back" button returning to the screen
+    // immediately below the current one on the stack (not one of the 5 tab roots above, which
+    // are already fully handled by the reset above) -- pop rather than duplicate-push.
     panelHistoryStack.pop();
   } else if(panelHistoryStack[panelHistoryStack.length - 1] !== panelId){
     var fromPanel = panelHistoryStack[panelHistoryStack.length - 1];

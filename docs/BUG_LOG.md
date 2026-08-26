@@ -1025,6 +1025,37 @@ resolved.
 
 ---
 
+### 61. Actually diagnosed properly this time: bottom-nav tabs were building a linear back stack across the whole session
+**What was reported**: hardware back button randomly landing on Tasklist, or Journal, or
+exiting -- no consistent pattern, right after #60's fix.
+**Real diagnosis, not another narrow patch**: grepped every single call site in the entire file
+that navigates to one of the 5 bottom-nav destination screens (`panel-bubbles`/Home,
+`panel-calendar`/Tasklist, `panel-history`/Journal, `panel-grounding`/Breathe,
+`panel-profile`/You). Every one, with zero exceptions, is either a bottom-nav tab tap or a
+"return to this tab's own root" action -- never a genuine deep link meant to preserve unrelated
+prior history. `showOnly()` treated every one of those exactly like drilling into a brand new
+detail screen, pushing onto the same single linear stack #60 only partially addressed. A normal
+session of switching Home -> Journal -> Tasklist -> Home left the hardware back button replaying
+that entire tab-switching history one step at a time -- explaining exactly what was reported:
+back landing on whatever tab happened to be visited a few taps earlier, or exiting at a point
+with no visible relationship to where the person actually was.
+**Fix, at the actual architectural root**: navigating to any of the 5 tab-root panels now
+collapses `panelHistoryStack` to just Home (if going Home) or `[Home, thatTab]` (otherwise) --
+matching standard Android bottom-navigation convention, where switching tabs is lateral, not a
+step deeper in a hierarchy. A drill-down screen already open within a tab (a specific task day, a
+journal entry) still sits on top of this and is popped first, unaffected -- only tab-to-tab
+switching itself no longer accumulates.
+**Verified with three separate real scenarios against the actual captured hardware back-button
+listener, not assumed**: (1) switching through Journal -> Tasklist -> Breathe -> Home -> Journal
+and then pressing back twice now predictably goes Home, then exits -- regardless of how many tabs
+were visited first; (2) drilling into a specific day from the Tasklist tab (after switching
+through other tabs first) and pressing back four times correctly unwinds day -> Tasklist -> Home
+-> exit, one predictable step at a time; (3) re-confirmed #60's original mood-tracker scenario
+still works correctly under this new logic.
+**Shipped as v3.41 (versionCode 61)**, verified live.
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 **Run `deployment/verify-before-deploy.sh` before every single deploy, web or Android, no
