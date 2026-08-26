@@ -1056,6 +1056,43 @@ still works correctly under this new logic.
 
 ---
 
+### 62. Real, confirmed DATA-LOSS bug: writing a mood-linked journal entry and pressing hardware back instead of Save silently discarded it and closed the app
+**What was reported**: "Mood - Journal - Exit App" instead of the correct Mood - Journal - Mood
+Tracker flow.
+**Real investigation, reproduced precisely before writing a single line of fix code**: wrote a
+real entry via the mood-check-in flow in a test account, pressed the hardware back button
+(captured the real listener directly, same method as #38/#60/#61) instead of tapping the
+on-screen Save button, and confirmed two things directly against the live database: `exitApp()`
+fired, and the `entries` table for that account stayed completely empty. The entry was not just
+mis-routed -- it never reached the server at all.
+**Root cause**: the hardware back-button handler read "what panel am I currently on" from
+`panelHistoryStack`'s top entry, but `panel-journal` -- specifically when entered via the mood
+flow's "Continue" button -- is shown through raw display manipulation and never gets pushed onto
+that stack. So `if(currentPanel === 'panel-journal' ...)` silently never matched, the autosave
+call never ran, and execution fell straight through to `panelHistoryStack.length > 1` being
+false (stack was still just `['panel-bubbles']`), landing directly on `exitApp()`.
+**Fix**: the handler now determines the actually-visible panel by checking the DOM directly
+(iterating `allPanels`, same technique already used elsewhere in this file) instead of trusting
+the stack, since the two are now proven capable of diverging. When the real visible panel is
+`panel-journal`, hardware back delegates straight to the exact same `backBtn` on-screen handler
+-- which already correctly knows about the mood-tracker redirect and `journalWritingOrigin` --
+rather than re-implementing a second, simplified, now-proven-divergent copy of that logic.
+Confirmed `panel-worksheet-detail` doesn't have this problem (already entered via `showOnly()`
+properly) and `panel-quick-journal` appears to be dead/unreachable code currently, so left both
+alone rather than touching things that weren't broken.
+**Verified three separate real scenarios against the live database before shipping, not just
+one**: mood-linked entry via hardware back now correctly saves and lands on the mood tracker
+(confirmed the row exists, with the actual written text); a distressed-mood entry via hardware
+back still saves and doesn't exit (routes to mood tracker, matching the on-screen Back button's
+existing behavior exactly -- noting as a separate, pre-existing, out-of-scope observation that
+Back and Save Entry have never applied the same distress-routing check, unlike this fix); a plain
+journal entry from the Journal tab (no mood) via hardware back correctly saves and returns to the
+journal index. All three rows confirmed present in the real `entries` table afterward.
+**Shipped as v3.42 (versionCode 62)**, verified live. Given this was genuine data loss on a
+mental-health journaling app, this is about as high-severity as a bug in this app gets.
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 **Run `deployment/verify-before-deploy.sh` before every single deploy, web or Android, no
