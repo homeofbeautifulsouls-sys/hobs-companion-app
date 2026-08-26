@@ -8015,6 +8015,8 @@ function addSubtask(taskId, title){
 function toggleSubtask(taskId, subId){
   var task = getTasks(activeDayKey).find(function(t){ return t.id === taskId; });
   var sub = task.subtasks.find(function(s){ return s.id === subId; });
+  var wasSubDone = sub.done;
+  var wasTaskDone = task.done;
   sub.done = !sub.done;
 
   // Auto-sync the parent's own completion with its subtasks: all done -> parent completes;
@@ -8037,6 +8039,13 @@ function toggleSubtask(taskId, subId){
   if(parentDoneChanged && String(taskId).indexOf('temp_') !== 0){
     syncToSupabase('tasks', { id: taskId, done: task.done });
   }
+  showUndoToast(sub.done ? 'Step marked done' : 'Step marked not done', function(){
+    sub.done = wasSubDone;
+    task.done = wasTaskDone;
+    saveState(); renderTaskListCal();
+    if(String(subId).indexOf('temp_') !== 0) syncToSupabase('subtasks', { id: subId, done: wasSubDone });
+    if(parentDoneChanged && String(taskId).indexOf('temp_') !== 0) syncToSupabase('tasks', { id: taskId, done: wasTaskDone });
+  });
   if(sub.done){
     var newBadge = checkAchievements();
     if(newBadge) showAchievement(newBadge, function(){});
@@ -8044,6 +8053,7 @@ function toggleSubtask(taskId, subId){
 }
 function toggleTaskCal(taskId){
   var task = getTasks(activeDayKey).find(function(t){ return t.id === taskId; });
+  var wasDone = task.done;
   task.done = !task.done;
 
   // Real bug found from a live screenshot: this used to just flip task.done in isolation, with
@@ -8055,9 +8065,10 @@ function toggleTaskCal(taskId){
   // task WITH subtasks now cascades the same done-value to every subtask too, so task.done can
   // never again say something the subtasks don't actually agree with.
   var cascadedSubtaskIds = [];
+  var priorSubtaskStates = {}; // for undo: only the ones this exact tap actually changed
   if(task.subtasks && task.subtasks.length > 0){
     task.subtasks.forEach(function(s){
-      if(s.done !== task.done){ s.done = task.done; cascadedSubtaskIds.push(s.id); }
+      if(s.done !== task.done){ priorSubtaskStates[s.id] = s.done; s.done = task.done; cascadedSubtaskIds.push(s.id); }
     });
   }
 
@@ -8069,6 +8080,23 @@ function toggleTaskCal(taskId){
     if(String(subId).indexOf('temp_') !== 0){
       syncToSupabase('subtasks', { id: subId, done: task.done });
     }
+  });
+
+  // Real, direct request: the entire task row is a single large tap target for this, so an
+  // accidental tap is easy -- give a genuine few-second window to undo the exact thing that just
+  // happened (this task's own state, plus only the subtasks this specific tap actually changed,
+  // not a blanket re-sync of the whole task) rather than a confirm dialog on every single tap.
+  showUndoToast(task.done ? 'Task marked done' : 'Task marked not done', function(){
+    task.done = wasDone;
+    Object.keys(priorSubtaskStates).forEach(function(subId){
+      var s = task.subtasks.find(function(x){ return x.id === subId; });
+      if(s) s.done = priorSubtaskStates[subId];
+    });
+    saveState(); renderTaskListCal();
+    if(String(taskId).indexOf('temp_') !== 0) syncToSupabase('tasks', { id: taskId, done: task.done });
+    Object.keys(priorSubtaskStates).forEach(function(subId){
+      if(String(subId).indexOf('temp_') !== 0) syncToSupabase('subtasks', { id: subId, done: priorSubtaskStates[subId] });
+    });
   });
 
   if(task.done){
@@ -8170,6 +8198,35 @@ function showToast(msg){
   t.textContent = msg; t.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(function(){ t.classList.remove('show'); }, 2400);
+}
+// Real, direct request after an accidental tap changed a task's completion state with no way
+// back: rather than a blocking confirm dialog on every single tap (which would make checking
+// off a task -- the single most frequent action in a to-do app -- slow and annoying every time),
+// this gives a real few-second window to undo the exact thing that just happened, the same
+// pattern Gmail/Google Tasks use for this exact problem. Separate from showToast/#toastMsg
+// (which is deliberately non-interactive, pointer-events:none, used everywhere else) since this
+// one needs to be genuinely tappable.
+var undoToastTimer = null;
+function showUndoToast(msg, undoFn){
+  var existing = document.getElementById('undoToastEl');
+  if(existing) existing.remove();
+  clearTimeout(undoToastTimer);
+  var el = document.createElement('div');
+  el.id = 'undoToastEl';
+  el.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#2E3A5A;color:#FFF8F0;padding:10px 12px 10px 18px;border-radius:20px;font-size:12px;font-weight:600;z-index:60;white-space:nowrap;max-width:88%;display:flex;align-items:center;gap:12px;box-shadow:0 4px 14px rgba(0,0,0,0.18);';
+  var msgSpan = document.createElement('span'); msgSpan.textContent = msg;
+  var undoBtn = document.createElement('button');
+  undoBtn.textContent = 'Undo';
+  undoBtn.style.cssText = 'background:none;border:none;color:#8FB4E8;font-size:12px;font-weight:700;cursor:pointer;padding:2px 4px;flex-shrink:0;';
+  undoBtn.onclick = function(){
+    el.remove();
+    clearTimeout(undoToastTimer);
+    undoFn();
+  };
+  el.appendChild(msgSpan);
+  el.appendChild(undoBtn);
+  document.body.appendChild(el);
+  undoToastTimer = setTimeout(function(){ el.remove(); }, 5000);
 }
 document.getElementById('shareProgressBtn').onclick = function(){ document.getElementById('shareOverlay').style.display = 'flex'; };
 document.getElementById('closeShareBtn').onclick = function(){ document.getElementById('shareOverlay').style.display = 'none'; };

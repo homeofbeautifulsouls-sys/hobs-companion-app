@@ -9,9 +9,6 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
   @Override
   public void onCreate(Bundle savedInstanceState) {
-    // Real, native alarm plugin -- must be registered before super.onCreate() per Capacitor's
-    // own documented pattern for custom plugins.
-    registerPlugin(TaskAlarmPlugin.class);
     super.onCreate(savedInstanceState);
     // Real fix: the app's own CSS already declares color-scheme: light only, but that alone
     // isn't always reliably respected by Android's native WebView-level "Force Dark" /

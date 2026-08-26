@@ -16,6 +16,10 @@ needing to rebuild a document-generation pipeline just to update one line.
 
 ## Other real, outstanding items (not blockers, but genuinely open)
 
+- [ ] **Real native task/subtask alarm** -- attempted Aug 26, 2026, crashed on the real device,
+      reverted (see BUG_LOG #56/#57). Currently back to the old plain-push-notification behavior
+      (one vibration, no real ring). Needs genuine device/emulator runtime testing before
+      attempting again -- a passing build alone isn't enough evidence to ship this on.
 - [ ] Groq API key for the character-AI feature work (crisis detection itself is already
       correctly wired to Groq and live — this is specifically about whether character voice
       generation needs its own separate consideration, or shares the same key/budget)

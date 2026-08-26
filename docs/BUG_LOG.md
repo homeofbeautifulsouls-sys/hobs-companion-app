@@ -877,6 +877,58 @@ only as a lower bound.
 
 ---
 
+### 56. Native alarm feature crashed the app on the real device -- reverted immediately rather than guess again
+**What happened:** v3.36 (the real, native alarm build from #54) genuinely installed and ran on
+Akash's device, but the app crashed ("HOBS Companion keeps stopping") during normal use, and a
+task's completion state got changed unintentionally along the way.
+**Honest root cause status:** not fully diagnosed -- there is no way to pull a real crash
+stacktrace/logcat from Akash's device from this environment, and the previous verification
+(Playwright against a *mocked* `TaskAlarm` plugin) only ever proved the JS side called the
+plugin correctly, never that the real native Android code behind it was actually correct at
+runtime. That gap is exactly what let a real crash reach production.
+**Fix, chosen deliberately over another guess:** rather than attempt a second speculative native
+fix with the same blind-testing gap, reverted the native alarm feature entirely --
+`registerPlugin(TaskAlarmPlugin.class)` removed from `MainActivity.java`, `AlarmActivity`/
+`AlarmReceiver`/`BootReceiver` and their permissions removed from `AndroidManifest.xml`, and the
+five new `.java` files + `activity_alarm.xml` excluded from the build. Confirmed via `dexdump`
+that all five alarm classes are genuinely absent from the rebuilt APK, not just unregistered.
+`index.html`'s `nativeAlarmSchedule`/`cancel`/`reschedule` calls needed no change at all -- they
+already no-op safely whenever `window.Capacitor.Plugins.TaskAlarm` doesn't exist, which is
+exactly the case now.
+**Shipped as v3.37 (versionCode 57)**, verified live (signing SHA-256, package/version, byte-
+identical download, and explicitly confirmed the five alarm classes are absent from the deployed
+APK).
+**Standing lesson this adds:** a feature that touches real native code (not just JS) cannot be
+called verified from this environment without either genuine device/emulator runtime testing or
+a real crash log to confirm against -- a passing build and a mocked-plugin JS test are not the
+same as the real thing working. The alarm feature needs to be rebuilt with that gap actually
+closed before it's attempted again, not simply retried.
+
+---
+
+### 57. Added a real Undo for accidental task/subtask completion taps, after exactly that happened
+**What was reported**: tapping the task row (the entire row is one large tap target for marking
+a task done/not-done) by accident, with no way back -- directly connected to #56's crash, which
+also happened to change a completion state along the way.
+**Real design decision, not just doing the literal ask**: a blocking confirm dialog on every
+single tap would make checking off a task -- the single most frequent action in a to-do app --
+slow and irritating for the overwhelming majority of taps that are *not* accidents. Built a
+proper Undo instead (the same pattern Gmail/Google Tasks use for this exact problem): the tap
+still applies immediately, but a genuine, tappable toast (`showUndoToast`, separate from the
+existing purely-informational `showToast`/`#toastMsg`, which is deliberately
+`pointer-events:none`) offers a real few-second window to reverse the exact thing that just
+happened -- for a task, its own state plus only the subtasks that specific tap actually cascaded
+(not a blanket re-sync of the whole task); for a subtask, its own state plus the parent's
+auto-derived state if that also changed.
+**Verified against the real backend, not just locally**: created a genuine temporary test
+account, toggled a real task via the actual `toggleTaskCal` code path, confirmed the Undo toast
+appears and tapping it flips the state back -- then queried the live `tasks` table directly and
+confirmed `done: false` had genuinely round-tripped back to the server, not just flickered
+visually. Cleaned up the test account after.
+**Shipped as v3.38 (versionCode 58)**, JS-only change, no native surface at all -- verified live.
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 **Run `deployment/verify-before-deploy.sh` before every single deploy, web or Android, no

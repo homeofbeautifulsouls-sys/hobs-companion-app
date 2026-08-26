@@ -37,29 +37,6 @@
 
         </activity>
 
-        <!-- Real, native ringing alarm screen (Stop/Snooze), see docs/BUG_LOG.md for why a
-             plain push notification can never do this: it can only vibrate/chime once, not ring
-             continuously, show over the lock screen, or offer real Stop/Snooze actions. -->
-        <activity
-            android:name=".AlarmActivity"
-            android:exported="false"
-            android:launchMode="singleInstance"
-            android:excludeFromRecents="true"
-            android:theme="@style/AppTheme" />
-
-        <receiver
-            android:name=".AlarmReceiver"
-            android:exported="false" />
-
-        <!-- Re-arms alarms after a reboot, since AlarmManager entries don't survive one. -->
-        <receiver
-            android:name=".BootReceiver"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-            </intent-filter>
-        </receiver>
-
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -74,15 +51,4 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
-
-    <!-- For the real, native task-alarm feature. AlarmManager.setAlarmClock() itself needs no
-         special permission (unlike SCHEDULE_EXACT_ALARM/USE_EXACT_ALARM); these cover the
-         rest of what a real ringing alarm needs: keeping the device awake long enough to launch
-         the alarm screen, vibrating, showing that screen as a full-screen intent over the lock
-         screen, and re-arming alarms after a reboot. -->
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.VIBRATE" />
-    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 </manifest>
