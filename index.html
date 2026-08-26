@@ -4630,6 +4630,7 @@ document.getElementById('continueBtn').onclick = function(){
 };
 
 document.getElementById('backBtn').onclick = function(){
+  var hadMoodSelection = selected.length > 0; // must capture before resetJournalState() clears it
   var saved = commitMainJournalIfDirty();
   if(saved){
     resetJournalState();
@@ -4640,6 +4641,14 @@ document.getElementById('backBtn').onclick = function(){
     renderHistory(); // guarantees the index reflects a just-saved change immediately, not only after leaving and returning a second time
     document.getElementById('panel-history').style.display = 'block';
     setActiveNav('navJournal');
+  } else if(saved && hadMoodSelection){
+    // Real fix: a mood check-in (moods actually chosen, not just a plain journal entry) should
+    // lead to seeing your mood tracking data after saving the note, not just landing back on
+    // Home with nothing shown for it.
+    refreshWho5EntryButton();
+    renderMoodChart();
+    renderMoodPastDays();
+    showOnly('panel-mood-tracker');
   } else {
     document.getElementById('panel-bubbles').style.display = 'block';
     setActiveNav('navHome');

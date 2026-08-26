@@ -765,6 +765,22 @@ losing it.
 
 ---
 
+### 52. Mood check-in flow never actually showed mood tracking data after saving
+**What was wrong**: the intended flow is select mood(s) -> write a note -> see your mood
+tracking data. Confirmed directly in the code: saving simply returned to Home in every case,
+regardless of whether this was a real mood check-in or a plain journal entry -- the
+panel-mood-tracker view (which genuinely exists, with a real chart, already used in 3 other
+places in the app) was never called at this point at all.
+**Fix**: capture whether moods were actually selected before resetJournalState() clears that
+array (timing matters -- by the point of the original decision, it was already too late to
+check), and if a mood check-in was genuinely saved, show the real mood tracker instead of Home.
+**Verified with two separate tests**: the mood-check-in flow now correctly lands on the mood
+tracker; a plain journal entry (started via the "new entry" button, no mood selected) still
+correctly returns to Home exactly as before -- confirming this didn't change behavior for the
+case where it shouldn't.
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 **Run `deployment/verify-before-deploy.sh` before every single deploy, web or Android, no
