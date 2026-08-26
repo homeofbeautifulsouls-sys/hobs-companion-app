@@ -655,6 +655,21 @@ ever become visible.
 
 ---
 
+### 47. Notification tap routing "regression" was actually a never-wired new type, not a regression
+**What was reported:** "notifications don't take where they're supposed to" -- a bug the person
+remembered as already fixed once (commit 349ec81, July 12).
+**Real investigation, not assumption:** confirmed the original fix's routing logic is still
+fully intact for every notification type it covered. Checked real, live notification data sent
+to the actual account instead of guessing -- found `chat_message` (support group messages,
+genuinely frequent: 4 of the last 10 real notifications) was never one of the types the original
+routing logic handled at all. Not a regression -- this notification type was added later and
+simply never wired into handleNotificationTap, so every one of these fell into the "land on
+Home" fallback despite the room_id already being present in the data the whole time.
+**Fix:** added the missing route, opening the actual chat room directly.
+**Verified against the real room_id from live data**, not a placeholder.
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 **Run `deployment/verify-before-deploy.sh` before every single deploy, web or Android, no

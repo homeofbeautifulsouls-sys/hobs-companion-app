@@ -3295,6 +3295,8 @@ function handleNotificationTap(notifData){
     renderProfile(); showOnly('panel-profile'); setActiveNav('navYou');
   } else if((type === 'new_client_connected' || type === 'session_booked_alert') && appState.isTherapist){
     openTherapistDashboard();
+  } else if(type === 'chat_message' && notifData.room_id){
+    openChatRoom(notifData.room_id);
   } else {
     // Genuinely no specific destination for this type (or type wasn't set on an older/manual
     // send) -- land safely on Home rather than guessing wrong.
