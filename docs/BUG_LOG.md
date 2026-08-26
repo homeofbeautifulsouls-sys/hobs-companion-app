@@ -987,6 +987,44 @@ absent, every other site file still reachable).
 
 ---
 
+### 60. My own mood-tracker fix (#59) introduced a real hardware-back-button regression -- found via the same rigorous method bug #38 already documented
+**What was reported**: after the mood-journal flow's on-screen Back button, pressing the phone's
+back button was exiting the app.
+**Real investigation, referring to the bug log as directed rather than guessing**: bug #38
+already documents exactly how to properly test hardware/gesture back-button behavior --
+capturing the real, actual `addListener('backButton', ...)` callback via a mocked Capacitor
+surface and invoking it directly, not simulating an approximation. Used that same method here.
+**Root cause, reproduced precisely, not assumed**: `showOnly()` -- the single shared function
+every on-screen "Back" button in the app calls -- always pushed onto `panelHistoryStack`, never
+popped, even when navigating back to the screen just below the current one. Before today's #59
+fix, `handleJournalSave` never called `showOnly()` at all (it went straight to `panel-saved` via
+raw display manipulation), so this path never reached the already-buggy `moodTrackerBackBtn`
+handler. Fixing #59 to correctly land on the mood tracker made this the first time that handler
+was reachable this way -- surfacing a real, pre-existing architectural flaw that had been mostly
+latent. Confirmed directly: mood select → journal → save → mood tracker → tap on-screen Back
+(returns Home) left the stack as `["panel-bubbles","panel-mood-tracker","panel-bubbles"]` instead
+of `["panel-bubbles"]` -- a genuine duplicate, not a one-off.
+**Fix, applied at the single shared root cause rather than patching each affected button
+separately**: `showOnly()` now checks whether the target panel is literally the one just below
+the current top of the stack -- that specific condition is what "going back" always looks like --
+and pops instead of pushing when it is. Genuine forward navigation (nav tab switches, drilling
+into something new) is completely unaffected, verified directly: Home → Journal tab → Tasklist
+tab → Home tab → Journal tab again still pushes every single step exactly as before, growing the
+stack normally, since none of those transitions target the screen immediately below the current
+one.
+**Verified against the exact reproduced scenario before shipping**: same test, same mocked
+listener -- the stack now correctly returns to `["panel-bubbles"]` after the on-screen Back tap,
+and a single subsequent hardware back press now correctly exits (the expected, standard Android
+behavior once genuinely back at a top-level Home screen with nothing left on the stack) instead
+of the previous confused double-press/resurrected-screen behavior.
+**Lesson, extending #38's own**: fixing a UI flow that lands on a different screen than before
+can surface an existing bug in a downstream handler that specific path never used to reach --
+finishing a fix means checking what happens *after* it too, not just that the immediate symptom
+resolved.
+**Shipped as v3.40 (versionCode 60)**, verified live.
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 **Run `deployment/verify-before-deploy.sh` before every single deploy, web or Android, no

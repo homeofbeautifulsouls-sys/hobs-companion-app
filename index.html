@@ -5156,7 +5156,22 @@ function showOnly(panelId){
       window.Capacitor.Plugins.PrivacyScreen.disable().catch(function(){});
     }
   }
-  if(panelHistoryStack[panelHistoryStack.length - 1] !== panelId){
+  // Real, confirmed bug (found via a live report, reproduced with the actual captured hardware
+  // back-button listener, not guessed): this always pushed forward, even when panelId is
+  // literally the screen just below the current one on the stack -- exactly what every on-screen
+  // "Back" button does. That silently duplicated the previous screen back onto the stack instead
+  // of properly popping to it, so the hardware/gesture back button (which only ever pops) then
+  // needed one extra press per on-screen Back tap to actually leave -- confusingly landing back
+  // on a screen already left, or, with enough of these stacked up over a session, exiting the
+  // app at an unexpected, seemingly random point. Detected by checking whether panelId matches
+  // the screen just below the top: that's specifically and only what "going back" ever looks
+  // like, so this is safe to pop for -- genuine forward navigation to a new screen still pushes
+  // exactly as before.
+  var isGoingBackToPreviousPanel = panelHistoryStack.length > 1 &&
+    panelHistoryStack[panelHistoryStack.length - 2] === panelId;
+  if(isGoingBackToPreviousPanel){
+    panelHistoryStack.pop();
+  } else if(panelHistoryStack[panelHistoryStack.length - 1] !== panelId){
     var fromPanel = panelHistoryStack[panelHistoryStack.length - 1];
     panelHistoryStack.push(panelId);
     if(panelHistoryStack.length > 30) panelHistoryStack.shift(); // avoid unbounded growth
