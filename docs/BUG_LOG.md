@@ -717,6 +717,30 @@ on this specific element.
 
 ---
 
+### 50. Real root cause found for the "blank home screen" bug -- two genuine gaps, not one
+**What the diagnostic proved:** the hero element and all 9 mood bubbles were confirmed
+technically correct -- full opacity, real dimensions, genuinely in the DOM -- at the exact
+moment the home screen becomes visible. This ruled out anything missing or hidden.
+**Real gap #1:** the diagnostic checked the hero *element's* own opacity, but never whether its
+actual `background-image` (the gradient + photo) had successfully painted. An element can be
+fully opaque and correctly sized while its background silently fails to render -- leaving it
+transparent, letting the page's own cream background show through, and making the white
+greeting text invisible against it.
+**Fix:** added an explicit `background-color` as a real fallback layer underneath the
+gradient+photo -- browsers always paint this regardless of whether the fancier background
+succeeds, guaranteeing real contrast for the white text no matter what.
+**Real gap #2, found by direct code review:** the home screen's four crew character images
+(bob.jpg, kunnu.jpg, cookie.jpg, po.jpg) all use `loading="lazy"` and were never preloaded like
+the hero image was. With the fast boot path now showing the home screen almost instantly, these
+never got the head start they used to have when a slower loading screen bought them time in the
+background -- a real, visible "ghost" (a partially loaded image) instead of a clean one.
+**Fix:** extended the existing hero-image preload to cover all four crew images too.
+**Lesson**: a diagnostic that clears one explanation (missing/hidden content) doesn't mean
+nothing is wrong -- it means the search needs to move to an adjacent layer (here: whether a
+background actually painted, not just whether the element hosting it was there).
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 **Run `deployment/verify-before-deploy.sh` before every single deploy, web or Android, no

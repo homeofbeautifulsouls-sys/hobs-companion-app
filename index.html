@@ -18,12 +18,20 @@
   // Starting the fetch+decode here, as early as this script can possibly run (well before the
   // home screen is ever reached), gives it the maximum possible head start so the image is
   // already fully ready by the time anyone could see the hero section at all.
-  (function preloadHeroImage(){
-    try {
-      var img = new Image();
-      img.src = 'hero-image.jpg';
-      if(img.decode) img.decode().catch(function(){});
-    } catch(e){}
+  //
+  // Extended to the home screen's crew character images too -- all four (bob.jpg, kunnu.jpg,
+  // cookie.jpg, po.jpg) use loading="lazy" and were never preloaded like the hero image. With
+  // the fast boot path now showing the home screen almost instantly, these never got the head
+  // start they used to have when a slower loading screen bought them time in the background --
+  // a real, visible "ghost" (partially loaded image) rather than a clean, fully-loaded one.
+  (function preloadHomeScreenImages(){
+    ['hero-image.jpg', 'bob.jpg', 'kunnu.jpg', 'cookie.jpg', 'po.jpg'].forEach(function(src){
+      try {
+        var img = new Image();
+        img.src = src;
+        if(img.decode) img.decode().catch(function(){});
+      } catch(e){}
+    });
   })();
 
   // Real perf fix: html2canvas (~194KB) and jsPDF (~356KB) used to be loaded here as blocking
@@ -368,7 +376,7 @@
   .reward-placeholder { background:#F3F6FC; border:1px dashed #C7D2E8; border-radius:16px; padding:16px; text-align:center; }
 
   /* ---- home: illustrated hero + carousel ---- */
-  .home-hero { position:relative; margin:-26px -18px 0; padding:28px 20px 50px; background:linear-gradient(165deg,rgba(30,50,100,0.35) 0%,rgba(30,50,100,0.55) 60%,rgba(20,35,75,0.75) 100%), url('hero-image.jpg') center/cover no-repeat; border-radius:0 0 36px 36px; overflow:hidden; }
+  .home-hero { position:relative; margin:-26px -18px 0; padding:28px 20px 50px; background-color:#1E3264; background-image:linear-gradient(165deg,rgba(30,50,100,0.35) 0%,rgba(30,50,100,0.55) 60%,rgba(20,35,75,0.75) 100%), url('hero-image.jpg'); background-position:center; background-size:cover; background-repeat:no-repeat; border-radius:0 0 36px 36px; overflow:hidden; }
   .home-greeting { font-size:21px; font-weight:700; color:#FFFFFF; margin:12px auto 3px; position:relative; z-index:2; max-width:85%; text-shadow:0 1px 6px rgba(0,0,0,0.3); text-align:center; }
   .home-greeting-sub { font-size:12.5px; color:rgba(255,255,255,0.9); margin:0 auto 20px; line-height:1.5; position:relative; z-index:2; max-width:85%; text-shadow:0 1px 4px rgba(0,0,0,0.25); text-align:center; }
   .home-affirmation-card { position:relative; z-index:2; background:rgba(255,255,255,0.94); border-radius:16px; padding:14px 16px; max-width:90%; margin:0 auto; box-shadow:0 4px 16px rgba(0,0,0,0.15); text-align:center; }
@@ -5046,51 +5054,6 @@ document.addEventListener('focus', function(e){ if(e.target && e.target.tagName 
 function showOnly(panelId){
   var previousPanel = panelHistoryStack[panelHistoryStack.length - 1];
   allPanels.forEach(function(id){ document.getElementById(id).style.display = (id === panelId) ? 'block' : 'none'; });
-  // TEMPORARY diagnostic -- real proof needed of what's actually rendered at this moment,
-  // since a reported blank home screen doesn't match anything found in code review alone.
-  if(panelId === 'panel-bubbles'){
-    try {
-      var hero = document.querySelector('.home-hero');
-      var field = document.getElementById('bubbleField');
-      var authOv = document.getElementById('authOverlay');
-      var wbOv = document.getElementById('welcomeBackOverlay');
-      var topElAtCenter = document.elementFromPoint(window.innerWidth/2, window.innerHeight/2);
-      sb.from('error_logs').insert({
-        user_id: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null,
-        message: 'HOME_PANEL_DIAG: ' + JSON.stringify({
-          heroExists: !!hero,
-          heroOffsetHeight: hero ? hero.offsetHeight : null,
-          heroComputedOpacity: hero ? window.getComputedStyle(hero).opacity : null,
-          heroComputedDisplay: hero ? window.getComputedStyle(hero).display : null,
-          bubbleFieldChildCount: field ? field.children.length : null,
-          bubbleFieldOffsetHeight: field ? field.offsetHeight : null,
-          panelDisplay: document.getElementById('panel-bubbles').style.display,
-          optimisticBootTaken: typeof optimisticBootTaken !== 'undefined' ? optimisticBootTaken : 'undefined',
-          authOverlayComputedDisplay: authOv ? window.getComputedStyle(authOv).display : null,
-          welcomeBackOverlayComputedDisplay: wbOv ? window.getComputedStyle(wbOv).display : null,
-          topElementAtCenter_atShowOnlyTime: topElAtCenter ? (topElAtCenter.id || topElAtCenter.className || topElAtCenter.tagName) : null,
-        }),
-        stack: '', page_url: 'home-panel-diagnostic'
-      }).then(function(){});
-      // Check again a moment later -- catches anything transient that resolves quickly, or
-      // confirms whether the state at showOnly() time genuinely persists on screen.
-      setTimeout(function(){
-        try {
-          var topElLater = document.elementFromPoint(window.innerWidth/2, window.innerHeight/2);
-          sb.from('error_logs').insert({
-            user_id: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null,
-            message: 'HOME_PANEL_DIAG_DELAYED_300ms: ' + JSON.stringify({
-              topElementAtCenter: topElLater ? (topElLater.id || topElLater.className || topElLater.tagName) : null,
-              authOverlayComputedDisplay: authOv ? window.getComputedStyle(authOv).display : null,
-              welcomeBackOverlayComputedDisplay: wbOv ? window.getComputedStyle(wbOv).display : null,
-              heroComputedOpacity: hero ? window.getComputedStyle(hero).opacity : null,
-            }),
-            stack: '', page_url: 'home-panel-diagnostic'
-          }).then(function(){});
-        } catch(e2){}
-      }, 300);
-    } catch(diagErr){}
-  }
   // panel-chat-room needs flex (not the generic block above) for its own internal header/
   // messages/input column layout to actually work as intended.
   if(panelId === 'panel-chat-room') document.getElementById('panel-chat-room').style.display = 'flex';
