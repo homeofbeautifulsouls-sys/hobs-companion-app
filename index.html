@@ -24,14 +24,20 @@
   // the fast boot path now showing the home screen almost instantly, these never got the head
   // start they used to have when a slower loading screen bought them time in the background --
   // a real, visible "ghost" (partially loaded image) rather than a clean, fully-loaded one.
-  (function preloadHomeScreenImages(){
-    ['hero-image.jpg', 'bob.jpg', 'kunnu.jpg', 'cookie.jpg', 'po.jpg'].forEach(function(src){
-      try {
-        var img = new Image();
-        img.src = src;
-        if(img.decode) img.decode().catch(function(){});
-      } catch(e){}
+  var homeScreenImagesReady = (function preloadHomeScreenImages(){
+    var sources = ['hero-image.jpg', 'bob.jpg', 'kunnu.jpg', 'cookie.jpg', 'po.jpg', 'bob-welcome-back.jpg'];
+    var promises = sources.map(function(src){
+      return new Promise(function(resolve){
+        try {
+          var img = new Image();
+          img.onload = function(){ resolve(); };
+          img.onerror = function(){ resolve(); }; // don't let one failed image hang the whole boot
+          img.src = src;
+          if(img.decode){ img.decode().then(resolve).catch(resolve); }
+        } catch(e){ resolve(); }
+      });
     });
+    return Promise.all(promises);
   })();
 
   // Real perf fix: html2canvas (~194KB) and jsPDF (~356KB) used to be loaded here as blocking
@@ -4205,6 +4211,16 @@ function attemptOptimisticBoot(){
 // genuine async Filesystem read on native, getSession() is deliberately chained after it
 // finishes rather than running concurrently, so optimisticBootTaken is always correctly set by
 // the time getSession()'s own callback checks it.
+function hideNativeSplashWhenReady(){
+  if(!(IS_NATIVE_APP && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SplashScreen)) return; // no-op on web, nothing to hide there
+  var readyPromise = optimisticBootTaken
+    ? Promise.race([homeScreenImagesReady, new Promise(function(resolve){ setTimeout(resolve, 2000); })]) // safety timeout: never hang the splash forever over one slow/failed image
+    : Promise.resolve(); // the login form doesn't need home-screen images, hide immediately once that decision is made
+  readyPromise.then(function(){
+    try { window.Capacitor.Plugins.SplashScreen.hide(); } catch(e){}
+  });
+}
+
 migrateLocalStorageToFilesystemIfNeeded().then(function(){
   return hobsStorageGet(STORAGE_KEY);
 }).then(function(raw){
@@ -4214,6 +4230,7 @@ migrateLocalStorageToFilesystemIfNeeded().then(function(){
 }).catch(function(){ /* fall through to attemptOptimisticBoot with default appState -- same safe fallback as before */ })
   .then(function(){
     attemptOptimisticBoot();
+    hideNativeSplashWhenReady();
     // Check for an existing session on load (keeps people signed in between visits)
     return sb.auth.getSession();
   }).then(function(result){
