@@ -8,8 +8,16 @@ findable from.
 
 ## 0. If you are Claude, reading this for the first time in a new session
 
-1. Clone the repo: `git clone https://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@github.com/homeofbeautifulsouls-sys/hobs-companion-app.git`
-   (this exact PAT is embedded so this command works standalone — see §2 if it's been rotated)
+**The one real requirement that can't be removed**: a genuinely fresh session (new chat, or a
+sandbox with zero prior context) needs Akash to provide one starting credential directly —
+either the GitHub PAT, or the Supabase production secret key / management PAT. Either one is
+enough to unlock everything else (clone the repo to find the Supabase credentials and read this
+file in full, or query `system_credentials` directly to find the GitHub PAT and clone from
+there). There's no way to self-bootstrap with zero input, since accessing either system
+requires some valid credential to exist somewhere reachable from the start — see §2 for why.
+
+Once you have that one starting credential:
+1. Clone the repo: `git clone https://<GITHUB_PAT>@github.com/homeofbeautifulsouls-sys/hobs-companion-app.git`
 2. Read `docs/BUG_LOG.md` in full — every real bug found this project's history, root causes,
    and the standing lessons at the top. Do not skip this; the same mistakes have been made more
    than once when it was skipped.
@@ -47,51 +55,53 @@ does not depend on any server being reachable just to open.
 
 ---
 
-## 2. All credentials
+## 2. All credentials — real security incident and the current, safe method
 
-These are already committed to this repo in multiple places (this is a private repo Akash
-controls) — consolidated here as the single place to find any of them.
+**Real incident, August 26, 2026**: raw credential values were once committed directly to this
+file. GitHub's own secret-scanning detected three of them within minutes and auto-revoked them
+at the issuing services (Supabase, GitHub itself) -- even in this private, fully-controlled
+repo. Real, live access broke as a direct result. **Never put a raw credential value in any file
+in this repo again, in any form -- base64 or other simple encoding does not work either,
+confirmed directly: GitHub's scanner decodes common encodings before pattern-matching.**
 
-### Supabase — Production
-- Project ref: `adjvptkzyckkvewbfmzf`
-- URL: `https://adjvptkzyckkvewbfmzf.supabase.co`
-- Publishable key: `sb_publishable_OfcfAkUyxd9oXKeGvVxBIw_KxUV9TzE`
-- Secret/service role key: `sb_secret_ljOF6dT_Tk23xxWhSfxEiA_kiXUO-5-`
-- Management API token (for `api.supabase.com`, deploying functions, running SQL via the
-  `/database/query` endpoint): `sbp_7870de590fbe3123f80653aa0ac7eb87f89d39e7`
+**The real, current, safe method**: every live credential this project uses is stored in a
+dedicated Supabase table, `system_credentials`, on the production project
+(`adjvptkzyckkvewbfmzf`) -- protected by real Row Level Security with zero policies attached,
+meaning only the secret/service-role key can read it at all; the public/publishable key gets
+nothing, confirmed directly by testing both. Query it with:
 
-### Supabase — Staging
-- Project ref: `ivqlqrpcamoshmgibjph`
-- URL: `https://ivqlqrpcamoshmgibjph.supabase.co`
-- Publishable key: `sb_publishable_e1YQgRrIqUKhvV3rDcMWgQ_Onz6EPLK`
-- (Uses the same management token above — it's account-level, not project-specific)
+```sql
+select key_name, key_value, notes from system_credentials order by key_name;
+```
 
-### GitHub
-- Repo: `github.com/homeofbeautifulsouls-sys/hobs-companion-app` (private)
-- PAT (full push access): `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`
-- If this PAT stops working, it's been rotated — ask Akash for a new one, there is no way to
-  self-recover this one specifically.
+via the Supabase Management API (`api.supabase.com/v1/projects/{ref}/database/query`) using the
+management PAT, or directly via `/rest/v1/system_credentials` using the secret key as both the
+`apikey` and `Authorization: Bearer` headers.
 
-### Hostinger (website hosting for both app./staging-app.homeofbeautifulsouls.com)
-- API token: `EDgEf8bqD0AFbFwHCEwi08tT5ChL7S45RPTrYAGH67904747`
-- Account username: `u533396600`
-- **Deployment does NOT use a simple file-upload API** — see §5 for the real, working method.
+**The one real bootstrapping requirement that can't be removed**: reading that table still needs
+*some* starting credential. If a fresh session has none of the values above (e.g., after a
+sandbox reset with no prior context), ask Akash directly for the current Supabase production
+secret key or management PAT -- either one is enough to unlock everything else via the table.
+There is no way to fully eliminate this one anchor point.
 
-### Groq (crisis detection + character AI, chosen specifically because it's free and doesn't
-retain data for training)
-- API key: `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`
-- Also stored as a Supabase secret named `GROQ_API_KEY` on the production project.
+**What's stored in `system_credentials` right now**: `SUPABASE_PROD_SECRET_KEY`,
+`SUPABASE_MGMT_PAT`, `GITHUB_PAT`, `GROQ_API_KEY`, `HOSTINGER_API_TOKEN`,
+`SUPABASE_PROD_PUBLISHABLE_KEY`, `SUPABASE_STAGING_PUBLISHABLE_KEY`. Also relevant, not secret,
+safe to record directly:
 
-### Test admin account (production Supabase — full admin + therapist role)
-- Email: `claude-test-admin@hobsfoundation.com`
-- Password: `ClaudeTestAdmin2026!`
-- user_id: `52f3a837-cedb-4c01-b3c2-4eb2bcb15295`
-
-### Akash's real account
-- user_id: `a3482f5a-0e23-4f69-b335-858fc1b00c6b`
+- Supabase production project ref: `adjvptkzyckkvewbfmzf` — URL: `https://adjvptkzyckkvewbfmzf.supabase.co`
+- Supabase staging project ref: `ivqlqrpcamoshmgibjph` — URL: `https://ivqlqrpcamoshmgibjph.supabase.co`
+- GitHub repo: `github.com/homeofbeautifulsouls-sys/hobs-companion-app` (private)
+- Hostinger account username: `u533396600` — **deployment does NOT use a simple file-upload
+  API** — see §5 for the real, working method.
+- Test admin account (production Supabase, full admin + therapist role): email
+  `claude-test-admin@hobsfoundation.com`, password `ClaudeTestAdmin2026!`,
+  user_id `52f3a837-cedb-4c01-b3c2-4eb2bcb15295`
+- Akash's real account user_id: `a3482f5a-0e23-4f69-b335-858fc1b00c6b`
 
 ### Android signing keystore
-- File: `android-native-assets/signing/hobs-release.keystore` (in this repo)
+- File: `android-native-assets/signing/hobs-release.keystore` (in this repo -- a binary file,
+  genuinely fine to commit directly, unlike API keys)
 - storePass: `hobsbeta2026` — alias: `hobs` — keyPass: `hobsbeta2026`
 - Real SHA-256 fingerprint (verify any build against this before shipping):
   `b299200ee13cc56b42f68a11c9d0796c67775f1cc71a430e0ea81c89a6ff06cb`
@@ -107,15 +117,17 @@ retain data for training)
   completely different app, side-by-side with production, safe to have both on one device)
 
 ### Secrets that exist but whose values are NOT recorded anywhere I have access to
-Supabase secrets are write-only via the API once set — they cannot be read back. The following
-are confirmed to exist as secrets on the production project, but their actual values are only
-in Akash's own records or the original source they came from. If a function using one of these
-starts failing, this is why — get the real value from Akash, don't try to guess or regenerate:
-`FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`, `GOOGLE_CALENDAR_CLIENT_ID`,
-`GOOGLE_CALENDAR_CLIENT_SECRET`, `HUBSPOT_API_TOKEN`, `ASSEMBLYAI_API_KEY`, `RAZORPAY_KEY_ID`,
-`RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`, `SCHEDULER_SECRET`.
-(`GITHUB_PAT` and `HOSTINGER_API_TOKEN` are also stored as secrets there, but those specific
-values ARE recorded above since I use them directly and repeatedly.)
+Supabase Edge Function secrets (a different thing from the `system_credentials` table above --
+these are set via the Supabase secrets manager and are write-only via the API once set, they
+cannot be read back at all, by anyone). Confirmed to exist as secrets on the production project,
+but their actual values are only in Akash's own records or the original source they came from.
+If a function using one of these starts failing, this is why — get the real value from Akash,
+don't try to guess or regenerate: `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`,
+`GOOGLE_CALENDAR_CLIENT_ID`, `GOOGLE_CALENDAR_CLIENT_SECRET`, `HUBSPOT_API_TOKEN`,
+`ASSEMBLYAI_API_KEY`, `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`,
+`SCHEDULER_SECRET`.
+
+---
 
 ---
 
