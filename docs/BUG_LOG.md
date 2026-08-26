@@ -781,6 +781,76 @@ case where it shouldn't.
 
 ---
 
+### 53. Subtasks "not adding" on the Tasklist landing screen -- two real, separate bugs, found by actually reproducing it live, not just reading the code
+**What was reported**: "no + button (inline add)... when adding a subtask it is literally not
+adding as if I never added a subtask before."
+**Real investigation**: created a genuine temporary test account and drove the actual app with
+Playwright against the real Supabase backend (cleaned up after) rather than reasoning about the
+code in isolation -- the day-detail screen's subtask flow (breakdown '+' button, Add button)
+turned out to already work correctly and persist properly. The bug was specifically on the
+separate "Your tasks" landing screen (`panel-calendar`, `renderCalendarPendingTasks`): it never
+had any subtask UI at all, AND creating a task from its own '+' FAB didn't refresh that screen's
+own list -- the task genuinely saved (confirmed directly against the live table) but the screen
+kept showing "Nothing here yet" until leaving and coming back, reading exactly like "it never
+added."
+**Fix**: added a '+' button to each row on the landing screen, reusing the existing, already-
+proven edit-task sheet (not a new, untested quick-add UI) rather than duplicating logic; added
+the missing `renderCalendarPendingTasks()` refresh call after both creating and editing a task
+from that screen.
+**A third bug found mid-testing, not assumed away**: the new landing-screen '+' button initially
+did nothing when tapped. Root cause: a task's `temp_` client id gets swapped for its real server
+id in an async callback shortly after creation, but the landing screen was never re-rendered when
+that swap happened -- so the button's baked-in `data-task-id` silently pointed at an id nothing
+matched anymore. Fixed by re-rendering after the id swap too.
+**Verified end to end against the real backend**: task creation now shows up immediately with no
+navigation needed; the new '+' opens the real edit sheet with the correct task; adding a subtask
+through it shows a live "0/1" progress badge on the landing screen without leaving it.
+
+---
+
+### 54. Task/subtask alarms only ever vibrated once like a normal notification -- built a real, native ringing alarm instead
+**What was reported**: "Alarm didn't ring like an alarm. Just notification type vibrated for a
+second! It should act EXACTLY LIKE AN ALARM."
+**Root cause, confirmed by reading the actual alarm-firing code**: `send-task-alarms` (a cron-
+polled Edge Function) only ever sent a plain FCM push notification. A push notification
+structurally cannot ring continuously, show over the lock screen, or offer real Stop/Snooze --
+and can also be delayed by Doze/battery optimization, which matters for something time-critical.
+**Fix, built and verified as a real native feature, not a JS workaround**: added
+`AlarmManager.setAlarmClock()` scheduling (the one Android API that behaves exactly like a real
+alarm-clock alarm -- status-bar alarm icon, exempt from Doze, no special permission needed)
+firing a genuine full-screen `AlarmActivity` with a real looping alarm sound, vibration, and Stop
+/Snooze buttons that only a real tap can dismiss (back button deliberately does nothing). A
+`BootReceiver` re-arms everything after a device reboot, since AlarmManager entries don't survive
+one. `index.html` calls this at every point a task/subtask alarm is created, edited, or deleted,
+plus once on every app boot to backfill/reconcile anything already saved (covers alarms set
+before this feature existed, or from a different device/install).
+**Two real, self-inflicted bugs caught before shipping, not assumed away**: (1) missing the full
+JDK (only the JRE was installed) failed the build with a toolchain error -- installed
+`openjdk-21-jdk-headless` and rebuilt. (2) Editing `AndroidManifest.xml` by hand reintroduced the
+*exact* `--`-inside-an-XML-comment bug from #22 above -- caught immediately by the real build
+failing (`SAXParseException`), not missed.
+**Verified thoroughly before ever calling this shippable**: built a full, fresh Android SDK
+environment from nothing per `docs/MASTER.md`'s own documented recipe; confirmed the release APK
+is genuinely signed with HOBS's real release key (`apksigner verify`, SHA-256 matched
+`docs/MASTER.md` §2 exactly); confirmed package name/version via `aapt dump badging`; confirmed
+all 5 new native classes are actually present in the compiled `.dex`, not just written source;
+and used a mocked `TaskAlarm` plugin in a real Playwright run against the actual `index.html` to
+confirm every create/edit/delete path fires the correct native schedule/cancel/reschedule call
+(including the temp-id-to-real-id handoff).
+**Also found and fixed a real, separate, pre-existing gap in `deployment/deploy-to-hostinger.sh`
+while shipping this**: it never included the live APK in its file list at all -- since deploys
+are a full directory replace, any past *web-only* deploy through this exact script would have
+silently 404'd the live APK. Fixed permanently to always include `HOBS-Companion.apk` (the stable
+name the app's own in-app "Update" banner links to) and any versioned `HOBS-Companion-v*.apk`
+files.
+**Shipped as APK v3.16 (versionCode 36)**, deployed to `app.homeofbeautifulsouls.com` and
+verified live: the deployed APK is byte-for-byte identical (SHA-256) to the one built and
+verified locally, `version.json` matches exactly what's baked into that same APK (so a fresh
+install doesn't immediately think another update is available), and every other site file was
+confirmed still reachable after the deploy.
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 **Run `deployment/verify-before-deploy.sh` before every single deploy, web or Android, no

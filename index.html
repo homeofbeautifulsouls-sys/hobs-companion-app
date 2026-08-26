@@ -2577,6 +2577,32 @@ document.getElementById('logoutBtn').onclick = function(){
 };
 
 var IS_NATIVE_APP = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+
+// Real, native task/subtask alarm bridge -- see TaskAlarmPlugin.java (android-native-assets).
+// A plain push notification can only vibrate once; these calls schedule an actual
+// AlarmManager.setAlarmClock() entry so the device really rings, with Stop/Snooze, even offline
+// and even through Doze. No-ops safely on web (window.Capacitor.Plugins.TaskAlarm won't exist
+// there), so every call site below is safe to leave in place regardless of platform.
+function nativeAlarmSchedule(id, title, isoString){
+  if(!IS_NATIVE_APP || !isoString) return;
+  if(!(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.TaskAlarm)) return;
+  var atMillis = new Date(isoString).getTime();
+  if(!atMillis || isNaN(atMillis) || atMillis <= Date.now()) return; // don't arm something already in the past
+  window.Capacitor.Plugins.TaskAlarm.schedule({ id: String(id), title: title || 'Task alarm', atMillis: atMillis }).catch(function(){});
+}
+function nativeAlarmCancel(id){
+  if(!IS_NATIVE_APP) return;
+  if(!(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.TaskAlarm)) return;
+  window.Capacitor.Plugins.TaskAlarm.cancel({ id: String(id) }).catch(function(){});
+}
+// Cancels then re-schedules under a (possibly new) id -- used when a temp_ client id gets
+// swapped for the real server id right after first sync, so the alarm follows the row rather
+// than staying armed under an id nothing refers to anymore.
+function nativeAlarmReschedule(oldId, newId, title, isoString){
+  if(!IS_NATIVE_APP) return;
+  if(oldId !== newId) nativeAlarmCancel(oldId);
+  nativeAlarmSchedule(newId, title, isoString);
+}
 var WEB_APP_URL = 'https://app.homeofbeautifulsouls.com/';
 // TODO: fill in once Hostinger hosting is set up. Until then these are intentionally null --
 // the native update-check safely no-ops rather than checking against a URL that doesn't exist.
@@ -4081,6 +4107,22 @@ function loadUserDataFromSupabase(){
         subtasks: subsByTask[t.id] || []
       });
     });
+    // Real, native alarm reconciliation on every boot -- not just when an alarm is first set.
+    // This is what backfills alarms already saved from before this feature existed (or from the
+    // web, or a previous install), and re-arms anything the native BootReceiver alone can't
+    // reach (a reinstall or a fresh login on a different device has no OS-level reboot to
+    // trigger it). Idempotent: scheduling the same id+time twice just replaces the same
+    // AlarmManager entry, so calling this every boot is safe, not wasteful.
+    if(IS_NATIVE_APP){
+      Object.keys(appState.tasksByDate).forEach(function(dateKey){
+        appState.tasksByDate[dateKey].forEach(function(t){
+          if(!t.done && t.alarmAt) nativeAlarmSchedule(t.id, t.title, t.alarmAt);
+          (t.subtasks || []).forEach(function(s){
+            if(!s.done && s.alarmAt) nativeAlarmSchedule(s.id, t.title + ': ' + s.title, s.alarmAt);
+          });
+        });
+      });
+    }
 
     saveState(); // keep localStorage as an offline fallback cache
   }).catch(function(err){
@@ -7356,9 +7398,18 @@ function renderCalendarPendingTasks(){
     var priorityColor = item.task.priority ? PRIORITY_COLORS[item.task.priority] : null;
     var borderColor = isDone ? '#CFE8DA' : (item.task.assignedByTherapist ? '#D5E2F7' : (priorityColor || '#EEE0C4'));
     var priorityDot = (!isDone && priorityColor) ? '<span style="width:8px;height:8px;border-radius:50%;background:'+priorityColor+';flex-shrink:0;"></span>' : '';
+    // Real, confirmed bug: this landing screen never had any way to add a subtask at all --
+    // buildRow only ever rendered a title and a date, with nothing wired to the breakdown/
+    // subtask editor that already exists (and already works, verified directly) on the
+    // day-detail screen. Reusing that exact same proven sheet here (rather than rebuilding a
+    // second, separate quick-add UI) so this is the same tested code path, not a new one.
+    var subtaskCountTag = (item.task.subtasks && item.task.subtasks.length)
+      ? '<span style="font-size:9.5px;font-weight:700;color:#6690D6;background:#EAF0FB;padding:2px 7px;border-radius:8px;flex-shrink:0;">'+item.task.subtasks.filter(function(s){return s.done;}).length+'/'+item.task.subtasks.length+'</span>'
+      : '';
+    var addStepBtn = isDone ? '' : '<button class="pending-row-breakdown-btn" data-key="'+item.dateKey+'" data-task-id="'+item.task.id+'" title="Add a step" style="background:#F3F6FC;border:none;border-radius:8px;width:26px;height:26px;color:#6690D6;cursor:pointer;font-size:14px;flex-shrink:0;">+</button>';
     return '<div class="pending-task-row" data-key="'+item.dateKey+'" style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:'+(isDone?'#EAF4EE':'#FFFFFF')+';border:1px solid '+borderColor+';border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer;">'+
       '<div style="display:flex;align-items:center;gap:9px;min-width:0;">'+priorityDot+'<div style="min-width:0;"><span style="'+titleStyle+'">'+item.task.title+'</span>'+homeworkBadge+'</div></div>'+
-      '<span style="font-size:10.5px;color:#9AABCE;flex-shrink:0;">'+dateLabel+'</span>'+
+      '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">'+subtaskCountTag+'<span style="font-size:10.5px;color:#9AABCE;">'+dateLabel+'</span>'+addStepBtn+'</div>'+
     '</div>';
   };
 
@@ -7378,6 +7429,14 @@ function renderCalendarPendingTasks(){
   wrap.innerHTML = html;
   wrap.querySelectorAll('.pending-task-row').forEach(function(row){
     row.onclick = function(){ openDay(row.dataset.key); };
+  });
+  wrap.querySelectorAll('.pending-row-breakdown-btn').forEach(function(btn){
+    btn.onclick = function(e){
+      e.stopPropagation(); // don't also trigger the row's own openDay()
+      var dateKey = btn.dataset.key, taskId = btn.dataset.taskId;
+      var task = getTasks(dateKey).find(function(t){ return t.id === taskId; });
+      if(task) openEditTaskSheet(task, dateKey);
+    };
   });
 }
 
@@ -7607,6 +7666,8 @@ function deleteTaskDirectly(task, dateKey, rerenderFn){
   saveState();
   rerenderFn();
   showToast('Task deleted');
+  nativeAlarmCancel(task.id);
+  (task.subtasks || []).forEach(function(s){ nativeAlarmCancel(s.id); });
   if(String(task.id).indexOf('temp_') !== 0){
     sb.from('tasks').delete().eq('id', task.id).then(function(r){ if(r.error) console.error(r.error); });
   }
@@ -7800,6 +7861,7 @@ function buildTaskItemElement(task, opts){
       delBtn.onclick = function(){
         task.subtasks = task.subtasks.filter(function(s){ return s.id !== sub.id; });
         saveState(); renderTaskListCal();
+        nativeAlarmCancel(sub.id);
         if(String(sub.id).indexOf('temp_') !== 0){
           sb.from('subtasks').delete().eq('id', sub.id).then(function(r){ if(r.error) console.error(r.error); });
         }
@@ -8653,19 +8715,42 @@ function commitSheetTaskIfDirty(){
   trackNotificationAction('created_task');
   if(sheetTargetKey === bdSelectedKey) renderBodyDoubleTaskList();
   if(sheetTargetKey === activeDayKey) renderTaskListCal();
+  // Real, confirmed bug: this landing screen ("Your tasks") lists tasks across every date, not
+  // just activeDayKey/bdSelectedKey, so neither refresh above ever touched it -- a task created
+  // from its own '+' FAB genuinely saved (confirmed directly against the live table) but the
+  // screen kept showing "Nothing here yet" until leaving and coming back. Refresh it directly,
+  // whenever it's the visible panel, regardless of which date the task was added to.
+  if(document.getElementById('panel-calendar').style.display !== 'none') renderCalendarPendingTasks();
+  // Arm optimistically under the temp_ id right away -- real device reliability shouldn't wait
+  // on a network round trip, and this gets rescheduled under the real id below once sync confirms.
+  nativeAlarmSchedule(localTask.id, title, alarmIso);
+  localTask.subtasks.forEach(function(s){ nativeAlarmSchedule(s.id, title + ': ' + s.title, s.alarmAt); });
 
   syncToSupabase('tasks', {
     date_key: sheetTargetKey, title: title, duration: sheetDuration,
     repeat: sheetRepeat, priority: sheetPriority, deadline: deadlineIso, alarm_at: alarmIso, done: false, image_url: sheetTaskImageUrl
   }, function(savedRow){
+    var tempTaskId = localTask.id;
     localTask.id = savedRow.id; // swap temp ID for the real one
+    nativeAlarmReschedule(tempTaskId, savedRow.id, title, alarmIso);
     if(subtaskData.length && currentUser && currentUser.id){
       subtaskData.forEach(function(st, i){
         var subId = generateClientId();
+        var tempSubId = localTask.subtasks[i].id;
         localTask.subtasks[i].id = subId;
+        nativeAlarmReschedule(tempSubId, subId, title + ': ' + st.title, st.alarmAt);
         syncToSupabase('subtasks', { id: subId, task_id: savedRow.id, title: st.title, done: false, image_url: st.imageUrl, alarm_at: st.alarmAt });
       });
     }
+    // Real, confirmed bug found via direct testing: the landing screen's rows are plain HTML
+    // strings with the task id baked into a data-attribute at render time -- which happened
+    // right after the temp_ id was assigned, before this callback ever runs. Once the id swaps
+    // here, that already-rendered button's data-task-id is left pointing at an id nothing
+    // matches anymore, silently no-oping the new '+' button (and would do the same to the
+    // existing row-tap-to-open-day behavior for a task's very first render). Re-render so the
+    // DOM's ids are never stale.
+    if(document.getElementById('panel-calendar').style.display !== 'none') renderCalendarPendingTasks();
+    if(sheetTargetKey === activeDayKey) renderTaskListCal();
   });
   titleEl.value = ''; // clear so a subsequent close doesn't re-save the same task
   sheetTaskImageUrl = null;
@@ -8715,6 +8800,23 @@ function commitTaskEdit(title, deadlineIso, subtaskRows, alarmIso){
   saveState();
   if(sheetTargetKey === bdSelectedKey) renderBodyDoubleTaskList();
   if(sheetTargetKey === activeDayKey) renderTaskListCal();
+  // Same landing-screen refresh gap as the new-task path above -- an edit (e.g. adding a subtask
+  // via the new '+' on the Tasklist landing screen itself) needs this screen to reflect it
+  // immediately too, not just whichever single day happens to be active.
+  if(document.getElementById('panel-calendar').style.display !== 'none') renderCalendarPendingTasks();
+
+  // Real native alarm reconciliation for edits -- covers the task's own alarm changing (or being
+  // cleared, which is exactly why this always calls cancel first regardless of whether alarmIso
+  // is set), plus every subtask row: kept/edited ones get rescheduled, removed ones get
+  // cancelled outright.
+  nativeAlarmCancel(taskId);
+  nativeAlarmSchedule(taskId, title, alarmIso);
+  updatedSubtasks.forEach(function(s){
+    nativeAlarmCancel(s.id);
+    nativeAlarmSchedule(s.id, title + ': ' + s.title, s.alarmAt);
+  });
+  removedSubtasks.forEach(function(s){ nativeAlarmCancel(s.id); });
+  newSubtaskObjs.forEach(function(s){ nativeAlarmSchedule(s.id, title + ': ' + s.title, s.alarmAt); }); // temp ids for now; rescheduled below once real ids exist
 
   if(String(taskId).indexOf('temp_') !== 0){
     syncToSupabase('tasks', {
@@ -8735,7 +8837,9 @@ function commitTaskEdit(title, deadlineIso, subtaskRows, alarmIso){
   if(newSubtaskObjs.length && currentUser && currentUser.id){
     newSubtaskObjs.forEach(function(s){
       var subId = generateClientId();
+      var tempSubId = s.id;
       s.id = subId;
+      nativeAlarmReschedule(tempSubId, subId, title + ': ' + s.title, s.alarmAt);
       syncToSupabase('subtasks', { id: subId, task_id: taskId, title: s.title, done: false, image_url: s.image_url || null, alarm_at: s.alarmAt });
     });
   }
@@ -8809,6 +8913,7 @@ document.getElementById('sheetDeleteTaskBtn').onclick = function(){
   var taskId = sheetEditingTaskId;
   var list = getTasks(sheetTargetKey);
   var idx = list.findIndex(function(t){ return t.id === taskId; });
+  var taskBeingDeleted = idx !== -1 ? list[idx] : null;
   if(idx !== -1) list.splice(idx, 1);
   saveState();
   sheetEditingTaskId = null; // clear first so nothing tries to re-save this task on close
@@ -8817,7 +8922,10 @@ document.getElementById('sheetDeleteTaskBtn').onclick = function(){
   document.getElementById('addTaskSheet').style.display = 'none';
   if(sheetTargetKey === bdSelectedKey) renderBodyDoubleTaskList();
   if(sheetTargetKey === activeDayKey) renderTaskListCal();
+  if(document.getElementById('panel-calendar').style.display !== 'none') renderCalendarPendingTasks();
   showToast('Task deleted');
+  nativeAlarmCancel(taskId);
+  if(taskBeingDeleted) (taskBeingDeleted.subtasks || []).forEach(function(s){ nativeAlarmCancel(s.id); });
   if(String(taskId).indexOf('temp_') !== 0){
     // subtasks cascade-delete automatically via the DB foreign key
     sb.from('tasks').delete().eq('id', taskId).then(function(result){ if(result.error) console.error(result.error); });

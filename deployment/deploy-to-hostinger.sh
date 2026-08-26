@@ -21,14 +21,26 @@ if ! command -v hostinger-api-mcp &> /dev/null; then
   npm install -g hostinger-api-mcp
 fi
 
+# Real, confirmed gap found August 26, 2026: this script never included the live APK at all.
+# Deploys are a full directory replace, not a merge (documented above and in MASTER.md) -- so
+# any past web-only deploy through this exact script would have silently 404'd the live APK,
+# even though nothing about that deploy had anything to do with the app itself. Fixed by always
+# including whichever APK-related file(s) actually exist in SITE_DIR: the stable
+# HOBS-Companion.apk (what index.html's own APK_DOWNLOAD_URL constant points at, so the in-app
+# "Update" banner keeps working without a code change every release) and any versioned
+# HOBS-Companion-v*.apk files (the convention adopted after BUG_LOG #25, so a fresh direct
+# download never collides with a stale, same-named file already cached by Chrome's download
+# manager).
+#
 # Build the deployment archive from exactly the files that belong on the live site --
 # add to this list if the site ever gains new top-level files.
 TIMESTAMP=$(date -u +%Y%m%d_%H%M%S)
 STAGE_DIR="/tmp/hostinger_deploy_stage_${TIMESTAMP}"
 mkdir -p "$STAGE_DIR"
-for f in index.html version.json donate.html privacy-policy.html terms-of-service.html delete-account.html supabase.min.js fonts.css; do
+for f in index.html version.json donate.html privacy-policy.html terms-of-service.html delete-account.html supabase.min.js fonts.css HOBS-Companion.apk; do
   [ -f "$SITE_DIR/$f" ] && cp "$SITE_DIR/$f" "$STAGE_DIR/"
 done
+cp "$SITE_DIR"/HOBS-Companion-v*.apk "$STAGE_DIR/" 2>/dev/null
 [ -d "$SITE_DIR/fonts" ] && cp -r "$SITE_DIR/fonts" "$STAGE_DIR/"
 # Real bug found August 25, 2026: every image went missing from both the website and every APK
 # after the sandbox reset because this list never included them. android-native-assets/web-images/

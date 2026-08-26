@@ -232,6 +232,8 @@ cp -r ../hobs-repo/android-native-assets/icons/* android/app/src/main/res/
 cp ../hobs-repo/android-native-assets/signing/hobs-release.keystore android/app/hobs-release.keystore
 cp ../hobs-repo/android-native-assets/firebase/google-services.json android/app/google-services.json
 cp ../hobs-repo/android-native-assets/mainactivity/MainActivity.java android/app/src/main/java/com/hobsfoundation/companion/MainActivity.java
+cp ../hobs-repo/android-native-assets/alarm-feature/*.java android/app/src/main/java/com/hobsfoundation/companion/
+cp ../hobs-repo/android-native-assets/alarm-feature/res-layout/activity_alarm.xml android/app/src/main/res/layout/activity_alarm.xml
 cp ../hobs-repo/android-native-assets/build-config/app-build.gradle android/app/build.gradle
 # then bump versionCode/versionName in that build.gradle above whatever was last shipped
 npx cap sync android
@@ -265,7 +267,7 @@ the one exception — do not "fix" it by removing the reference or generating a 
 
 ## 7. Full bug history and standing lessons
 
-**Do not skip this.** `docs/BUG_LOG.md` (804 lines as of this writing) contains 51 detailed,
+**Do not skip this.** `docs/BUG_LOG.md` (890 lines as of this writing) contains 54 detailed,
 real, root-caused bug entries plus a running list of standing lessons at its top. Reading it in
 full before starting work is the single highest-leverage thing a new session can do — several of
 the bugs in it were caused by not knowing something an earlier entry in the same file already
