@@ -3001,6 +3001,26 @@ function showWelcomeBackScreen(){
   // exact point.
   if(!img.src) img.src = 'bob-welcome-back.jpg';
   overlay.style.display = 'block';
+  // TEMPORARY diagnostic -- real proof needed of what's actually happening on the real device,
+  // not more theorizing about CSS. Remove once the real cause is confirmed.
+  try {
+    var rect = overlay.getBoundingClientRect();
+    var computed = window.getComputedStyle(overlay);
+    sb.from('error_logs').insert({
+      user_id: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null,
+      message: 'WELCOME_BACK_DIAG: ' + JSON.stringify({
+        displayStyleSetTo: overlay.style.display,
+        computedDisplay: computed.display,
+        computedVisibility: computed.visibility,
+        computedZIndex: computed.zIndex,
+        computedPosition: computed.position,
+        rect: { top: rect.top, left: rect.left, width: rect.width, height: rect.height },
+        parentTag: overlay.parentElement ? overlay.parentElement.tagName + '#' + overlay.parentElement.id : null,
+        optimisticBootTaken: typeof optimisticBootTaken !== 'undefined' ? optimisticBootTaken : 'undefined',
+      }),
+      stack: '', page_url: 'welcome-back-diagnostic'
+    }).then(function(){});
+  } catch(diagErr){}
   overlay.onclick = function(){
     overlay.style.display = 'none';
     overlay.onclick = null;
