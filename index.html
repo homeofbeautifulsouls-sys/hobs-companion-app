@@ -5052,6 +5052,9 @@ function showOnly(panelId){
     try {
       var hero = document.querySelector('.home-hero');
       var field = document.getElementById('bubbleField');
+      var authOv = document.getElementById('authOverlay');
+      var wbOv = document.getElementById('welcomeBackOverlay');
+      var topElAtCenter = document.elementFromPoint(window.innerWidth/2, window.innerHeight/2);
       sb.from('error_logs').insert({
         user_id: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null,
         message: 'HOME_PANEL_DIAG: ' + JSON.stringify({
@@ -5063,9 +5066,29 @@ function showOnly(panelId){
           bubbleFieldOffsetHeight: field ? field.offsetHeight : null,
           panelDisplay: document.getElementById('panel-bubbles').style.display,
           optimisticBootTaken: typeof optimisticBootTaken !== 'undefined' ? optimisticBootTaken : 'undefined',
+          authOverlayComputedDisplay: authOv ? window.getComputedStyle(authOv).display : null,
+          welcomeBackOverlayComputedDisplay: wbOv ? window.getComputedStyle(wbOv).display : null,
+          topElementAtCenter_atShowOnlyTime: topElAtCenter ? (topElAtCenter.id || topElAtCenter.className || topElAtCenter.tagName) : null,
         }),
         stack: '', page_url: 'home-panel-diagnostic'
       }).then(function(){});
+      // Check again a moment later -- catches anything transient that resolves quickly, or
+      // confirms whether the state at showOnly() time genuinely persists on screen.
+      setTimeout(function(){
+        try {
+          var topElLater = document.elementFromPoint(window.innerWidth/2, window.innerHeight/2);
+          sb.from('error_logs').insert({
+            user_id: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null,
+            message: 'HOME_PANEL_DIAG_DELAYED_300ms: ' + JSON.stringify({
+              topElementAtCenter: topElLater ? (topElLater.id || topElLater.className || topElLater.tagName) : null,
+              authOverlayComputedDisplay: authOv ? window.getComputedStyle(authOv).display : null,
+              welcomeBackOverlayComputedDisplay: wbOv ? window.getComputedStyle(wbOv).display : null,
+              heroComputedOpacity: hero ? window.getComputedStyle(hero).opacity : null,
+            }),
+            stack: '', page_url: 'home-panel-diagnostic'
+          }).then(function(){});
+        } catch(e2){}
+      }, 300);
     } catch(diagErr){}
   }
   // panel-chat-room needs flex (not the generic block above) for its own internal header/
