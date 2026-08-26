@@ -692,6 +692,31 @@ switch to the right tab.
 
 ---
 
+### 49. Real, definitive root cause of the welcome-back sequence bug found -- panel-bubbles itself
+**What was actually happening:** every prior fix attempt (moving showWelcomeBackScreen() to be
+synchronous, checking its computed style/z-index) was correct but addressed the wrong layer.
+The real diagnostic proved the welcome-back overlay itself is set up perfectly, every time --
+full screen, correct z-index, correctly positioned. The bug was never there.
+**Real root cause, found by direct comparison**: every other panel-* element has
+`style="display:none;"` inline in the raw HTML -- panel-bubbles was the one exception. This
+means it was visible to the browser the instant the HTML parsed, completely independent of and
+before any JavaScript could run -- including the entire optimistic-boot and welcome-back logic,
+which is wrapped in an async Promise chain and can't possibly run before the browser's first
+paint. This is the exact same bug class as #40 (authOverlay defaulting to visible in markup),
+just never applied to this specific element.
+**Fix:** added the same `display:none` every other panel already has.
+**Verified with direct, inline instrumentation** (not an external observer, which had already
+given a misleading result once from firing after the app's own legitimate JS had already run):
+confirmed panel-bubbles' style.display reads as "none" immediately after the element is parsed,
+before any application logic executes at all.
+**Lesson**: when a fix at one layer doesn't hold and a defensive fix at a second layer also
+doesn't fully resolve it, check whether the actual root cause is a layer *before* either --
+here, the element being visible before JavaScript exists to control it at all, the same
+category of bug as the original authOverlay flash-before-JS-runs issue, just never checked for
+on this specific element.
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 **Run `deployment/verify-before-deploy.sh` before every single deploy, web or Android, no
