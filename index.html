@@ -5046,6 +5046,28 @@ document.addEventListener('focus', function(e){ if(e.target && e.target.tagName 
 function showOnly(panelId){
   var previousPanel = panelHistoryStack[panelHistoryStack.length - 1];
   allPanels.forEach(function(id){ document.getElementById(id).style.display = (id === panelId) ? 'block' : 'none'; });
+  // TEMPORARY diagnostic -- real proof needed of what's actually rendered at this moment,
+  // since a reported blank home screen doesn't match anything found in code review alone.
+  if(panelId === 'panel-bubbles'){
+    try {
+      var hero = document.querySelector('.home-hero');
+      var field = document.getElementById('bubbleField');
+      sb.from('error_logs').insert({
+        user_id: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null,
+        message: 'HOME_PANEL_DIAG: ' + JSON.stringify({
+          heroExists: !!hero,
+          heroOffsetHeight: hero ? hero.offsetHeight : null,
+          heroComputedOpacity: hero ? window.getComputedStyle(hero).opacity : null,
+          heroComputedDisplay: hero ? window.getComputedStyle(hero).display : null,
+          bubbleFieldChildCount: field ? field.children.length : null,
+          bubbleFieldOffsetHeight: field ? field.offsetHeight : null,
+          panelDisplay: document.getElementById('panel-bubbles').style.display,
+          optimisticBootTaken: typeof optimisticBootTaken !== 'undefined' ? optimisticBootTaken : 'undefined',
+        }),
+        stack: '', page_url: 'home-panel-diagnostic'
+      }).then(function(){});
+    } catch(diagErr){}
+  }
   // panel-chat-room needs flex (not the generic block above) for its own internal header/
   // messages/input column layout to actually work as intended.
   if(panelId === 'panel-chat-room') document.getElementById('panel-chat-room').style.display = 'flex';
