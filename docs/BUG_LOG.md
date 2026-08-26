@@ -929,6 +929,36 @@ visually. Cleaned up the test account after.
 
 ---
 
+### 58. Should have used staging first -- it already existed, and I skipped it
+**Real, direct feedback**: a fully live staging environment (`staging-app.homeofbeautifulsouls.com`,
+a separate Supabase project, a separate Android package id that installs side-by-side with
+production) already existed specifically for testing exactly this class of change, and it was
+never used for the alarm feature -- built and shipped directly to production instead, with only a
+mocked-plugin JS test standing in for real verification. That gap is what let #56's crash reach a
+real device.
+**Fix**: built the alarm feature again as a genuine staging APK -- distinct package
+(`com.hobsfoundation.companion.staging`), distinct Supabase backend, distinct site URLs for its
+own update-check/download links, labeled "HOBS Companion (Staging)" so it's visually
+distinguishable from production on the home screen. Deployed to the real staging site, verified
+live (byte-identical download, correct package name, correct staging backend baked into the
+bundled JS).
+**Real, honest limitation surfaced along the way**: `google-services.json` (Firebase) is
+registered against the production package name only -- copying it into a staging build with a
+different package id fails the build outright (`processReleaseGoogleServices`, confirmed via the
+actual build error, not assumed). Fixed by omitting it for staging builds, which the existing
+`app-build.gradle` already conditionally supports (skips the Google Services plugin entirely when
+the file's absent) -- meaning push notifications don't work on staging, which is fine for testing
+anything that doesn't depend on them.
+**This whole staging build setup is now saved permanently** in
+`android-native-assets/staging-config/`, with a README covering the exact recipe and the one
+known real gap (Google Sign-In's custom URL scheme is currently identical between production and
+staging, untested with both installed at once).
+**Standing process, not a one-time fix**: `docs/MASTER.md` now says explicitly -- any change
+touching native Android code goes to staging first, gets tested on a real device, and only goes
+to production after that's confirmed. This should never have been skippable in the first place.
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 **Run `deployment/verify-before-deploy.sh` before every single deploy, web or Android, no

@@ -214,6 +214,21 @@ to the site, add it to the script's file list too.
 content is there. "Request accepted" from the tool only means the deploy was queued.
 
 ### Android build, from a completely fresh environment
+
+**Staging first, always, no exceptions for anything touching native code.** Real incident, Aug
+26, 2026: the native alarm feature was built and shipped straight to production without any real
+device testing (only a mocked-plugin JS test, which proved nothing about the actual native
+code) -- it crashed on Akash's real device. There is already a live, fully separate staging
+environment (`staging-app.homeofbeautifulsouls.com`, Supabase project `ivqlqrpcamoshmgibjph`,
+Android package `com.hobsfoundation.companion.staging` -- installs side-by-side with production,
+doesn't conflict) specifically so this kind of thing gets caught on a real device before
+production ever sees it. See `android-native-assets/staging-config/README.md` for the full
+staging build recipe. **Do not build directly for production when the change touches native
+Android code (new plugins, permissions, activities, receivers) -- build for staging, have Akash
+test it on his real phone, and only build for production after he confirms it's genuinely
+working.** JS-only changes (no native surface) are lower risk and don't strictly require this,
+but staging is still the safer default when in doubt.
+
 ```bash
 git clone <repo>
 cd hobs-repo
@@ -276,7 +291,7 @@ the one exception — do not "fix" it by removing the reference or generating a 
 
 ## 7. Full bug history and standing lessons
 
-**Do not skip this.** `docs/BUG_LOG.md` (966 lines as of this writing) contains 57 detailed,
+**Do not skip this.** `docs/BUG_LOG.md` (1010 lines as of this writing) contains 58 detailed,
 real, root-caused bug entries plus a running list of standing lessons at its top. Reading it in
 full before starting work is the single highest-leverage thing a new session can do — several of
 the bugs in it were caused by not knowing something an earlier entry in the same file already
