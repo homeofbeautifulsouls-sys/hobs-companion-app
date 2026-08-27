@@ -5876,6 +5876,33 @@ var SELF_HARM_SIGNAL_PATTERNS = [
   /no\s+future\s+(for\s+me|left)/i,
   /can'?t\s+(see|imagine)\s+(a\s+|my\s+)?future\s+for\s+myself/i,
   /nothing\s+to\s+look\s+forward\s+to\s+(anymore|any\s?more|ever\s+again)/i,
+  // Real, direct instruction after the above fix: strengthen the instant layer more broadly,
+  // not just for the one gap that happened to get reported. Four more distinct, independently
+  // documented categories, added the same way -- researched, then stress-tested against
+  // realistic benign phrasing *before* going in, not after:
+  // 1. Sleep/rest as a euphemism for death -- a recognized indirect-language pattern distinct
+  //    from the direct "want to die" phrasing already covered.
+  // 2. "Life (isn't) worth living" -- extremely common exact phrasing for suicidal ideation that,
+  //    surprisingly, matched none of the existing patterns despite the list already covering
+  //    "no reason to live" and "don't see the point in living" as separate, differently-worded
+  //    variants.
+  // 3. Worthlessness -- PHQ-9 item 6 ("feeling bad about yourself, or that you are a failure, or
+  //    that you have let yourself or your family down") is literally one of the 9 core
+  //    depression-screening questions, and "worthless" is its standard shorthand in clinical use.
+  //    Deliberately requires "completely"/"utterly" rather than the bare word: tested first, and
+  //    bare "worthless" genuinely false-positived on an explicitly self-correcting, non-clinical
+  //    sentence ("I feel worthless when I mess up at work but I know it's not true") -- the
+  //    intensity qualifier is what keeps this at the same severity level as the rest of the list
+  //    instead of catching ordinary self-critical venting.
+  // 4. "Giving up on life/everything" -- distinct from the already-covered "done with
+  //    life/everything," and deliberately requires the "on life/everything/myself" object rather
+  //    than bare "give up," which is extremely common in totally mundane contexts ("give up on
+  //    this diet," "give up trying to parallel park") and would have false-positived constantly.
+  /wish\s+i\s+(could\s+)?sleep\s+forever/i, /just\s+want(ed)?\s+to\s+rest\s+forever/i,
+  /wish\s+i'?d\s+never\s+wake\s+up/i, /never\s+wake\s+up\s+again/i,
+  /life\s+(is|isn'?t|is\s+not)\s+worth\s+living/i, /not\s+worth\s+living\s+any\s?more/i,
+  /feel(ing)?\s+(completely|utterly)\s+worthless/i, /i'?m\s+(completely|utterly)\s+worthless/i,
+  /giv(e|ing)\s+up\s+on\s+(life|everything|myself)/i,
   // Void / emptiness / disappearing themes common in indirect poetic language
   /(swallowed|consumed)\s+by\s+(the\s+)?(dark|void|emptiness)/i, /empty\s+inside\s+forever/i,
   /nothing\s+left\s+(in|of)\s+me/i,

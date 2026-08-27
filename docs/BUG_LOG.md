@@ -1131,6 +1131,30 @@ modal.
 
 ---
 
+### 64. Strengthened the instant crisis-detection layer more broadly, per direct instruction after #63
+**What was asked**: given #63 proved the instant layer had a real gap, proactively strengthen it
+further rather than waiting for the next gap to get reported.
+**Approach**: four more distinct, independently documented clinical categories, each researched
+and stress-tested against realistic benign phrasing *before* going into the file, same discipline
+as #63: (1) sleep/rest as a euphemism for death; (2) "life (isn't) worth living" -- extremely
+common exact phrasing that, despite the list already covering "no reason to live" and "don't see
+the point in living" as separate wordings, matched neither; (3) worthlessness, grounded in PHQ-9
+item 6 (one of the 9 core depression-screening questions); (4) "giving up on life/everything."
+**Two real false positives found and fixed during testing, not after**: bare "worthless" matched
+an explicitly self-correcting, non-clinical sentence ("I feel worthless when I mess up at work
+but I know it's not true") -- fixed by requiring "completely"/"utterly" as a mandatory intensity
+qualifier. Bare "give up" is extremely common in mundane contexts ("give up on this diet," "give
+up trying to parallel park") -- fixed by requiring the "on life/everything/myself" object.
+**Verified thoroughly before shipping**: extracted the actual, final 81-pattern array directly
+from the file (not a hand-copied scratch version) and ran the complete combined test suite
+against it -- every target phrase from both this pass and #63 matched, zero false positives
+across 11 realistic benign phrases. Then verified live against the real app with a fresh test
+account: a combined worthlessness + giving-up phrase fired the modal in 7ms.
+**Shipped as v3.44 (versionCode 64)**, verified live. Total instant-layer coverage now 81
+patterns across 17 distinct clinical categories, versus 63 patterns before this session started.
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 **Run `deployment/verify-before-deploy.sh` before every single deploy, web or Android, no
