@@ -37,6 +37,20 @@ fi
 TIMESTAMP=$(date -u +%Y%m%d_%H%M%S)
 STAGE_DIR="/tmp/hostinger_deploy_stage_${TIMESTAMP}"
 mkdir -p "$STAGE_DIR"
+# Real, confirmed incident, Aug 27, 2026, same day as the fix above: even with that fix in
+# place, a web-only deploy (donate.html only, no APK work involved) silently wiped the live APK
+# down to a 404 anyway -- because no local APK file happened to exist at that moment (the normal
+# state after finishing any APK-related work and cleaning up scratch files), and "no local file"
+# still means "don't include it," which for a full-directory-replace means "delete it from the
+# live site." The earlier fix only stopped the script from crashing on this case; it never made
+# the case itself safe. Fixed properly this time: if no local APK exists, pull whatever's
+# CURRENTLY live and re-stage that instead, so a deploy can only ever add or update the APK, and
+# an already-live APK can never be silently dropped just because nobody happened to keep a local
+# copy around at that exact moment.
+if [ ! -f "$SITE_DIR/HOBS-Companion.apk" ]; then
+  echo "No local APK found -- pulling the currently-live one so this deploy doesn't drop it..."
+  curl -sf -o "$STAGE_DIR/HOBS-Companion.apk" "https://${DOMAIN}/HOBS-Companion.apk" || echo "  (nothing live yet either -- fine for a brand-new domain, first release will add it)"
+fi
 for f in index.html version.json donate.html privacy-policy.html terms-of-service.html delete-account.html supabase.min.js fonts.css HOBS-Companion.apk; do
   [ -f "$SITE_DIR/$f" ] && cp "$SITE_DIR/$f" "$STAGE_DIR/"
 done

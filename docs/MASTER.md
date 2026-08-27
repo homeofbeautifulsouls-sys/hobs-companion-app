@@ -291,7 +291,7 @@ the one exception — do not "fix" it by removing the reference or generating a 
 
 ## 7. Full bug history and standing lessons
 
-**Do not skip this.** `docs/BUG_LOG.md` (1277 lines as of this writing) contains 66 detailed,
+**Do not skip this.** `docs/BUG_LOG.md` (1300 lines as of this writing) contains 67 detailed,
 real, root-caused bug entries plus a running list of standing lessons at its top. Reading it in
 full before starting work is the single highest-leverage thing a new session can do — several of
 the bugs in it were caused by not knowing something an earlier entry in the same file already

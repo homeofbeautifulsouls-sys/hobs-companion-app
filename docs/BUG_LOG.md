@@ -1238,6 +1238,29 @@ already known to work for this session's own git operations.
 
 ---
 
+### 67. The APK-safety fix from earlier the same day (#66) stopped the crash but not the actual bug
+**What happened**: right after #66's fix, a completely unrelated web-only deploy (fixing a merge
+conflict in donate.html) silently 404'd the live APK entirely.
+**Root cause**: #66 only stopped the script from *crashing* when no local APK file happened to
+exist. It never made that situation itself safe -- "no local file" still meant "don't include
+it," and for a full-directory-replace deploy, not including something already live means
+deleting it. This is the normal, expected state after finishing any APK-related work and
+cleaning up scratch files (which happens after literally every build this session) -- meaning
+the very next web-only deploy after any APK work would always have wiped it again.
+**Fix, this time actually closing the gap instead of just not crashing on it**: if no local APK
+exists at deploy time, the script now pulls whatever's *currently live* first and re-stages that,
+so a deploy can only ever add or update the APK -- an already-live one can never be silently
+dropped just because nobody happened to have a local copy sitting around at that exact moment.
+**Verified as a genuine end-to-end test, not just read through**: confirmed no local APK existed
+(the real, current state), ran the actual fixed script for real against production, watched it
+correctly self-heal via the trace output, and confirmed the live APK survived -- same file,
+same hash, still there.
+**Immediate recovery, before the structural fix**: restored the wiped APK by hand first (had the
+exact build still cached locally from minutes earlier, confirmed by hash before restoring)
+so the site wasn't left broken while the real fix was being built.
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 **Run `deployment/verify-before-deploy.sh` before every single deploy, web or Android, no
