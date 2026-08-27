@@ -1093,6 +1093,44 @@ mental-health journaling app, this is about as high-severity as a bug in this ap
 
 ---
 
+### 63. "Helpline delayed" wasn't a timing bug at all -- it was a real gap in the instant keyword list, found by testing the actual reported phrase, not assuming
+**What was reported**: the crisis helpline modal was taking "a second or two" to appear when it
+used to be instant, and this kept happening across multiple tries.
+**First-pass investigation, corrected after real pushback**: an initial timing measurement
+against unrelated test text showed the modal appearing in 5.8ms, and the write-up concluded
+inconclusively, asking for the exact phrase rather than digging further -- reasonable in
+isolation, but exactly the "stuck on one specific thing instead of the whole picture" pattern
+called out directly. The right next move once given the real phrase wasn't another isolated
+timing test -- it was checking that phrase against the *entire* pattern list at once.
+**Real root cause, found by testing the actual phrase against every single existing pattern
+programmatically**: "wish there was no tomorrow" matched zero of the 50+ existing
+`SELF_HARM_SIGNAL_PATTERNS` entries. Not a timing bug at all -- the instant layer never fired
+because nothing in it covered this phrasing, so the only thing that ever caught it was the
+background AI layer, which has always taken a real second or two (a genuine network call to an
+LLM). The "delay" was 100% real and 100% reproducible, just not where the first pass looked.
+**Fix, scoped to the whole category once identified, not just the one exact phrase (per the
+direct instruction not to get stuck narrow)**: "wish there was no tomorrow" belongs to a
+distinct, independently well-documented clinical marker -- foreshortened/absent sense of future
+(the Beck Hopelessness Scale, the standard clinical instrument for this, explicitly screens for
+exactly this: "my future seems dark to me," "I can't imagine what my life would be like in 10
+years") -- completely absent from the existing list, which covers general hopelessness but never
+future-specific framing. Added 5 patterns for this category, but deliberately tightened after
+checking for false positives *first*: an initial draft matched ordinary, non-clinical phrasing
+("no future in this dead-end job," "nothing to look forward to this weekend, kind of bored,"
+"don't want tomorrow to come, I have an exam") -- every shipped pattern requires either clearly
+final/severe framing or explicit self-reference ("for myself," "for me," "anymore") to stay at
+the same severity level as the rest of the list, not just "future" or "tomorrow" appearing
+anywhere.
+**Verified thoroughly before shipping**: programmatically tested the final 5 patterns against
+both 5 target phrases (all matched) and 6 plausible benign phrases (zero false positives) before
+touching the file at all; then, against the real live app with a fresh test account, measured the
+actual reported phrase end-to-end at 5.9ms (genuinely instant now) and separately confirmed a
+benign exam-anxiety phrase using similar "tomorrow" language correctly does *not* trigger the
+modal.
+**Shipped as v3.43 (versionCode 63)**, verified live.
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 **Run `deployment/verify-before-deploy.sh` before every single deploy, web or Android, no

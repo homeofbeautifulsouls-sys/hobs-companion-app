@@ -5858,6 +5858,24 @@ var SELF_HARM_SIGNAL_PATTERNS = [
   /trapped\s+forever/i, /can'?t\s+go\s+on/i, /can'?t\s+(take|do)\s+this\s+any\s?more/i,
   /(so\s+)?tired\s+of\s+(living|life|everything|trying|existing)/i, /done\s+with\s+(life|everything)/i,
   /better\s+off\s+dead/i,
+  // Real, confirmed gap found directly from a real journal entry: "wish there was no tomorrow"
+  // -- tested against every single existing pattern here, matched none of them, so this whole
+  // category (foreshortened/absent sense of future) was completely missing, not just this one
+  // phrase. This is a distinct, independently well-documented clinical marker -- the Beck
+  // Hopelessness Scale, the standard clinical instrument for this, explicitly screens for
+  // exactly this ("my future seems dark to me," "I can't imagine what my life would be like in
+  // 10 years"), separately from general hopelessness wording already covered above. Deliberately
+  // scoped tighter than an initial draft after checking for false positives first: a bare
+  // "future"/"tomorrow" match alone catches far too much ordinary, non-clinical language ("no
+  // future in this job," "don't want tomorrow to come, I have an exam") -- every pattern below
+  // requires either clearly final/severe framing ("wish there was no tomorrow," not just
+  // "tomorrow") or explicit self-reference ("for myself," "for me," "anymore") to stay
+  // meaningfully scoped to the same severity level as the rest of this list.
+  /wish\s+(there\s+was|there\s+were)\s+no\s+tomorrow/i,
+  /wish\s+tomorrow\s+(wouldn'?t|would\s+not)\s+come/i,
+  /no\s+future\s+(for\s+me|left)/i,
+  /can'?t\s+(see|imagine)\s+(a\s+|my\s+)?future\s+for\s+myself/i,
+  /nothing\s+to\s+look\s+forward\s+to\s+(anymore|any\s?more|ever\s+again)/i,
   // Void / emptiness / disappearing themes common in indirect poetic language
   /(swallowed|consumed)\s+by\s+(the\s+)?(dark|void|emptiness)/i, /empty\s+inside\s+forever/i,
   /nothing\s+left\s+(in|of)\s+me/i,
