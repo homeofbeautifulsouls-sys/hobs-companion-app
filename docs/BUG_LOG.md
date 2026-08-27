@@ -1155,6 +1155,41 @@ patterns across 17 distinct clinical categories, versus 63 patterns before this 
 
 ---
 
+### 65. "Include everything you find, don't quietly filter to the strong ones" -- redone properly
+**What was reported**: after #64, direct feedback that candidates were being silently filtered
+down to "the stronger ones" and discarded instead of scoped and kept.
+**Real response**: pulled 16 more candidates from three clinical sources/theories not yet drawn
+from in this file -- the C-SSRS's own passive-ideation item wording, PHQ-9 item 9's exact
+phrasing, and Joiner's Interpersonal Theory of Suicide's "thwarted belongingness" construct (the
+counterpart to "perceived burdensomeness," already covered, but belongingness itself never was).
+**Stress-tested all 16 immediately, honestly, before deciding anything**: 13 of 16 false-
+positived on realistic benign phrasing on the first pass (e.g. "hope something happens to me" hit
+someone hoping for a work promotion; "I hate who I've become" hit someone complaining about
+burning dinner). Per the direct instruction, none of these were dropped for false-positiving --
+every one was fixed instead: "hope something bad happens to me" (made "bad" mandatory, not
+optional); "hurting myself" family required an object other than
+financially/professionally/emotionally; self-hatred phrasing (3 patterns) required the despair to
+be explicitly paired with hopelessness language in the same sentence ("...and I don't want to
+keep going"), which turned out to be a genuine, working differentiator once the regex was written
+correctly -- an early attempt looked like it had failed only because of a construction bug (not
+allowing a pronoun between "and" and the despair clause), not because the category was
+fundamentally unscopable.
+**A second pre-existing false positive found along the way, not introduced today**: stress-
+testing the new "hurting myself" wording surfaced that the bare, original
+`/hurt(ing)?\s+myself/i` and `/harm(ing)?\s+myself/i` patterns -- live since before this session
+-- also match "hurting myself financially with this risky investment" and "harming myself
+professionally by burning bridges." Fixed both the same way, immediately, rather than filing it
+away.
+**Verified exhaustively before shipping**: extracted the complete, final pattern array directly
+from the file and ran all 20 target phrases (crisis language, including every category from both
+this pass and #64) plus all 17 false-positive checks together in one pass -- 100% target match,
+zero false positives, across all 97 patterns. Then verified live against the real app: the
+self-hatred-plus-despair pairing fired the modal in 7ms.
+**Shipped as v3.45 (versionCode 65)**, verified live. Instant-layer coverage now 97 patterns
+across 21 distinct, individually-sourced clinical categories.
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 **Run `deployment/verify-before-deploy.sh` before every single deploy, web or Android, no

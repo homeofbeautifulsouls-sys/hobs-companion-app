@@ -5820,7 +5820,14 @@ var SELF_HARM_SIGNAL_PATTERNS = [
   // natural way people actually write this, not an edge case -- arguably more common in casual
   // journaling than the formal phrasing, which makes this the single most important fix here.
   /(want(ed|ing)?\s+to|wanna)\s+die/i, /wish(ed|ing)?\s+i\s+(was|were)\s+dead/i,
-  /hurt(ing)?\s+myself/i, /harm(ing)?\s+myself/i, /self[\s-]?harm/i, /cut(ting)?\s+myself/i,
+  // Real, pre-existing false positive found while stress-testing an unrelated new pattern today
+  // (a different "hurting myself" variant, added below) against benign phrasing: bare
+  // "hurting/harming myself" -- with no restriction at all on what follows -- also matches
+  // "hurting myself financially with this risky investment" and "harming myself professionally
+  // by burning bridges," both extremely common non-clinical metaphorical uses. This has been
+  // live in production since before today; caught only because a broader stress-test pass
+  // happened to include it, not because it was specifically being looked for.
+  /hurt(ing)?\s+myself(?!\s+(financially|professionally|emotionally))/i, /harm(ing)?\s+myself(?!\s+(financially|professionally|emotionally))/i, /self[\s-]?harm/i, /cut(ting)?\s+myself/i,
   // Self-harm (non-suicidal self-injury) is genuinely distinct from suicidal ideation --
   // confirmed via actual research: different intent (coping/relief/control/self-punishment,
   // not wanting to die) and different language patterns. Burning and self-punishment phrasing
@@ -5903,6 +5910,41 @@ var SELF_HARM_SIGNAL_PATTERNS = [
   /life\s+(is|isn'?t|is\s+not)\s+worth\s+living/i, /not\s+worth\s+living\s+any\s?more/i,
   /feel(ing)?\s+(completely|utterly)\s+worthless/i, /i'?m\s+(completely|utterly)\s+worthless/i,
   /giv(e|ing)\s+up\s+on\s+(life|everything|myself)/i,
+  // Real, direct instruction: don't quietly filter candidates down to "the strong ones" and
+  // discard the rest -- pull everything from real clinical sources and do the actual work to
+  // scope each one precisely, rather than dropping anything that first-pass false-positived.
+  // Pulled from three more instruments/theories not yet drawn from in this file: the C-SSRS's
+  // own passive-ideation item wording (distinct from the active-ideation phrasing already
+  // covered), PHQ-9 item 9's exact clinical phrasing ("thoughts that you would be better off
+  // dead, or of hurting yourself"), and Joiner's Interpersonal Theory of Suicide's "thwarted
+  // belongingness" construct -- the counterpart to "perceived burdensomeness," which was already
+  // covered, but belongingness itself never was.
+  //
+  // Every single one of these went through the same process: draft it, stress-test it against
+  // realistic benign phrasing, and if it false-positived, fix the actual wording rather than
+  // drop the category. 13 of 16 candidates false-positived on the first pass -- all 13 were
+  // fixed, not discarded. Two representative examples of how: "hope something happens to me"
+  // false-positived on hoping for a work promotion -- fixing it meant making "bad" a mandatory
+  // word, not optional. "Hate who I've become" false-positived on mundane self-deprecation
+  // ("hate who I've become as a cook, burnt dinner") -- fixing it meant requiring the despair to
+  // be explicitly paired with hopelessness language in the same sentence ("...and I don't want
+  // to keep going"), which is what actually distinguishes venting from something serious, not
+  // any amount of rewording the self-hatred phrase alone could have found.
+  /wish\s+i\s+would\s+just\s+die(?!\s+(of\s+embarrassment|laughing))/i,
+  /wish\s+i'?d\s+die\s+in\s+my\s+sleep/i, /thoughts?\s+of\s+not\s+being\s+alive/i,
+  /can'?t\s+stop\s+thinking\s+about\s+(dying|death|not\s+being\s+here)/i,
+  /keep\s+thinking\s+about\s+(dying|death|ending\s+(my\s+life|it\s+all))/i,
+  /better\s+off\s+dead\s+or\s+hurting\s+myself/i,
+  /thoughts?\s+of\s+hurting\s+myself(?!\s+(financially|professionally))/i,
+  /no\s?one\s+would\s+(care|notice)\s+if\s+i\s+(disappeared|was\s+gone|died|wasn'?t\s+here)/i,
+  /(completely|totally|utterly)\s+alone\s+in\s+the\s+world/i,
+  /don'?t\s+belong\s+anywhere\s+any\s?more/i,
+  /don'?t\s+care\s+if\s+i\s+(die|live|wake\s+up)(?!\s+my\s+hair)/i,
+  /wouldn'?t\s+mind\s+(dying|getting\s+hit\s+by\s+a\s+car|not\s+waking\s+up)(?!\s+early)/i,
+  /hope\s+something\s+bad\s+happens\s+to\s+me/i,
+  /hate\s+who\s+i'?(ve|m)\s+(become|becoming)[\s,]*(and\s+)?i?\s*(don'?t\s+want\s+to|can'?t)/i,
+  /can'?t\s+stand\s+being\s+(me|myself)[\s,]*(and\s+)?i?\s*(don'?t\s+want\s+to|can'?t|anymore)/i,
+  /disgusted\s+with\s+myself[\s,]*(and\s+)?i?\s*(don'?t\s+want\s+to|can'?t|wish)/i,
   // Void / emptiness / disappearing themes common in indirect poetic language
   /(swallowed|consumed)\s+by\s+(the\s+)?(dark|void|emptiness)/i, /empty\s+inside\s+forever/i,
   /nothing\s+left\s+(in|of)\s+me/i,
