@@ -40,7 +40,13 @@ mkdir -p "$STAGE_DIR"
 for f in index.html version.json donate.html privacy-policy.html terms-of-service.html delete-account.html supabase.min.js fonts.css HOBS-Companion.apk; do
   [ -f "$SITE_DIR/$f" ] && cp "$SITE_DIR/$f" "$STAGE_DIR/"
 done
-cp "$SITE_DIR"/HOBS-Companion-v*.apk "$STAGE_DIR/" 2>/dev/null
+# Real bug found Aug 27, 2026: under `set -e`, this line's nonzero exit (when no APK file
+# happens to exist locally, which is true for every ordinary web-only deploy) silently killed
+# the entire script before it ever reached Hostinger -- no error message, since stderr was also
+# suppressed, making it look like nothing happened at all rather than a clear failure. The `||
+# true` is what makes "no APK to deploy this time" the normal, expected case it actually is,
+# rather than a fatal error.
+cp "$SITE_DIR"/HOBS-Companion-v*.apk "$STAGE_DIR/" 2>/dev/null || true
 [ -d "$SITE_DIR/fonts" ] && cp -r "$SITE_DIR/fonts" "$STAGE_DIR/"
 # Real bug found August 25, 2026: every image went missing from both the website and every APK
 # after the sandbox reset because this list never included them. android-native-assets/web-images/

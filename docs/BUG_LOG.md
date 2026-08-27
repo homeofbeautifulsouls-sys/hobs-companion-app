@@ -1190,6 +1190,54 @@ across 21 distinct, individually-sourced clinical categories.
 
 ---
 
+### 66. In-app donations failed while the direct link worked -- Capacitor's WebView was blocking Razorpay's domain entirely
+**What was reported**: tapping Donate inside the app showed "Could not start payment — please
+try again," while opening donate.html as a plain link worked fine, using the exact same backend.
+**Real investigation, not assumed**: confirmed the backend itself was completely healthy first --
+called `create-razorpay-order` directly and got back a genuine live order (`rzp_live_` key,
+correct amount), ruling out the recent Razorpay bank-account change as the cause (settlement
+account changes affect where money lands after collection, not whether collection itself works).
+Then read the actual client code: the error text only ever comes from the outer `.catch()`, never
+from a clean `{error: ...}` response -- meaning this was a network/script-level failure, not the
+backend saying no.
+**Root cause, confirmed against Razorpay's own documentation**: Capacitor's WebView only allows
+navigation to the app's own bundled content by default. `capacitor.config.ts` had no
+`allowNavigation` entry at all, so `checkout.razorpay.com` was silently blocked the moment the
+in-app flow tried to reach it -- while a normal mobile browser tab (the direct link) has no such
+restriction. Razorpay's own docs confirm this exact class of restriction is why they maintain a
+separate native Capacitor SDK rather than just recommending `checkout.js` be embedded directly.
+**Fix**: added `server: { allowNavigation: ['*.razorpay.com'] }` to `capacitor.config.ts` --
+Capacitor's own documented mechanism for this, not custom code.
+**Handled as a genuinely different risk class than the alarm feature (#56), not the same mistake
+repeated**: built and deployed to staging first, as a separate side-by-side install pointed at
+the *real* production backend (since the bug is native-shell-level, not backend-level, testing
+it meaningfully requires the real campaign data). When asked to skip straight to production
+because staging wasn't installed on hand, did so deliberately rather than reflexively -- this is
+a single, standard, documented Capacitor config option, not new custom native classes with
+unknown failure modes, which is what actually made the alarm feature unsafe to skip-test.
+**A real mistake made and immediately caught while deploying the staging build**: the first
+staging deploy zip contained only the new APK and a version.json, not the rest of the site's
+files -- since Hostinger deploys are a full-directory-replace, this wiped every other file on
+staging (index.html, fonts, other pages) down to 404s. Caught immediately by checking
+right after deploying rather than assuming success, and fixed with a proper full-directory
+redeploy before any further work continued.
+**Shipped to production as v3.46 (versionCode 66)**, verified live: byte-identical APK download,
+correct signing, correct version, and the `allowNavigation` entry confirmed present in the
+downloaded file itself, not just the source.
+**Separately, also discovered and fixed during this same investigation**: `update-donate-page-meta`
+(the function that keeps donate.html's link-preview meta tags in sync with the active campaign)
+had been committing only to GitHub since a Hostinger migration months ago -- a separate "remove
+GitHub Pages dependency" audit had updated URLs and hardcoded links everywhere else but missed
+this function specifically, since it never referenced a URL directly. Real, live consequence: a
+brand-new urgent campaign's WhatsApp link preview was still showing an old, unrelated campaign.
+Fixed by adding a genuine Hostinger push (the same proven TUS upload pattern already used by
+`database-backup-offsite`) alongside the existing GitHub commit, and separately found and fixed
+a stale `GITHUB_PAT` secret on this function that was silently causing every invocation to fail
+with "Bad credentials" -- confirmed the correct current token by matching it against the one
+already known to work for this session's own git operations.
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 **Run `deployment/verify-before-deploy.sh` before every single deploy, web or Android, no
