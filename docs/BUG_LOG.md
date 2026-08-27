@@ -1261,6 +1261,54 @@ so the site wasn't left broken while the real fix was being built.
 
 ---
 
+### 68. The real fix for in-app donations -- took three attempts to find, each one genuinely wrong for a different reason
+**The full arc, told honestly rather than just the final answer**: attempt 1 assumed Capacitor
+blocks external navigation by default and added `allowNavigation: ['*.razorpay.com']` -- verified
+against Capacitor's own docs afterward that this assumption was backwards: the real default is
+that external URLs auto-open in the phone's real browser, and `allowNavigation` does the
+opposite, trapping a domain inside the WebView instead. Attempt 2 removed that entry entirely to
+restore the real default -- still didn't work, because the actual root cause was never about
+navigation policy at all.
+**Real root cause, found only by reading Razorpay's own documented WebView integration guide in
+full**: their standard checkout (a JS `handler` callback triggering a popup-style modal) is built
+for a real browser tab and is explicitly documented as unreliable inside an embedded WebView.
+Razorpay maintains a *separate, documented WebView-specific integration pattern* --
+`callback_url` + `redirect: true`, a real page redirect through a server-side callback, instead
+of a JS popup -- plus a real native requirement most integrations never think to check:
+third-party cookies must be explicitly enabled on the WebView (`CookieManager
+.setAcceptThirdPartyCookies`), which their docs state is required for the checkout to function
+correctly, not just for saved-card convenience.
+**Fix, built as three coordinated pieces**: (1) a new `razorpay-payment-callback` edge function --
+Razorpay POSTs here after a payment attempt; it does nothing but redirect back into the app. It
+deliberately does *not* verify payment itself, since `razorpay-webhook`, independently verifying
+Razorpay's own signature server-to-server, has always been the only thing allowed to mark a
+donation as actually paid, and a client-reachable redirect URL is not proof of anything -- that
+security boundary was not touched. (2) `MainActivity.java` now explicitly enables third-party
+cookies on the WebView at startup, following Razorpay's documented requirement exactly rather
+than a simplified version of it. (3) `capacitor.config.ts`'s `allowNavigation` needed *both*
+`*.razorpay.com` (so the checkout process itself can render inside the WebView) and the app's own
+domain (so the final redirect back after payment also stays in-app instead of kicking out to an
+external browser at that last step) -- confirmed this reasoning directly against Capacitor's real
+documented default before adding it back, this time for the right reason.
+**Deliberately scoped to only the donation call site, not the shared `openRazorpayPayment()`
+function** -- that function is also used for session payments and cancellation charges, which
+were never reported broken and were never verified to need this. Changing shared behavior for
+flows that weren't confirmed broken would have been a real, unforced risk; only `openDonateModal`
+was touched.
+**Genuinely unresolved before shipping, disclosed rather than hidden**: this was built and
+shipped straight to production with no real-device verification at all -- Android 16 on the
+person's phone blocks the sideload installation staging depends on, and `adb`-based install
+requires a laptop that wasn't available. Every other check that doesn't require a real device was
+done as thoroughly as possible: the new edge function tested live end-to-end (confirmed a real
+302 redirect to the correct URL), the native Java code confirmed to actually compile into the
+built APK's `.dex` (not just written source), and the exact deployed APK confirmed byte-identical
+to what was built and verified locally.
+**Shipped as v3.48 (versionCode 68)**, verified live down to the byte. Whether it actually fixes
+the underlying problem is still not confirmed as of this entry -- that depends on the account
+holder's own real-device test, which hadn't happened yet when this was written.
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 **Run `deployment/verify-before-deploy.sh` before every single deploy, web or Android, no

@@ -14059,6 +14059,18 @@ document.getElementById('donateContinueBtn').onclick = function(){
     {
       description: currentDonateCampaign.title,
       prefill: donorName ? { name: donorName } : {},
+      // Real fix, scoped only to this call site (not the shared function -- session payments
+      // and cancellation charges use the same function and haven't been touched or verified
+      // broken, so their existing handler-based flow is left exactly as-is). Per Razorpay's own
+      // documented WebView integration guidance, their standard checkout (a JS `handler`
+      // callback + popup rendering) is designed for a real browser tab and is documented as
+      // unreliable inside an embedded WebView -- very likely why the in-app donation flow never
+      // opened at all. callback_url + redirect:true switches specifically this flow to their
+      // WebView-specific pattern: a real page redirect through razorpay-payment-callback, which
+      // does not verify payment itself -- only razorpay-webhook, independently verified
+      // server-to-server, is still ever allowed to do that, unchanged.
+      callback_url: 'https://adjvptkzyckkvewbfmzf.supabase.co/functions/v1/razorpay-payment-callback',
+      redirect: true,
       handler: function(){
         logAnalyticsEvent('donation_pledged');
         showToast('Thank you! Confirming your donation…');

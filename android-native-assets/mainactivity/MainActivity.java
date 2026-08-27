@@ -1,6 +1,8 @@
 package com.hobsfoundation.companion;
 
+import android.os.Build;
 import android.os.Bundle;
+import android.webkit.CookieManager;
 import android.webkit.WebSettings;
 import androidx.webkit.WebSettingsCompat;
 import androidx.webkit.WebViewFeature;
@@ -20,6 +22,20 @@ public class MainActivity extends BridgeActivity {
     WebSettings settings = getBridge().getWebView().getSettings();
     if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
       WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, false);
+    }
+
+    // Real fix, Aug 27, 2026, following Razorpay's own documented WebView integration
+    // requirements: their checkout depends on cookies (for features like saved cards, and
+    // plausibly for basic session/state handling during the checkout flow itself) -- without
+    // this, their docs indicate the checkout can fail to work correctly in an embedded WebView.
+    // minSdkVersion is 24, already above the LOLLIPOP (API 21) branch below, but keeping both
+    // branches exactly as Razorpay's own docs show them rather than "simplifying" away a branch
+    // that will never run on this app's actual minimum version -- safer to match their exact
+    // documented guidance precisely on something this hard to verify without a real device.
+    CookieManager cookieManager = CookieManager.getInstance();
+    cookieManager.setAcceptCookie(true);
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+      cookieManager.setAcceptThirdPartyCookies(getBridge().getWebView(), true);
     }
   }
 }

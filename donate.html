@@ -118,6 +118,19 @@
   }
   loadCampaign();
 
+  // Handles the redirect-based checkout flow required for the in-app WebView (Razorpay's
+  // standard popup/handler pattern doesn't reliably work embedded -- see their own WebView
+  // integration docs). When the in-app payment flow finishes, Razorpay POSTs to a callback
+  // function which redirects back here with this marker. This is purely a "here's what to show
+  // while landing back" message -- it does NOT mean the payment succeeded, since a client-
+  // reachable redirect proves nothing about payment status. Real confirmation still only ever
+  // comes from razorpay-webhook, independently verified server-to-server, same as before.
+  if(new URLSearchParams(window.location.search).get('payment_attempted') === '1'){
+    document.getElementById('statusMsg').textContent = "We're confirming your payment now — this can take a few seconds.";
+    document.getElementById('statusMsg').style.color = '#6690D6';
+    setTimeout(loadCampaign, 3000); // refresh the total once the webhook's had a moment to land
+  }
+
   document.querySelectorAll('.preset-btn').forEach(function(btn){
     btn.onclick = function(){
       document.getElementById('donateAmount').value = btn.dataset.amt;

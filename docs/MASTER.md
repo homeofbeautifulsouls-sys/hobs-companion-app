@@ -213,7 +213,30 @@ to the site, add it to the script's file list too.
 **Always verify after deploying** — fetch the real, live URL directly and confirm the actual
 content is there. "Request accepted" from the tool only means the deploy was queued.
 
+### Confirm before every production action -- no exceptions, urgency included
+
+Real, direct instruction, Aug 27, 2026, after several real production incidents in one session
+(a wiped live APK, a broken donation page, a native crash) got fixed reactively -- discovered,
+fixed, deployed, then reported, all before Akash ever saw or approved the plan: **real people are
+actively using and downloading this app while any of this happens.** Urgency is not an exception
+to this -- it was the exact justification used each time this was skipped, and each time it went
+wrong anyway.
+
+**Before any write action against production** (a deploy, a restore, a database change, an
+edge-function update, anything a real user could be affected by) -- describe exactly what's about
+to happen and wait for an explicit yes. This includes fixes for problems that were just
+introduced moments earlier in the same conversation. Investigation, diagnosis, and read-only
+verification (checking live status, reading code, testing against a throwaway account) don't need
+this -- only the actual write/deploy step does.
+
+Staging deploys are a lower-stakes middle ground already established separately (see below) and
+remain useful for things that need real-device testing before this confirmation step even makes
+sense to ask for -- but production itself always waits for a real yes now, not just "this seems
+urgent enough to act on."
+
 ### Android build, from a completely fresh environment
+
+
 
 **Staging first, always, no exceptions for anything touching native code.** Real incident, Aug
 26, 2026: the native alarm feature was built and shipped straight to production without any real
@@ -291,7 +314,7 @@ the one exception — do not "fix" it by removing the reference or generating a 
 
 ## 7. Full bug history and standing lessons
 
-**Do not skip this.** `docs/BUG_LOG.md` (1300 lines as of this writing) contains 67 detailed,
+**Do not skip this.** `docs/BUG_LOG.md` (1348 lines as of this writing) contains 68 detailed,
 real, root-caused bug entries plus a running list of standing lessons at its top. Reading it in
 full before starting work is the single highest-leverage thing a new session can do — several of
 the bugs in it were caused by not knowing something an earlier entry in the same file already
