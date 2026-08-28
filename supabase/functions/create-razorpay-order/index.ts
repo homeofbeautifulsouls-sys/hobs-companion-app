@@ -72,7 +72,18 @@ async function fetchExistingRazorpayOrder(orderId: string) {
 }
 
 Deno.serve(async (req) => {
-  const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "content-type" };
+  // Real, confirmed bug, Aug 28, 2026: this only ever allowed 'content-type' -- fine for
+  // donate.html's own anonymous calls (no custom headers beyond that), but the in-app donation
+  // flow conditionally adds a real Authorization header whenever the person is logged in, which
+  // is always the case for the founder's own account. Any header not listed here fails CORS
+  // preflight silently from the browser's own side, blocking the request before it's even sent
+  // -- confirmed directly via error_logs: "TypeError: Failed to fetch" at the exact fetch() call
+  // this function, and zero rows ever created in the donations table despite repeated in-app
+  // attempts, meaning the request never once reached this function at all. Three prior attempts
+  // at fixing this (Capacitor navigation config, WebView cookies, Razorpay's redirect-based
+  // checkout pattern) all missed this because the failure happens one step earlier than any of
+  // them touch -- before Razorpay is ever involved, at the very first request to this function.
+  const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "content-type, authorization, apikey" };
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
     const body = await req.json();

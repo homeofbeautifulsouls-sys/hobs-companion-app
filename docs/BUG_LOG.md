@@ -1309,6 +1309,43 @@ holder's own real-device test, which hadn't happened yet when this was written.
 
 ---
 
+### 69. The real, actual root cause of the donation bug -- found only by adding real diagnostics instead of guessing a fourth time
+**The honest full arc**: three prior attempts (#66, the allowNavigation revert, the Razorpay
+WebView redirect pattern in #68) all targeted the payment checkout process itself -- because that
+was the visible symptom ("Donate doesn't open Razorpay"). All three were reasonable, individually
+verified as far as possible without a real device, and all three were wrong, because none of them
+were working from real evidence. `openRazorpayPayment`'s own `.catch()` was silently discarding
+the actual error the entire time, and the app's existing global `unhandledrejection` logger never
+fired because this local catch "handled" it first (by throwing the reason away) -- so there was
+never any real data to diagnose from until logging was added deliberately (#68's diagnostic-only
+follow-up).
+**Real evidence, once it existed**: `error_logs` showed `TypeError: Failed to fetch` at the exact
+line of the `fetch()` call to `create-razorpay-order` -- meaning the failure was happening before
+Razorpay's checkout was ever reached at all, at the very first network call in the whole flow.
+Confirmed directly why: a CORS preflight test against the real function showed
+`Access-Control-Allow-Headers: content-type` only. The in-app flow conditionally sends a real
+`Authorization` header whenever the person is logged in -- always true testing as the founder's
+own account -- and any header not explicitly allowed fails CORS preflight silently, blocking the
+request from ever being sent. `donate.html`'s own call, by contrast, never sends an Authorization
+header at all (anonymous donations don't need one), which is the entire, complete explanation for
+"direct link works, in-app doesn't" that three different theories tried and failed to explain.
+**Fix**: added `authorization` and `apikey` to `create-razorpay-order`'s allowed CORS headers.
+One line. Purely server-side -- no APK rebuild, no new app version, nothing native involved at
+all, unlike every other attempt today.
+**Verified thoroughly before calling it done**: re-tested the actual CORS preflight and confirmed
+`authorization` is now allowed; separately confirmed real order creation still succeeds
+afterward, so the fix didn't disturb the function's actual logic, only its preflight response.
+**Real lesson worth keeping**: none of the three prior, more elaborate fixes were wrong to
+attempt given what was known at the time -- each was reasonably grounded in real documentation
+research. But all three were guesses in the specific sense that mattered: there was no direct
+evidence any of them addressed the actual failure, because the actual failure was never observed
+directly until logging captured it. The fix that actually worked took one line and required no
+research into Capacitor internals or Razorpay's WebView documentation at all -- it required
+seeing the real error message. Investing in visibility before the fourth attempt at guessing was
+the actual turning point, not any of the specific technical theories that came before it.
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 **Run `deployment/verify-before-deploy.sh` before every single deploy, web or Android, no
