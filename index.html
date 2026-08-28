@@ -10087,6 +10087,14 @@ function openRazorpayPayment(orderRequestBody, checkoutOptions, onDismissedOrFai
     if(order.error){
       hideOverlay();
       showToast(order.error);
+      try {
+        sb.from('error_logs').insert({
+          user_id: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null,
+          message: 'Payment order creation failed: ' + order.error,
+          stack: '',
+          page_url: window.location.href
+        }).then(function(){});
+      } catch(logErr){}
       if(onDismissedOrFailed) onDismissedOrFailed();
       return;
     }
@@ -10105,9 +10113,25 @@ function openRazorpayPayment(orderRequestBody, checkoutOptions, onDismissedOrFai
     });
     rzp.open();
     setTimeout(hideOverlay, 400); // small buffer so Razorpay's own widget has a moment to actually render before our overlay disappears -- avoids a possible blank gap between the two
-  }).catch(function(){
+  }).catch(function(err){
     hideOverlay();
     showToast('Could not start payment — please try again.');
+    // Real gap found Aug 27, 2026, after three separate guesses at fixing donations with no way
+    // to confirm any of them: this used to discard the actual error entirely, so nothing about
+    // *why* payment failed was ever visible anywhere -- not in error_logs, not anywhere. The app
+    // already has a global unhandledrejection listener that logs to error_logs automatically,
+    // but it never once fired for this, because this local .catch() "handles" the rejection
+    // first (even though it was throwing the actual reason away) -- which is exactly why it
+    // looked unhandled from the outside but was invisible from the inside. Logging explicitly
+    // here, matching the same error_logs pattern already used elsewhere in this file.
+    try {
+      sb.from('error_logs').insert({
+        user_id: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null,
+        message: 'Payment could not start: ' + (err && err.message ? err.message : String(err)),
+        stack: err && err.stack ? err.stack.slice(0, 2000) : '',
+        page_url: window.location.href
+      }).then(function(){});
+    } catch(logErr){}
     if(onDismissedOrFailed) onDismissedOrFailed();
   });
   }); // closes sb.auth.getSession().then()
