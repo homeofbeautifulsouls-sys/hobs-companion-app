@@ -14095,6 +14095,18 @@ document.getElementById('donateContinueBtn').onclick = function(){
       // server-to-server, is still ever allowed to do that, unchanged.
       callback_url: 'https://adjvptkzyckkvewbfmzf.supabase.co/functions/v1/razorpay-payment-callback',
       redirect: true,
+      // Real fix, per Razorpay's own dedicated "UPI Intent in WebView - Android" guide: this
+      // flag is what tells their checkout it's safe to actually offer UPI as a payment method at
+      // all inside a WebView -- without it, their own client-side JS was very likely hiding UPI
+      // entirely rather than risk offering something it can't confirm will work, which matches
+      // exactly what was reported (UPI never appears in-app, but does via the direct link).
+      // Testing on staging first specifically because the *other* half of their guide (a custom
+      // native WebViewClient to actually launch the UPI app) is real, separate, higher-risk
+      // native code that hasn't been added -- Capacitor's own default WebViewClient already
+      // calls bridge.launchIntent() for non-web URLs, which may already cover this without that
+      // native change being needed at all. This flag alone is the safe, low-risk piece to try
+      // first and see how much of the problem it actually resolves.
+      webview_intent: true,
       handler: function(){
         logAnalyticsEvent('donation_pledged');
         showToast('Thank you! Confirming your donation…');

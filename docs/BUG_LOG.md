@@ -1346,6 +1346,46 @@ the actual turning point, not any of the specific technical theories that came b
 
 ---
 
+### 70. Staging builds crashed on open -- a real gap in the staging recipe itself, not a repeat of #56
+**What happened**: the first genuinely successful staging install (previous staging attempts
+were never actually installable at all, due to the Android 16 sideload restriction blocking
+everything until now) crashed immediately on open.
+**Real diagnosis, not an assumption**: confirmed directly via the built APK's own `.dex` that
+none of the alarm-feature classes from #56 were present -- this was a different, new problem,
+not that bug recurring. Found real evidence instead: Firebase Messaging code
+(`EnhancedIntentService` and related classes) was compiled into the staging APK with zero
+Firebase configuration present at all. `google-services.json` had been deliberately excluded
+from every staging build since #58, specifically because it's registered against the production
+package name only and including a mismatched one fails the build outright -- but omitting it
+entirely doesn't prevent the *runtime* problem: Firebase auto-initializes on app launch by
+default, and a well-documented Firebase/Android failure mode is exactly this -- an app that still
+has Firebase-dependent code compiled in, but no valid configuration for it to read, can crash
+immediately at startup before any of the app's own JS ever runs.
+**Fix, per direct instruction to stop investigating and just isolate the one real change**:
+rather than chase a manifest-level Firebase workaround, removed `@capacitor/push-notifications`
+(the actual source of the Firebase dependency) from the staging build's own `package.json`
+entirely -- confirmed directly that this drops Capacitor's plugin count from 6 to 5, and that the
+resulting APK's `.dex` contains zero Firebase-related classes at all. Production's `package.json`
+was never touched; this is staging-build-specific. Every other native asset (manifest,
+MainActivity, keystore, gradle config) was copied identically to what's already proven working in
+production, rather than staging continuing to be its own, less-verified parallel setup.
+**Real, known consequence, not hidden**: push notifications will never work on a staging build
+built this way. Acceptable -- staging exists to test things other than push notifications, and
+this was already a known, accepted limitation of staging builds since #58, just not previously
+understood to also cause a launch crash rather than just a missing feature.
+**Verified before handing off**: confirmed via the actual compiled `.dex` that Firebase is
+genuinely absent (not just removed from source), confirmed the UPI fix and error-logging fix are
+both still present, confirmed the app still points at the real production backend, and confirmed
+the deployed APK is byte-identical to what was built and verified locally.
+**Real lesson**: staging builds had quietly drifted into their own separate, less-scrutinized
+build process across multiple sessions (different plugin set, different manifest assembly),
+which is exactly the kind of gap that gets discovered by a real crash instead of caught ahead of
+time. The fix that actually worked was collapsing that drift back down -- build staging as close
+to a literal copy of the proven-working production recipe as possible, changing only the one
+thing actually being tested, not maintaining two increasingly-different parallel setups.
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 **Run `deployment/verify-before-deploy.sh` before every single deploy, web or Android, no

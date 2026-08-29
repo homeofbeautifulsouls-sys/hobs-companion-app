@@ -55,6 +55,16 @@ Same as the production recipe in `docs/MASTER.md`, with these differences:
 
 ## The one real, known limitation of this staging setup
 
+**Push notifications never work on a staging build** -- `google-services.json` is registered
+against the production package name only, and including it for a mismatched staging package fails
+the build outright. Beyond that: leave `@capacitor/push-notifications` entirely out of the
+staging build's own `package.json` (do not just omit the config file and keep the plugin) --
+Firebase auto-initializes at app launch by default, and a staging build with the plugin's
+Firebase-dependent code compiled in but no valid config for it to read crashed the app
+immediately on open (real incident, confirmed via the compiled `.dex`, see BUG_LOG #70). Removing
+the plugin from the dependency list itself, not just skipping the config file, is what actually
+fixes this -- confirmed by checking the resulting `.dex` has zero Firebase-related classes at all.
+
 The Google Sign-In custom URL scheme (`hobscompanion://callback`) is currently identical between
 production and staging. With both apps installed on the same device, Android's handling of two
 apps claiming the same custom scheme is untested and could misroute. Not fixed yet since it

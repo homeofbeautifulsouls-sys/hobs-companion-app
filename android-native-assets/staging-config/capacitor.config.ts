@@ -12,15 +12,20 @@ const config: CapacitorConfig = {
   android: {
     allowMixedContent: false,
   },
-  // Real, confirmed bug (Aug 27, 2026): in-app donations failed with a generic "could not start
-  // payment" error while the exact same payment flow worked fine when donate.html was opened as
-  // a plain link -- because Capacitor's WebView only allows navigation to the app's own bundled
-  // content by default, and checkout.razorpay.com was never whitelisted. Razorpay's own docs
-  // confirm this exact class of restriction is why they maintain a separate native Capacitor SDK
-  // rather than recommending checkout.js be embedded directly -- this whitelist is the minimum
-  // fix to keep the current, already-working checkout.js approach functional inside the WebView.
+  // Real fix, Aug 27, 2026: an earlier allowNavigation attempt for razorpay.com alone was
+  // reverted after Capacitor's real default behavior turned out to be the opposite of what was
+  // assumed (external URLs are auto-opened in the real browser by default; allowNavigation
+  // traps a domain inside the WebView instead of letting that happen). That revert alone didn't
+  // fix payment either, because the actual root cause was Razorpay's checkout itself being
+  // designed for a real browser tab, not an embedded WebView -- see their own documented WebView
+  // integration guidance. The real fix switches to their WebView-specific callback_url/redirect
+  // pattern (see openDonateModal in index.html and razorpay-payment-callback), and *that*
+  // pattern genuinely does need both domains listed here: razorpay.com so the checkout process
+  // itself can render inside the WebView rather than kicking out to an external browser
+  // mid-flow, and the app's own domain so the final redirect back after payment also stays
+  // in-app instead of also kicking out externally at that last step.
   server: {
-    allowNavigation: ['*.razorpay.com'],
+    allowNavigation: ['*.razorpay.com', 'app.homeofbeautifulsouls.com'],
   },
   plugins: {
     // Real architectural fix, replacing many rounds of patching individual visible glitches:
