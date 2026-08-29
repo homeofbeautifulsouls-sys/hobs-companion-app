@@ -10100,6 +10100,51 @@ function openRazorpayPayment(orderRequestBody, checkoutOptions, onDismissedOrFai
       if(onDismissedOrFailed) onDismissedOrFailed();
       return;
     }
+
+    // Real fix, Aug 29, 2026: the in-app case (this app's own WebView) now uses Razorpay's
+    // actual native SDK instead of the web-based checkout.js flow below -- see
+    // RazorpayNativeCheckoutPlugin.java for the full reasoning. This opens as a genuinely
+    // separate native Activity that never touches this app's own WebView or its running JS
+    // state, unlike every web-based attempt at this (including the WebView-specific
+    // redirect/callback_url pattern), which all meant this single-page app's own WebView
+    // navigating away from itself -- the real cause of both the reported "back button doesn't
+    // work" issue and the app visibly desyncing from a stale Razorpay page underneath it.
+    // donate.html is deliberately untouched by this and keeps the web-based flow -- it runs in
+    // a real browser tab, the environment that flow was actually built for, and it was never
+    // the thing that was broken.
+    if(IS_NATIVE_APP && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.RazorpayNativeCheckout){
+      window.Capacitor.Plugins.RazorpayNativeCheckout.open({
+        key: order.key_id, amount: order.amount, currency: order.currency, order_id: order.order_id,
+        description: checkoutOptions.description || '',
+        prefill: checkoutOptions.prefill || {}
+      }).then(function(result){
+        hideOverlay();
+        if(result && result.success){
+          if(checkoutOptions.handler) checkoutOptions.handler();
+        } else {
+          // A cancelled/failed payment is a normal, expected outcome here, not an application
+          // error -- resolved (not rejected) by the plugin on purpose, matching how the web
+          // path's own rzp.on('payment.failed', ...) and modal.ondismiss are both just regular
+          // outcomes too, not exceptions.
+          showToast(result && result.description ? result.description : 'Payment failed — please try again.');
+          if(onDismissedOrFailed) onDismissedOrFailed();
+        }
+      }).catch(function(err){
+        hideOverlay();
+        showToast('Could not start payment — please try again.');
+        try {
+          sb.from('error_logs').insert({
+            user_id: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null,
+            message: 'Native payment could not start: ' + (err && err.message ? err.message : String(err)),
+            stack: '',
+            page_url: window.location.href
+          }).then(function(){});
+        } catch(logErr){}
+        if(onDismissedOrFailed) onDismissedOrFailed();
+      });
+      return;
+    }
+
     var rzp = new Razorpay(Object.assign({
       key: order.key_id, amount: order.amount, currency: order.currency, order_id: order.order_id,
       name: 'Home of Beautiful Souls Foundation', theme: { color: '#6690D6' },

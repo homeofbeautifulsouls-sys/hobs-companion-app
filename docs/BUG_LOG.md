@@ -1426,6 +1426,55 @@ an already-unverified native change.
 
 ---
 
+### 72. The actual real fix for in-app donations, after five prior attempts on the wrong architecture
+**The honest full arc**: #66 (allowNavigation, backwards), #67 (revert), #68 (Razorpay's own
+WebView redirect pattern), #69 (real diagnostics that found the CORS bug), #70 (CORS fix, which
+genuinely got payment *starting*), #71 (padding fix for the nav-bar overlap). Every one of those
+was a real, evidence-grounded attempt -- but all of them were built on the same underlying
+architecture: embedding Razorpay's web checkout inside this app's own WebView, using
+`redirect: true` to make it work at all inside that WebView.
+**The real root cause, found only once described directly**: `redirect: true` doesn't open a
+popup or overlay -- it navigates the WebView itself away from this app's own bundled content, to
+Razorpay's page, the same as clicking a link to a different website. But this app isn't a plain
+webpage; it's a single-page app holding a lot of live, running state. That navigation doesn't
+pause the app, it interrupts it -- and coming back doesn't cleanly resume it, because there's no
+"back" from a real page navigation like that. This is what the padding fix in #71 could never
+have solved (it was styling a symptom of the same underlying problem), and it's the actual reason
+the back button never worked right either.
+**Real fix**: replaced the web-based `checkout.js` flow for the in-app case entirely with
+Razorpay's actual native Android SDK (`com.razorpay:checkout:1.6.40`, confirmed via their own
+official integration docs, including a real documented gotcha -- a `TAG` field collision with
+`FragmentActivity` that required a specific, documented workaround, followed exactly rather than
+guessed at). `Checkout.open()` launches a genuinely separate native Activity that never touches
+this app's WebView or its state at all; the result comes back cleanly through
+`PaymentResultWithDataListener`, implemented on `MainActivity` (the SDK requires the listener to
+live on the Activity itself, not an arbitrary object) and bridged to the actual pending JS call
+via a new `RazorpayNativeCheckoutPlugin`, using Capacitor's own `bridge.saveCall`/`getSavedCall`
+pattern.
+**Deliberately scoped correctly this time**: `donate.html` was left completely untouched -- it
+runs in a real browser tab, which is the actual environment the web checkout was built for, and
+it was never the thing that was broken. Session payments and cancellation charges, which share
+the same underlying `openRazorpayPayment()` function, now also benefit from the same native fix,
+since the architecture problem was never specific to donations -- it just happened to be the flow
+that got tested and reported first.
+**Verified staging-first, no exceptions, matching the standing rule from #58**: built a real
+staging APK with the new SDK, confirmed via a genuine successful compile that the plugin, the
+Activity callback wiring, and Razorpay's SDK all link correctly together -- and confirmed via the
+actual compiled `.dex` and manifest that no `FirebaseInitProvider` or other auto-initializing
+component slipped in from the SDK's own transitive dependencies (a real, specific check run
+precisely because of the #70 incident), before it ever went near a real device. Only after
+direct, real confirmation on staging ("it's working perfectly") did this move to production.
+**Held the line on staging despite direct pressure to skip it**: asked again to go straight to
+production before that confirmation came in, and declined, explaining plainly why -- this was the
+single largest native change of the day, more surface area than the alarm feature that had
+already crashed a real, live fundraiser once.
+**Shipped as v3.53 (versionCode 73)**, verified live: correct signing, correct version, the
+native SDK classes confirmed present in the actual deployed file, the real (non-staging) Firebase
+config confirmed correctly intact for production specifically, and every other fix from today
+confirmed still present.
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 **Run `deployment/verify-before-deploy.sh` before every single deploy, web or Android, no

@@ -7,8 +7,8 @@ android {
         applicationId "com.hobsfoundation.companion"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 72
-        versionName "3.52"
+        versionCode 73
+        versionName "3.53"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -45,6 +45,18 @@ dependencies {
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation "androidx.webkit:webkit:1.12.1"
+    // Real fix, Aug 29, 2026: replaces the web-based checkout.js approach entirely for the
+    // native in-app flow. That approach fundamentally couldn't work right inside this app's own
+    // WebView -- `redirect: true` navigates the WebView itself away from this app's bundled
+    // content to Razorpay's own page, which isn't a modal or overlay, it's a real navigation
+    // away from a single-page app holding a lot of live, running state. Coming back left the
+    // app and Razorpay's stale page visibly out of sync, and there was never a clean way to
+    // "go back" from that, which is what the back-button issue actually was underneath. The
+    // real, Razorpay-recommended fix for exactly this situation is their native SDK: it opens
+    // as a genuinely separate Activity that never touches this app's WebView or its state at
+    // all, and hands back a clean result when it's done, which is what donate.html (a real
+    // browser tab, where the web checkout was never broken in the first place) never needed.
+    implementation 'com.razorpay:checkout:1.6.40'
     implementation project(':capacitor-android')
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"

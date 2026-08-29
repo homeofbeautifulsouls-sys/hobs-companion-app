@@ -10,11 +10,60 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.webkit.WebSettingsCompat;
 import androidx.webkit.WebViewFeature;
 import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.PluginHandle;
 import com.getcapacitor.WebViewListener;
+import com.razorpay.PaymentData;
+import com.razorpay.PaymentResultWithDataListener;
 
-public class MainActivity extends BridgeActivity {
+// Real gotcha, documented directly in Razorpay's own Android integration guide: declaring this
+// TAG constant is required to work around a real compile error ("'TAG' has private access in
+// 'androidx.fragment.app.FragmentActivity'") that surfaces specifically because
+// PaymentResultWithDataListener's default methods reference a TAG field, and
+// Capacitor's BridgeActivity extends FragmentActivity, which already declares its own private
+// one. Following their documented workaround exactly rather than guessing at a fix for this.
+public class MainActivity extends BridgeActivity implements PaymentResultWithDataListener {
+  private static final String TAG = MainActivity.class.getSimpleName();
+
+  // Real fix, Aug 29, 2026: Razorpay's SDK requires the callback interface to be implemented by
+  // the Activity itself (Checkout.open(activity, options) delivers results to whichever Activity
+  // it was given) -- but the actual pending JS call lives on the plugin object, a separate
+  // instance. This is the bridge between the two: the plugin remembers which call is waiting via
+  // its callback ID just before opening checkout, and this Activity looks the plugin back up to
+  // resolve that exact call once Razorpay's own callback fires.
+  private static String pendingPaymentCallbackId = null;
+  public static void setPendingPaymentCallbackId(String callbackId) {
+    pendingPaymentCallbackId = callbackId;
+  }
+
+  @Override
+  public void onPaymentSuccess(String razorpayPaymentId, PaymentData paymentData) {
+    RazorpayNativeCheckoutPlugin plugin = getRazorpayPlugin();
+    if (plugin != null && pendingPaymentCallbackId != null) {
+      plugin.resolvePaymentSuccess(pendingPaymentCallbackId, razorpayPaymentId, paymentData.getOrderId(), paymentData.getSignature());
+      pendingPaymentCallbackId = null;
+    }
+  }
+
+  @Override
+  public void onPaymentError(int code, String description, PaymentData paymentData) {
+    RazorpayNativeCheckoutPlugin plugin = getRazorpayPlugin();
+    if (plugin != null && pendingPaymentCallbackId != null) {
+      plugin.resolvePaymentError(pendingPaymentCallbackId, code, description);
+      pendingPaymentCallbackId = null;
+    }
+  }
+
+  private RazorpayNativeCheckoutPlugin getRazorpayPlugin() {
+    PluginHandle handle = getBridge().getPlugin("RazorpayNativeCheckout");
+    if (handle == null) return null;
+    return (RazorpayNativeCheckoutPlugin) handle.getInstance();
+  }
+
   @Override
   public void onCreate(Bundle savedInstanceState) {
+    // Real fix, following Capacitor's own documented pattern for custom plugins: must be
+    // registered before super.onCreate().
+    registerPlugin(RazorpayNativeCheckoutPlugin.class);
     super.onCreate(savedInstanceState);
     // Real fix: the app's own CSS already declares color-scheme: light only, but that alone
     // isn't always reliably respected by Android's native WebView-level "Force Dark" /
