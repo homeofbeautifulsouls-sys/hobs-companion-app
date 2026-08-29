@@ -848,6 +848,8 @@
     <p class="prompt-title" id="donateModalTitle" style="margin-bottom:4px;text-align:center;">Support this campaign</p>
     <p style="font-size:12px;color:#5C6B94;margin:0 0 16px;text-align:center;" id="donateModalDescription"></p>
     <input type="text" id="donateDonorName" placeholder="Your name (optional)" style="width:100%;padding:12px;border-radius:10px;border:1px solid #EEE0C4;font-size:13px;font-family:inherit;margin-bottom:8px;box-sizing:border-box;">
+    <input type="email" id="donateDonorEmail" placeholder="Your email" style="width:100%;padding:12px;border-radius:10px;border:1px solid #EEE0C4;font-size:13px;font-family:inherit;margin-bottom:8px;box-sizing:border-box;">
+    <p id="donateEmailError" style="display:none;color:#C77B7B;font-size:11px;margin:-4px 0 8px;">Please enter a valid email — Razorpay requires this to process payment.</p>
     <input type="number" id="donateAmount" placeholder="Amount (₹)" style="width:100%;padding:12px;border-radius:10px;border:1px solid #EEE0C4;font-size:13px;font-family:inherit;margin-bottom:8px;box-sizing:border-box;">
     <div style="display:flex;gap:6px;margin-bottom:14px;">
       <button class="donate-preset-btn" data-amt="500" style="flex:1;padding:9px;border-radius:10px;border:1px solid #EEE0C4;background:transparent;color:#6690D6;font-size:12px;font-weight:700;cursor:pointer;">₹500</button>
@@ -14072,6 +14074,21 @@ document.getElementById('donateContinueBtn').onclick = function(){
   var amount = parseFloat(document.getElementById('donateAmount').value);
   if(!amount || amount <= 0){ showToast('Enter an amount first.'); return; }
   var donorName = document.getElementById('donateDonorName').value.trim();
+  // Real fix, direct report: Razorpay's own dashboard has email set as a mandatory checkout
+  // field, but this form never collected one -- so people could tap through this screen with
+  // nothing entered, only to hit an opaque failure deep inside Razorpay's own checkout and get
+  // bounced back to the donation screen with no clear explanation why. Validating it here, up
+  // front, with a real inline message, is what actually prevents that confusing round-trip --
+  // matching the same "catch it before Razorpay does" principle as the amount check just above.
+  var donorEmail = document.getElementById('donateDonorEmail').value.trim();
+  var emailErrorEl = document.getElementById('donateEmailError');
+  var emailLooksValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(donorEmail);
+  if(!emailLooksValid){
+    emailErrorEl.style.display = 'block';
+    document.getElementById('donateDonorEmail').focus();
+    return;
+  }
+  emailErrorEl.style.display = 'none';
   document.getElementById('donateModalBackdrop').style.display = 'none';
   document.getElementById('donateModal').style.display = 'none';
 
@@ -14079,10 +14096,10 @@ document.getElementById('donateContinueBtn').onclick = function(){
   donateBtn.disabled = true;
   donateBtn.textContent = 'Preparing…';
   openRazorpayPayment(
-    { purpose: 'donation', campaign_id: currentDonateCampaign.id, amount: amount, donor_name: donorName || null, user_id: (currentUser && currentUser.id) || null },
+    { purpose: 'donation', campaign_id: currentDonateCampaign.id, amount: amount, donor_name: donorName || null, donor_email: donorEmail, user_id: (currentUser && currentUser.id) || null },
     {
       description: currentDonateCampaign.title,
-      prefill: donorName ? { name: donorName } : {},
+      prefill: Object.assign({ email: donorEmail }, donorName ? { name: donorName } : {}),
       // Real fix, scoped only to this call site (not the shared function -- session payments
       // and cancellation charges use the same function and haven't been touched or verified
       // broken, so their existing handler-based flow is left exactly as-is). Per Razorpay's own

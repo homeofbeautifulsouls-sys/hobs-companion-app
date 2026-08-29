@@ -56,6 +56,8 @@
 
   <div class="card">
     <input type="text" id="donorName" placeholder="Your name (optional)">
+    <input type="email" id="donorEmail" placeholder="Your email">
+    <p id="donorEmailError" style="display:none;color:#C77B7B;font-size:12px;margin:-6px 0 8px;">Please enter a valid email — Razorpay requires this to process payment.</p>
     <input type="number" id="donateAmount" placeholder="Amount (₹)">
     <div class="presets">
       <button class="preset-btn" data-amt="500">₹500</button>
@@ -154,6 +156,19 @@
     }
     pendingAmount = amount;
     pendingName = document.getElementById('donorName').value.trim();
+    // Real fix, same reason as the in-app form: Razorpay's own dashboard has email set as a
+    // mandatory checkout field, but nothing here ever collected or validated one, so people
+    // could get all the way to tapping Continue and only then hit an opaque failure inside
+    // Razorpay's own checkout. Validating up front, with a real inline message, is what
+    // actually prevents that confusing round-trip.
+    var pendingEmail = document.getElementById('donorEmail').value.trim();
+    var emailErrorEl = document.getElementById('donorEmailError');
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pendingEmail)){
+      emailErrorEl.style.display = 'block';
+      document.getElementById('donorEmail').focus();
+      return;
+    }
+    emailErrorEl.style.display = 'none';
     var btn = document.getElementById('continueBtn');
     btn.disabled = true;
     btn.textContent = 'Preparing payment…';
@@ -161,7 +176,7 @@
 
     fetch('https://adjvptkzyckkvewbfmzf.supabase.co/functions/v1/create-razorpay-order', {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ campaign_id: activeCampaign.id, amount: pendingAmount, donor_name: pendingName || null })
+      body: JSON.stringify({ campaign_id: activeCampaign.id, amount: pendingAmount, donor_name: pendingName || null, donor_email: pendingEmail })
     }).then(function(r){ return r.json(); }).then(function(order){
       btn.disabled = false;
       btn.textContent = 'Continue to Payment';
@@ -177,7 +192,7 @@
         order_id: order.order_id,
         name: 'Home of Beautiful Souls Foundation',
         description: activeCampaign.title,
-        prefill: pendingName ? { name: pendingName } : {},
+        prefill: Object.assign({ email: pendingEmail }, pendingName ? { name: pendingName } : {}),
         theme: { color: '#6690D6' },
         handler: function(response){
           // A real payment just succeeded from Razorpay's own perspective, but this is still
