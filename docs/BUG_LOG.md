@@ -1386,6 +1386,46 @@ thing actually being tested, not maintaining two increasingly-different parallel
 
 ---
 
+### 71. Razorpay's checkout buttons overlapping the Android nav bar -- a real, safely-scoped native fix
+**What was reported**: Razorpay's own "Continue" button and payment details bar sat flush
+against Android's system navigation bar, visually overlapping it.
+**Real root cause, confirmed before writing anything**: this app targets SDK 36, which means
+Android itself mandates edge-to-edge display -- there's no opting out. The app's own pages
+already correctly reserve space for this via CSS (`env(safe-area-inset-bottom)`, used
+extensively throughout `index.html`), which is exactly why only Razorpay's page was affected --
+their checkout has no reason to know about or use CSS written for this app's specific setup.
+**Explicitly ruled out two riskier approaches before picking the safe one, given a direct "make
+sure nothing breaks" instruction**: (1) a blanket native padding fix applied to the WebView
+unconditionally would have doubled the bottom spacing on every one of this app's own screens,
+since they already reserve that space themselves via CSS -- a real, worse regression than the
+bug being fixed. (2) CSS injection targeting Razorpay's own DOM structure was ruled out too,
+since their exact markup can't be verified from here, and guessing at selectors risks a fix that
+silently does nothing on a real payment page, or has unintended side effects.
+**Fix, using Capacitor's own official, non-intrusive extension point**:
+`Bridge.addWebViewListener` fires on every page load without replacing or risking Capacitor's own
+`WebViewClient`, which is what every other native feature in this app's JS bridge depends on.
+When the loaded page is Razorpay's checkout specifically, real system-bar inset height is read
+via `WindowInsetsCompat` and applied as native padding directly on the WebView (not CSS) --
+pushing everything on that page up uniformly, including fixed-position elements CSS padding on a
+parent wouldn't reach. The moment the page is anything else (i.e., back on this app's own
+content), padding is explicitly reset to zero, so the app's own screens are never touched by this
+at all.
+**Verified as thoroughly as possible without a real device**: confirmed via a real, successful
+compile (not assumed) that `androidx.core`'s `WindowInsetsCompat`/`ViewCompat` and Capacitor's
+`WebViewListener` are genuinely available and link correctly in this project. Confirmed via the
+actual compiled `.dex` that the new code is present, that the alarm-feature classes are still
+absent, and that every other JS-side fix from today (UPI flag, email validation, error logging)
+is still intact. Confirmed the deployed APK is byte-identical to what was built and verified
+locally.
+**Genuinely not device-tested**, disclosed rather than hidden -- the actual visual result (does
+the button now sit above the nav bar correctly) still depends on the account holder's own test.
+**Left open, not guessed at**: a separate reported issue (Razorpay's own in-page back arrow not
+working correctly) needed one clarifying detail -- exactly what happens when it's tapped -- that
+wasn't available yet, so it wasn't touched in this fix rather than risk a wrong guess on top of
+an already-unverified native change.
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 **Run `deployment/verify-before-deploy.sh` before every single deploy, web or Android, no
