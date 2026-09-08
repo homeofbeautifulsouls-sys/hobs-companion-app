@@ -80,11 +80,19 @@ Deno.serve(async (req: Request) => {
     const tracksRes = await fetch(`${base}/edits/${editId}/tracks`, { headers: authHeaders });
     const tracksJson = tracksRes.ok ? await tracksRes.json() : { error: await tracksRes.text() };
 
+    // Real check, Sept 8 2026: Akash reported granting the service account full admin access
+    // in Play Console (broader than the "View app information" scope originally requested).
+    // Reading the testers list for the closed-testing (alpha) track specifically -- a genuine
+    // read, changes nothing -- to actually confirm what this grants, rather than assume from
+    // his description alone.
+    const testersRes = await fetch(`${base}/edits/${editId}/tracks/alpha`, { headers: authHeaders });
+    const testersJson = testersRes.ok ? await testersRes.json() : { error: `${testersRes.status}: ${await testersRes.text()}` };
+
     // Reviews are a separate, top-level resource -- doesn't need the edit session.
     const reviewsRes = await fetch(`${base}/reviews?maxResults=5`, { headers: authHeaders });
     const reviewsJson = reviewsRes.ok ? await reviewsRes.json() : { error: `${reviewsRes.status}` };
 
-    return new Response(JSON.stringify({ success: true, tracks: tracksJson.track || tracksJson, reviewCount: reviewsJson.reviews ? reviewsJson.reviews.length : 0 }, null, 2), {
+    return new Response(JSON.stringify({ success: true, tracks: tracksJson.track || tracksJson, alphaTrackDetail: testersJson, reviewCount: reviewsJson.reviews ? reviewsJson.reviews.length : 0 }, null, 2), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
