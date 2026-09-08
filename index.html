@@ -4382,6 +4382,25 @@ requestAnimationFrame(function(){
     });
   }
 });
+// Real, definitive fix, confirmed directly against live BUBBLE_FIELD_DIAG data from real users:
+// the rAF-based re-check above still fires while panel-bubbles is hidden (display:none) in
+// virtually every real case -- it runs on page load, well before login completes and the panel
+// is ever actually shown, so being one frame later doesn't help; every single real diagnostic
+// entry checked showed the field stuck at the 300x340 fallback, not the real screen width. The
+// panel becomes visible from many different places in the app (login success, navigating back
+// home, and others) -- rather than duplicating a re-check at every one of those call sites,
+// watching the panel's own display style directly catches every path that shows it, including
+// ones added later. Reading field.offsetWidth inside the callback forces an accurate, current
+// layout measurement even if the browser hasn't already settled one.
+new MutationObserver(function(){
+  if(field.offsetWidth && field.offsetHeight && (field.offsetWidth !== fw || field.offsetHeight !== fh)){
+    fw = field.offsetWidth; fh = field.offsetHeight;
+    bubbles.forEach(function(b){
+      b.x = b.mx * (fw - b.size);
+      b.y = fh - b.size - b.my * (fh - b.size);
+    });
+  }
+}).observe(document.getElementById('panel-bubbles'), { attributes: true, attributeFilter: ['style'] });
 
 var selected = [];
 
