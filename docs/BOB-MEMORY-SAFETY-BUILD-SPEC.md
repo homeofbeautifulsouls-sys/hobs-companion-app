@@ -173,18 +173,50 @@ resources client-side. The actual professional-notification pipeline does not ex
 ## BUILD SEQUENCE
 
 Agreed: sequence by sequence, verifying each piece for real before moving to the next, not all
-at once. Proposed order, pending Akash's confirmation before starting:
+at once.
 
-1. **Verify Part 0's memory status** -- confirm the already-written history read/persist code is
-   genuinely deployed and working, with a real test. Fix first if it isn't.
-2. **Crisis escalation to professionals (Part 2)** -- the most safety-critical gap, do this first
-   among the new builds.
-3. **Real-time significance flagging (1.3)** -- needed before extraction or guaranteed-recall can
-   mean anything real.
-4. **Guaranteed recall of flagged content on every reply** -- direct consequence of #3.
-5. **Real search (1.4)**, including the real recall indicator.
-6. **Weekly extraction job (1.5)**.
-7. **Tiered psychoeducation system (Part 3)**.
+1. **DONE, verified.** Part 0's memory status -- confirmed the history read/persist code
+   (written earlier but not yet deployed) is now live. Verified unambiguously: a separate API
+   call correctly recalled a detail ("Bruno") given only in an earlier, independent message.
+2. **DONE, verified.** Crisis escalation to professionals (Part 2). Added a real
+   `assigned_therapist_user_id` link (replacing fragile name-matching). Real raw crisis content
+   now reaches the assigned therapist, or every admin if none assigned, via the existing
+   send-push-notification infrastructure. Found and fixed two real bugs during verification: an
+   RLS-scoped admin lookup that silently found zero admins despite real ones existing, and a
+   real gap where a crisis alert could vanish with zero trace if nobody reachable had a
+   registered device (added a genuine, trusted-server-call-only bypass and always-log fallback).
+   Verified end to end, both the assigned-therapist and admin-fallback paths, with real
+   messages and real database checks.
+3. **DONE, verified.** Real-time significance flagging (1.3). Added `is_significant` to
+   `character_messages`, plus a classifier judging both sides of each exchange against the
+   locked criteria (first-time disclosure, anchored to something specific, genuine emotional
+   charge, a realization/shift). Verified with contrasting real messages -- correctly
+   discriminated a genuine disclosure from ordinary small talk on both sides of the exchange.
+4. **DONE, verified -- but the real path here matters, read this.** Guaranteed recall of
+   flagged content on every reply. The first two implementation attempts both failed real
+   testing (0/3, then 2/3) -- mixing significant content into the ordinary history array wasn't
+   reliable, even explicitly labeled as "real memory." The working fix required TWO real
+   changes: (a) surfacing significant content as its own explicit message positioned
+   immediately before the current query, not earlier in the prompt (a real, known LLM
+   attention/recency limitation, not something wording alone fixes), and (b) per direct
+   instruction not to trade away Bob's natural tone for reliability, splitting recall into two
+   genuinely separate steps -- a new, dedicated, temperature-0 `RECALL_MATCHER_PROMPT` runs
+   first as a narrow factual matching task (does the current message relate to anything
+   flagged?), and hands its CONFIRMED result to the main reply generation, which keeps its own
+   full creative temperature completely untouched. Verified with 5 consecutive, properly-spaced
+   real tests: 5/5 correct, zero errors, and confirmed the matcher does NOT force-inject
+   unrelated content on unrelated questions. Real, disclosed limitation: recall is now highly
+   reliable, not mathematically 100% guaranteed -- the underlying data is always 100% present
+   (verified directly against the database every time), the tiny remaining variance lives in
+   the main reply step's own natural-sounding generation, not in whether the fact was found.
+   Real, separate bugs found and fixed along the way, not assumed away: the significance
+   classifier (step 3) was silently failing on every call (`max_tokens: 200` far too small for
+   a reasoning model -- fixed to match the crisis classifier's proven `max_tokens: 2000`), and
+   a batch of "None" replies during testing traced to a real, confirmed Groq TPM rate limit from
+   rapid-fire testing against an artificially large test conversation, not a logic bug.
+5. **NOT STARTED.** Real search (1.4), including the real recall indicator.
+6. **NOT STARTED.** Weekly extraction job (1.5).
+7. **NOT STARTED.** Tiered psychoeducation system (Part 3).
 
 Each step: build, deploy, verify with a real test against real data, confirm with Akash, THEN
 move to the next. Never batch multiple unverified pieces together.
