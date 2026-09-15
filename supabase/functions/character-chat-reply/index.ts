@@ -183,9 +183,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { character, message, mode } = await req.json();
+    const { character, message, mode, recentConversation } = await req.json();
     const isGreeting = mode === "greeting";
-    if (!isGreeting && (typeof message !== "string" || !message.trim())) {
+    const isClosing = mode === "closing";
+    if (!isGreeting && !isClosing && (typeof message !== "string" || !message.trim())) {
       return new Response(JSON.stringify({ error: "message is required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -247,7 +248,7 @@ Deno.serve(async (req) => {
     // classify, since Bob is speaking first here, not responding to anything.
     let riskDetected = false;
     let classifierAvailable = true;
-    if (!isGreeting) try {
+    if (!isGreeting && !isClosing) try {
       const crisisRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: { Authorization: `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
@@ -300,6 +301,29 @@ Deno.serve(async (req) => {
         }`
       : "";
 
+    // Real closing logic: the person explicitly asked to close the conversation. If anything
+    // real was actually said (checked against the real transcript the frontend sends, since
+    // this backend has no memory of its own -- see the mascot technical document), close
+    // genuinely based on that content, using the real closing-variant patterns already locked
+    // in this prompt. If nothing beyond the opening greeting was ever said, there's nothing
+    // real to close on -- use a short, warm standing goodbye instead, not a fabricated one.
+    var hasRealConversationContent = false;
+    var conversationTranscript = "";
+    if (isClosing && Array.isArray(recentConversation)) {
+      var userTurns = recentConversation.filter(function(m){ return m && m.who === "user" && typeof m.text === "string" && m.text.trim(); });
+      hasRealConversationContent = userTurns.length > 0;
+      conversationTranscript = recentConversation
+        .filter(function(m){ return m && typeof m.text === "string"; })
+        .slice(-10)
+        .map(function(m){ return (m.who === "user" ? "Them" : "You") + ": " + m.text.slice(0, 500); })
+        .join("\n");
+    }
+    const closingInstruction = isClosing
+      ? (hasRealConversationContent
+          ? `\n\nThe person is closing this conversation now. Here's what was actually said, most recent last:\n${conversationTranscript}\n\nGive a real, genuine closing based on what they actually shared -- using the closing patterns already described above (glad to hear that / understand this can take time / a lighter close), whichever genuinely fits how they seemed by the end. Don't invent anything they didn't say.`
+          : `\n\nThe person is closing this conversation now, but nothing real was actually said beyond an opening greeting -- there's nothing to close on. Give a short, warm goodbye in your own voice, something in the spirit of "I'll be right here, chief. See ya when you need me" -- not a generic sign-off, and don't pretend something was discussed that wasn't.`)
+      : "";
+
     const charRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
@@ -309,8 +333,8 @@ Deno.serve(async (req) => {
         reasoning_effort: "low",
         temperature: 0.8,
         messages: [
-          { role: "system", content: CHARACTER_PROMPTS[character] + nameContext + greetingInstruction },
-          { role: "user", content: isGreeting ? "(no message -- generate your opening greeting)" : message.slice(0, 2000) },
+          { role: "system", content: CHARACTER_PROMPTS[character] + nameContext + greetingInstruction + closingInstruction },
+          { role: "user", content: isGreeting ? "(no message -- generate your opening greeting)" : isClosing ? "(no message -- generate your closing)" : message.slice(0, 2000) },
         ],
       }),
     });
