@@ -5357,18 +5357,18 @@ var assistantConversations = { bob: [], kunnu: [], po: [], cookie: [] };
 // might not follow it. Real task-genuineness is preserved via a fast, direct DB count (not an
 // AI call) -- still genuine, just no longer routed through anything that can be slow.
 var BOB_GREETING_TEMPLATES_NO_TASKS = [
-  "Howdy, chief! Good to see you. Just wanna check in on you.",
-  "Hey there, chief. What's been on your mind?",
-  "Howdy, chief! How's your day going so far?",
-  "Hey {name}, good to hear from you. How are you feeling?",
-  "Hey there, chief. I'm here if you want to talk.",
-  "Howdy chief! Good to see you back."
+  "Good to see you. What's been on your mind?",
+  "Hey there. How's your day going so far?",
+  "Good to hear from you. How are you feeling?",
+  "Hey, I'm here if you want to talk.",
+  "How's it going today?",
+  "Howdy, chief! Good to see you."
 ];
 var BOB_GREETING_TEMPLATES_WITH_TASKS = [
-  "Hey there, chief. Need a hand with any task?",
-  "Howdy, chief! Got {count} task{plural} waiting whenever you're ready -- or we can just talk.",
-  "Hey {name}, good to see you. You've got {count} thing{plural} on your list today -- want a hand, or just want to check in first?",
-  "Howdy chief! {count} task{plural} on deck today -- no rush, just here either way."
+  "Need a hand with any task today, or just want to check in first?",
+  "Got {count} task{plural} waiting whenever you're ready -- or we can just talk.",
+  "You've got {count} thing{plural} on your list today -- want a hand, or just want to check in first?",
+  "Howdy, chief! {count} task{plural} on deck today -- no rush, just here either way."
 ];
 var lastBobGreeting = '';
 
@@ -5468,6 +5468,26 @@ function switchAssistantTab(charKey){
       var greetingName = (typeof appState !== 'undefined' && appState.displayName) ? appState.displayName.split(/\s+/)[0] : '';
       assistantConversations.bob.push({ who: 'bob', text: getBobGreeting(greetingName, 0) });
       renderAssistantConversation('bob');
+      // Real fix, per direct instruction: the backend has had real, persistent memory this
+      // whole time (character_messages), but the visible chat window never actually loaded it
+      // -- every fresh open looked empty except for the new greeting, even though Bob himself
+      // genuinely remembered everything. This loads the real, actual past conversation and
+      // shows it above the fresh greeting, the way a real chat app (WhatsApp, etc.) always
+      // shows your real history rather than starting blank. Deliberately does NOT block or
+      // delay the instant greeting above -- this loads in asynchronously alongside it, exactly
+      // like the earlier, deliberate decision to keep the opening greeting itself at zero wait.
+      sb.from('character_messages').select('role, text, created_at')
+        .eq('user_id', currentUser.id).eq('character', 'bob')
+        .order('created_at', { ascending: false }).limit(30)
+        .then(function(result){
+          if(!result || !result.data || result.data.length === 0) return;
+          if(assistantActiveCharacter !== 'bob') return; // person may have switched away already
+          var realHistory = result.data.slice().reverse().map(function(r){
+            return { who: r.role === 'user' ? 'user' : 'bob', text: r.text };
+          });
+          assistantConversations.bob = realHistory.concat(assistantConversations.bob);
+          renderAssistantConversation('bob');
+        }).catch(function(){});
       return;
     }
     assistantConversations[charKey].push({ who: charKey, text: char.greeting });
