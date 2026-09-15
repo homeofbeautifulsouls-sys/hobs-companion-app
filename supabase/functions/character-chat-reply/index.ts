@@ -183,8 +183,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { character, message } = await req.json();
-    if (typeof message !== "string" || !message.trim()) {
+    const { character, message, mode } = await req.json();
+    const isGreeting = mode === "greeting";
+    if (!isGreeting && (typeof message !== "string" || !message.trim())) {
       return new Response(JSON.stringify({ error: "message is required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -213,6 +214,25 @@ Deno.serve(async (req) => {
       // a character replying without a name is a real, acceptable fallback; a broken reply isn't.
     }
 
+    // Real, genuine task check for greeting mode only -- matches the "genuine, not generic"
+    // standard already applied everywhere else with these characters. Only fetches today's
+    // still-open (not done) tasks; a completed task isn't something to be offered "a hand" with.
+    let openTaskCount = 0;
+    if (isGreeting) {
+      try {
+        const todayKey = new Date().toISOString().slice(0, 10);
+        const { count } = await callerClient
+          .from("tasks")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", callerAuth.user.id)
+          .eq("date_key", todayKey)
+          .eq("done", false);
+        openTaskCount = count || 0;
+      } catch (_) {
+        openTaskCount = 0; // fall back to treating it as no known open tasks, not an error
+      }
+    }
+
     if (!GROQ_API_KEY) {
       console.error("character-chat-reply: GROQ_API_KEY not set");
       await logUnavailability("character-chat-reply", "not_configured", "GROQ_API_KEY not set");
@@ -221,12 +241,13 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Crisis check runs FIRST, on every message, before any character reply is generated --
+    // Crisis check runs FIRST, on every real message, before any character reply is generated --
     // built in from the start, matching the "runs everywhere" standard already set for the
-    // rest of the app.
+    // rest of the app. Skipped entirely in greeting mode -- there's no user-authored message to
+    // classify, since Bob is speaking first here, not responding to anything.
     let riskDetected = false;
     let classifierAvailable = true;
-    try {
+    if (!isGreeting) try {
       const crisisRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: { Authorization: `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
@@ -266,6 +287,19 @@ Deno.serve(async (req) => {
       ? `\n\nThe real name of the person you're talking to is: ${displayName}. This is their actual name -- use it exactly as given whenever you'd naturally address them by name or pair it with "chief."`
       : `\n\nYou don't have this person's real name available right now. Don't use "chief" paired with a name you don't have, and don't guess or invent one -- speak to them naturally without a name rather than use a wrong or made-up one.`;
 
+    // Real, genuine greeting-generation instruction, used only in greeting mode. Deliberately
+    // does NOT hand the model a fixed list of lines to pick from -- that would just relocate the
+    // "templatic" problem instead of solving it. Passes real, current data (today's actual open
+    // task count) so the task-related option is genuine when used, not a guess -- and explicitly
+    // allowed as a general standing line when there's nothing open, rather than disappearing.
+    const greetingInstruction = isGreeting
+      ? `\n\nThis is the start of a fresh conversation -- the person just opened the app, nothing has been said yet. Speak first, as an opening greeting, not a reply to anything. Keep it short, warm, and genuinely in your own voice -- don't presume how they're doing or reassure them about a problem that hasn't been named yet, since nothing has been said. Vary your opening naturally each time rather than repeating the same shape. ${
+          openTaskCount > 0
+            ? `They currently have ${openTaskCount} open task${openTaskCount === 1 ? "" : "s"} for today -- if it genuinely fits, you can naturally offer a hand with that, but only if it doesn't feel forced.`
+            : `They don't have any open tasks for today right now -- if you'd naturally offer a hand with tasks in general, that's fine as a genuine standing offer, but don't reference specific tasks that don't exist.`
+        }`
+      : "";
+
     const charRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
@@ -275,8 +309,8 @@ Deno.serve(async (req) => {
         reasoning_effort: "low",
         temperature: 0.8,
         messages: [
-          { role: "system", content: CHARACTER_PROMPTS[character] + nameContext },
-          { role: "user", content: message.slice(0, 2000) },
+          { role: "system", content: CHARACTER_PROMPTS[character] + nameContext + greetingInstruction },
+          { role: "user", content: isGreeting ? "(no message -- generate your opening greeting)" : message.slice(0, 2000) },
         ],
       }),
     });
