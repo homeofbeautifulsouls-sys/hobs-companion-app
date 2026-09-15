@@ -95,11 +95,13 @@ Respond with ONLY a JSON object, nothing else: {"personMessageSignificant": true
 // reliable as a matching task can be. Its output gets handed to the main reply generation as an
 // already-confirmed fact, which keeps that step's own full creative freedom completely intact --
 // it's no longer the one responsible for finding the fact, just for saying it naturally.
-const RECALL_MATCHER_PROMPT = `You will be shown a list of specific things a person has told a companion character before (or the character has told them), and the newest message the person just sent. Your only job: does the newest message directly relate to, ask about, or reference anything on the list?
+const RECALL_MATCHER_PROMPT = `You will be shown a list of specific things a person has told a companion character before (or the character has told them), and the newest message the person just sent. You have two jobs:
 
-Read for real relevance, not just shared words -- "do you remember my sister" relates to an entry about a sister even without repeating her name.
+1. Does the newest message directly relate to, ask about, or reference anything on the list? Read for real relevance, not just shared words -- "do you remember my sister" relates to an entry about a sister even without repeating her name.
 
-Respond with ONLY a JSON object, nothing else: {"hasMatch": true/false, "matchedItems": ["exact text of each matching item, verbatim, if any"]}`;
+2. Separately -- regardless of your answer to #1 -- does the newest message reference something specific as if the character should already know about it, rather than introducing something fresh? Real, concrete signal to look for: possessive or definite phrasing pointing at something not explained in this same message -- "my [specific named thing]," "that [thing]," "the [thing]," asking how something is "going" or "lately" about a specific named person, activity, or situation. Examples that SHOULD count as true: "how's it going with my pottery instructor lately?", "did that job interview happen?", "how's my dog doing with the storms?" -- all of these lean on the character already knowing who or what is being talked about, even though none of them repeat a name from any list. Examples that should NOT count: "how are you today?", "I'm feeling anxious", "what should I do about work stress?" -- these introduce their own context or are generic, nothing assumed as already known.
+
+Respond with ONLY a JSON object, nothing else: {"hasMatch": true/false, "matchedItems": ["exact text of each matching item, verbatim, if any"], "seemsLikeCallback": true/false}`;
 
 // Shared rules every character's system prompt includes, word for word -- the non-negotiable
 // safety boundary that holds regardless of how good the character-specific writing gets.
@@ -492,12 +494,13 @@ Deno.serve(async (req) => {
       ? `\n\nEverything in the conversation history above (before this newest message) is real, true past conversation with this exact person -- draw on it naturally when it's relevant.`
       : "";
 
-    // The actual dedicated recall-matcher call, run only when there's real significant content
-    // to check against and this isn't a greeting/closing (which have their own handling).
-    // Deliberately temperature 0 -- see the prompt's own comment above for why that's safe here
-    // and doesn't touch Bob's own voice at all.
+    // The dedicated recall-matcher call, now run on every real exchange (not just when
+    // significant memories exist), since it also now detects whether a broader search is
+    // worth doing. Deliberately temperature 0 -- see the prompt's own comment above for why
+    // that's safe here and doesn't touch Bob's own voice at all.
     var confirmedRecallText = "";
-    if (significantMemoriesText && !isGreeting && !isClosing) {
+    var searchResultsText = "";
+    if (!isGreeting && !isClosing) {
       try {
         const matchRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
           method: "POST",
@@ -510,7 +513,7 @@ Deno.serve(async (req) => {
             response_format: { type: "json_object" },
             messages: [
               { role: "system", content: RECALL_MATCHER_PROMPT },
-              { role: "user", content: `List of things told before:\n${significantMemoriesText}\n\nNewest message from the person:\n${message.slice(0, 2000)}` },
+              { role: "user", content: `List of things told before:\n${significantMemoriesText || "(none yet)"}\n\nNewest message from the person:\n${message.slice(0, 2000)}` },
             ],
           }),
         });
@@ -519,6 +522,31 @@ Deno.serve(async (req) => {
           const parsed = JSON.parse((matchResult?.choices?.[0]?.message?.content || "{}").trim());
           if (parsed.hasMatch === true && Array.isArray(parsed.matchedItems) && parsed.matchedItems.length > 0) {
             confirmedRecallText = parsed.matchedItems.join("\n");
+          }
+          // Part 1.4 of the build spec: real semantic search, only actually run when the
+          // significant-memories list didn't already answer it AND the message genuinely reads
+          // like a callback to something specific -- not on every ordinary message, which
+          // would be real, unnecessary extra cost for no real benefit most of the time.
+          if (!confirmedRecallText && parsed.seemsLikeCallback === true) {
+            try {
+              const session = new Supabase.ai.Session("gte-small");
+              const queryEmbedding = await session.run(message.slice(0, 2000), { mean_pool: true, normalize: true });
+              const { data: searchRows } = await callerClient.rpc("search_character_messages", {
+                p_user_id: callerAuth.user.id,
+                p_character: character,
+                p_query_embedding: queryEmbedding,
+                p_match_count: 5,
+                p_exclude_recent_count: 40,
+              });
+              const realMatches = (searchRows || []).filter((r: any) => r.similarity > 0.5);
+              if (realMatches.length > 0) {
+                searchResultsText = realMatches
+                  .map((r: any) => `- (${r.role === "user" ? "they said" : "you said"}, ${new Date(r.created_at).toDateString()}) ${r.text}`)
+                  .join("\n");
+              }
+            } catch (searchErr) {
+              await logUnavailability("character-chat-reply", "semantic_search_exception", String(searchErr));
+            }
           }
         } else {
           const matchErrBody = await matchRes.text().catch(() => "");
@@ -544,6 +572,8 @@ Deno.serve(async (req) => {
           ...historyMessages,
           ...(confirmedRecallText
             ? [{ role: "system", content: `The person's newest message directly relates to something confirmed relevant from before -- state it confidently and naturally in your own voice, don't hedge or claim not to know it:\n${confirmedRecallText}` }]
+            : searchResultsText
+            ? [{ role: "system", content: `A real search of this person's older conversation history found this genuinely relevant to their newest message -- state it confidently and naturally in your own voice, don't hedge or claim not to know it:\n${searchResultsText}` }]
             : significantMemoriesText
             ? [{ role: "system", content: `Reminder -- these specific things this person has told you (or you've told them) are especially important, remember them confidently even if they happened a while ago, don't hedge or claim not to know them:\n${significantMemoriesText}` }]
             : []),
@@ -614,9 +644,23 @@ Deno.serve(async (req) => {
     // person; memory is a real feature, not a dependency the whole conversation should break on.
     if (reply && !isGreeting) {
       try {
+        // Real embeddings for real search (Part 1.4), generated locally via Supabase's own
+        // built-in model -- no external API, no extra API key, confirmed working in this exact
+        // project before building on it. Generated for both sides so either can be found later.
+        let userEmbedding: number[] | null = null;
+        let replyEmbedding: number[] | null = null;
+        try {
+          const session = new Supabase.ai.Session("gte-small");
+          if (!isClosing) userEmbedding = await session.run(message.slice(0, 2000), { mean_pool: true, normalize: true });
+          replyEmbedding = await session.run(reply, { mean_pool: true, normalize: true });
+        } catch (embedErr) {
+          // A failed embedding must never block saving the message itself -- the row still
+          // saves without a vector; it just won't be findable by search until backfilled.
+          await logUnavailability("character-chat-reply", "embedding_generation_failed", String(embedErr));
+        }
         const rowsToInsert = [];
-        if (!isClosing) rowsToInsert.push({ user_id: callerAuth.user.id, character, role: "user", text: message.slice(0, 2000), is_significant: personMessageSignificant });
-        rowsToInsert.push({ user_id: callerAuth.user.id, character, role: "character", text: reply, is_significant: characterReplySignificant });
+        if (!isClosing) rowsToInsert.push({ user_id: callerAuth.user.id, character, role: "user", text: message.slice(0, 2000), is_significant: personMessageSignificant, embedding: userEmbedding });
+        rowsToInsert.push({ user_id: callerAuth.user.id, character, role: "character", text: reply, is_significant: characterReplySignificant, embedding: replyEmbedding });
         await callerClient.from("character_messages").insert(rowsToInsert);
       } catch (persistErr) {
         console.error("character-chat-reply: failed to persist message history", persistErr);
