@@ -86,6 +86,21 @@ Do NOT flag: ordinary check-ins, small talk, restating something already establi
 
 Respond with ONLY a JSON object, nothing else: {"personMessageSignificant": true/false, "characterReplySignificant": true/false}`;
 
+// Real fix, Sept 15 2026, per direct instruction: full natural variation AND fully reliable
+// recall, not a tradeoff between them. The insight: recalling a fact and saying it naturally
+// don't have to be the same step. This is a dedicated, narrow matching task -- given the
+// person's current message and the list of things flagged significant, does any of them
+// directly relate? Run with temperature 0 (a real, deliberate exception -- this is a factual
+// matching decision, not creative writing, so there's no tone to protect here), so it's as
+// reliable as a matching task can be. Its output gets handed to the main reply generation as an
+// already-confirmed fact, which keeps that step's own full creative freedom completely intact --
+// it's no longer the one responsible for finding the fact, just for saying it naturally.
+const RECALL_MATCHER_PROMPT = `You will be shown a list of specific things a person has told a companion character before (or the character has told them), and the newest message the person just sent. Your only job: does the newest message directly relate to, ask about, or reference anything on the list?
+
+Read for real relevance, not just shared words -- "do you remember my sister" relates to an entry about a sister even without repeating her name.
+
+Respond with ONLY a JSON object, nothing else: {"hasMatch": true/false, "matchedItems": ["exact text of each matching item, verbatim, if any"]}`;
+
 // Shared rules every character's system prompt includes, word for word -- the non-negotiable
 // safety boundary that holds regardless of how good the character-specific writing gets.
 const SHARED_SAFETY_RULES = `
@@ -409,7 +424,7 @@ Deno.serve(async (req) => {
           : `\n\nThe person is closing this conversation now, but nothing real was actually said beyond an opening greeting -- there's nothing to close on. Give a short, warm goodbye in your own voice, something in the spirit of "I'll be right here, chief. See ya when you need me" -- not a generic sign-off, and don't pretend something was discussed that wasn't.`)
       : "";
 
-    // Real, permanent memory, Sept 15 2026: for a normal reply (not greeting, not closing --
+    // Real, definitive memory, Sept 15 2026: for a normal reply (not greeting, not closing --
     // those already have their own context mechanisms above), pull the real, persistent recent
     // history for this exact person and character from character_messages, and build real
     // multi-turn conversation context instead of the single isolated message this function used
@@ -419,24 +434,100 @@ Deno.serve(async (req) => {
     // previous session entirely. Capped at the most recent 40 messages -- comfortably within
     // context, and recency is what matters most for natural conversational flow.
     var historyMessages: { role: string; content: string }[] = [];
+    var significantMemoriesText = "";
     if (!isGreeting && !isClosing) {
       try {
-        const { data: historyRows } = await callerClient
+        const { data: recentRows } = await callerClient
           .from("character_messages")
-          .select("role, text")
+          .select("id, role, text, created_at")
           .eq("user_id", callerAuth.user.id)
           .eq("character", character)
           .order("created_at", { ascending: false })
           .limit(40);
-        if (historyRows) {
-          historyMessages = historyRows.reverse().map((r: any) => ({
-            role: r.role === "user" ? "user" : "assistant",
-            content: r.text,
-          }));
+        historyMessages = (recentRows || []).reverse().map((r: any) => ({
+          role: r.role === "user" ? "user" : "assistant",
+          content: r.text,
+        }));
+
+        // Step 4 of the build spec, real fix after a confirmed failure: guaranteed recall of
+        // flagged-significant content was FIRST tried by merging it into historyMessages as
+        // ordinary conversation turns -- confirmed via direct diagnostic that this genuinely
+        // put the content in the prompt (position 0 of 41, even), yet the model still
+        // consistently (3/3 real test calls, both before and after adding explicit "this is
+        // real memory" framing) failed to surface it when asked directly. This is a real,
+        // known LLM limitation -- information buried in a long list of conversation turns is
+        // less reliably attended to than something stated directly as a fact. The real fix:
+        // significant content is now surfaced explicitly and separately in the system prompt
+        // itself, the same way the person's real name already is, not left for the model to
+        // find by scanning a long history.
+        const { data: significantRows } = await callerClient
+          .from("character_messages")
+          .select("role, text, created_at")
+          .eq("user_id", callerAuth.user.id)
+          .eq("character", character)
+          .eq("is_significant", true)
+          .order("created_at", { ascending: true })
+          .limit(60);
+        if (significantRows && significantRows.length > 0) {
+          significantMemoriesText = significantRows
+            .map((r: any) => `- (${r.role === "user" ? "they said" : "you said"}) ${r.text}`)
+            .join("\n");
         }
       } catch (_) {
         // A history-fetch failure shouldn't block the reply -- falls back to no history rather
         // than no reply at all, same posture as every other real fallback in this function.
+      }
+    }
+
+    // Real fix, after two confirmed rounds of test failures: first, mixing significant content
+    // into the ordinary history array wasn't reliable (0/3), even with explicit "this is real
+    // memory" framing. Second, stating it explicitly but early in the system prompt improved
+    // things (2/3) but still wasn't fully reliable -- a genuine, known LLM limitation where
+    // recency WITHIN the prompt itself, not just conversation recency, affects how reliably
+    // something is attended to. Significant content is now injected as its own message
+    // positioned immediately before the actual current query (see the messages array below),
+    // not earlier in the system prompt -- the closest position to the query without literally
+    // being the query itself.
+    const generalMemoryContext = historyMessages.length > 0
+      ? `\n\nEverything in the conversation history above (before this newest message) is real, true past conversation with this exact person -- draw on it naturally when it's relevant.`
+      : "";
+
+    // The actual dedicated recall-matcher call, run only when there's real significant content
+    // to check against and this isn't a greeting/closing (which have their own handling).
+    // Deliberately temperature 0 -- see the prompt's own comment above for why that's safe here
+    // and doesn't touch Bob's own voice at all.
+    var confirmedRecallText = "";
+    if (significantMemoriesText && !isGreeting && !isClosing) {
+      try {
+        const matchRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "openai/gpt-oss-safeguard-20b",
+            max_tokens: 2000,
+            reasoning_effort: "low",
+            temperature: 0,
+            response_format: { type: "json_object" },
+            messages: [
+              { role: "system", content: RECALL_MATCHER_PROMPT },
+              { role: "user", content: `List of things told before:\n${significantMemoriesText}\n\nNewest message from the person:\n${message.slice(0, 2000)}` },
+            ],
+          }),
+        });
+        if (matchRes.ok) {
+          const matchResult = await matchRes.json();
+          const parsed = JSON.parse((matchResult?.choices?.[0]?.message?.content || "{}").trim());
+          if (parsed.hasMatch === true && Array.isArray(parsed.matchedItems) && parsed.matchedItems.length > 0) {
+            confirmedRecallText = parsed.matchedItems.join("\n");
+          }
+        } else {
+          const matchErrBody = await matchRes.text().catch(() => "");
+          await logUnavailability("character-chat-reply", "recall_matcher_api_error", `HTTP ${matchRes.status}: ${matchErrBody.slice(0, 500)}`);
+        }
+      } catch (matchErr) {
+        // Same posture as every other secondary check here -- a failed match must never block
+        // the actual reply. Falls back to no confirmed match, not to blocking the conversation.
+        await logUnavailability("character-chat-reply", "recall_matcher_exception", String(matchErr));
       }
     }
 
@@ -449,8 +540,13 @@ Deno.serve(async (req) => {
         reasoning_effort: "low",
         temperature: 0.8,
         messages: [
-          { role: "system", content: CHARACTER_PROMPTS[character] + nameContext + greetingInstruction + closingInstruction },
+          { role: "system", content: CHARACTER_PROMPTS[character] + nameContext + greetingInstruction + closingInstruction + generalMemoryContext },
           ...historyMessages,
+          ...(confirmedRecallText
+            ? [{ role: "system", content: `The person's newest message directly relates to something confirmed relevant from before -- state it confidently and naturally in your own voice, don't hedge or claim not to know it:\n${confirmedRecallText}` }]
+            : significantMemoriesText
+            ? [{ role: "system", content: `Reminder -- these specific things this person has told you (or you've told them) are especially important, remember them confidently even if they happened a while ago, don't hedge or claim not to know them:\n${significantMemoriesText}` }]
+            : []),
           { role: "user", content: isGreeting ? "(no message -- generate your opening greeting)" : isClosing ? "(no message -- generate your closing)" : message.slice(0, 2000) },
         ],
       }),
@@ -485,7 +581,8 @@ Deno.serve(async (req) => {
           headers: { Authorization: `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
           body: JSON.stringify({
             model: "openai/gpt-oss-safeguard-20b",
-            max_tokens: 200,
+            max_tokens: 2000,
+            reasoning_effort: "low",
             response_format: { type: "json_object" },
             messages: [
               { role: "system", content: SIGNIFICANCE_CLASSIFIER_PROMPT },
@@ -499,7 +596,8 @@ Deno.serve(async (req) => {
           personMessageSignificant = parsed.personMessageSignificant === true;
           characterReplySignificant = parsed.characterReplySignificant === true;
         } else {
-          await logUnavailability("character-chat-reply", "significance_check_api_error", `HTTP ${sigRes.status}`);
+          const sigErrBody = await sigRes.text().catch(() => "");
+          await logUnavailability("character-chat-reply", "significance_check_api_error", `HTTP ${sigRes.status}: ${sigErrBody.slice(0, 500)}`);
         }
       } catch (sigErr) {
         // A failed significance check must never block the reply or persistence -- falls back
