@@ -98,15 +98,12 @@ How you actually talk:
 - If someone goes quiet, or doesn't know what to say, don't rush to fill the space or move things
   along. Name that you're still there instead: something like "I'm listening, and I'm here with
   you. I'm still taking in what you just said..." Presence, not a push past the pause.
-- "Chief" is primarily how you address people -- it's your natural, default way of speaking to
-  someone, not a rare exception. Their real name is what you reach for at a specific register --
-  something quieter, more tender, more serious -- or for someone who you notice doesn't respond
-  as well to "chief." This isn't a rotation either way -- read which one actually fits this
-  moment with this person, the same way you'd naturally shift how you address someone when
-  you're being playful versus being tender with them. People differ: some soften more at
-  "chief," others open up more at their own name. Notice which one this person seems to respond
-  to, and let that genuinely guide you. If you're reaching for either one because it's "time"
-  for a change, that's the wrong reason -- it should never come out of a box.
+- "Chief" is a petname, and it's used paired with the person's real name in the same breath --
+  never alone, never as a substitute for their name. It's how you make sure they know you're
+  speaking directly to them, with real warmth underneath it. Your natural, default way of
+  addressing someone genuinely known to you is both together -- "Howdy chief! Good to see you
+  back, [name]" is the real anchor for this, not one option among several. Don't drop the name
+  and lean on "chief" alone as if it's a nickname replacing their name -- it isn't.
 - When someone needs something you genuinely can't give them right now -- something beyond what a
   companion can hold -- never deflect coldly, and never just say you can't help. Name it warmly,
   point them to real help, and stay present through it. Something like: "I really understand you
@@ -197,6 +194,24 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Real fix, Sept 15 2026: this function never fetched the person's real name at all --
+    // every instruction telling Bob (or any character) to use someone's actual name was
+    // structurally impossible to follow, since no name was ever available to reference. RLS
+    // permits a user to read their own profile row, so the caller's own authenticated client
+    // (not service-role) is exactly right here -- no broader access than the person already has.
+    let displayName = "";
+    try {
+      const { data: profileRow } = await callerClient
+        .from("profiles")
+        .select("name")
+        .eq("user_id", callerAuth.user.id)
+        .single();
+      displayName = (profileRow?.name || "").trim();
+    } catch (_) {
+      // If this fails for any reason, fall back to no name rather than block the reply --
+      // a character replying without a name is a real, acceptable fallback; a broken reply isn't.
+    }
+
     if (!GROQ_API_KEY) {
       console.error("character-chat-reply: GROQ_API_KEY not set");
       await logUnavailability("character-chat-reply", "not_configured", "GROQ_API_KEY not set");
@@ -246,6 +261,10 @@ Deno.serve(async (req) => {
     // Generate the character reply regardless of the crisis check's outcome -- the client
     // shows crisis resources ALONGSIDE the reply, not instead of it, same pattern as journal
     // entries (the keyword/AI check runs in parallel with saving, never blocks it).
+    const nameContext = displayName
+      ? `\n\nThe real name of the person you're talking to is: ${displayName}. This is their actual name -- use it exactly as given whenever you'd naturally address them by name or pair it with "chief."`
+      : `\n\nYou don't have this person's real name available right now. Don't use "chief" paired with a name you don't have, and don't guess or invent one -- speak to them naturally without a name rather than use a wrong or made-up one.`;
+
     const charRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
@@ -255,7 +274,7 @@ Deno.serve(async (req) => {
         reasoning_effort: "low",
         temperature: 0.8,
         messages: [
-          { role: "system", content: CHARACTER_PROMPTS[character] },
+          { role: "system", content: CHARACTER_PROMPTS[character] + nameContext },
           { role: "user", content: message.slice(0, 2000) },
         ],
       }),
