@@ -5357,18 +5357,18 @@ var assistantConversations = { bob: [], kunnu: [], po: [], cookie: [] };
 // might not follow it. Real task-genuineness is preserved via a fast, direct DB count (not an
 // AI call) -- still genuine, just no longer routed through anything that can be slow.
 var BOB_GREETING_TEMPLATES_NO_TASKS = [
-  "Good to see you. What's been on your mind?",
-  "Hey there. How's your day going so far?",
-  "Good to hear from you. How are you feeling?",
-  "Hey, I'm here if you want to talk.",
-  "How's it going today?",
-  "Howdy, chief! Good to see you."
+  "Howdy, chief! Good to see you. What's been on your mind? 🌻",
+  "Hey there, chief. How's your day going so far? 🌻",
+  "Good to hear from you, chief. How are you feeling? 🌻",
+  "Hey chief, I'm here if you want to talk. 🌻",
+  "How's it going today, chief? 🌻",
+  "Howdy, chief! Good to see you. 🌻"
 ];
 var BOB_GREETING_TEMPLATES_WITH_TASKS = [
-  "Need a hand with any task today, or just want to check in first?",
-  "Got {count} task{plural} waiting whenever you're ready -- or we can just talk.",
-  "You've got {count} thing{plural} on your list today -- want a hand, or just want to check in first?",
-  "Howdy, chief! {count} task{plural} on deck today -- no rush, just here either way."
+  "Need a hand with any task today, chief, or just want to check in first? 🌻",
+  "Got {count} task{plural} waiting whenever you're ready, chief -- or we can just talk. 🌻",
+  "You've got {count} thing{plural} on your list today, chief -- want a hand, or just want to check in first? 🌻",
+  "Howdy, chief! {count} task{plural} on deck today -- no rush, just here either way. 🌻"
 ];
 var lastBobGreeting = '';
 
@@ -5538,36 +5538,36 @@ var ASSISTANT_COMMANDS = [
     reply: "Right here.", action: assistantGoTo(function(){ showOnly('panel-bubbles'); }, 'navHome') },
 
   // ---- Kunnu: feeling alone / support / sharing with a professional (client tier -- universal) ----
-  { character: 'kunnu', tier: 'client', patterns: [/support group/i, /group session/i, /feel(ing)? alone/i, /need (an ear|someone to listen)/i],
+  { character: 'bob', tier: 'client', patterns: [/support group/i, /group session/i, /feel(ing)? alone/i, /need (an ear|someone to listen)/i],
     reply: "You don't have to do this one alone.", action: assistantGoTo(function(){ showOnly('panel-support'); }, 'navHome') },
-  { character: 'kunnu', tier: 'client', patterns: [/\bshare\b.*(entry|entries|journal|therapist|professional)/i, /show.*(entries|journal)/i],
+  { character: 'bob', tier: 'client', patterns: [/\bshare\b.*(entry|entries|journal|therapist|professional)/i, /show.*(entries|journal)/i],
     reply: "Let's find what you want to share.", action: assistantGoTo(function(){ renderHistory(); showOnly('panel-history'); }, 'navJournal') },
 
   // ---- Po: client tier is "talking to a professional" (the established identity) + tasks/calendar; expands with role ----
-  { character: 'po', tier: 'client', patterns: [/connect/i, /\btherapist\b/i, /book.*(session|professional|someone|appointment)/i, /find.*(help|therapist|someone)/i, /(i want|i need|i'?d like).*(psychiatrist|counsel|professional)/i, /talk.*(professional|someone qualified)/i],
+  { character: 'bob', tier: 'client', patterns: [/connect/i, /\btherapist\b/i, /book.*(session|professional|someone|appointment)/i, /find.*(help|therapist|someone)/i, /(i want|i need|i'?d like).*(psychiatrist|counsel|professional)/i, /talk.*(professional|someone qualified)/i],
     reply: "Let's get you someone real to talk to.", action: assistantGoTo(function(){ renderTeamList(); showOnly('panel-team'); }, 'navYou') },
-  { character: 'po', tier: 'client', patterns: [/\bjournal\b/i, /(want|need|let'?s|gonna).*write/i, /write.*(down|entry|about)/i, /new entry/i],
+  { character: 'bob', tier: 'client', patterns: [/\bjournal\b/i, /(want|need|let'?s|gonna).*write/i, /write.*(down|entry|about)/i, /new entry/i],
     reply: "Say less — here you go.", action: assistantGoTo(function(){ editingEntryRef = null; journalWritingOrigin = 'panel-bubbles'; showOnly('panel-journal'); }, 'navJournal') },
-  { character: 'po', tier: 'client', patterns: [/\btask/i, /\bcalendar\b/i, /\bschedule\b/i, /to.?do/i, /add.*(step|thing)/i],
+  { character: 'bob', tier: 'client', patterns: [/\btask/i, /\bcalendar\b/i, /\bschedule\b/i, /to.?do/i, /add.*(step|thing)/i],
     reply: "On it.", action: assistantGoTo(function(){ showOnly('panel-calendar'); renderTodayCard(); }, 'navTasks') },
-  { character: 'po', tier: 'therapist', patterns: [/log.*(appointment|session)/i],
+  { character: 'bob', tier: 'therapist', patterns: [/log.*(appointment|session)/i],
     reply: null, // handled specially below -- attempts to parse a name and time
     action: 'LOG_APPOINTMENT' },
-  { character: 'po', tier: 'therapist', patterns: [/my clients/i],
+  { character: 'bob', tier: 'therapist', patterns: [/my clients/i],
     reply: "Here's everyone you've got.", action: assistantGoTo(function(){ openTherapistDashboard(); }, 'navYou') },
-  { character: 'po', tier: 'therapist', patterns: [/time request/i, /waiting on (me|you)/i],
+  { character: 'bob', tier: 'therapist', patterns: [/time request/i, /waiting on (me|you)/i],
     reply: "Let's clear those out.", action: assistantGoTo(function(){ openTherapistDashboard(); renderTherapistTimeRequests(); }, 'navYou') },
-  { character: 'po', tier: 'admin', patterns: [/\badmin\b/i, /booking dashboard/i, /admin panel/i],
+  { character: 'bob', tier: 'admin', patterns: [/\badmin\b/i, /booking dashboard/i, /admin panel/i],
     reply: "Dashboard, coming up.", action: assistantGoTo(function(){ openAdminDashboard(); }, 'navYou') },
-  { character: 'po', tier: 'admin', patterns: [/unconfirmed/i, /unpaid/i, /waiting on payment/i],
+  { character: 'bob', tier: 'admin', patterns: [/unconfirmed/i, /unpaid/i, /waiting on payment/i],
     reply: "Let's see what's still unpaid.", action: assistantGoTo(function(){ openAdminDashboard(); setTimeout(function(){ var t = document.querySelector('[data-stat="unconfirmed"]'); if(t) t.click(); }, 800); }, 'navYou') },
 
   // ---- Cookie: relationships/patterns/worksheets (client tier, established identity); progress/stats also client; org stats admin-only ----
-  { character: 'cookie', tier: 'client', patterns: [/worksheet/i, /relationship/i, /old pattern/i, /going in circles/i],
+  { character: 'bob', tier: 'client', patterns: [/worksheet/i, /relationship/i, /old pattern/i, /going in circles/i],
     reply: "I know a worksheet that can help untangle it.", action: assistantGoTo(function(){ renderWorksheetCategoryList(); showOnly('panel-worksheets'); }, 'navHome') },
-  { character: 'cookie', tier: 'client', patterns: [/how am i doing/i, /this week/i, /\bprogress\b/i, /\bcredits\b/i],
+  { character: 'bob', tier: 'client', patterns: [/how am i doing/i, /this week/i, /\bprogress\b/i, /\bcredits\b/i],
     reply: "Let's see how far you've come!", action: assistantGoTo(function(){ renderProfile(); showOnly('panel-profile'); }, 'navYou') },
-  { character: 'cookie', tier: 'admin', patterns: [/active users/i, /how many (users|people|signed up)/i],
+  { character: 'bob', tier: 'admin', patterns: [/active users/i, /how many (users|people|signed up)/i],
     reply: "LET'S GO — pulling up the numbers!", action: assistantGoTo(function(){ openAdminDashboard(); setTimeout(function(){ var t = document.querySelector('[data-stat="totalusers"]'); if(t) t.click(); }, 800); }, 'navYou') }
 ];
 
@@ -5620,7 +5620,7 @@ function assistantAskTopic(){
   renderAssistantMessage('bob', "I hear you. What's this about, roughly?");
   renderAssistantQuickReplies([
     { label: 'Talk to a professional', onSelect: function(){
-      renderAssistantMessage('kunnu', "Let's get you someone real to talk to.");
+      renderAssistantMessage('bob', "Let's get you someone real to talk to.");
       setTimeout(assistantGoTo(function(){ renderTeamList(); showOnly('panel-team'); }, 'navYou'), 500);
     }},
     { label: 'I just need to write it out', onSelect: function(){
@@ -5727,7 +5727,7 @@ function processAssistantInput(text){
   if(topicStateIsFresh){
     assistantConversationState = null;
     if(/professional|therapist|book|someone/i.test(text)){
-      renderAssistantMessage('kunnu', "Let's get you someone real to talk to.");
+      renderAssistantMessage('bob', "Let's get you someone real to talk to.");
       setTimeout(assistantGoTo(function(){ renderTeamList(); showOnly('panel-team'); }, 'navYou'), 500);
     } else if(/write|journal|down/i.test(text)){
       renderAssistantMessage('bob', "Then let's get it down somewhere safe.");
@@ -5810,15 +5810,15 @@ function processAssistantInput(text){
   if(matched.action === 'LOG_APPOINTMENT'){
     var nameMatch = text.match(/for\s+([a-zA-Z ]+?)\s+at\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)/i);
     if(!nameMatch){
-      renderAssistantMessage('po', "Give me a name and a time — like \"log appointment for Aradhana at 3pm.\"");
+      renderAssistantMessage('bob', "Give me a name and a time — like \"log appointment for Aradhana at 3pm.\"");
       return;
     }
     var guessName = nameMatch[1].trim();
     var timeStr = nameMatch[2].trim();
-    renderAssistantMessage('po', "Looking for " + guessName + "...");
+    renderAssistantMessage('bob', "Looking for " + guessName + "...");
     findAssistantMatchingClient(guessName, function(match){
       if(!match){
-        renderAssistantMessage('po', "Couldn't find anyone named " + guessName + " in your clients or contacts — check the spelling, or add them directly from Log Appointment.");
+        renderAssistantMessage('bob', "Couldn't find anyone named " + guessName + " in your clients or contacts — check the spelling, or add them directly from Log Appointment.");
         return;
       }
       document.getElementById('assistantModalBackdrop').style.display = 'none';
@@ -6201,6 +6201,18 @@ function containsSelfHarmSignal(text){
 function showCrisisResourceModal(){
   document.getElementById('crisisResourceModalBackdrop').style.display = 'block';
   document.getElementById('crisisResourceModal').style.display = 'block';
+  // Real diagnostic logging, added after a real, unreproduced report that the modal didn't
+  // appear despite the code path firing correctly in testing -- if this happens again, this
+  // gives real data (that the call genuinely happened, and when) instead of nothing to go on.
+  try {
+    if(typeof sb !== 'undefined' && currentUser && currentUser.id){
+      sb.from('error_logs').insert({
+        user_id: currentUser.id,
+        message: 'showCrisisResourceModal called (client-side diagnostic)',
+        stack: 'display after call: ' + document.getElementById('crisisResourceModal').style.display,
+      }).then(function(){});
+    }
+  } catch(logErr) {}
 }
 function maybeShowCrisisResources(text){
   // First line of defense: instant, offline, catches direct/clear language immediately.
@@ -10291,9 +10303,9 @@ function openAssistantModal(charKey){
   document.getElementById('assistantInput').focus();
 }
 document.getElementById('meetBobBtn').onclick = function(){ openAssistantModal('bob'); };
-document.getElementById('meetKunnuBtn').onclick = function(){ openAssistantModal('kunnu'); };
-document.getElementById('meetCookieBtn').onclick = function(){ openAssistantModal('cookie'); };
-document.getElementById('meetPoBtn').onclick = function(){ openAssistantModal('po'); };
+document.getElementById('meetKunnuBtn').onclick = function(){ openAssistantModal('bob'); };
+document.getElementById('meetCookieBtn').onclick = function(){ openAssistantModal('bob'); };
+document.getElementById('meetPoBtn').onclick = function(){ openAssistantModal('bob'); };
 // The floating button is a second, quick-access entry point alongside the Home-page crew
 // section, not a replacement for it -- opens to whichever tab was last active (Bob by default),
 // same underlying modal either way.
@@ -15400,7 +15412,7 @@ function finishTest(){
     supportArea.appendChild(btn);
   }
   if(anyElevated || selfHarmFlag){
-    renderMascotTip('testResultMascotTip', 'test_po_' + currentTestKey, 'po', "Some things need more than an app. When you're ready, I can help you find the right kind of support — gently, no pressure.");
+    renderMascotTip('testResultMascotTip', 'test_po_' + currentTestKey, 'bob', "Some things need more than an app. When you're ready, I can help you find the right kind of support — gently, no pressure.");
   } else {
     document.getElementById('testResultMascotTip').innerHTML = '';
   }
@@ -15444,7 +15456,7 @@ function renderCustomResult(t, result){
     supportArea.appendChild(btn);
   }
   if(result.elevated){
-    renderMascotTip('testResultMascotTip', 'test_po_' + currentTestKey, 'po', "Some things need more than an app. When you're ready, I can help you find the right kind of support — gently, no pressure.");
+    renderMascotTip('testResultMascotTip', 'test_po_' + currentTestKey, 'bob', "Some things need more than an app. When you're ready, I can help you find the right kind of support — gently, no pressure.");
   } else {
     document.getElementById('testResultMascotTip').innerHTML = '';
   }
@@ -15727,7 +15739,7 @@ var GROUNDING_EXERCISES = {
     ]
   },
   box: {
-    name: 'Box Breathing', color:'#6690D6', mascot:'po', helps:'Panic, racing heart, focus',
+    name: 'Box Breathing', color:'#6690D6', mascot:'bob', helps:'Panic, racing heart, focus',
     video: { url:'https://www.youtube.com/watch?v=G25IR0c-Hj8', source:'CHI Health — YouTube' },
     intro: "Also called square breathing. Used by everyone from therapists to Navy SEALs — equal-length inhale, hold, exhale, hold slows your heart rate and calms your nervous system within a few rounds.",
     steps: [
@@ -15740,7 +15752,7 @@ var GROUNDING_EXERCISES = {
     ]
   },
   pmr: {
-    name: 'Progressive Muscle Relaxation', color:'#B5892E', mascot:'cookie', helps:'Physical tension, trouble sleeping',
+    name: 'Progressive Muscle Relaxation', color:'#B5892E', mascot:'bob', helps:'Physical tension, trouble sleeping',
     video: { url:'https://www.youtube.com/watch?v=utGa6rqzs3g', source:'American Lung Association — YouTube' },
     intro: "A classic technique for physical tension release — you deliberately tense each muscle group, then let go, which teaches your body what 'relaxed' actually feels like.",
     steps: [
@@ -15754,7 +15766,7 @@ var GROUNDING_EXERCISES = {
     ]
   },
   butterfly: {
-    name: 'Butterfly Hug', color:'#8C7AA8', mascot:'kunnu', helps:'Trauma responses, feeling overwhelmed',
+    name: 'Butterfly Hug', color:'#8C7AA8', mascot:'bob', helps:'Trauma responses, feeling overwhelmed',
     video: { url:'https://youtu.be/W9exVaCMwvo', source:'Toolbox Series — Debbie Augenthaler, YouTube' },
     intro: "A bilateral stimulation technique developed for EMDR therapy after Hurricane Pauline in 1998. Alternating taps on both sides of your body can help calm an overwhelmed nervous system.",
     steps: [
@@ -15766,7 +15778,7 @@ var GROUNDING_EXERCISES = {
     ]
   },
   bellyBreathing: {
-    name: 'Belly Breathing', color:'#5FAE7A', mascot:'po', helps:'Stress, shallow breathing',
+    name: 'Belly Breathing', color:'#5FAE7A', mascot:'bob', helps:'Stress, shallow breathing',
     video: { url:'https://www.youtube.com/watch?v=G25IR0c-Hj8', source:'CHI Health — YouTube' },
     intro: "Also called diaphragmatic breathing. Most people breathe shallowly from the chest when stressed — this redirects the breath deeper, which directly activates your body's calming response.",
     steps: [
@@ -15778,7 +15790,7 @@ var GROUNDING_EXERCISES = {
     ]
   },
   categories: {
-    name: 'The Categories Game', color:'#D9A441', mascot:'cookie', helps:'Racing thoughts, rumination',
+    name: 'The Categories Game', color:'#D9A441', mascot:'bob', helps:'Racing thoughts, rumination',
     video: null,
     intro: "A mental distraction technique — giving your brain a structured, absorbing task makes it much harder for it to keep looping on distressing thoughts at the same time.",
     steps: [
@@ -15814,7 +15826,7 @@ var GROUNDING_EXERCISES = {
     ]
   },
   humming: {
-    name: 'Humming Breath', color:'#3B8F63', mascot:'kunnu', helps:'Nervous system regulation, tension',
+    name: 'Humming Breath', color:'#3B8F63', mascot:'bob', helps:'Nervous system regulation, tension',
     video: { url:'https://www.youtube.com/watch?v=QSAvPgqQ2L0', source:'Hum to Activate the Vagus Nerve — YouTube' },
     intro: "The vibration from humming gently stimulates the vagus nerve, which plays a big role in switching your body from 'alert' mode into 'rest and digest' mode.",
     steps: [
@@ -15916,7 +15928,7 @@ var WORKSHEET_CATEGORIES = {
     }
   },
   relationships: {
-    name: 'Relationships', color: '#3B8F63', mascot:'kunnu', sub: 'For navigating things with other people.',
+    name: 'Relationships', color: '#3B8F63', mascot:'bob', sub: 'For navigating things with other people.',
     worksheets: {
       askingForNeeds: {
         name: 'Asking for what I need', color:'#3B8F63',
@@ -15942,7 +15954,7 @@ var WORKSHEET_CATEGORIES = {
     }
   },
   acceptance: {
-    name: 'Acceptance', color: '#B5892E', mascot:'po', sub: 'For sitting with what is, instead of fighting it.',
+    name: 'Acceptance', color: '#B5892E', mascot:'bob', sub: 'For sitting with what is, instead of fighting it.',
     worksheets: {
       makingRoom: {
         name: 'Making room for feelings', color:'#B5892E',
@@ -16003,7 +16015,7 @@ function openWorksheetCategory(catKey){
   var cat = WORKSHEET_CATEGORIES[catKey];
   document.getElementById('worksheetCategoryTitle').textContent = cat.name;
   document.getElementById('worksheetCategorySub').textContent = cat.sub;
-  renderMascotTip('worksheetCategoryTip', 'worksheet_cookie', 'cookie', "I believe you can work through this, one small step at a time. Take whatever time you need.");
+  renderMascotTip('worksheetCategoryTip', 'worksheet_cookie', 'bob', "I believe you can work through this, one small step at a time. Take whatever time you need.");
   var wrap = document.getElementById('worksheetsList');
   wrap.innerHTML = '';
   Object.keys(cat.worksheets).forEach(function(key){
@@ -16233,7 +16245,7 @@ function renderHomeUpdatesBanner(){
   });
 }
 renderHomeGreeting();
-renderMascotTip('supportMascotTip', 'support_kunnu', 'kunnu', "Hey. Nobody should have to sit with the hard stuff alone. I'm glad you're here.");
+renderMascotTip('supportMascotTip', 'support_kunnu', 'bob', "Hey. Nobody should have to sit with the hard stuff alone. I'm glad you're here.");
 </script>
 </body>
 </html>

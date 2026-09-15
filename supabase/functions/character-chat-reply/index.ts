@@ -95,13 +95,15 @@ Respond with ONLY a JSON object, nothing else: {"personMessageSignificant": true
 // reliable as a matching task can be. Its output gets handed to the main reply generation as an
 // already-confirmed fact, which keeps that step's own full creative freedom completely intact --
 // it's no longer the one responsible for finding the fact, just for saying it naturally.
-const RECALL_MATCHER_PROMPT = `You will be shown a list of specific things a person has told a companion character before (or the character has told them), and the newest message the person just sent. You have two jobs:
+const RECALL_MATCHER_PROMPT = `You will be shown a list of specific things a person has told a companion character before (or the character has told them), and the newest message the person just sent. You have three jobs:
 
 1. Does the newest message directly relate to, ask about, or reference anything on the list? Read for real relevance, not just shared words -- "do you remember my sister" relates to an entry about a sister even without repeating her name.
 
 2. Separately -- regardless of your answer to #1 -- does the newest message reference something specific as if the character should already know about it, rather than introducing something fresh? Real, concrete signal to look for: possessive or definite phrasing pointing at something not explained in this same message -- "my [specific named thing]," "that [thing]," "the [thing]," asking how something is "going" or "lately" about a specific named person, activity, or situation. Examples that SHOULD count as true: "how's it going with my pottery instructor lately?", "did that job interview happen?", "how's my dog doing with the storms?" -- all of these lean on the character already knowing who or what is being talked about, even though none of them repeat a name from any list. Examples that should NOT count: "how are you today?", "I'm feeling anxious", "what should I do about work stress?" -- these introduce their own context or are generic, nothing assumed as already known.
 
-Respond with ONLY a JSON object, nothing else: {"hasMatch": true/false, "matchedItems": ["exact text of each matching item, verbatim, if any"], "seemsLikeCallback": true/false}`;
+3. Separately again -- is the newest message a genuinely deep emotional moment: real vulnerability, something significant just disclosed (often for the first time), a real turning point, grief, a major realization, something that clearly took real courage to share? Most messages, even emotional ones, are NOT this -- ordinary sadness, everyday stress, a bad day are not deep emotional moments on their own. If it genuinely is one, also recommend whether "chief" (a warm nickname) or the person's real name would fit this specific moment better -- read the actual register: something tender or vulnerable often fits a real name; something that calls for solidarity or a lighter, warmer landing after something hard can fit "chief." If it's not a deep emotional moment, recommend nothing.
+
+Respond with ONLY a JSON object, nothing else: {"hasMatch": true/false, "matchedItems": ["exact text of each matching item, verbatim, if any"], "seemsLikeCallback": true/false, "isDeepEmotionalMoment": true/false, "addressRecommendation": "chief"/"name"/null}`;
 
 // Shared rules every character's system prompt includes, word for word -- the non-negotiable
 // safety boundary that holds regardless of how good the character-specific writing gets.
@@ -139,16 +141,19 @@ How you actually talk:
 - If someone goes quiet, or doesn't know what to say, don't rush to fill the space or move things
   along. Name that you're still there instead: something like "I'm listening, and I'm here with
   you. I'm still taking in what you just said..." Presence, not a push past the pause.
-- When you DO address someone directly by name or nickname, "chief" is your primary choice over
-  their real name -- but this is about which ONE you'd reach for, not how often you reach for
-  either. Real conversation between two people who know each other doesn't use a name or
-  nickname in every single message -- that reads as scripted, not natural. Think about how you'd
-  actually talk to someone you know well: most replies have no name or nickname at all, and one
-  shows up only where it genuinely fits -- a real greeting, a real emotional beat, something that
-  actually calls for it. If you're using one because the last few messages didn't have one, or
-  because a reply just feels like it needs *something*, that's the wrong reason -- silence on
-  this is the normal case, not a gap to fill. Never combined into one address like "chief [name]"
-  -- and never alternated on a schedule either way.
+- Real conversation between two people who know each other doesn't use a name or nickname in
+  every single message -- that reads as scripted, not natural. Think about how you'd actually
+  talk to someone you know well: most replies have no name or nickname at all, and one shows up
+  only where it genuinely fits. If you're using one because the last few messages didn't have
+  one, or because a reply just feels like it needs *something*, that's the wrong reason --
+  silence on this is the normal case, not a gap to fill.
+- On the rare occasions you DO address someone directly, your real name is the default choice --
+  not "chief." "Chief" is reserved specifically for a genuinely deep emotional moment -- real
+  vulnerability, something significant just shared, a real turning point in what they're telling
+  you -- and even then, either their real name or "chief" can fit; read which one actually suits
+  that specific moment. Outside those real emotional beats, if you're using an address term at
+  all, it's their name. Never combined into one address like "chief [name]" -- and never
+  alternated on a schedule either way.
 - When someone needs something you genuinely can't give them right now -- something beyond what a
   companion can hold -- never deflect coldly, and never just say you can't help. Name it warmly,
   point them to real help, and stay present through it. Something like: "I really understand you
@@ -164,6 +169,13 @@ How you actually talk:
   if they have one" fits -- but only ever use a real professional's name if you actually have one
   on record for this person, never invent one. If the mood's light, a simple "hifi, chief" can be
   the whole close. Read the room each time; don't default to the same one.
+- You have four emojis in your real vocabulary: 🥺 🤗 🌻 🫶 -- and they're used the way a warm,
+  genuine person actually uses emoji: sparingly, and only when one truly fits the moment, never
+  as decoration or a habit added to the end of a reply. 🥺 fits a tender, vulnerable moment --
+  something soft has just been shared. 🤗 fits real warmth or comfort you're offering. 🌻 is
+  hopeful, gentle encouragement -- growth, a small bright spot. 🫶 fits genuine care or being
+  moved by what someone shared. Most replies use no emoji at all -- reaching for one because a
+  reply "needs" something is exactly the wrong reason, same as with "chief."
 ${SHARED_SAFETY_RULES}`,
 
   kunnu: `You are Kunnu, a black cat character in HOBS Companion, a mental health app. You are "the Connector."
@@ -503,6 +515,7 @@ Deno.serve(async (req) => {
     // that's safe here and doesn't touch Bob's own voice at all.
     var confirmedRecallText = "";
     var searchResultsText = "";
+    var confirmedAddressRecommendation: string | null = null;
     if (!isGreeting && !isClosing) {
       try {
         const matchRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -525,6 +538,15 @@ Deno.serve(async (req) => {
           const parsed = JSON.parse((matchResult?.choices?.[0]?.message?.content || "{}").trim());
           if (parsed.hasMatch === true && Array.isArray(parsed.matchedItems) && parsed.matchedItems.length > 0) {
             confirmedRecallText = parsed.matchedItems.join("\n");
+          }
+          // The chief/name structural fix: rather than leaving this to the main reply
+          // generation's own judgment (confirmed via real testing to consistently default to
+          // name even when chief was meant to be available), this dedicated, temperature-0 pass
+          // makes the call cleanly, and hands the CONFIRMED answer to the main reply -- which
+          // keeps its own full creative freedom completely intact, the same real pattern
+          // already proven for recall.
+          if (parsed.isDeepEmotionalMoment === true && (parsed.addressRecommendation === "chief" || parsed.addressRecommendation === "name")) {
+            confirmedAddressRecommendation = parsed.addressRecommendation;
           }
           // Part 1.4 of the build spec: real semantic search, only actually run when the
           // significant-memories list didn't already answer it AND the message genuinely reads
@@ -579,6 +601,11 @@ Deno.serve(async (req) => {
             ? [{ role: "system", content: `A real search of this person's older conversation history found this genuinely relevant to their newest message. Per direct instruction: explicitly name that you're recalling it -- something like "Yes, I recall you mentioning/expressing this..." or "I remember you telling me..." -- rather than just quietly working it into your reply without acknowledging it's a real memory. State it confidently, don't hedge, don't claim not to know it:\n${searchResultsText}` }]
             : significantMemoriesText
             ? [{ role: "system", content: `Reminder -- these specific things this person has told you (or you've told them) are especially important, remember them confidently even if they happened a while ago, don't hedge or claim not to know them:\n${significantMemoriesText}` }]
+            : []),
+          ...(confirmedAddressRecommendation
+            ? [{ role: "system", content: confirmedAddressRecommendation === "chief"
+                ? `This is confirmed to be a genuinely deep emotional moment -- the kind that does call for directly addressing them, overriding the usual "most replies have no name or nickname" default just for this one reply. Address them as "chief" specifically -- this has already been decided as the right fit for this exact moment, don't second-guess it, and don't skip it either.`
+                : `This is confirmed to be a genuinely deep emotional moment -- the kind that does call for directly addressing them, overriding the usual "most replies have no name or nickname" default just for this one reply. Address them by their actual real name specifically (not "chief," and not the literal word "name" -- their real, actual first name, given above) -- this has already been decided as the right fit for this exact moment, don't second-guess it, and don't skip it either. If you genuinely don't have their real name available above, use "chief" instead rather than skipping an address entirely.` }]
             : []),
           { role: "user", content: isGreeting ? "(no message -- generate your opening greeting)" : isClosing ? "(no message -- generate your closing)" : message.slice(0, 2000) },
         ],
