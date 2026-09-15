@@ -5415,7 +5415,9 @@ var BOB_PAUSE_TEXTS = [
   "I am here with you, just taking a moment to recall so I don't miss out on anything.",
   "I am here with you and recalling our previous conversation so I can do this complete justice.",
   "Just taking a moment here with you, chief.",
-  "I'm with you -- give me a second to hold this properly."
+  "I'm with you -- give me a second to hold this properly.",
+  "Just here with you for a second.",
+  "Taking this in with you, chief."
 ];
 var lastBobPauseText = '';
 function getBobPauseText(){
@@ -5507,6 +5509,11 @@ function switchAssistantTab(charKey){
       // shows your real history rather than starting blank. Deliberately does NOT block or
       // delay the instant greeting above -- this loads in asynchronously alongside it, exactly
       // like the earlier, deliberate decision to keep the opening greeting itself at zero wait.
+      // Real fix, confirmed via a real crash in production logs: currentUser can genuinely be
+      // null at this exact moment on a real device (auth still finishing loading when this
+      // auto-open flow fires right after app launch) -- guarded now so this fails gracefully
+      // (just no history shown yet, not a crash) instead of throwing.
+      if(currentUser && currentUser.id){
       sb.from('character_messages').select('role, text, created_at')
         .eq('user_id', currentUser.id).eq('character', 'bob')
         .order('created_at', { ascending: false }).limit(30)
@@ -5519,6 +5526,7 @@ function switchAssistantTab(charKey){
           assistantConversations.bob = realHistory.concat(assistantConversations.bob);
           renderAssistantConversation('bob');
         }).catch(function(){});
+      }
       return;
     }
     assistantConversations[charKey].push({ who: charKey, text: char.greeting });
