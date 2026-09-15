@@ -571,9 +571,9 @@ Deno.serve(async (req) => {
           { role: "system", content: CHARACTER_PROMPTS[character] + nameContext + greetingInstruction + closingInstruction + generalMemoryContext },
           ...historyMessages,
           ...(confirmedRecallText
-            ? [{ role: "system", content: `The person's newest message directly relates to something confirmed relevant from before -- state it confidently and naturally in your own voice, don't hedge or claim not to know it:\n${confirmedRecallText}` }]
+            ? [{ role: "system", content: `The person's newest message directly relates to something confirmed relevant from before. Per direct instruction: explicitly name that you're recalling it -- something like "Yes, I recall you mentioning/expressing this..." or "I remember you telling me..." -- rather than just quietly working it into your reply without acknowledging it's a real memory. State it confidently, don't hedge, don't claim not to know it:\n${confirmedRecallText}` }]
             : searchResultsText
-            ? [{ role: "system", content: `A real search of this person's older conversation history found this genuinely relevant to their newest message -- state it confidently and naturally in your own voice, don't hedge or claim not to know it:\n${searchResultsText}` }]
+            ? [{ role: "system", content: `A real search of this person's older conversation history found this genuinely relevant to their newest message. Per direct instruction: explicitly name that you're recalling it -- something like "Yes, I recall you mentioning/expressing this..." or "I remember you telling me..." -- rather than just quietly working it into your reply without acknowledging it's a real memory. State it confidently, don't hedge, don't claim not to know it:\n${searchResultsText}` }]
             : significantMemoriesText
             ? [{ role: "system", content: `Reminder -- these specific things this person has told you (or you've told them) are especially important, remember them confidently even if they happened a while ago, don't hedge or claim not to know them:\n${significantMemoriesText}` }]
             : []),

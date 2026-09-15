@@ -5367,6 +5367,29 @@ var BOB_GREETING_TEMPLATES_WITH_TASKS = [
   "Howdy chief! {count} task{plural} on deck today -- no rush, just here either way."
 ];
 var lastBobGreeting = '';
+
+// Real fix, Sept 15 2026, per direct instruction: replaces the plain "..." typing indicator
+// with warm, real pause text in Bob's own voice. Deliberately the SAME every time, not tied to
+// whether a real lookup is actually happening behind the scenes -- this was a genuine, real
+// safety decision, not just a style choice: a status message that only showed up when Bob was
+// "recalling something" could end up selectively appearing on someone's most vulnerable
+// message, which would be exactly the wrong moment for something to look different. A
+// consistent pause, always, avoids that risk entirely and keeps this fast (no architecture
+// change needed -- still one request, not two, and no streaming).
+var BOB_PAUSE_TEXTS = [
+  "I am here with you, just taking a moment to recall so I don't miss out on anything.",
+  "I am here with you and recalling our previous conversation so I can do this complete justice.",
+  "Just taking a moment here with you, chief.",
+  "I'm with you -- give me a second to hold this properly."
+];
+var lastBobPauseText = '';
+function getBobPauseText(){
+  var candidates = BOB_PAUSE_TEXTS.filter(function(t){ return t !== lastBobPauseText; });
+  if(candidates.length === 0) candidates = BOB_PAUSE_TEXTS;
+  var chosen = candidates[Math.floor(Math.random() * candidates.length)];
+  lastBobPauseText = chosen;
+  return chosen;
+}
 function getBobGreeting(name, openTaskCount){
   var pool = openTaskCount > 0 ? BOB_GREETING_TEMPLATES_WITH_TASKS : BOB_GREETING_TEMPLATES_NO_TASKS;
   var candidates = pool.filter(function(t){ return t !== lastBobGreeting; });
@@ -5730,7 +5753,7 @@ function processAssistantInput(text){
     typingRow.style.cssText = 'display:flex;gap:8px;align-items:flex-start;margin-bottom:12px;';
     var typingChar = ASSISTANT_CHARACTERS[assistantActiveCharacter] || ASSISTANT_CHARACTERS.bob;
     typingRow.innerHTML = '<img src="'+typingChar.img+'" style="width:30px;height:30px;object-fit:contain;flex-shrink:0;" loading="lazy">'+
-      '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:9px 12px;font-size:12.5px;color:#9AABCE;">...</div>';
+      '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:9px 12px;font-size:12.5px;color:#9AABCE;font-style:italic;">'+getBobPauseText()+'</div>';
     wrap.appendChild(typingRow);
     wrap.scrollTop = wrap.scrollHeight;
 
@@ -5812,7 +5835,7 @@ document.getElementById('assistantCloseBtn').onclick = function(){
     typingRow.style.cssText = 'display:flex;gap:8px;align-items:flex-start;margin-bottom:12px;';
     var bobChar = ASSISTANT_CHARACTERS.bob;
     typingRow.innerHTML = '<img src="'+bobChar.img+'" style="width:30px;height:30px;object-fit:contain;flex-shrink:0;" loading="lazy">'+
-      '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:9px 12px;font-size:12.5px;color:#9AABCE;">...</div>';
+      '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:9px 12px;font-size:12.5px;color:#9AABCE;font-style:italic;">'+getBobPauseText()+'</div>';
     wrap.appendChild(typingRow);
     wrap.scrollTop = wrap.scrollHeight;
     // Same real hardening as the greeting call: a hard timeout so this can never hang forever
