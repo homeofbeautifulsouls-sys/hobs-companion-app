@@ -68,6 +68,24 @@ Do NOT flag: ordinary sadness, frustration, or venting that doesn't touch the ab
 
 Respond with ONLY a JSON object, nothing else: {"riskDetected": true} or {"riskDetected": false}`;
 
+// Part 1.3 of the build spec, Sept 15 2026: real-time significance classifier. Criteria are
+// grounded in real research (emotional salience literature, real clinical self-disclosure
+// research on family/parent-related content), and were explicitly locked against a vague
+// "sounds emotional" standard, which was rejected as too subjective. Judges BOTH the person's
+// message and the character's reply together, with real recent history included so "first-time"
+// can be judged against what's actually already been said, not guessed at from one message alone.
+const SIGNIFICANCE_CLASSIFIER_PROMPT = `You are a careful reader for a mental health companion app. You will be shown recent conversation history (if any exists) and the newest exchange -- what the person said, and how the companion character replied. Your job is to judge whether the PERSON's message, the CHARACTER's reply, or both, are significant enough to remember word-for-word forever, rather than being ordinary conversation that could reasonably fade with time.
+
+Judge each of the two messages (person, character) independently against these real criteria -- flag as significant ONLY if it genuinely shows:
+- A first-time disclosure -- a name, a fear, an experience that, based on the history you were shown, has not come up before.
+- Anchored to something specific -- a named person (especially family), a specific event, a specific concrete detail. Not a vague, floating feeling with no anchor.
+- Genuine emotional charge -- not neutral information, not small talk.
+- A realization or shift -- a moment where something actually changed for them, not just a status update.
+
+Do NOT flag: ordinary check-ins, small talk, restating something already established in the history you were shown, generic supportive language, or anything that could apply to almost anyone on almost any day.
+
+Respond with ONLY a JSON object, nothing else: {"personMessageSignificant": true/false, "characterReplySignificant": true/false}`;
+
 // Shared rules every character's system prompt includes, word for word -- the non-negotiable
 // safety boundary that holds regardless of how good the character-specific writing gets.
 const SHARED_SAFETY_RULES = `
@@ -450,6 +468,47 @@ Deno.serve(async (req) => {
     const charResult = await charRes.json();
     const reply = charResult?.choices?.[0]?.message?.content?.trim() || null;
 
+    // Part 1.3 of the build spec: real-time significance flagging, run once per real exchange
+    // (not for greetings, which never reach this function at all, or closings, which don't
+    // introduce new substantive content of their own). Reuses the same recent history already
+    // fetched above so "first-time disclosure" can be judged against what's actually already
+    // been said, not guessed at from a single isolated message.
+    let personMessageSignificant = false;
+    let characterReplySignificant = false;
+    if (reply && !isGreeting && !isClosing) {
+      try {
+        const historyTranscript = historyMessages.length > 0
+          ? historyMessages.map((m) => (m.role === "user" ? "Them: " : "Character: ") + m.content.slice(0, 300)).join("\n")
+          : "(no prior history available)";
+        const sigRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "openai/gpt-oss-safeguard-20b",
+            max_tokens: 200,
+            response_format: { type: "json_object" },
+            messages: [
+              { role: "system", content: SIGNIFICANCE_CLASSIFIER_PROMPT },
+              { role: "user", content: `Recent history:\n${historyTranscript}\n\nNewest exchange:\nThem: ${message.slice(0, 2000)}\nCharacter: ${reply}` },
+            ],
+          }),
+        });
+        if (sigRes.ok) {
+          const sigResult = await sigRes.json();
+          const parsed = JSON.parse((sigResult?.choices?.[0]?.message?.content || "{}").trim());
+          personMessageSignificant = parsed.personMessageSignificant === true;
+          characterReplySignificant = parsed.characterReplySignificant === true;
+        } else {
+          await logUnavailability("character-chat-reply", "significance_check_api_error", `HTTP ${sigRes.status}`);
+        }
+      } catch (sigErr) {
+        // A failed significance check must never block the reply or persistence -- falls back
+        // to "not significant," which is the safe default since nothing is ever actually
+        // deleted regardless; a missed flag just means normal aging rules apply to that message.
+        await logUnavailability("character-chat-reply", "significance_check_exception", String(sigErr));
+      }
+    }
+
     // Real, permanent persistence: every real reply (not greetings, which are hard-wired
     // client-side now and never reach this function at all) gets saved, both sides of the
     // exchange, so the next real reply -- this session or a future one -- has real history to
@@ -458,8 +517,8 @@ Deno.serve(async (req) => {
     if (reply && !isGreeting) {
       try {
         const rowsToInsert = [];
-        if (!isClosing) rowsToInsert.push({ user_id: callerAuth.user.id, character, role: "user", text: message.slice(0, 2000) });
-        rowsToInsert.push({ user_id: callerAuth.user.id, character, role: "character", text: reply });
+        if (!isClosing) rowsToInsert.push({ user_id: callerAuth.user.id, character, role: "user", text: message.slice(0, 2000), is_significant: personMessageSignificant });
+        rowsToInsert.push({ user_id: callerAuth.user.id, character, role: "character", text: reply, is_significant: characterReplySignificant });
         await callerClient.from("character_messages").insert(rowsToInsert);
       } catch (persistErr) {
         console.error("character-chat-reply: failed to persist message history", persistErr);
