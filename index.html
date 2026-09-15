@@ -3070,6 +3070,10 @@ function showWelcomeBackScreen(){
     overlay.onclick = null;
     showOnly('panel-bubbles');
     renderHomeGreeting();
+    // Real feature: Bob's chat auto-opens with a genuine, rotating check-in every time the
+    // app is opened -- this is the one real, reliable "app just opened" moment for a
+    // returning user, firing exactly once per open, not on every navigation back to home.
+    openAssistantModal('bob');
   };
 }
 
@@ -5359,9 +5363,35 @@ function switchAssistantTab(charKey){
     tab.style.background = isActive ? '#6690D6' : 'transparent';
     tab.querySelector('p').style.color = isActive ? '#FFF8F0' : '#9AABCE';
   });
-  // Restore this character's own history rather than the shared thread -- if they've never
-  // been talked to yet in this session, greet with their own voice as the first message.
+  // Real fix: Bob's own genuine, rotating greeting (real name, real task check, never the
+  // same shape twice) replaces the old static char.greeting -- but only for Bob, since Kunnu/
+  // Po/Cookie haven't been built out this way yet. Falls back to the old static greeting if
+  // the call fails, so a real network hiccup never leaves the conversation empty.
   if(assistantConversations[charKey].length === 0){
+    if(charKey === 'bob'){
+      renderAssistantConversation(charKey);
+      var wrap = document.getElementById('assistantMessages');
+      var typingRow = document.createElement('div');
+      typingRow.id = 'assistantTypingIndicator';
+      typingRow.style.cssText = 'display:flex;gap:8px;align-items:flex-start;margin-bottom:12px;';
+      typingRow.innerHTML = '<img src="'+char.img+'" style="width:30px;height:30px;object-fit:contain;flex-shrink:0;" loading="lazy">'+
+        '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:9px 12px;font-size:12.5px;color:#9AABCE;">...</div>';
+      wrap.appendChild(typingRow);
+      wrap.scrollTop = wrap.scrollHeight;
+      sb.functions.invoke('character-chat-reply', { body: { character: 'bob', mode: 'greeting' } }).then(function(result){
+        var indicator = document.getElementById('assistantTypingIndicator');
+        if(indicator) indicator.remove();
+        var greetingText = (result.data && result.data.reply) ? result.data.reply : char.greeting;
+        assistantConversations.bob.push({ who: 'bob', text: greetingText });
+        renderAssistantConversation('bob');
+      }).catch(function(){
+        var indicator = document.getElementById('assistantTypingIndicator');
+        if(indicator) indicator.remove();
+        assistantConversations.bob.push({ who: 'bob', text: char.greeting });
+        renderAssistantConversation('bob');
+      });
+      return;
+    }
     assistantConversations[charKey].push({ who: charKey, text: char.greeting });
   }
   renderAssistantConversation(charKey);
@@ -5721,6 +5751,39 @@ document.querySelectorAll('.assistant-tab').forEach(function(tab){
   tab.onclick = function(){ switchAssistantTab(tab.dataset.char); };
 });
 document.getElementById('assistantCloseBtn').onclick = function(){
+  // Real fix: for Bob specifically, closing is a genuine moment, not a silent dismiss -- shows
+  // his actual closing message (content-based if anything real was said, a plain warm goodbye
+  // if not) before the modal actually closes, giving the person a couple seconds to read it.
+  if(assistantActiveCharacter === 'bob' && assistantConversations.bob.length > 0){
+    var wrap = document.getElementById('assistantMessages');
+    var typingRow = document.createElement('div');
+    typingRow.id = 'assistantTypingIndicator';
+    typingRow.style.cssText = 'display:flex;gap:8px;align-items:flex-start;margin-bottom:12px;';
+    var bobChar = ASSISTANT_CHARACTERS.bob;
+    typingRow.innerHTML = '<img src="'+bobChar.img+'" style="width:30px;height:30px;object-fit:contain;flex-shrink:0;" loading="lazy">'+
+      '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:9px 12px;font-size:12.5px;color:#9AABCE;">...</div>';
+    wrap.appendChild(typingRow);
+    wrap.scrollTop = wrap.scrollHeight;
+    sb.functions.invoke('character-chat-reply', { body: { character: 'bob', mode: 'closing', recentConversation: assistantConversations.bob } }).then(function(result){
+      var indicator = document.getElementById('assistantTypingIndicator');
+      if(indicator) indicator.remove();
+      var closingText = (result.data && result.data.reply) ? result.data.reply : "I'll be right here, chief. See ya when you need me.";
+      renderAssistantMessage('bob', closingText);
+      assistantConversations.bob = [];
+      setTimeout(function(){
+        document.getElementById('assistantModalBackdrop').style.display = 'none';
+        document.getElementById('assistantModal').style.display = 'none';
+        assistantConversationState = null;
+      }, 2200);
+    }).catch(function(){
+      var indicator = document.getElementById('assistantTypingIndicator');
+      if(indicator) indicator.remove();
+      document.getElementById('assistantModalBackdrop').style.display = 'none';
+      document.getElementById('assistantModal').style.display = 'none';
+      assistantConversationState = null;
+    });
+    return;
+  }
   document.getElementById('assistantModalBackdrop').style.display = 'none';
   document.getElementById('assistantModal').style.display = 'none';
   // Extra safety net alongside the 2-minute expiry above: closing the modal is itself a clear
