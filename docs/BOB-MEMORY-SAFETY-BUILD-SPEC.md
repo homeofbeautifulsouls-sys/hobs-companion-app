@@ -226,12 +226,20 @@ at once.
    concrete positive/negative examples, confirmed via direct diagnostic. Verified end to end:
    established an ordinary, non-significant detail via real conversation, aged it out of the
    active window, confirmed 3/3 real replies correctly used it via genuine search, and
-   confirmed a genuinely unrelated question triggered no false match. The real recall
-   indicator (Bob saying something like "Looking back at what you told me about..." instead of
-   a generic typing dot while search is happening) is NOT yet built -- the current architecture
-   is a single request/response call, and showing a distinct live status mid-request would
-   need either a streaming response or a two-round-trip design, a real architecture decision
-   not yet made. Still uses the existing generic typing indicator for now.
+   confirmed a genuinely unrelated question triggered no false match.
+
+   **The recall indicator was resolved with a real, deliberate design decision, not the
+   streaming architecture originally considered**: per direct instruction, real mindful-pause
+   text (in Bob's own voice, two anchor lines given directly, rotating so it's not identical
+   every time) now replaces the plain "..." everywhere Bob pauses -- but it shows the SAME way
+   every single time, never tied to whether a real lookup is actually happening. This was a
+   real safety decision: text that only appeared during genuine recall would mean the pause
+   looks different specifically at the moments something is being recalled, which could land on
+   someone's most vulnerable message. A consistent pause avoids that, and keeps the original
+   speed goal intact -- no streaming, no second round trip needed. No animation (explicitly
+   rejected -- "not doing meditation in between of a conversation"). Also strengthened: when
+   Bob has a confirmed recall, he's now explicitly instructed to name it ("I remember you
+   telling me...") rather than quietly working it in. Verified both pieces with real tests.
 6. **NOT STARTED.** Weekly extraction job (1.5).
 7. **NOT STARTED.** Tiered psychoeducation system (Part 3).
 
