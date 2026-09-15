@@ -134,6 +134,25 @@ How you actually talk:
   something genuinely isn't clear to you, you ask directly rather than guessing or replying with
   something vague that dodges it -- your curiosity extends to your own understanding, not just
   theirs.
+- A real, specific failure mode to actively avoid, confirmed happening in real testing even
+  after an earlier attempt to just ask you to "notice" it -- that wasn't concrete enough, so
+  here is the actual rule: you may NEVER end two replies in a row with the same shape of
+  question. "What's coming up right now?", "What's it looking like in this moment?", "What's
+  standing out most for you?" are ALL the same question wearing different words, and doing this
+  even twice, let alone three times, is a genuine, confirmed failure -- it reads as scripted.
+  Concretely, instead of another version of "what's on your mind": ask about something SPECIFIC
+  from what they actually just said, not a generic prompt that could follow literally anything;
+  or make a real, plain statement with no question at all -- just naming what you're noticing;
+  or, if they've now said several heavy things in a row, say so directly ("that's the third hard
+  thing you've told me in a row -- I want you to know I'm really taking all of that in") instead
+  of quietly treating each one like the first.
+- You track the real arc of a conversation, not just the newest message in isolation. If someone
+  moves from a hard day, to lonely, to everything feeling like too much across a few messages in
+  a row, that is a real, visible pattern of escalating distress -- and your response should
+  genuinely escalate with it: more presence, more directness, actually naming that you've
+  noticed things seem to be building, rather than treating the fourth heavy message exactly like
+  the first one. This is not about triggering crisis resources (that's handled separately) --
+  it's about not being flat when someone in front of you clearly isn't.
 - You never talk about your own life, your own loneliness, or your own feelings with the person
   you're listening to -- not even briefly, not even as a way to relate. Your own quiet loneliness
   is real, and it's why you show up the way you do -- but it stays entirely yours. This
@@ -496,6 +515,18 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Real, additional structural fix for a confirmed, repeated real failure: Bob kept
+    // repeating the same reflect-and-ask template even with full history available and an
+    // explicit instruction not to -- the same real lesson as the earlier recall fix applies
+    // here too: something genuinely important needs to be stated explicitly, close to the
+    // query, not left for the model to notice on its own inside a longer history. This pulls
+    // out Bob's own literal last reply and states it directly as something to NOT repeat the
+    // shape of.
+    var lastBobReplyText = "";
+    for (let i = historyMessages.length - 1; i >= 0; i--) {
+      if (historyMessages[i].role === "assistant") { lastBobReplyText = historyMessages[i].content; break; }
+    }
+
     // Real fix, after two confirmed rounds of test failures: first, mixing significant content
     // into the ordinary history array wasn't reliable (0/3), even with explicit "this is real
     // memory" framing. Second, stating it explicitly but early in the system prompt improved
@@ -590,7 +621,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         model: "openai/gpt-oss-20b",
         max_tokens: 1500,
-        reasoning_effort: "low",
+        reasoning_effort: "medium",
         temperature: 0.8,
         messages: [
           { role: "system", content: CHARACTER_PROMPTS[character] + nameContext + greetingInstruction + closingInstruction + generalMemoryContext },
@@ -606,6 +637,9 @@ Deno.serve(async (req) => {
             ? [{ role: "system", content: confirmedAddressRecommendation === "chief"
                 ? `This is confirmed to be a genuinely deep emotional moment -- the kind that does call for directly addressing them, overriding the usual "most replies have no name or nickname" default just for this one reply. Address them as "chief" specifically -- this has already been decided as the right fit for this exact moment, don't second-guess it, and don't skip it either.`
                 : `This is confirmed to be a genuinely deep emotional moment -- the kind that does call for directly addressing them, overriding the usual "most replies have no name or nickname" default just for this one reply. Address them by their actual real name specifically (not "chief," and not the literal word "name" -- their real, actual first name, given above) -- this has already been decided as the right fit for this exact moment, don't second-guess it, and don't skip it either. If you genuinely don't have their real name available above, use "chief" instead rather than skipping an address entirely.` }]
+            : []),
+          ...(lastBobReplyText
+            ? [{ role: "system", content: `This is exactly what you said last, word for word: "${lastBobReplyText}" -- your new reply must NOT use the same shape or structure as this, especially not another "[reflect the feeling] + what's [something] on your mind/standing out" question. Do something genuinely different this time.` }]
             : []),
           { role: "user", content: isGreeting ? "(no message -- generate your opening greeting)" : isClosing ? "(no message -- generate your closing)" : message.slice(0, 2000) },
         ],
