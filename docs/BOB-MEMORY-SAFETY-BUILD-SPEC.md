@@ -240,7 +240,20 @@ at once.
    rejected -- "not doing meditation in between of a conversation"). Also strengthened: when
    Bob has a confirmed recall, he's now explicitly instructed to name it ("I remember you
    telling me...") rather than quietly working it in. Verified both pieces with real tests.
-6. **NOT STARTED.** Weekly extraction job (1.5).
+6. **DONE, verified.** Weekly extraction job (Part 1.5). A new `character_extractions` table
+   plus an `is_extracted` flag on `character_messages` -- extraction adds a secondary
+   representation, never deletes or replaces the original rows ("everything, forever, no
+   pruning" stays true throughout). Eligibility requires BOTH conditions from the locked design:
+   outside the active 40-message window (a real per-user-per-character recency-rank query) AND
+   7+ days old. Never touches anything `is_significant` -- verified directly against a real,
+   deliberately mixed test set. The extraction prompt is real extraction, not summarization --
+   verbatim key quotes and named entities required, only genuine filler trimmed. Scheduled
+   weekly via pg_cron (Sunday 3am), matching this project's existing scheduled-function pattern
+   exactly. One real deploy gotcha found: Edge Functions need `--no-verify-jwt` for
+   scheduler-secret-only functions, easy to miss. Verified end to end: a real significant
+   message stayed completely untouched, real ordinary content was extracted with quotes
+   preserved verbatim (not paraphrased), 90 recent filler messages were correctly left alone,
+   and a second run reprocessed nothing -- genuinely idempotent.
 7. **NOT STARTED.** Tiered psychoeducation system (Part 3).
 
 Each step: build, deploy, verify with a real test against real data, confirm with Akash, THEN
