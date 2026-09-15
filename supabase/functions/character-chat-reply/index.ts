@@ -594,78 +594,93 @@ Deno.serve(async (req) => {
     const charResult = await charRes.json();
     const reply = charResult?.choices?.[0]?.message?.content?.trim() || null;
 
-    // Part 1.3 of the build spec: real-time significance flagging, run once per real exchange
-    // (not for greetings, which never reach this function at all, or closings, which don't
-    // introduce new substantive content of their own). Reuses the same recent history already
-    // fetched above so "first-time disclosure" can be judged against what's actually already
-    // been said, not guessed at from a single isolated message.
-    let personMessageSignificant = false;
-    let characterReplySignificant = false;
-    if (reply && !isGreeting && !isClosing) {
-      try {
-        const historyTranscript = historyMessages.length > 0
-          ? historyMessages.map((m) => (m.role === "user" ? "Them: " : "Character: ") + m.content.slice(0, 300)).join("\n")
-          : "(no prior history available)";
-        const sigRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: "openai/gpt-oss-safeguard-20b",
-            max_tokens: 2000,
-            reasoning_effort: "low",
-            response_format: { type: "json_object" },
-            messages: [
-              { role: "system", content: SIGNIFICANCE_CLASSIFIER_PROMPT },
-              { role: "user", content: `Recent history:\n${historyTranscript}\n\nNewest exchange:\nThem: ${message.slice(0, 2000)}\nCharacter: ${reply}` },
-            ],
-          }),
-        });
-        if (sigRes.ok) {
-          const sigResult = await sigRes.json();
-          const parsed = JSON.parse((sigResult?.choices?.[0]?.message?.content || "{}").trim());
-          personMessageSignificant = parsed.personMessageSignificant === true;
-          characterReplySignificant = parsed.characterReplySignificant === true;
-        } else {
-          const sigErrBody = await sigRes.text().catch(() => "");
-          await logUnavailability("character-chat-reply", "significance_check_api_error", `HTTP ${sigRes.status}: ${sigErrBody.slice(0, 500)}`);
-        }
-      } catch (sigErr) {
-        // A failed significance check must never block the reply or persistence -- falls back
-        // to "not significant," which is the safe default since nothing is ever actually
-        // deleted regardless; a missed flag just means normal aging rules apply to that message.
-        await logUnavailability("character-chat-reply", "significance_check_exception", String(sigErr));
-      }
-    }
-
-    // Real, permanent persistence: every real reply (not greetings, which are hard-wired
-    // client-side now and never reach this function at all) gets saved, both sides of the
-    // exchange, so the next real reply -- this session or a future one -- has real history to
-    // work from. A save failure is logged but never blocks the actual reply from reaching the
-    // person; memory is a real feature, not a dependency the whole conversation should break on.
-    if (reply && !isGreeting) {
-      try {
-        // Real embeddings for real search (Part 1.4), generated locally via Supabase's own
-        // built-in model -- no external API, no extra API key, confirmed working in this exact
-        // project before building on it. Generated for both sides so either can be found later.
-        let userEmbedding: number[] | null = null;
-        let replyEmbedding: number[] | null = null;
+    // Real, serious fix, Sept 15 2026, per direct and justified complaint: every reply was
+    // waiting through crisis-check, recall-check, reply generation, THEN significance-check,
+    // THEN persistence, all in a row, before the person ever saw a single word -- up to 5 real
+    // sequential API calls. The person should only ever wait for what actually produces their
+    // reply. Everything after the reply itself -- flagging it significant, generating
+    // embeddings, saving it -- doesn't need to happen before they see it, only before the next
+    // message needs it. Runs as a real Supabase Edge Functions background task
+    // (EdgeRuntime.waitUntil, the documented, correct tool for exactly this: return the
+    // response now, keep the function instance alive until the background promise finishes).
+    // The response below now returns immediately after the reply itself is ready.
+    const backgroundWork = async () => {
+      // Part 1.3 of the build spec: real-time significance flagging, run once per real exchange
+      // (not for greetings, which never reach this function at all, or closings, which don't
+      // introduce new substantive content of their own). Reuses the same recent history already
+      // fetched above so "first-time disclosure" can be judged against what's actually already
+      // been said, not guessed at from a single isolated message.
+      let personMessageSignificant = false;
+      let characterReplySignificant = false;
+      if (reply && !isGreeting && !isClosing) {
         try {
-          const session = new Supabase.ai.Session("gte-small");
-          if (!isClosing) userEmbedding = await session.run(message.slice(0, 2000), { mean_pool: true, normalize: true });
-          replyEmbedding = await session.run(reply, { mean_pool: true, normalize: true });
-        } catch (embedErr) {
-          // A failed embedding must never block saving the message itself -- the row still
-          // saves without a vector; it just won't be findable by search until backfilled.
-          await logUnavailability("character-chat-reply", "embedding_generation_failed", String(embedErr));
+          const historyTranscript = historyMessages.length > 0
+            ? historyMessages.map((m) => (m.role === "user" ? "Them: " : "Character: ") + m.content.slice(0, 300)).join("\n")
+            : "(no prior history available)";
+          const sigRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: "openai/gpt-oss-safeguard-20b",
+              max_tokens: 2000,
+              reasoning_effort: "low",
+              response_format: { type: "json_object" },
+              messages: [
+                { role: "system", content: SIGNIFICANCE_CLASSIFIER_PROMPT },
+                { role: "user", content: `Recent history:\n${historyTranscript}\n\nNewest exchange:\nThem: ${message.slice(0, 2000)}\nCharacter: ${reply}` },
+              ],
+            }),
+          });
+          if (sigRes.ok) {
+            const sigResult = await sigRes.json();
+            const parsed = JSON.parse((sigResult?.choices?.[0]?.message?.content || "{}").trim());
+            personMessageSignificant = parsed.personMessageSignificant === true;
+            characterReplySignificant = parsed.characterReplySignificant === true;
+          } else {
+            const sigErrBody = await sigRes.text().catch(() => "");
+            await logUnavailability("character-chat-reply", "significance_check_api_error", `HTTP ${sigRes.status}: ${sigErrBody.slice(0, 500)}`);
+          }
+        } catch (sigErr) {
+          // A failed significance check must never block the reply or persistence -- falls back
+          // to "not significant," which is the safe default since nothing is ever actually
+          // deleted regardless; a missed flag just means normal aging rules apply to that message.
+          await logUnavailability("character-chat-reply", "significance_check_exception", String(sigErr));
         }
-        const rowsToInsert = [];
-        if (!isClosing) rowsToInsert.push({ user_id: callerAuth.user.id, character, role: "user", text: message.slice(0, 2000), is_significant: personMessageSignificant, embedding: userEmbedding });
-        rowsToInsert.push({ user_id: callerAuth.user.id, character, role: "character", text: reply, is_significant: characterReplySignificant, embedding: replyEmbedding });
-        await callerClient.from("character_messages").insert(rowsToInsert);
-      } catch (persistErr) {
-        console.error("character-chat-reply: failed to persist message history", persistErr);
       }
-    }
+
+      // Real, permanent persistence: every real reply (not greetings, which are hard-wired
+      // client-side now and never reach this function at all) gets saved, both sides of the
+      // exchange, so the next real reply -- this session or a future one -- has real history to
+      // work from. A save failure is logged but never blocks the actual reply from reaching the
+      // person; memory is a real feature, not a dependency the whole conversation should break on.
+      if (reply && !isGreeting) {
+        try {
+          // Real embeddings for real search (Part 1.4), generated locally via Supabase's own
+          // built-in model -- no external API, no extra API key, confirmed working in this exact
+          // project before building on it. Generated for both sides so either can be found later.
+          let userEmbedding: number[] | null = null;
+          let replyEmbedding: number[] | null = null;
+          try {
+            const session = new Supabase.ai.Session("gte-small");
+            if (!isClosing) userEmbedding = await session.run(message.slice(0, 2000), { mean_pool: true, normalize: true });
+            replyEmbedding = await session.run(reply, { mean_pool: true, normalize: true });
+          } catch (embedErr) {
+            // A failed embedding must never block saving the message itself -- the row still
+            // saves without a vector; it just won't be findable by search until backfilled.
+            await logUnavailability("character-chat-reply", "embedding_generation_failed", String(embedErr));
+          }
+          const rowsToInsert = [];
+          if (!isClosing) rowsToInsert.push({ user_id: callerAuth.user.id, character, role: "user", text: message.slice(0, 2000), is_significant: personMessageSignificant, embedding: userEmbedding });
+          rowsToInsert.push({ user_id: callerAuth.user.id, character, role: "character", text: reply, is_significant: characterReplySignificant, embedding: replyEmbedding });
+          await callerClient.from("character_messages").insert(rowsToInsert);
+        } catch (persistErr) {
+          console.error("character-chat-reply: failed to persist message history", persistErr);
+        }
+      }
+    };
+    // @ts-ignore -- EdgeRuntime is a real, documented Supabase Edge Functions global, not
+    // something available in a typical TS lib set, hence the ignore.
+    EdgeRuntime.waitUntil(backgroundWork());
 
     return new Response(JSON.stringify({ reply, riskDetected, classifierAvailable }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
