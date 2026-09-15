@@ -396,20 +396,65 @@ Deno.serve(async (req) => {
     else if (userIds) targetFilter = `&user_id=in.(${(userIds as string[]).map((id) => `"${id}"`).join(",")})`;
     // all:true -- no extra filter, every profile with a push_token is eligible
 
+    // Real fix, Sept 15 2026: this used to filter push_token=not.is.null at the query level
+    // itself, meaning anyone without a registered device was invisible to this function from
+    // the very first fetch -- not just excluded from receiving a push, but completely absent
+    // from any record of who was actually intended to be notified. Now fetches everyone
+    // matching the target (userId/userIds/all) regardless of device status, and the push_token
+    // check happens explicitly below in the eligibility filter -- so a person without a device
+    // can still be correctly logged as an intended recipient, not silently invisible.
     const { data: profiles, error: profilesErr } = await restGet(
-      `profiles?push_token=not.is.null${targetFilter}&select=user_id,push_token,notifications_enabled,notifications_paused_until`
+      `profiles?${targetFilter ? targetFilter.replace(/^&/, "") + "&" : ""}select=user_id,push_token,notifications_enabled,notifications_paused_until`
     );
     if (profilesErr) throw new Error(JSON.stringify(profilesErr));
 
+    // Real fix, Sept 15 2026: a genuine safety gap -- every send path here respected a routine
+    // "notifications paused" preference, meaning it could silently suppress something as
+    // critical as a crisis-content escalation to a professional or admin. bypassPause is
+    // explicit, opt-in, and only ever set by the crisis-escalation caller -- every other
+    // notification type keeps respecting pause preferences exactly as before, unchanged.
+    const bypassPause = payload.bypassPause === true && isTrustedServerCall;
     const now = new Date();
     const targets = (profiles || []).filter((p: any) => {
       if (!p.push_token) return false;
-      if (p.notifications_enabled === false) return false;
-      if (p.notifications_paused_until && new Date(p.notifications_paused_until) > now) return false;
+      if (!bypassPause) {
+        if (p.notifications_enabled === false) return false;
+        if (p.notifications_paused_until && new Date(p.notifications_paused_until) > now) return false;
+      }
       return true;
     });
 
+    // Real fix, Sept 15 2026: for bypassPause calls specifically (currently only crisis
+    // escalation) -- if literally nobody intended has a registered device, this used to return
+    // early with nothing logged anywhere at all, meaning a real crisis alert could silently
+    // leave zero trace. Now still creates a real notification_log entry and a
+    // notification_recipients row per intended person (fcm_ok: false, honestly reflecting no
+    // device was reachable) -- a genuine, queryable, persistent record that this was raised,
+    // not a silent disappearance. Every other notification type keeps the original early-return
+    // behavior unchanged.
+    const intendedRecipients = (profiles || []) as any[];
     if (targets.length === 0) {
+      if (bypassPause && intendedRecipients.length > 0) {
+        const { data: logRowArr2 } = await restWrite("notification_log", "POST", {
+          notification_type: notificationType || "critical_no_device",
+          title, body, data: data || {},
+          sent_by: isSelfOnly ? null : callerId,
+          target_type: userIds ? "segment" : "user",
+          target_description: (targetDescription || "") + " (no registered device for any intended recipient)",
+        });
+        const logRow2 = logRowArr2 && logRowArr2[0];
+        if (logRow2) {
+          for (const p of intendedRecipients) {
+            await restWrite("notification_recipients", "POST", {
+              notification_id: logRow2.id, user_id: p.user_id, fcm_ok: false,
+            }, "return=minimal");
+          }
+        }
+        return new Response(JSON.stringify({ sent: 0, message: "No registered device for any intended recipient -- logged anyway", notificationId: logRow2?.id }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       return new Response(JSON.stringify({ sent: 0, message: "No eligible recipients" }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

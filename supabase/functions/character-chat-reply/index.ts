@@ -208,12 +208,14 @@ Deno.serve(async (req) => {
     // permits a user to read their own profile row, so the caller's own authenticated client
     // (not service-role) is exactly right here -- no broader access than the person already has.
     let displayName = "";
+    let assignedTherapistUserId: string | null = null;
     try {
       const { data: profileRow } = await callerClient
         .from("profiles")
-        .select("name")
+        .select("name, assigned_therapist_user_id")
         .eq("user_id", callerAuth.user.id)
         .single();
+      assignedTherapistUserId = profileRow?.assigned_therapist_user_id || null;
       // Real fix, Sept 15 2026: only ever use the person's first name, regardless of what's
       // actually stored in their profile (which could be a full "First Last" name) -- takes
       // just the first word, whatever is actually stored.
@@ -288,6 +290,61 @@ Deno.serve(async (req) => {
     } catch (err) {
       classifierAvailable = false;
       await logUnavailability("character-chat-reply", "crisis_check_exception", String(err));
+    }
+
+    // Part 2 of the build spec, Sept 15 2026: real crisis-content escalation to a professional.
+    // If the assigned professional isn't yet a real, reliable account link (verified before
+    // building this -- currently zero real assignments exist in production), falls back to
+    // every real admin. Sends the EXACT raw message, never paraphrased, per the locked
+    // decision -- nothing should be softened on the way to someone who can actually help.
+    // Uses the real, existing send-push-notification function as a trusted server call
+    // (service-role auth + serverCallerId, its own documented pattern for exactly this kind of
+    // internal call) rather than reimplementing push delivery. bypassPause: true is deliberate
+    // and was added specifically for this -- a routine "notifications paused" preference must
+    // never be able to silently suppress a real crisis alert.
+    if (riskDetected && !isGreeting) {
+      try {
+        let targetUserIds: string[] = [];
+        if (assignedTherapistUserId) {
+          targetUserIds = [assignedTherapistUserId];
+        } else {
+          // Real fix, Sept 15 2026: using callerClient (RLS-scoped to the regular user's own
+          // session) here was wrong -- a normal user's session correctly cannot see other
+          // people's is_admin status, so this always returned empty regardless of how many
+          // real admins actually existed. This is a legitimate server-side lookup for a real
+          // system purpose, not something being exposed to the user -- needs the service-role
+          // key to actually see across profiles, same as send-push-notification's own admin
+          // lookup already correctly does.
+          const adminsRes = await fetch(
+            `${SUPABASE_URL}/rest/v1/profiles?is_admin=eq.true&select=user_id`,
+            { headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` } }
+          );
+          const admins = adminsRes.ok ? await adminsRes.json() : [];
+          targetUserIds = (admins || []).map((a: any) => a.user_id);
+        }
+        if (targetUserIds.length > 0) {
+          await fetch(`${SUPABASE_URL}/functions/v1/send-push-notification`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              serverCallerId: callerAuth.user.id,
+              userIds: targetUserIds,
+              title: `Crisis content flagged${displayName ? ` -- ${displayName}` : ""}`,
+              body: message.slice(0, 2000),
+              notificationType: "crisis_escalation",
+              targetDescription: assignedTherapistUserId ? "Assigned therapist" : "All admins (no assigned therapist on file)",
+              bypassPause: true,
+              data: { character, source: "character-chat-reply" },
+            }),
+          });
+        } else {
+          await logUnavailability("character-chat-reply", "crisis_escalation_no_recipient", `user ${callerAuth.user.id}: no assigned therapist and no admins found`);
+        }
+      } catch (escalationErr) {
+        // A failed escalation must never block the person's actual reply from reaching them --
+        // logged so it's visible, never silently swallowed, but never fatal to the conversation.
+        await logUnavailability("character-chat-reply", "crisis_escalation_failed", String(escalationErr));
+      }
     }
 
     // Generate the character reply regardless of the crisis check's outcome -- the client
