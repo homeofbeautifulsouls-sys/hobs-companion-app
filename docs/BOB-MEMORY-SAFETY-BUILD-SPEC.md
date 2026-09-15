@@ -214,7 +214,24 @@ at once.
    a reasoning model -- fixed to match the crisis classifier's proven `max_tokens: 2000`), and
    a batch of "None" replies during testing traced to a real, confirmed Groq TPM rate limit from
    rapid-fire testing against an artificially large test conversation, not a logic bug.
-5. **NOT STARTED.** Real search (1.4), including the real recall indicator.
+5. **DONE (search itself), verified -- recall indicator still pending.** Real search (1.4).
+   Groq offers no embeddings at all (confirmed via research) -- used Supabase Edge Functions'
+   own built-in gte-small model instead, generating real embeddings locally with no new
+   external API or key needed (confirmed working with a real isolated test before building on
+   it). Enabled pgvector, added a real similarity-search Postgres function. Extended the
+   existing recall-matcher to also detect, in the same call, whether the current message reads
+   like a callback -- real search only runs when that fires and nothing was already found in
+   the significant-memories list. One real bug found and fixed: the first version of the
+   callback-detection prompt was too vague and missed its own designed examples -- fixed with
+   concrete positive/negative examples, confirmed via direct diagnostic. Verified end to end:
+   established an ordinary, non-significant detail via real conversation, aged it out of the
+   active window, confirmed 3/3 real replies correctly used it via genuine search, and
+   confirmed a genuinely unrelated question triggered no false match. The real recall
+   indicator (Bob saying something like "Looking back at what you told me about..." instead of
+   a generic typing dot while search is happening) is NOT yet built -- the current architecture
+   is a single request/response call, and showing a distinct live status mid-request would
+   need either a streaming response or a two-round-trip design, a real architecture decision
+   not yet made. Still uses the existing generic typing indicator for now.
 6. **NOT STARTED.** Weekly extraction job (1.5).
 7. **NOT STARTED.** Tiered psychoeducation system (Part 3).
 
