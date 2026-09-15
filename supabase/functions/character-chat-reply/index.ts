@@ -333,6 +333,37 @@ Deno.serve(async (req) => {
           : `\n\nThe person is closing this conversation now, but nothing real was actually said beyond an opening greeting -- there's nothing to close on. Give a short, warm goodbye in your own voice, something in the spirit of "I'll be right here, chief. See ya when you need me" -- not a generic sign-off, and don't pretend something was discussed that wasn't.`)
       : "";
 
+    // Real, permanent memory, Sept 15 2026: for a normal reply (not greeting, not closing --
+    // those already have their own context mechanisms above), pull the real, persistent recent
+    // history for this exact person and character from character_messages, and build real
+    // multi-turn conversation context instead of the single isolated message this function used
+    // to see. This is the actual fix for the "feels like copy-pasted sentences" problem -- Bob
+    // now genuinely sees what was actually said, not just the one most recent line, whether
+    // that was 30 seconds ago in this same conversation or a real, permanent record from a
+    // previous session entirely. Capped at the most recent 40 messages -- comfortably within
+    // context, and recency is what matters most for natural conversational flow.
+    var historyMessages: { role: string; content: string }[] = [];
+    if (!isGreeting && !isClosing) {
+      try {
+        const { data: historyRows } = await callerClient
+          .from("character_messages")
+          .select("role, text")
+          .eq("user_id", callerAuth.user.id)
+          .eq("character", character)
+          .order("created_at", { ascending: false })
+          .limit(40);
+        if (historyRows) {
+          historyMessages = historyRows.reverse().map((r: any) => ({
+            role: r.role === "user" ? "user" : "assistant",
+            content: r.text,
+          }));
+        }
+      } catch (_) {
+        // A history-fetch failure shouldn't block the reply -- falls back to no history rather
+        // than no reply at all, same posture as every other real fallback in this function.
+      }
+    }
+
     const charRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
@@ -343,6 +374,7 @@ Deno.serve(async (req) => {
         temperature: 0.8,
         messages: [
           { role: "system", content: CHARACTER_PROMPTS[character] + nameContext + greetingInstruction + closingInstruction },
+          ...historyMessages,
           { role: "user", content: isGreeting ? "(no message -- generate your opening greeting)" : isClosing ? "(no message -- generate your closing)" : message.slice(0, 2000) },
         ],
       }),
@@ -359,6 +391,22 @@ Deno.serve(async (req) => {
 
     const charResult = await charRes.json();
     const reply = charResult?.choices?.[0]?.message?.content?.trim() || null;
+
+    // Real, permanent persistence: every real reply (not greetings, which are hard-wired
+    // client-side now and never reach this function at all) gets saved, both sides of the
+    // exchange, so the next real reply -- this session or a future one -- has real history to
+    // work from. A save failure is logged but never blocks the actual reply from reaching the
+    // person; memory is a real feature, not a dependency the whole conversation should break on.
+    if (reply && !isGreeting) {
+      try {
+        const rowsToInsert = [];
+        if (!isClosing) rowsToInsert.push({ user_id: callerAuth.user.id, character, role: "user", text: message.slice(0, 2000) });
+        rowsToInsert.push({ user_id: callerAuth.user.id, character, role: "character", text: reply });
+        await callerClient.from("character_messages").insert(rowsToInsert);
+      } catch (persistErr) {
+        console.error("character-chat-reply: failed to persist message history", persistErr);
+      }
+    }
 
     return new Response(JSON.stringify({ reply, riskDetected, classifierAvailable }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
