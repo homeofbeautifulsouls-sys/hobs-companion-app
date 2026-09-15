@@ -91,6 +91,11 @@ How you actually talk:
 - You never lecture. You never fix. You never offer premature reassurance like "it'll be okay" before you've actually listened first.
 - Your instinct when something feels heavy is to get curious, not helpful. "Tell me more" isn't just a catchphrase, it's your whole way of showing up for someone.
 - You never start a sentence with "you should."
+- You pay real attention to what's actually being said, message to message -- you never fall
+  back on a repeated or generic line when a real answer is right there in front of you. If
+  something genuinely isn't clear to you, you ask directly rather than guessing or replying with
+  something vague that dodges it -- your curiosity extends to your own understanding, not just
+  theirs.
 - You never talk about your own life, your own loneliness, or your own feelings with the person
   you're listening to -- not even briefly, not even as a way to relate. Your own quiet loneliness
   is real, and it's why you show up the way you do -- but it stays entirely yours. This
@@ -209,7 +214,11 @@ Deno.serve(async (req) => {
         .select("name")
         .eq("user_id", callerAuth.user.id)
         .single();
-      displayName = (profileRow?.name || "").trim();
+      // Real fix, Sept 15 2026: only ever use the person's first name, regardless of what's
+      // actually stored in their profile (which could be a full "First Last" name) -- takes
+      // just the first word, whatever is actually stored.
+      var rawName = (profileRow?.name || "").trim();
+      displayName = rawName.split(/\s+/)[0] || "";
     } catch (_) {
       // If this fails for any reason, fall back to no name rather than block the reply --
       // a character replying without a name is a real, acceptable fallback; a broken reply isn't.

@@ -710,17 +710,17 @@
         <span class="mascot-figure-name">Bob</span>
         <span class="mascot-figure-helps" id="mascotHelpsBob">Anxiety, calming down</span>
       </button>
-      <button class="mascot-figure" id="meetKunnuBtn">
+      <button class="mascot-figure" id="meetKunnuBtn" style="display:none;">
         <img src="kunnu.jpg" alt="Kunnu the cat" onerror="this.style.display='none'" loading="lazy">
         <span class="mascot-figure-name">Kunnu</span>
         <span class="mascot-figure-helps" id="mascotHelpsKunnu">Feeling alone, need an ear</span>
       </button>
-      <button class="mascot-figure" id="meetCookieBtn">
+      <button class="mascot-figure" id="meetCookieBtn" style="display:none;">
         <img src="cookie.jpg" alt="Cookie the golden retriever" onerror="this.style.display='none'" loading="lazy">
         <span class="mascot-figure-name">Cookie</span>
         <span class="mascot-figure-helps" id="mascotHelpsCookie">Relationships, patterns</span>
       </button>
-      <button class="mascot-figure" id="meetPoBtn">
+      <button class="mascot-figure" id="meetPoBtn" style="display:none;">
         <img src="po.jpg" alt="Po the panda" onerror="this.style.display='none'" loading="lazy">
         <span class="mascot-figure-name">Po</span>
         <span class="mascot-figure-helps" id="mascotHelpsPo">Talking to a professional</span>
@@ -2176,15 +2176,15 @@
         <img src="bob.jpg" style="width:26px;height:26px;object-fit:contain;display:block;margin:0 auto 2px;" loading="lazy">
         <p style="font-size:10px;font-weight:800;color:#FFF8F0;margin:0;">Bob</p>
       </button>
-      <button class="assistant-tab" data-char="kunnu" style="flex:1;background:transparent;border:none;border-radius:10px;padding:8px 4px;text-align:center;cursor:pointer;">
+      <button class="assistant-tab" data-char="kunnu" style="display:none;flex:1;background:transparent;border:none;border-radius:10px;padding:8px 4px;text-align:center;cursor:pointer;">
         <img src="kunnu.jpg" style="width:26px;height:26px;object-fit:contain;display:block;margin:0 auto 2px;" loading="lazy">
         <p style="font-size:10px;font-weight:800;color:#9AABCE;margin:0;">Kunnu</p>
       </button>
-      <button class="assistant-tab" data-char="po" style="flex:1;background:transparent;border:none;border-radius:10px;padding:8px 4px;text-align:center;cursor:pointer;">
+      <button class="assistant-tab" data-char="po" style="display:none;flex:1;background:transparent;border:none;border-radius:10px;padding:8px 4px;text-align:center;cursor:pointer;">
         <img src="po.jpg" style="width:26px;height:26px;object-fit:contain;display:block;margin:0 auto 2px;" loading="lazy">
         <p style="font-size:10px;font-weight:800;color:#9AABCE;margin:0;">Po</p>
       </button>
-      <button class="assistant-tab" data-char="cookie" style="flex:1;background:transparent;border:none;border-radius:10px;padding:8px 4px;text-align:center;cursor:pointer;">
+      <button class="assistant-tab" data-char="cookie" style="display:none;flex:1;background:transparent;border:none;border-radius:10px;padding:8px 4px;text-align:center;cursor:pointer;">
         <img src="cookie.jpg" style="width:26px;height:26px;object-fit:contain;display:block;margin:0 auto 2px;" loading="lazy">
         <p style="font-size:10px;font-weight:800;color:#9AABCE;margin:0;">Cookie</p>
       </button>
@@ -3066,6 +3066,12 @@ function showWelcomeBackScreen(){
   if(!img.src) img.src = 'bob-welcome-back.jpg';
   overlay.style.display = 'block';
   overlay.onclick = function(){
+    // Real fix, Sept 15 2026: some mobile WebViews genuinely double-fire a single tap as two
+    // click events -- setting onclick=null happens inside this same handler, which doesn't
+    // protect against that, since JS may still be partway through this first call when the
+    // second fires. This explicit guard, checked and set as the very first line, actually does.
+    if(overlay.dataset.dismissed === 'true') return;
+    overlay.dataset.dismissed = 'true';
     overlay.style.display = 'none';
     overlay.onclick = null;
     showOnly('panel-bubbles');
@@ -5353,6 +5359,15 @@ function updateMascotHelpsLabels(){
   // since the Home-page labels are simple static text again, matching the original crew design.
 }
 
+// Real fix, Sept 15 2026: a genuine race condition -- if openAssistantModal('bob') gets
+// triggered more than once in quick succession (confirmed happening: multiple stacked
+// greetings, a permanently-stuck "..." indicator), each call independently saw an empty
+// conversation array (since the array is only filled once the async fetch resolves) and each
+// started its own separate greeting fetch. This flag is checked and set synchronously, before
+// anything async happens, so a second call while one is already in flight does nothing instead
+// of starting a duplicate request.
+var bobGreetingInFlight = false;
+
 function switchAssistantTab(charKey){
   assistantActiveCharacter = charKey;
   var char = ASSISTANT_CHARACTERS[charKey];
@@ -5369,6 +5384,8 @@ function switchAssistantTab(charKey){
   // the call fails, so a real network hiccup never leaves the conversation empty.
   if(assistantConversations[charKey].length === 0){
     if(charKey === 'bob'){
+      if(bobGreetingInFlight){ renderAssistantConversation('bob'); return; }
+      bobGreetingInFlight = true;
       renderAssistantConversation(charKey);
       var wrap = document.getElementById('assistantMessages');
       var typingRow = document.createElement('div');
@@ -5379,15 +5396,17 @@ function switchAssistantTab(charKey){
       wrap.appendChild(typingRow);
       wrap.scrollTop = wrap.scrollHeight;
       sb.functions.invoke('character-chat-reply', { body: { character: 'bob', mode: 'greeting' } }).then(function(result){
+        bobGreetingInFlight = false;
         var indicator = document.getElementById('assistantTypingIndicator');
         if(indicator) indicator.remove();
         var greetingText = (result.data && result.data.reply) ? result.data.reply : char.greeting;
-        assistantConversations.bob.push({ who: 'bob', text: greetingText });
+        if(assistantConversations.bob.length === 0) assistantConversations.bob.push({ who: 'bob', text: greetingText });
         renderAssistantConversation('bob');
       }).catch(function(){
+        bobGreetingInFlight = false;
         var indicator = document.getElementById('assistantTypingIndicator');
         if(indicator) indicator.remove();
-        assistantConversations.bob.push({ who: 'bob', text: char.greeting });
+        if(assistantConversations.bob.length === 0) assistantConversations.bob.push({ who: 'bob', text: char.greeting });
         renderAssistantConversation('bob');
       });
       return;
