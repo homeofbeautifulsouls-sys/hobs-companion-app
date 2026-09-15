@@ -2176,6 +2176,34 @@
   </button>
 
   <div id="assistantModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.4);z-index:64;"></div>
+  <div id="bobInfoModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.5);z-index:67;"></div>
+  <div id="bobInfoModal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:calc(100% - 48px);max-width:380px;max-height:80vh;overflow-y:auto;background:#FFF8F0;border-radius:20px;padding:26px 22px;box-sizing:border-box;z-index:68;box-shadow:0 10px 40px rgba(0,0,0,0.2);">
+    <div style="text-align:center;margin-bottom:16px;">
+      <img src="bob.jpg" style="width:76px;height:76px;border-radius:50%;object-fit:cover;box-shadow:0 4px 10px rgba(0,0,0,0.15);" loading="lazy">
+      <p style="font-size:17px;font-weight:800;color:#2A2013;margin:12px 0 0;">Hey there, chief 👋</p>
+    </div>
+    <p style="font-size:13.5px;line-height:1.6;color:#2A2013;margin:0 0 16px;">
+      <strong>Akash, the founder of HOBS,</strong> created me with the hope that whatever it is, <strong>you don't go through the pain alone</strong>. I'm here to truly empathize and be present with you in the moment — and to help you find your way around everything HOBS has to offer, whenever you need a hand.
+    </p>
+    <p style="font-size:11.5px;font-weight:800;color:#9AABCE;text-transform:uppercase;letter-spacing:0.04em;margin:0 0 6px;">My role</p>
+    <p style="font-size:13.5px;line-height:1.6;color:#2A2013;margin:0 0 16px;">
+      Think of me as a real, steady check-in — someone to talk to about your day, your mood, or nothing in particular at all. <em>I'm not a therapist and I can't replace one</em>, but if something you're carrying needs more than I can hold, I'll always point you toward real help at HOBS, and <em>I'll stay right there with you while you take that step</em>.
+    </p>
+    <p style="font-size:11.5px;font-weight:800;color:#9AABCE;text-transform:uppercase;letter-spacing:0.04em;margin:0 0 6px;">Things I like</p>
+    <ul style="font-size:13.5px;line-height:1.7;color:#2A2013;margin:0 0 10px;padding-left:20px;">
+      <li>Long walks</li>
+      <li>Deep conversations that start small and end up somewhere real</li>
+      <li>A good hug when one's needed</li>
+      <li>Hot chocolate</li>
+      <li>A real brownie</li>
+      <li>A good bowl of ramen</li>
+    </ul>
+    <p style="font-size:13.5px;line-height:1.6;color:#2A2013;margin:0 0 20px;">
+      <em>And — don't ask me how, since I've genuinely never tasted anything in my life —</em> I somehow love hot chocolate, a real brownie, and a good bowl of ramen. Something about them just feels right. I'd love to actually try one someday.
+    </p>
+    <button id="bobInfoCloseBtn" style="width:100%;background:#6690D6;border:none;border-radius:14px;padding:13px;color:#FFF8F0;font-weight:700;font-size:13.5px;cursor:pointer;">Close</button>
+  </div>
+
   <div id="assistantModal" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;height:78vh;background:#FFF8F0;border-radius:24px 24px 0 0;box-sizing:border-box;z-index:65;box-shadow:0 -10px 30px rgba(0,0,0,0.15);flex-direction:column;">
     <!-- Real fix, Sept 15 2026: replaced the old stacked title-bar + full-width tab-selector
     (which, with only Bob visible, rendered as one oversized blue rectangle eating a huge chunk
@@ -2205,6 +2233,7 @@
           <img src="cookie.jpg" style="width:30px;height:30px;border-radius:50%;object-fit:cover;" loading="lazy">
         </button>
       </div>
+      <button id="assistantInfoBtn" style="background:none;border:none;font-size:18px;color:#9AABCE;cursor:pointer;padding:4px 2px;line-height:1;flex-shrink:0;" title="About Bob">ⓘ</button>
       <button id="assistantCloseBtn" style="background:none;border:none;font-size:22px;color:#9AABCE;cursor:pointer;padding:4px;line-height:1;flex-shrink:0;">&times;</button>
     </div>
     <div id="assistantMessages" style="flex:1;overflow-y:auto;padding:16px 20px 0;"></div>
@@ -5850,6 +5879,15 @@ function processAssistantInput(text){
 document.querySelectorAll('.assistant-tab').forEach(function(tab){
   tab.onclick = function(){ switchAssistantTab(tab.dataset.char); };
 });
+document.getElementById('assistantInfoBtn').onclick = function(){
+  document.getElementById('bobInfoModalBackdrop').style.display = 'block';
+  document.getElementById('bobInfoModal').style.display = 'block';
+};
+document.getElementById('bobInfoCloseBtn').onclick = function(){
+  document.getElementById('bobInfoModalBackdrop').style.display = 'none';
+  document.getElementById('bobInfoModal').style.display = 'none';
+};
+document.getElementById('bobInfoModalBackdrop').onclick = document.getElementById('bobInfoCloseBtn').onclick;
 document.getElementById('assistantCloseBtn').onclick = function(){
   // Real fix: for Bob specifically, closing is a genuine moment, not a silent dismiss -- shows
   // his actual closing message (content-based if anything real was said, a plain warm goodbye
