@@ -689,6 +689,8 @@
   </div>
 
   <div class="content" id="panel-bubbles" style="display:none;">
+    <div id="journalPsychoeducationTip"></div>
+    <div id="journalPhysicalRoutingTip"></div>
     <div id="startingEntryBanner" style="display:none;align-items:center;gap:10px;background:#6690D6;color:#fff;padding:12px 14px;border-radius:14px;margin-bottom:14px;">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M12 19l7-7 3 3-7 7-3-3zM18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586M11 11l1 1"/></svg>
       <span style="font-size:12.5px;font-weight:600;">Starting a new journal entry — pick how you're feeling below to begin.</span>
@@ -4830,6 +4832,7 @@ function commitMainJournalIfDirty(){
     }
     logAnalyticsEvent('journal_edited');
     maybeShowCrisisResources(plainText);
+    maybeShowPsychoeducationTip(plainText);
     clearJournalDraft();
     return true;
   }
@@ -4847,6 +4850,7 @@ function commitMainJournalIfDirty(){
   trackNotificationAction(selected.length ? 'logged_mood' : 'wrote_journal_entry');
   logAnalyticsEvent(selected.length ? 'mood_logged' : 'journal_written');
   maybeShowCrisisResources(plainText);
+  maybeShowPsychoeducationTip(plainText);
   clearJournalDraft();
   return true;
 }
@@ -6196,6 +6200,83 @@ function maybeShowCrisisResources(text){
     if(result && result.data && result.data.riskDetected === true) showCrisisResourceModal();
   }).catch(function(){});
 }
+
+// Step 7 of the build spec (docs/BOB-MEMORY-SAFETY-BUILD-SPEC.md, Part 3): tiered
+// psychoeducation. Completely additive to the crisis check above, never a replacement for it --
+// death/self-harm language always keeps using the existing immediate helpline modal, unchanged.
+// This is for non-death depression/anxiety signals and physical-symptom routing, tracked the
+// moment they appear, no minimum repetition threshold, per the locked design.
+//
+// Comorbidity logic, exactly as locked: depression + anxiety together -> suggest BOTH PHQ-9 and
+// GAD-7. A messy combo (burnout, exam stress) that doesn't cleanly fit either -> a generic
+// professional nudge, not precise test-matching logic for every possible combination. Physical
+// routing is a genuinely separate concern from the mental-health test suggestion (a person could
+// have both at once), so it gets its own tip container rather than competing for the same one.
+//
+// Delivered via the existing renderMascotTip system -- once per fresh flag (its own dismissible
+// tracking, already built), never a repeating nag. Bob's own voice stays curiosity-led per his
+// locked character rules; any actual clinical content lives in the tests themselves, not here.
+function maybeShowPsychoeducationTip(text){
+  if(!text || !text.trim() || !currentUser || !currentUser.id) return;
+  var todayKey = (typeof TODAY_KEY !== 'undefined') ? TODAY_KEY : new Date().toISOString().slice(0,10);
+  sb.functions.invoke('check-journal-psychoeducation', { body: { text: text } }).then(function(result){
+    if(!result || !result.data || result.data.classifierAvailable !== true) return;
+    var d = result.data;
+
+    // Mental-health test-suggestion tip: comorbidity takes priority, then single-signal.
+    if(d.depressionSignal && d.anxietySignal){
+      renderMascotTip('journalPsychoeducationTip', 'psychoed_comorbid_' + todayKey, 'bob',
+        "I've noticed some heavy and anxious threads in what you've been writing. Want to try a couple of quick check-ins -- one for mood, one for anxiety -- so you have a clearer picture?");
+      var tipEl = document.getElementById('journalPsychoeducationTip');
+      if(tipEl){
+        var btn = tipEl.querySelector('.mascot-tip');
+        if(btn) btn.style.cursor = 'pointer';
+        if(btn) btn.onclick = function(e){ if(e.target.classList.contains('mascot-tip-close')) return; startTest('phq9'); };
+      }
+    } else if(d.depressionSignal){
+      renderMascotTip('journalPsychoeducationTip', 'psychoed_depression_' + todayKey, 'bob',
+        "I've noticed some heavy moments in what you've been writing lately. Want to try a quick mood check-in?");
+      var tipEl2 = document.getElementById('journalPsychoeducationTip');
+      if(tipEl2){
+        var btn2 = tipEl2.querySelector('.mascot-tip');
+        if(btn2) btn2.style.cursor = 'pointer';
+        if(btn2) btn2.onclick = function(e){ if(e.target.classList.contains('mascot-tip-close')) return; startTest('phq9'); };
+      }
+    } else if(d.anxietySignal){
+      renderMascotTip('journalPsychoeducationTip', 'psychoed_anxiety_' + todayKey, 'bob',
+        "I've noticed some anxious threads in what you've been writing lately. Want to try a quick check-in?");
+      var tipEl3 = document.getElementById('journalPsychoeducationTip');
+      if(tipEl3){
+        var btn3 = tipEl3.querySelector('.mascot-tip');
+        if(btn3) btn3.style.cursor = 'pointer';
+        if(btn3) btn3.onclick = function(e){ if(e.target.classList.contains('mascot-tip-close')) return; startTest('gad7'); };
+      }
+    } else if(d.messyComboSignal){
+      renderMascotTip('journalPsychoeducationTip', 'psychoed_messy_' + todayKey, 'bob',
+        "Sounds like a lot is genuinely on your plate right now. When you're ready, talking to one of our professionals could really help.");
+    }
+
+    // Physical-symptom routing tip -- genuinely separate from the above, real clinical
+    // reasoning already locked: GP for fatigue/mood, palpitations/anxiety, or concentration/
+    // tiredness combos (can reflect a real nutrient or thyroid issue); psychiatrist specifically
+    // for sleep (ties to the existing PSQI test; unsupervised sleep medication from a GP is a
+    // documented real dependency risk).
+    if(d.physicalRouting === 'gp'){
+      renderMascotTip('journalPhysicalRoutingTip', 'psychoed_gp_' + todayKey, 'bob',
+        "I noticed you mentioning some physical stuff alongside how you've been feeling. Sometimes that's worth a real check-in with a GP too, alongside anything else.");
+    } else if(d.physicalRouting === 'psychiatrist_sleep'){
+      renderMascotTip('journalPhysicalRoutingTip', 'psychoed_sleep_' + todayKey, 'bob',
+        "Sleep's come up a few times in what you've written. Want to try a quick sleep check-in? It might be worth bringing to a psychiatrist specifically, rather than just a general prescription.");
+      var tipEl4 = document.getElementById('journalPhysicalRoutingTip');
+      if(tipEl4){
+        var btn4 = tipEl4.querySelector('.mascot-tip');
+        if(btn4) btn4.style.cursor = 'pointer';
+        if(btn4) btn4.onclick = function(e){ if(e.target.classList.contains('mascot-tip-close')) return; startTest('psqi'); };
+      }
+    }
+  }).catch(function(){});
+}
+
 document.getElementById('crisisResourceCloseBtn').onclick = function(){
   document.getElementById('crisisResourceModalBackdrop').style.display = 'none';
   document.getElementById('crisisResourceModal').style.display = 'none';
