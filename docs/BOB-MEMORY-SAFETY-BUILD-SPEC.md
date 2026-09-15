@@ -254,7 +254,32 @@ at once.
    message stayed completely untouched, real ordinary content was extracted with quotes
    preserved verbatim (not paraphrased), 90 recent filler messages were correctly left alone,
    and a second run reprocessed nothing -- genuinely idempotent.
-7. **NOT STARTED.** Tiered psychoeducation system (Part 3).
+7. **DONE, verified.** Tiered psychoeducation system (Part 3). New
+   `check-journal-psychoeducation` classifier, running alongside (never replacing) the existing
+   crisis check -- death/self-harm language keeps using the unchanged immediate helpline modal.
+   Implements the locked comorbidity logic exactly: depression+anxiety together suggests both
+   PHQ-9 and GAD-7; a single signal suggests its matching test; a messy combo (burnout, exam
+   stress) gets a generic professional nudge, not forced test-matching. Physical routing
+   implements the real clinical grounding already researched: GP for fatigue+mood/
+   palpitations+anxiety/concentration+tiredness, psychiatrist specifically for sleep (linked to
+   the existing PSQI test). Delivered via the existing `renderMascotTip` system, once per fresh
+   flag per day. Bob's voice stays curiosity-led, no clinical explanation in his dialogue.
+   Verified the classifier with 7 deliberately distinct real scenarios -- pure depression, pure
+   anxiety, genuine comorbidity, sleep-specific, GP-flavored (correctly flagged both depression
+   AND gp-routing together, a real sensible co-occurrence), messy combo, and a neutral entry
+   with nothing falsely flagged -- all discriminated correctly. Found and fixed a real placement
+   bug during verification: the tip container lived inside the journal composition panel, which
+   hides immediately on save -- meaning it would have been set but never actually seen by
+   anyone. Moved to the home screen the person actually lands on after saving. Verified the
+   complete real flow end to end: a real depression-signal journal entry, saved, tip appeared
+   correctly, clicking it navigated directly to PHQ-9's actual first question.
+
+**This completes every item in the original build sequence.** Storage, in-conversation and
+cross-session memory, real-time significance flagging, guaranteed recall, real semantic search,
+weekly extraction, crisis escalation to a real professional, and tiered psychoeducation are all
+built and independently verified against real data and real scenarios -- not assumed, not
+theoretical. Every step in this document reflects what was actually tested, including the real
+bugs found and fixed along the way, not just what was intended.
 
 Each step: build, deploy, verify with a real test against real data, confirm with Akash, THEN
 move to the next. Never batch multiple unverified pieces together.
