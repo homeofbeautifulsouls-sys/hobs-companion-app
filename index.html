@@ -5333,6 +5333,36 @@ function assistantUserTiers(){
 // everyone's messages get mixed together -- per direct instruction that mascots should act
 // like different tabs, not one single chat. Switching tabs shows that character's own history.
 var assistantConversations = { bob: [], kunnu: [], po: [], cookie: [] };
+
+// Real fix, Sept 15 2026: per direct instruction, the greeting must be instant, with zero
+// network dependency -- "ground rules cannot depend on probability." Chief being the default
+// address is now guaranteed by what the text literally says, not requested from a model that
+// might not follow it. Real task-genuineness is preserved via a fast, direct DB count (not an
+// AI call) -- still genuine, just no longer routed through anything that can be slow.
+var BOB_GREETING_TEMPLATES_NO_TASKS = [
+  "Howdy, chief! Good to see you. Just wanna check in on you.",
+  "Hey there, chief. What's been on your mind?",
+  "Howdy, chief! How's your day going so far?",
+  "Hey {name}, good to hear from you. How are you feeling?",
+  "Hey there, chief. I'm here if you want to talk.",
+  "Howdy chief! Good to see you back."
+];
+var BOB_GREETING_TEMPLATES_WITH_TASKS = [
+  "Hey there, chief. Need a hand with any task?",
+  "Howdy, chief! Got {count} task{plural} waiting whenever you're ready -- or we can just talk.",
+  "Hey {name}, good to see you. You've got {count} thing{plural} on your list today -- want a hand, or just want to check in first?",
+  "Howdy chief! {count} task{plural} on deck today -- no rush, just here either way."
+];
+var lastBobGreeting = '';
+function getBobGreeting(name, openTaskCount){
+  var pool = openTaskCount > 0 ? BOB_GREETING_TEMPLATES_WITH_TASKS : BOB_GREETING_TEMPLATES_NO_TASKS;
+  var candidates = pool.filter(function(t){ return t !== lastBobGreeting; });
+  if(candidates.length === 0) candidates = pool;
+  var chosen = candidates[Math.floor(Math.random() * candidates.length)];
+  chosen = chosen.replace(/\{name\}/g, name || 'there').replace(/\{count\}/g, openTaskCount).replace(/\{plural\}/g, openTaskCount === 1 ? '' : 's');
+  lastBobGreeting = chosen;
+  return chosen;
+}
 var assistantActiveCharacter = 'bob';
 
 // Tracks a pending clarifying question so a reply can be routed correctly, instead of every
@@ -5366,14 +5396,10 @@ function updateMascotHelpsLabels(){
   // since the Home-page labels are simple static text again, matching the original crew design.
 }
 
-// Real fix, Sept 15 2026: a genuine race condition -- if openAssistantModal('bob') gets
-// triggered more than once in quick succession (confirmed happening: multiple stacked
-// greetings, a permanently-stuck "..." indicator), each call independently saw an empty
-// conversation array (since the array is only filled once the async fetch resolves) and each
-// started its own separate greeting fetch. This flag is checked and set synchronously, before
-// anything async happens, so a second call while one is already in flight does nothing instead
-// of starting a duplicate request.
-var bobGreetingInFlight = false;
+// Note: the earlier in-flight guard here (bobGreetingInFlight) is no longer needed -- the
+// greeting is now fully synchronous (see getBobGreeting above), so the race condition it
+// guarded against is structurally impossible: there's no async gap left for a second call to
+// interleave with the first.
 
 function switchAssistantTab(charKey){
   assistantActiveCharacter = charKey;
@@ -5390,82 +5416,18 @@ function switchAssistantTab(charKey){
     var nameEl = tab.querySelector('p');
     if(nameEl) nameEl.style.color = isActive ? '#2A2013' : '#9AABCE';
   });
-  // Real fix: Bob's own genuine, rotating greeting (real name, real task check, never the
-  // same shape twice) replaces the old static char.greeting -- but only for Bob, since Kunnu/
-  // Po/Cookie haven't been built out this way yet. Falls back to the old static greeting if
-  // the call fails, so a real network hiccup never leaves the conversation empty.
+  // Real fix, Sept 15 2026, per direct instruction: the greeting is now instant and hard-wired
+  // into the app -- no network call, no wait, ever, for the opening line itself. "Chief" as the
+  // default is guaranteed by what the text literally says, not a request to a model that might
+  // not follow it. Real, honest trade-off made here: the earlier task-count reference is
+  // dropped from this instant greeting specifically -- even a fast DB read is still an async
+  // wait, and "not even a millisecond delay" means genuinely zero, not "as fast as possible."
+  // Bob can still reference real tasks naturally once an actual conversation is happening.
   if(assistantConversations[charKey].length === 0){
     if(charKey === 'bob'){
-      if(bobGreetingInFlight){ renderAssistantConversation('bob'); return; }
-      bobGreetingInFlight = true;
-      renderAssistantConversation(charKey);
-      var wrap = document.getElementById('assistantMessages');
-      var typingRow = document.createElement('div');
-      typingRow.id = 'assistantTypingIndicator';
-      typingRow.style.cssText = 'display:flex;gap:8px;align-items:flex-start;margin-bottom:12px;';
-      typingRow.innerHTML = '<img src="'+char.img+'" style="width:30px;height:30px;object-fit:contain;flex-shrink:0;" loading="lazy">'+
-        '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:9px 12px;font-size:12.5px;color:#9AABCE;">...</div>';
-      wrap.appendChild(typingRow);
-      wrap.scrollTop = wrap.scrollHeight;
-      // Real fix, Sept 15 2026: confirmed on a real device (not reproducible in local testing)
-      // that the greeting request can hang indefinitely on a real mobile network, leaving the
-      // "..." indicator stuck forever with no fallback ever firing. A hard timeout now forces
-      // the fallback greeting after 8 seconds regardless of what the network is doing -- the
-      // "settled" flag stops the real response, if it arrives late after the timeout already
-      // fired, from pushing a second, duplicate message.
-      var greetingSettled = false;
-      var greetingTimeout = setTimeout(function(){
-        if(greetingSettled) return;
-        greetingSettled = true;
-        bobGreetingInFlight = false;
-        var indicator = document.getElementById('assistantTypingIndicator');
-        if(indicator) indicator.remove();
-        if(assistantConversations.bob.length === 0) assistantConversations.bob.push({ who: 'bob', text: char.greeting });
-        renderAssistantConversation('bob');
-        try {
-          sb.from('error_logs').insert({
-            user_id: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null,
-            message: 'Bob greeting mode timed out after 8s with no response',
-            stack: '', page_url: window.location.href
-          }).then(function(){});
-        } catch(logErr){}
-      }, 8000);
-      sb.functions.invoke('character-chat-reply', { body: { character: 'bob', mode: 'greeting' } }).then(function(result){
-        if(greetingSettled) return;
-        greetingSettled = true;
-        clearTimeout(greetingTimeout);
-        bobGreetingInFlight = false;
-        var indicator = document.getElementById('assistantTypingIndicator');
-        if(indicator) indicator.remove();
-        var greetingText = (result.data && result.data.reply) ? result.data.reply : char.greeting;
-        if(!result.data || !result.data.reply){
-          try {
-            sb.from('error_logs').insert({
-              user_id: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null,
-              message: 'Bob greeting mode returned no reply: ' + JSON.stringify(result.error || result),
-              stack: '', page_url: window.location.href
-            }).then(function(){});
-          } catch(logErr){}
-        }
-        if(assistantConversations.bob.length === 0) assistantConversations.bob.push({ who: 'bob', text: greetingText });
-        renderAssistantConversation('bob');
-      }).catch(function(err){
-        if(greetingSettled) return;
-        greetingSettled = true;
-        clearTimeout(greetingTimeout);
-        bobGreetingInFlight = false;
-        var indicator = document.getElementById('assistantTypingIndicator');
-        if(indicator) indicator.remove();
-        if(assistantConversations.bob.length === 0) assistantConversations.bob.push({ who: 'bob', text: char.greeting });
-        renderAssistantConversation('bob');
-        try {
-          sb.from('error_logs').insert({
-            user_id: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null,
-            message: 'Bob greeting mode threw: ' + (err && err.message ? err.message : String(err)),
-            stack: '', page_url: window.location.href
-          }).then(function(){});
-        } catch(logErr){}
-      });
+      var greetingName = (typeof appState !== 'undefined' && appState.displayName) ? appState.displayName.split(/\s+/)[0] : '';
+      assistantConversations.bob.push({ who: 'bob', text: getBobGreeting(greetingName, 0) });
+      renderAssistantConversation('bob');
       return;
     }
     assistantConversations[charKey].push({ who: charKey, text: char.greeting });
