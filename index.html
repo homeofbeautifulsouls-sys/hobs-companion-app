@@ -2186,6 +2186,21 @@
     <button id="bobInfoCloseBtn" style="width:100%;background:#6690D6;border:none;border-radius:14px;padding:13px;color:#FFF8F0;font-weight:700;font-size:13.5px;cursor:pointer;">Close</button>
   </div>
 
+  <!-- Real, new modal, Sept 16 2026: the info button for a direct (1-on-1) chat with a real
+  professional -- matches Bob's own info-modal visual pattern exactly, but populated
+  dynamically from that person's real experts-table profile (bio, approaches, specializations,
+  languages), not hardcoded, since who's on the other end varies per chat. Deliberately reuses
+  none of the existing, much heavier panel-expert-detail page (booking/payment flows have no
+  place inside a chat's "who am I talking to" popup) and none of openChatRoomInfo (built for
+  group membership/management, not a single person's bio). -->
+  <div id="therapistInfoModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.5);z-index:67;"></div>
+  <div id="therapistInfoModal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:calc(100% - 48px);max-width:380px;max-height:80vh;overflow-y:auto;background:#FFF8F0;border-radius:20px;padding:26px 22px;box-sizing:border-box;z-index:68;box-shadow:0 10px 40px rgba(0,0,0,0.2);">
+    <div id="therapistInfoModalContent" style="text-align:center;">
+      <p style="font-size:13px;color:#9AABCE;">Loading…</p>
+    </div>
+    <button id="therapistInfoCloseBtn" style="width:100%;background:#6690D6;border:none;border-radius:14px;padding:13px;color:#FFF8F0;font-weight:700;font-size:13.5px;cursor:pointer;margin-top:16px;">Close</button>
+  </div>
+
   <div id="assistantModal" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;height:78vh;background:#FFF8F0;border-radius:24px 24px 0 0;box-sizing:border-box;z-index:65;box-shadow:0 -10px 30px rgba(0,0,0,0.15);flex-direction:column;">
     <!-- Real fix, Sept 15 2026: replaced the old stacked title-bar + full-width tab-selector
     (which, with only Bob visible, rendered as one oversized blue rectangle eating a huge chunk
@@ -6547,7 +6562,7 @@ async function openChatRoom(roomId){
 
   if(room){
     subEl.textContent = room.type === 'support_group' ? 'Support group' : room.type === 'coordination' ? 'Care coordination' : '';
-    document.getElementById('chatRoomInfoBtn').style.display = (room.type === 'support_group' || room.type === 'coordination') ? 'block' : 'none';
+    document.getElementById('chatRoomInfoBtn').style.display = (room.type === 'support_group' || room.type === 'coordination' || room.type === 'direct') ? 'block' : 'none';
     if(room.name){
       titleEl.textContent = room.name;
     } else {
@@ -10002,6 +10017,52 @@ document.getElementById('chatCreateGroupSubmitBtn').onclick = async function(){
 };
 
 // ===== GROUP INFO / MEMBER MANAGEMENT =====
+// Real, new function, Sept 16 2026: shows the other real person's actual bio in a direct
+// (1-on-1) chat -- finds them via chat_room_members, resolves their real name, then looks up
+// their real experts-table profile the same way the existing "Message" button already does
+// (matching on name, since experts.id doesn't correspond to a real login account). Falls back
+// to just their name if no matching experts row exists (a real, possible case -- not everyone
+// with a direct chat is necessarily a listed professional).
+async function openDirectChatPartnerInfo(){
+  document.getElementById('therapistInfoModalBackdrop').style.display = 'block';
+  document.getElementById('therapistInfoModal').style.display = 'block';
+  var contentEl = document.getElementById('therapistInfoModalContent');
+  contentEl.innerHTML = '<p style="font-size:13px;color:#9AABCE;">Loading…</p>';
+
+  var { data: others } = await sb.from('chat_room_members').select('user_id').eq('room_id', currentChatRoomId).neq('user_id', currentUser.id);
+  if(!others || others.length === 0){
+    contentEl.innerHTML = '<p style="font-size:13px;color:#9AABCE;">Couldn\'t load this profile.</p>';
+    return;
+  }
+  var partnerName = await resolveUserName(others[0].user_id);
+  var { data: expertRow } = await sb.from('experts').select('name, role, credential, years, photo_url, bio, approaches, specializations, languages').eq('name', partnerName).maybeSingle();
+
+  if(!expertRow){
+    contentEl.innerHTML =
+      '<p style="font-size:15px;font-weight:800;color:#2A2013;margin:0;">'+(partnerName||'').replace(/</g,'&lt;')+'</p>'+
+      '<p style="font-size:12.5px;color:#9AABCE;margin:8px 0 0;">No further profile details on file.</p>';
+    return;
+  }
+  var photoHtml = expertRow.photo_url
+    ? '<img src="'+expertRow.photo_url+'" style="width:76px;height:76px;border-radius:50%;object-fit:cover;box-shadow:0 4px 10px rgba(0,0,0,0.15);" loading="lazy">'
+    : '<div style="width:76px;height:76px;border-radius:50%;background:#EAF0FB;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;color:#6690D6;margin:0 auto;">'+(expertRow.name||'?').charAt(0).toUpperCase()+'</div>';
+  var roleLine = [expertRow.role || expertRow.credential, expertRow.years ? (expertRow.years + (typeof expertRow.years === 'number' || /^\d+$/.test(String(expertRow.years)) ? '+ Years' : '')) : null].filter(Boolean).join(' — ');
+  contentEl.innerHTML =
+    '<div style="margin-bottom:16px;">'+photoHtml+
+    '<p style="font-size:16px;font-weight:800;color:#2A2013;margin:12px 0 2px;">'+(expertRow.name||'').replace(/</g,'&lt;')+'</p>'+
+    (roleLine ? '<p style="font-size:12px;color:#9AABCE;margin:0;">'+roleLine.replace(/</g,'&lt;')+'</p>' : '')+
+    '</div>'+
+    (expertRow.bio ? '<p style="font-size:13.5px;line-height:1.6;color:#2A2013;text-align:left;margin:0 0 16px;">'+expertRow.bio.replace(/</g,'&lt;')+'</p>' : '')+
+    (expertRow.approaches ? '<p style="font-size:11.5px;font-weight:800;color:#9AABCE;text-transform:uppercase;letter-spacing:0.04em;text-align:left;margin:0 0 6px;">Approach</p><p style="font-size:13.5px;line-height:1.6;color:#2A2013;text-align:left;margin:0 0 16px;">'+expertRow.approaches.replace(/</g,'&lt;')+'</p>' : '')+
+    (expertRow.specializations ? '<p style="font-size:11.5px;font-weight:800;color:#9AABCE;text-transform:uppercase;letter-spacing:0.04em;text-align:left;margin:0 0 6px;">Specializations</p><p style="font-size:13.5px;line-height:1.6;color:#2A2013;text-align:left;margin:0 0 16px;">'+expertRow.specializations.replace(/</g,'&lt;')+'</p>' : '')+
+    (expertRow.languages ? '<p style="font-size:11.5px;font-weight:800;color:#9AABCE;text-transform:uppercase;letter-spacing:0.04em;text-align:left;margin:0 0 6px;">Languages</p><p style="font-size:13.5px;line-height:1.6;color:#2A2013;text-align:left;margin:0;">'+expertRow.languages.replace(/</g,'&lt;')+'</p>' : '');
+}
+document.getElementById('therapistInfoCloseBtn').onclick = function(){
+  document.getElementById('therapistInfoModalBackdrop').style.display = 'none';
+  document.getElementById('therapistInfoModal').style.display = 'none';
+};
+document.getElementById('therapistInfoModalBackdrop').onclick = document.getElementById('therapistInfoCloseBtn').onclick;
+
 async function openChatRoomInfo(){
   showOnly('panel-chat-room-info');
   var listEl = document.getElementById('chatRoomInfoMembersList');
@@ -10200,7 +10261,10 @@ async function promoteToCoAdmin(userId){
   openChatRoomInfo();
 }
 
-document.getElementById('chatRoomInfoBtn').onclick = openChatRoomInfo;
+document.getElementById('chatRoomInfoBtn').onclick = function(){
+  if(currentChatRoomType === 'direct'){ openDirectChatPartnerInfo(); }
+  else { openChatRoomInfo(); }
+};
 document.getElementById('chatRoomInfoBackBtn').onclick = function(){ openChatRoom(currentChatRoomId); };
 document.getElementById('chatRoomInfoAddMemberBtn').onclick = function(){
   chatGroupSelectedUsers = {};
