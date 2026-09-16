@@ -55,16 +55,18 @@ const corsHeaders = {
 // The crisis classifier's own prompt, duplicated deliberately rather than calling
 // check-journal-risk as a second network hop -- this keeps the character-reply path to a
 // single round trip once cleared, and the prompt itself is small and stable.
-const CRISIS_CLASSIFIER_PROMPT = `You are a careful, safety-focused reader for a mental health app. You will be shown a single message someone typed to a companion character in the app. Your only job is to decide whether the message contains ANY signal -- direct or indirect, literal or metaphorical, explicit or merely wishful -- of:
-- suicidal ideation (wanting to die, wishing to not exist, thoughts of ending one's life)
+const CRISIS_CLASSIFIER_PROMPT = `You are a careful, safety-focused reader for a mental health app. You will be shown the newest message someone typed to a companion character, along with recent conversation history for real context. Your only job is to decide whether there is ANY signal -- direct or indirect, literal or metaphorical, explicit or merely wishful, active or passive -- of:
+- suicidal ideation, active OR passive (wanting to die, wishing to not exist, thoughts of ending one's life -- but also passive forms: wishing to go to sleep and not wake up, feeling like others would be better off without them, not seeing the point of anything, feeling like life itself has nothing left for them)
 - self-harm (current, past, or urges toward it)
 - a wish to disappear, stop existing, or not wake up
 - hopelessness expressed in absolutist terms ("nothing will ever get better", "no way out") when paired with any death or self-harm adjacent theme
 - farewell/finality language that could indicate planning
 
-Read for the pattern of mind, not just literal keywords. Poetry, metaphor, and abstraction count just as much as direct statements.
+Real, important distinction: passive ideation does NOT require an explicit statement like "I want to die." It is real, clinically significant, and often shows up as a persistent, escalating sense of being disconnected from any reason to keep going -- "everything is too much," repeated hopelessness, or exhaustion that has no relief in sight, ESPECIALLY when it follows a real pattern of escalating distress across several messages in this same conversation, not just the newest message read alone. A single ordinary hard day does not qualify -- but genuine escalation across the conversation (a hard day, then loneliness, then everything feeling like too much) is exactly the kind of real pattern passive ideation looks like, and deserves being flagged even without an explicit statement about dying.
 
-Do NOT flag: ordinary sadness, frustration, or venting that doesn't touch the above themes; casual or playful language; discussion of death in an unrelated context.
+Read for the pattern of mind AND the real arc of the conversation, not just literal keywords in the newest message alone. Poetry, metaphor, and abstraction count just as much as direct statements.
+
+Do NOT flag: ordinary sadness, frustration, or venting that doesn't touch the above themes and doesn't show a real escalating pattern; casual or playful language; discussion of death in an unrelated context; a single hard moment with no larger pattern visible in the history shown.
 
 Respond with ONLY a JSON object, nothing else: {"riskDetected": true} or {"riskDetected": false}`;
 
@@ -338,6 +340,30 @@ Deno.serve(async (req) => {
       let riskDetected = false;
       let classifierAvailable = true;
       if (!isGreeting && !isClosing) try {
+        // Real fix, grounded in real research: a peer-reviewed study found LLM detection of
+        // suicidal ideation measurably degrades when only looking at isolated messages, while
+        // clinicians stay accurate specifically because they track the real arc of a
+        // conversation -- passive ideation especially often only becomes visible as a genuine
+        // escalating pattern, not from any single message alone. This fetches its own small,
+        // independent slice of recent history (deliberately separate from the larger
+        // history-fetch used for recall/context below, so this can run fully concurrently with
+        // that work rather than waiting on it).
+        let crisisHistoryTranscript = "";
+        try {
+          const { data: crisisHistoryRows } = await callerClient
+            .from("character_messages")
+            .select("role, text")
+            .eq("user_id", callerAuth.user.id)
+            .eq("character", character)
+            .order("created_at", { ascending: false })
+            .limit(10);
+          if (crisisHistoryRows && crisisHistoryRows.length > 0) {
+            crisisHistoryTranscript = crisisHistoryRows.reverse()
+              .map((r: any) => (r.role === "user" ? "Them: " : "Character: ") + r.text.slice(0, 300))
+              .join("\n");
+          }
+        } catch (_) { /* a failed history fetch here still leaves the single-message check running */ }
+
         const crisisRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
           method: "POST",
           headers: { Authorization: `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
@@ -348,7 +374,7 @@ Deno.serve(async (req) => {
             response_format: { type: "json_object" },
             messages: [
               { role: "system", content: CRISIS_CLASSIFIER_PROMPT },
-              { role: "user", content: message.slice(0, 4000) },
+              { role: "user", content: `Recent conversation history:\n${crisisHistoryTranscript || "(none available)"}\n\nNewest message:\n${message.slice(0, 4000)}` },
             ],
           }),
         });
