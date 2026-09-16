@@ -5938,11 +5938,15 @@ document.getElementById('assistantCloseBtn').onclick = function(){
       var closingText = (result.data && result.data.reply) ? result.data.reply : "I'll be right here, chief. See ya when you need me.";
       renderAssistantMessage('bob', closingText);
       assistantConversations.bob = [];
+      // Real fix, per direct feedback: this delay stacks on top of the real network wait
+      // above it, and the combined total was genuinely too long -- Bob's closings are short
+      // (1-2 sentences), so a shorter real pause is still enough time to actually read it
+      // before the window closes, without the whole sequence feeling insane end to end.
       setTimeout(function(){
         document.getElementById('assistantModalBackdrop').style.display = 'none';
         document.getElementById('assistantModal').style.display = 'none';
         assistantConversationState = null;
-      }, 2200);
+      }, 1200);
     }).catch(function(err){
       if(closingSettled) return;
       closingSettled = true;
