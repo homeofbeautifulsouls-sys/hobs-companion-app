@@ -5523,24 +5523,37 @@ function switchAssistantTab(charKey){
       // shows your real history rather than starting blank. Deliberately does NOT block or
       // delay the instant greeting above -- this loads in asynchronously alongside it, exactly
       // like the earlier, deliberate decision to keep the opening greeting itself at zero wait.
-      // Real fix, confirmed via a real crash in production logs: currentUser can genuinely be
-      // null at this exact moment on a real device (auth still finishing loading when this
-      // auto-open flow fires right after app launch) -- guarded now so this fails gracefully
-      // (just no history shown yet, not a crash) instead of throwing.
-      if(currentUser && currentUser.id){
-      sb.from('character_messages').select('role, text, created_at')
-        .eq('user_id', currentUser.id).eq('character', 'bob')
-        .order('created_at', { ascending: false }).limit(30)
-        .then(function(result){
-          if(!result || !result.data || result.data.length === 0) return;
-          if(assistantActiveCharacter !== 'bob') return; // person may have switched away already
-          var realHistory = result.data.slice().reverse().map(function(r){
-            return { who: r.role === 'user' ? 'user' : 'bob', text: r.text };
-          });
-          assistantConversations.bob = realHistory.concat(assistantConversations.bob);
-          renderAssistantConversation('bob');
-        }).catch(function(){});
-      }
+      // Real fix, Sept 16 2026, per direct and repeated real complaint: the null-guard added
+      // earlier today to stop a real crash had a real, serious side effect nobody caught --
+      // it turned the crash into a SILENT SKIP instead of actually solving the timing problem.
+      // On a real fresh app launch (exactly when this auto-open flow fires), currentUser is
+      // often still genuinely loading -- and the guard just gave up permanently for that whole
+      // session the instant it saw null, rather than trying again once auth actually finished
+      // moments later. Confirmed the real data was never at risk (still fully in the database,
+      // checked directly) -- this was purely a client-side loading bug. Real fix: retry for a
+      // few real seconds (auth reliably finishes well within this window) instead of giving up
+      // on the first check.
+      var historyLoadAttempts = 0;
+      var tryLoadRealBobHistory = function(){
+        historyLoadAttempts++;
+        if(!(currentUser && currentUser.id)){
+          if(historyLoadAttempts < 10){ setTimeout(tryLoadRealBobHistory, 300); }
+          return;
+        }
+        sb.from('character_messages').select('role, text, created_at')
+          .eq('user_id', currentUser.id).eq('character', 'bob')
+          .order('created_at', { ascending: false }).limit(30)
+          .then(function(result){
+            if(!result || !result.data || result.data.length === 0) return;
+            if(assistantActiveCharacter !== 'bob') return; // person may have switched away already
+            var realHistory = result.data.slice().reverse().map(function(r){
+              return { who: r.role === 'user' ? 'user' : 'bob', text: r.text };
+            });
+            assistantConversations.bob = realHistory.concat(assistantConversations.bob);
+            renderAssistantConversation('bob');
+          }).catch(function(){});
+      };
+      tryLoadRealBobHistory();
       return;
     }
     assistantConversations[charKey].push({ who: charKey, text: char.greeting });
