@@ -1,5 +1,5 @@
 # HOBS Companion — Master Reference
-Last rebuilt: August 26, 2026. **Read this file first, before doing anything else, at the start
+Last rebuilt: September 16, 2026. **Read this file first, before doing anything else, at the start
 of any session working on this project** — whether this is a fresh chat, a sandbox reset, or
 just picking this up after time away. This is the single entry point everything else is
 findable from.
@@ -41,7 +41,8 @@ neurodivergent, ADHD — communicate in short, direct messages, ask before conse
 avoid long paragraphs unless asked). Features: mood check-ins, journaling with AI crisis
 detection, tasklist, breathing/grounding exercises, a support group chat, therapist
 booking/dashboard, period tracking, CBT/DBT/ACT worksheets, and character companions (Bob the
-elephant is the primary one; Kunnu, Cookie, Po exist but are unscoped/paused — see §9).
+elephant is the primary, fully-built companion with real memory, crisis escalation, and
+psychoeducation; Kunnu, Cookie, Po are hidden, kept intact, awaiting the same depth of work — see §9).
 
 **Live surfaces:**
 - Production website + APK download: `https://app.homeofbeautifulsouls.com`
@@ -165,20 +166,22 @@ notes.
 
 | Function | Purpose |
 |---|---|
-| `character-chat-reply` | Generates in-character Bob/Kunnu/Cookie/Po replies. **Not currently wired live** per explicit instruction — code exists, do not activate further without asking. Runs crisis check first, always. |
-| `check-journal-risk` | The AI crisis classifier — see §3. |
+| `character-chat-reply` | **Live, core to the app.** Generates Bob's real replies (Kunnu/Cookie/Po hidden, not deleted -- Bob currently handles everything). Runs, in order: crisis-check (kicked off concurrently, not sequentially, with the steps below), name lookup, history/significant-memory fetch, the recall-matcher (one call: recall matching, search-trigger detection, and chief/name decision), the actual reply generation, then crisis-escalation if needed. Significance-flagging, embedding generation, and persistence all happen as a real background task (`EdgeRuntime.waitUntil`) AFTER the reply is already sent -- never blocks what the person sees. Full detail in `docs/BOB-MEMORY-SAFETY-BUILD-SPEC.md` and `docs/BOB-COMPLETE-TECHNICAL-AND-CHARACTER-DOC.md`. |
+| `check-journal-risk` | The AI crisis classifier for journal entries specifically — see §3. |
+| `check-journal-psychoeducation` | Reads journal entries for non-death depression/anxiety signals and physical-symptom patterns, routing toward the right real test (PHQ-9/GAD-7/PSQI) or the right kind of professional (GP/psychiatrist/therapist) via the existing mascot-tip system. Completely separate from and additive to the crisis check -- never a replacement. |
 | `create-razorpay-order` | Payment order creation for donations/sessions. |
 | `database-backup` | Daily Postgres backup. |
 | `database-backup-offsite` | Daily backup mirrored to a separate location. |
 | `delete-user-account` | Full account deletion, atomic. |
 | `error-alert-monitor` | Hourly; pushes an admin alert if error volume spikes. Sends real `type` in its push payload (fixed a real bug where this was empty). |
+| `extract-character-memories` | Weekly (Sunday 3am via pg_cron). Extracts (not summarizes) ordinary character_messages that are both outside the active 40-message window and 7+ days old -- preserves verbatim quotes and named entities, never touches anything `is_significant`, never deletes the original raw rows. |
 | `google-calendar-oauth` | OAuth flow for therapist Google Calendar linking. |
 | `google-calendar-sync` | Keeps calendar availability in sync; watch channel renewed every 6h via cron. |
 | `notification-scheduler` | Runs every 15 min; fires scheduled reminders (task alarms, mood check-ins, etc.). |
 | `razorpay-webhook` | Payment confirmation webhook. |
 | `send-apk-update-notification` | Daily; notifies users of a new app version if one exists. |
 | `send-group-poll` | Sends the recurring support-group check-in prompts (morning/evening/variety). |
-| `send-push-notification` | Shared, generic push-send function every other function calls. Accepts a `data` field for deep-link routing (see `handleNotificationTap` in the client) — several bugs this session were other functions simply forgetting to pass this. |
+| `send-push-notification` | Shared, generic push-send function every other function calls. Accepts a `data` field for deep-link routing (see `handleNotificationTap` in the client). Also the real delivery mechanism for crisis escalation -- accepts a `bypassPause: true` flag (deliberate: a routine "notifications paused" preference must never be able to silently suppress a genuine crisis alert), and a real fallback so even a recipient with no registered device still gets a persistent, queryable log entry rather than the alert vanishing with zero trace. |
 | `send-task-alarms` | Runs every minute; fires task-specific alarms at their set time. |
 | `sync-test-result-to-hubspot` | Pushes psychometric test results to HubSpot CRM. |
 | `transcribe-audio` | Voice-to-text for journal entries (AssemblyAI). |
@@ -187,7 +190,10 @@ notes.
 
 All cron schedules are set via `pg_cron` directly in the production database (not visible in
 this repo as files — query `select jobname, schedule from cron.job;` against production to see
-them live).
+them live). **Real, important note**: scheduled functions need to be deployed with
+`--no-verify-jwt` or they'll reject the scheduler's real call with a JWT error before the
+`x-scheduler-secret` header is even checked -- a real mistake made and fixed this session on
+`extract-character-memories`.
 
 ---
 
@@ -197,7 +203,7 @@ them live).
 of hosting.** The actual, working, official method:
 
 ```bash
-export HOSTINGER_API_TOKEN="EDgEf8bqD0AFbFwHCEwi08tT5ChL7S45RPTrYAGH67904747"
+export HOSTINGER_API_TOKEN="i0FPF8Jw0BVSoWziKSH0ujczQo8Osbsx8LxJNYpA613aaeba"
 ./deployment/deploy-to-hostinger.sh app.homeofbeautifulsouls.com /path/to/site/directory
 ```
 
@@ -332,27 +338,39 @@ same class of gap can't recur silently (§6).
 
 See `docs/PROJECT_STATUS.md` for the maintained, current list. As of this writing, the real
 open items are:
-- Push notification deep-link routing for one specific case reported as regressed — under
-  investigation, not yet root-caused (this is separate from the `chat_message`/`error_alert`/
-  `uptime_alert` routing gaps already found and fixed this session).
-- `calmroom-bg.jpg` — deliberately left missing, see §6.
-- Play Store submission: D-U-N-S number resolved (854273779), Play Console org account setup
-  still pending, Health apps declaration form still needed (mood/period tracking make this a
-  "health app" under Google Play policy).
-- The storage-Filesystem migration (native on-device storage upgrade) is built and tested but
-  should remain staging-only until Akash is fully satisfied with real-device testing there,
-  per his explicit process requirement.
+- 12 real testers x 14 consecutive days on Play Store closed testing, before a production-track
+  submission is possible (org account issue itself is resolved -- see `docs/PROJECT_STATUS.md`).
+- Lawyer review of the Terms of Service liability section — still not done.
+- Real streaming for Bob's replies (perceived response speed) — raised repeatedly as a real
+  concern, explicitly not started pending explicit go-ahead given the real scope of the change.
+- The Bob Intelligence Architecture plan (`docs/BOB-INTELLIGENCE-ARCHITECTURE-PLAN.md`) — fully
+  sequenced, not yet started; Phase 1 (Personal Grounding, the real hallucination safeguard) is
+  the next real piece of work agreed on.
+- Whether the crisis-detection threshold should be more conservative than the strict clinical
+  definition of passive ideation — a real, open values question, not yet answered.
+- Kunnu, Po, Cookie — hidden (not deleted), awaiting the same depth of character work Bob has
+  now received before returning to the app. See §9 below — this is a real reversal from an
+  earlier version of this document.
 
 ---
 
-## 9. Character AI — explicit scope boundary
+## 9. Character AI — current, real status (this is a real reversal from an earlier version of this document)
 
-Bob, Kunnu, Cookie, and Po exist as characters with backstories and voice guidelines (see the
-character bible references in memory/prior sessions), but **the character-chat-reply feature is
-explicitly not to be built further or activated without asking first** — Akash's own words:
-"we don't build anything until everything is in place." The wiring exists in the client
-(`sb.functions.invoke('character-chat-reply', ...)`) and the function itself works and has crisis
-detection correctly wired first, but this is left exactly as-is. Do not expand, tune, or promote
+**Earlier versions of this file said character-chat-reply was "not to be built further without
+asking." That is no longer true, and has not been true since Sept 15-16, 2026.** Bob's character
+system received a full, real build across those two sessions: permanent cross-session memory,
+real-time significance flagging, guaranteed recall, real semantic search, weekly memory
+extraction, crisis escalation to a real professional, tiered psychoeducation, and a real,
+extensively-tested character voice (see `docs/BOB-COMPLETE-TECHNICAL-AND-CHARACTER-DOC.md` for
+the complete, current technical and character documentation, written directly from the live
+code). This is now a real, core, live part of the app, not a paused feature.
+
+**What's still true**: Kunnu, Cookie, and Po are currently fully hidden from every UI entry point
+and every internal routing path — Bob currently handles everything, per direct instruction ("we
+are keeping Bob for everything... all other mascots will be completely removed. We will add them
+later"). Their markup and backend character definitions are kept intact, not deleted, for when
+they're built out with the same depth Bob has now received. Do not build these three further
+without asking first — that specific caution still holds, just no longer for Bob.
 this feature on your own initiative.
 
 ---
