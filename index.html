@@ -2388,9 +2388,23 @@
               document.body.appendChild(banner);
             }
           } else {
-            // Force a genuinely fresh fetch, not a cached reload -- appending a cache-busting
-            // param so the WebView can't serve this specific request from its HTTP cache either.
-            window.location.href = window.location.pathname + '?v=' + data.build;
+            // Real, serious bug fixed here: this used to force a reload unconditionally,
+            // regardless of what the person was doing -- confirmed as a real, plausible cause
+            // of "the journal just closes on its own after being open a while," since a real,
+            // in-progress journal entry (or an open Bob conversation) would be wiped out by a
+            // forced reload the instant a new staging build landed, with zero warning. Never
+            // forces this now while someone is actively in the middle of something -- an open
+            // journal entry with real unsaved text, or an open Bob chat -- skipping this cycle
+            // entirely and letting the next check (still on its own real cooldown) retry once
+            // they're no longer in either state, rather than force it mid-use.
+            var journalEl = document.getElementById('journalText');
+            var journalHasUnsavedText = journalEl && journalEl.innerText && journalEl.innerText.trim().length > 0;
+            var bobChatOpen = document.getElementById('assistantModal') && document.getElementById('assistantModal').style.display !== 'none';
+            if(!journalHasUnsavedText && !bobChatOpen){
+              // Force a genuinely fresh fetch, not a cached reload -- appending a cache-busting
+              // param so the WebView can't serve this specific request from its HTTP cache either.
+              window.location.href = window.location.pathname + '?v=' + data.build;
+            }
           }
         }
       })
@@ -5793,16 +5807,27 @@ function processAssistantInput(text){
   // tabs back into one shared chat again. Every match is also filtered by this user's actual
   // role tiers first -- a client can't trigger a therapist- or admin-only action even if a
   // phrase happens to match, since that command simply isn't in their available set at all.
+  //
+  // Real, serious, confirmed bug fixed here: these patterns match a single word ANYWHERE in the
+  // message (e.g. /\bmood\b/i) -- fine for a genuine short command like "check my mood," but a
+  // real disaster for a long, substantive message that merely happens to contain that word once
+  // ("Mood doesn't shift, it's just focused...") -- confirmed happening in real production,
+  // hijacking a real conversation and forcibly navigating away mid-sentence. These commands were
+  // built for short, literal navigation requests, not free-form conversation, which Bob didn't
+  // used to have -- now restricted to genuinely short messages (a real command, not a real
+  // conversation) so a substantive message always reaches the real conversational reply path
+  // instead.
+  var isShortEnoughForCommandMatch = text.trim().split(/\s+/).length <= 6;
   var myTiers = assistantUserTiers();
   var availableCommands = ASSISTANT_COMMANDS.filter(function(cmd){ return myTiers.indexOf(cmd.tier) !== -1; });
-  var matched = availableCommands.find(function(cmd){
+  var matched = isShortEnoughForCommandMatch ? availableCommands.find(function(cmd){
     return cmd.character === assistantActiveCharacter && cmd.patterns.some(function(p){ return p.test(text); });
-  });
+  }) : undefined;
   var handoff = false;
   if(!matched){
-    matched = availableCommands.find(function(cmd){
+    matched = isShortEnoughForCommandMatch ? availableCommands.find(function(cmd){
       return cmd.patterns.some(function(p){ return p.test(text); });
-    });
+    }) : undefined;
     if(matched) handoff = true;
   }
 
