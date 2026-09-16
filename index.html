@@ -88,6 +88,13 @@
 <style>
   * { box-sizing: border-box; }
   html { color-scheme: light only; }
+  @keyframes bobWaveDot {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+    30% { transform: translateY(-4px); opacity: 1; }
+  }
+  .bob-wave-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #9AABCE; margin: 0 2px; animation: bobWaveDot 1.1s ease-in-out infinite; }
+  .bob-wave-dot:nth-child(2) { animation-delay: 0.15s; }
+  .bob-wave-dot:nth-child(3) { animation-delay: 0.3s; }
   body {
     margin: 0;
     padding: 40px 20px;
@@ -5417,29 +5424,55 @@ var BOB_GREETING_TEMPLATES_WITH_TASKS = [
 ];
 var lastBobGreeting = '';
 
-// Real fix, Sept 15 2026, per direct instruction: replaces the plain "..." typing indicator
-// with warm, real pause text in Bob's own voice. Deliberately the SAME every time, not tied to
-// whether a real lookup is actually happening behind the scenes -- this was a genuine, real
-// safety decision, not just a style choice: a status message that only showed up when Bob was
-// "recalling something" could end up selectively appearing on someone's most vulnerable
-// message, which would be exactly the wrong moment for something to look different. A
-// consistent pause, always, avoids that risk entirely and keeps this fast (no architecture
-// change needed -- still one request, not two, and no streaming).
-var BOB_PAUSE_TEXTS = [
-  "I am here with you, just taking a moment to recall so I don't miss out on anything.",
-  "I am here with you and recalling our previous conversation so I can do this complete justice.",
-  "Just taking a moment here with you, chief.",
-  "I'm with you -- give me a second to hold this properly.",
-  "Just here with you for a second.",
-  "Taking this in with you, chief."
+// Real redesign, per direct instruction: replaces the worded pause pool with three real,
+// distinct states. Default is a real, animated typing-wave (dots), not words at all -- the
+// plain, universal case. When the message just sent carries real emotional weight, Bob shows a
+// real "holding space" line instead. When the message reads like a genuine callback to
+// something specific, Bob shows real "recollecting" language. Both of the richer states are
+// judged from the OUTGOING TEXT ITSELF -- what the person just typed, which they already know
+// they said -- not from any hidden backend process or lookup. This is a real, important
+// distinction from the earlier design: the original safety concern was specifically about a
+// pause indicator that only differs during an ACTUAL hidden lookup, which could selectively
+// stand out on someone's most vulnerable message. Judging from the visible, already-known
+// content of the person's own message doesn't carry that same risk -- it reflects what they
+// just said, not what's secretly happening behind the scenes.
+var BOB_EMOTIONAL_PAUSE_TEXTS = [
+  "Holding space for you right now.",
+  "I'm sitting with that, right here with you.",
+  "Taking that in with you, chief."
 ];
-var lastBobPauseText = '';
-function getBobPauseText(){
-  var candidates = BOB_PAUSE_TEXTS.filter(function(t){ return t !== lastBobPauseText; });
-  if(candidates.length === 0) candidates = BOB_PAUSE_TEXTS;
-  var chosen = candidates[Math.floor(Math.random() * candidates.length)];
-  lastBobPauseText = chosen;
-  return chosen;
+var BOB_RECALL_PAUSE_TEXTS = [
+  "Give me a second -- recollecting what you've told me.",
+  "Just recollecting so I don't miss anything."
+];
+var BOB_EMOTIONAL_WORDS = /\b(sad|lonely|alone|hurt|hurting|cry|crying|scared|afraid|anxious|anxiety|overwhelm|depress|hopeless|hopelessness|pain|painful|grief|grieving|lost|broken|worthless|hate myself|empty|numb|exhausted|tired of|can'?t (take|do) this|breaking down|falling apart)\b/i;
+var BOB_RECALL_WORDS = /\b(remember|recall|like i said|as i (said|mentioned)|again|still (feeling|thinking about)|you know|that thing|my (mom|dad|mother|father|sister|brother|friend|job|boss|therapist|dog|cat)|the (thing|situation|job|interview|appointment))\b/i;
+var lastBobEmotionalPauseText = '';
+var lastBobRecallPauseText = '';
+function classifyBobPauseState(outgoingText){
+  var text = (outgoingText || '').trim();
+  if(!text) return 'neutral';
+  if(BOB_EMOTIONAL_WORDS.test(text)) return 'emotional';
+  if(BOB_RECALL_WORDS.test(text)) return 'recall';
+  return 'neutral';
+}
+function getBobPauseText(outgoingText){
+  var state = classifyBobPauseState(outgoingText);
+  if(state === 'emotional'){
+    var eCandidates = BOB_EMOTIONAL_PAUSE_TEXTS.filter(function(t){ return t !== lastBobEmotionalPauseText; });
+    if(eCandidates.length === 0) eCandidates = BOB_EMOTIONAL_PAUSE_TEXTS;
+    var eChosen = eCandidates[Math.floor(Math.random() * eCandidates.length)];
+    lastBobEmotionalPauseText = eChosen;
+    return { mode: 'text', text: eChosen };
+  }
+  if(state === 'recall'){
+    var rCandidates = BOB_RECALL_PAUSE_TEXTS.filter(function(t){ return t !== lastBobRecallPauseText; });
+    if(rCandidates.length === 0) rCandidates = BOB_RECALL_PAUSE_TEXTS;
+    var rChosen = rCandidates[Math.floor(Math.random() * rCandidates.length)];
+    lastBobRecallPauseText = rChosen;
+    return { mode: 'text', text: rChosen };
+  }
+  return { mode: 'dots' };
 }
 function getBobGreeting(name, openTaskCount){
   var pool = openTaskCount > 0 ? BOB_GREETING_TEMPLATES_WITH_TASKS : BOB_GREETING_TEMPLATES_NO_TASKS;
@@ -5853,8 +5886,11 @@ function processAssistantInput(text){
     typingRow.id = 'assistantTypingIndicator';
     typingRow.style.cssText = 'display:flex;gap:8px;align-items:flex-start;margin-bottom:12px;';
     var typingChar = ASSISTANT_CHARACTERS[assistantActiveCharacter] || ASSISTANT_CHARACTERS.bob;
-    typingRow.innerHTML = '<img src="'+typingChar.img+'" style="width:30px;height:30px;object-fit:contain;flex-shrink:0;" loading="lazy">'+
-      '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:9px 12px;font-size:12.5px;color:#9AABCE;font-style:italic;">'+getBobPauseText()+'</div>';
+    var pauseState = getBobPauseText(text);
+    var pauseInnerHtml = pauseState.mode === 'dots'
+      ? '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:11px 14px;"><span class="bob-wave-dot"></span><span class="bob-wave-dot"></span><span class="bob-wave-dot"></span></div>'
+      : '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:9px 12px;font-size:12.5px;color:#9AABCE;font-style:italic;">'+pauseState.text+'</div>';
+    typingRow.innerHTML = '<img src="'+typingChar.img+'" style="width:30px;height:30px;object-fit:contain;flex-shrink:0;" loading="lazy">'+pauseInnerHtml;
     wrap.appendChild(typingRow);
     wrap.scrollTop = wrap.scrollHeight;
 
@@ -5944,8 +5980,10 @@ document.getElementById('assistantCloseBtn').onclick = function(){
     typingRow.id = 'assistantTypingIndicator';
     typingRow.style.cssText = 'display:flex;gap:8px;align-items:flex-start;margin-bottom:12px;';
     var bobChar = ASSISTANT_CHARACTERS.bob;
+    // No new outgoing message here (this is the closing flow) -- always the plain wave, never
+    // a worded state, since there's no fresh message to read emotional/recall context from.
     typingRow.innerHTML = '<img src="'+bobChar.img+'" style="width:30px;height:30px;object-fit:contain;flex-shrink:0;" loading="lazy">'+
-      '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:9px 12px;font-size:12.5px;color:#9AABCE;font-style:italic;">'+getBobPauseText()+'</div>';
+      '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:11px 14px;"><span class="bob-wave-dot"></span><span class="bob-wave-dot"></span><span class="bob-wave-dot"></span></div>';
     wrap.appendChild(typingRow);
     wrap.scrollTop = wrap.scrollHeight;
     // Same real hardening as the greeting call: a hard timeout so this can never hang forever
