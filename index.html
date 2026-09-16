@@ -5929,7 +5929,7 @@ document.getElementById('assistantCloseBtn').onclick = function(){
         }).then(function(){});
       } catch(logErr){}
     }, 8000);
-    sb.functions.invoke('character-chat-reply', { body: { character: 'bob', mode: 'closing', recentConversation: assistantConversations.bob } }).then(function(result){
+    sb.functions.invoke('character-chat-reply', { body: { character: 'bob', mode: 'closing', recentConversation: assistantConversations.bob.slice(-10) } }).then(function(result){
       if(closingSettled) return;
       closingSettled = true;
       clearTimeout(closingTimeout);

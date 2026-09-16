@@ -327,40 +327,50 @@ Deno.serve(async (req) => {
     // built in from the start, matching the "runs everywhere" standard already set for the
     // rest of the app. Skipped entirely in greeting mode -- there's no user-authored message to
     // classify, since Bob is speaking first here, not responding to anything.
-    let riskDetected = false;
-    let classifierAvailable = true;
-    if (!isGreeting && !isClosing) try {
-      const crisisRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "openai/gpt-oss-safeguard-20b",
-          max_tokens: 2000,
-          reasoning_effort: "medium",
-          response_format: { type: "json_object" },
-          messages: [
-            { role: "system", content: CRISIS_CLASSIFIER_PROMPT },
-            { role: "user", content: message.slice(0, 4000) },
-          ],
-        }),
-      });
-      if (!crisisRes.ok) {
-        classifierAvailable = false;
-        await logUnavailability("character-chat-reply", "crisis_check_api_error", `HTTP ${crisisRes.status}`);
-      } else {
-        const crisisResult = await crisisRes.json();
-        const rawText = crisisResult?.choices?.[0]?.message?.content || "";
-        try {
-          riskDetected = JSON.parse(rawText.trim()).riskDetected === true;
-        } catch {
+    // Real speed fix, per direct instruction: this used to run fully sequentially before
+    // anything else could start. Wrapped in its own async function and kicked off WITHOUT
+    // awaiting here -- it now genuinely runs concurrently with the history-fetch and
+    // recall-matcher below, which have their own real dependency chain (recall needs history
+    // first) but don't depend on this at all. The exact same logic, error handling, and
+    // real fallback behavior as before -- only WHEN it starts relative to other work changed,
+    // nothing about what it does or how it decides risk.
+    const crisisCheckPromise = (async () => {
+      let riskDetected = false;
+      let classifierAvailable = true;
+      if (!isGreeting && !isClosing) try {
+        const crisisRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "openai/gpt-oss-safeguard-20b",
+            max_tokens: 2000,
+            reasoning_effort: "medium",
+            response_format: { type: "json_object" },
+            messages: [
+              { role: "system", content: CRISIS_CLASSIFIER_PROMPT },
+              { role: "user", content: message.slice(0, 4000) },
+            ],
+          }),
+        });
+        if (!crisisRes.ok) {
           classifierAvailable = false;
-          await logUnavailability("character-chat-reply", "crisis_check_malformed", rawText.slice(0, 300));
+          await logUnavailability("character-chat-reply", "crisis_check_api_error", `HTTP ${crisisRes.status}`);
+        } else {
+          const crisisResult = await crisisRes.json();
+          const rawText = crisisResult?.choices?.[0]?.message?.content || "";
+          try {
+            riskDetected = JSON.parse(rawText.trim()).riskDetected === true;
+          } catch {
+            classifierAvailable = false;
+            await logUnavailability("character-chat-reply", "crisis_check_malformed", rawText.slice(0, 300));
+          }
         }
+      } catch (err) {
+        classifierAvailable = false;
+        await logUnavailability("character-chat-reply", "crisis_check_exception", String(err));
       }
-    } catch (err) {
-      classifierAvailable = false;
-      await logUnavailability("character-chat-reply", "crisis_check_exception", String(err));
-    }
+      return { riskDetected, classifierAvailable };
+    })();
 
     // Part 2 of the build spec, Sept 15 2026: real crisis-content escalation to a professional.
     // If the assigned professional isn't yet a real, reliable account link (verified before
@@ -372,51 +382,10 @@ Deno.serve(async (req) => {
     // internal call) rather than reimplementing push delivery. bypassPause: true is deliberate
     // and was added specifically for this -- a routine "notifications paused" preference must
     // never be able to silently suppress a real crisis alert.
-    if (riskDetected && !isGreeting) {
-      try {
-        let targetUserIds: string[] = [];
-        if (assignedTherapistUserId) {
-          targetUserIds = [assignedTherapistUserId];
-        } else {
-          // Real fix, Sept 15 2026: using callerClient (RLS-scoped to the regular user's own
-          // session) here was wrong -- a normal user's session correctly cannot see other
-          // people's is_admin status, so this always returned empty regardless of how many
-          // real admins actually existed. This is a legitimate server-side lookup for a real
-          // system purpose, not something being exposed to the user -- needs the service-role
-          // key to actually see across profiles, same as send-push-notification's own admin
-          // lookup already correctly does.
-          const adminsRes = await fetch(
-            `${SUPABASE_URL}/rest/v1/profiles?is_admin=eq.true&select=user_id`,
-            { headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` } }
-          );
-          const admins = adminsRes.ok ? await adminsRes.json() : [];
-          targetUserIds = (admins || []).map((a: any) => a.user_id);
-        }
-        if (targetUserIds.length > 0) {
-          await fetch(`${SUPABASE_URL}/functions/v1/send-push-notification`, {
-            method: "POST",
-            headers: { Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, "Content-Type": "application/json" },
-            body: JSON.stringify({
-              serverCallerId: callerAuth.user.id,
-              userIds: targetUserIds,
-              title: `Crisis content flagged${displayName ? ` -- ${displayName}` : ""}`,
-              body: message.slice(0, 2000),
-              notificationType: "crisis_escalation",
-              targetDescription: assignedTherapistUserId ? "Assigned therapist" : "All admins (no assigned therapist on file)",
-              bypassPause: true,
-              data: { character, source: "character-chat-reply" },
-            }),
-          });
-        } else {
-          await logUnavailability("character-chat-reply", "crisis_escalation_no_recipient", `user ${callerAuth.user.id}: no assigned therapist and no admins found`);
-        }
-      } catch (escalationErr) {
-        // A failed escalation must never block the person's actual reply from reaching them --
-        // logged so it's visible, never silently swallowed, but never fatal to the conversation.
-        await logUnavailability("character-chat-reply", "crisis_escalation_failed", String(escalationErr));
-      }
-    }
-
+    // Real speed fix: the crisis-escalation logic that depends on riskDetected has been moved
+    // to run after the history-fetch and recall-matcher below, specifically so the crisis-check
+    // promise above has that same real time window to complete concurrently, instead of being
+    // awaited immediately here (which would have just made this sequential again, only moved).
     // Generate the character reply regardless of the crisis check's outcome -- the client
     // shows crisis resources ALONGSIDE the reply, not instead of it, same pattern as journal
     // entries (the keyword/AI check runs in parallel with saving, never blocks it).
@@ -612,6 +581,57 @@ Deno.serve(async (req) => {
         // Same posture as every other secondary check here -- a failed match must never block
         // the actual reply. Falls back to no confirmed match, not to blocking the conversation.
         await logUnavailability("character-chat-reply", "recall_matcher_exception", String(matchErr));
+      }
+    }
+
+    // Real speed fix continued: awaiting the crisis-check promise here, after the history-fetch
+    // and recall-matcher above have already run -- by this point it has had genuine concurrent
+    // time to complete, not just been delayed further down the same sequential chain.
+    const { riskDetected, classifierAvailable } = await crisisCheckPromise;
+
+    // Part 2 of the build spec, Sept 15 2026: real crisis-content escalation to a professional.
+    // If the assigned professional isn't yet a real, reliable account link (verified before
+    // building this -- currently zero real assignments exist in production), falls back to
+    // every real admin. Sends the EXACT raw message, never paraphrased, per the locked
+    // decision -- nothing should be softened on the way to someone who can actually help.
+    // Uses the real, existing send-push-notification function as a trusted server call
+    // (service-role auth + serverCallerId, its own documented pattern for exactly this kind of
+    // internal call) rather than reimplementing push delivery. bypassPause: true is deliberate
+    // and was added specifically for this -- a routine "notifications paused" preference must
+    // never be able to silently suppress a real crisis alert.
+    if (riskDetected && !isGreeting) {
+      try {
+        let targetUserIds: string[] = [];
+        if (assignedTherapistUserId) {
+          targetUserIds = [assignedTherapistUserId];
+        } else {
+          const adminsRes = await fetch(
+            `${SUPABASE_URL}/rest/v1/profiles?is_admin=eq.true&select=user_id`,
+            { headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` } }
+          );
+          const admins = adminsRes.ok ? await adminsRes.json() : [];
+          targetUserIds = (admins || []).map((a: any) => a.user_id);
+        }
+        if (targetUserIds.length > 0) {
+          await fetch(`${SUPABASE_URL}/functions/v1/send-push-notification`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              serverCallerId: callerAuth.user.id,
+              userIds: targetUserIds,
+              title: `Crisis content flagged${displayName ? ` -- ${displayName}` : ""}`,
+              body: message.slice(0, 2000),
+              notificationType: "crisis_escalation",
+              targetDescription: assignedTherapistUserId ? "Assigned therapist" : "All admins (no assigned therapist on file)",
+              bypassPause: true,
+              data: { character, source: "character-chat-reply" },
+            }),
+          });
+        } else {
+          await logUnavailability("character-chat-reply", "crisis_escalation_no_recipient", `user ${callerAuth.user.id}: no assigned therapist and no admins found`);
+        }
+      } catch (escalationErr) {
+        await logUnavailability("character-chat-reply", "crisis_escalation_failed", String(escalationErr));
       }
     }
 
