@@ -7087,6 +7087,32 @@ function toClearAndReselectMoodsForEdit(moods){
 }
 
 
+// Real, new helper, Sept 16 2026: extracted so both real "matched" states (still needs to
+// pick a first session time, and already has one) show the exact same Change
+// therapist/Disconnect buttons, rather than keeping two copies in sync by hand.
+function appendTherapistChangeDisconnectButtons(tArea){
+  var changeBtn = document.createElement('button');
+  changeBtn.textContent = 'Change therapist';
+  changeBtn.style.cssText = 'width:100%;padding:11px;border-radius:10px;border:1px solid #C7D2E8;background:transparent;color:#5C6B94;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:8px;';
+  changeBtn.onclick = function(){ renderTherapistList('profile'); showOnly('panel-therapist-select'); };
+
+  var disconnectBtn = document.createElement('button');
+  disconnectBtn.textContent = 'Disconnect';
+  disconnectBtn.style.cssText = 'width:100%;padding:11px;border-radius:10px;border:1px solid #F0C7C7;background:transparent;color:#C77B7B;font-size:12px;font-weight:700;cursor:pointer;';
+  disconnectBtn.onclick = function(){
+    // Real fix, Sept 16 2026: this used to bypass the real, already-built admin-approval flow
+    // entirely -- an instant, self-display cancel with no reason required and no review step,
+    // confirmed as a genuine regression against the actual intended design (a required reason,
+    // a pending state, an admin reviewing it) which was correctly built elsewhere
+    // (requestExpertChange) but never wired up to this specific button. Now uses that same,
+    // real, proper flow instead of its own separate, inconsistent shortcut.
+    requestExpertChange({ roleCategory: 'Therapist' }, appState.therapistName);
+  };
+
+  tArea.appendChild(changeBtn);
+  tArea.appendChild(disconnectBtn);
+}
+
 function renderProfile(){
   var profileName = getDisplayName();
   document.getElementById('profilePageTitle').textContent = profileName || 'You';
@@ -7115,35 +7141,22 @@ function renderProfile(){
       '<p style="font-size:12px;color:#3B8F63;margin:0 0 10px;">You\'ve been matched! Pick a time for your first session.</p>';
     var pickTimeBtn = document.createElement('button');
     pickTimeBtn.textContent = 'Pick a Time';
-    pickTimeBtn.style.cssText = 'width:100%;padding:11px;border-radius:10px;border:none;background:#6690D6;color:#FFF8F0;font-size:12px;font-weight:700;cursor:pointer;';
+    pickTimeBtn.style.cssText = 'width:100%;padding:11px;border-radius:10px;border:none;background:#6690D6;color:#FFF8F0;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:8px;';
     pickTimeBtn.onclick = function(){
       var m = TEAM_MEMBERS.find(function(tm){ return tm.name === appState.therapistName; });
       if(m && therapistBookingObj) pickSessionTimeForBooking(therapistBookingObj, m);
     };
     tArea.appendChild(pickTimeBtn);
+    // Real fix, Sept 16 2026, per direct, repeated instruction: Change therapist/Disconnect
+    // must be visible as soon as a client is matched, not only after they've also picked a
+    // first session time -- these used to be gated behind therapistBookingNeedsTime resolving
+    // first (an earlier, more specific state that used to hide them entirely), confirmed
+    // directly as wrong. Same real buttons as the matched-with-a-time state below, via a shared
+    // helper so there's exactly one real implementation, not two copies to keep in sync.
+    appendTherapistChangeDisconnectButtons(tArea);
   } else if(appState.userHasTherapist){
     tArea.innerHTML = '<p style="font-size:14px;color:#2A2013;font-weight:700;margin:0 0 10px;">'+appState.therapistName+'</p>';
-    var changeBtn = document.createElement('button');
-    changeBtn.textContent = 'Change therapist';
-    changeBtn.style.cssText = 'width:100%;padding:11px;border-radius:10px;border:1px solid #C7D2E8;background:transparent;color:#5C6B94;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:8px;';
-    changeBtn.onclick = function(){ renderTherapistList('profile'); showOnly('panel-therapist-select'); };
-
-    var disconnectBtn = document.createElement('button');
-    disconnectBtn.textContent = 'Disconnect';
-    disconnectBtn.style.cssText = 'width:100%;padding:11px;border-radius:10px;border:1px solid #F0C7C7;background:transparent;color:#C77B7B;font-size:12px;font-weight:700;cursor:pointer;';
-
-    disconnectBtn.onclick = function(){
-      // Real fix, Sept 16 2026: this used to bypass the real, already-built admin-approval
-      // flow entirely -- an instant, self-display cancel with no reason required and no review
-      // step, confirmed as a genuine regression against the actual intended design (a required
-      // reason, a pending state, an admin reviewing it) which was correctly built elsewhere
-      // (requestExpertChange) but never wired up to this specific button. Now uses that same,
-      // real, proper flow instead of its own separate, inconsistent shortcut.
-      requestExpertChange({ roleCategory: 'Therapist' }, appState.therapistName);
-    };
-
-    tArea.appendChild(changeBtn);
-    tArea.appendChild(disconnectBtn);
+    appendTherapistChangeDisconnectButtons(tArea);
   } else if(appState.hasOutsideTherapist){
     tArea.innerHTML = "<p style=\"font-size:13px;color:#5C6B94;margin:0 0 10px;\">You told us you see someone outside HOBS — we can't share notes with them, but we won't ask you to find one here.</p>";
     var undoBtn = document.createElement('button');
