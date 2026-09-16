@@ -105,17 +105,16 @@ Deno.serve(async (req) => {
       if (!updateResult.ok) {
         return new Response(JSON.stringify({ error: "Could not update booking record", detail: updateResult.data }), { status: 500 });
       }
-      // Real, new feature (Sept 16 2026): a confirmed, paid Therapist booking is what actually
-      // connects a client to that therapist's real account for the new direct-chat feature --
-      // this had no real, working mechanism anywhere before now (confirmed by searching the
-      // whole client codebase). Matches the booking's expert_name against the THERAPIST'S OWN
-      // profile (where their account is linked to their directory listing via
-      // therapist_expert_name, set when they accept their invite) rather than the `experts`
-      // table's id, since that id does not correspond to a real login account. Scoped to
-      // role_category = 'Therapist' specifically for now, matching this phase's real scope --
-      // Psychiatrist/Doctor/Caregiver get their own version of this in a later phase, not
-      // silently folded in here. A failed match or lookup never blocks the actual payment
-      // confirmation above, which has already succeeded and returned by the time this runs.
+      // Real, corrected fix, Sept 16 2026: this used to be described as the primary mechanism
+      // connecting a client to their therapist -- that was a genuine, direct misunderstanding
+      // of this app's own real business logic, corrected directly. The REAL "matched" moment is
+      // status becoming 'active' on expert_bookings (set the instant an admin assigns a pending
+      // request via assignPendingBooking, completely independent of payment) -- a real database
+      // trigger (auto_assign_therapist_on_match) now handles this correctly, firing on that
+      // real event rather than waiting for payment. This block is now a secondary, redundant
+      // safety net for the specific case where payment confirms after matching -- harmless to
+      // keep (re-writes the same value the trigger already set), but the trigger is the real,
+      // primary mechanism now, not this.
       if (row.role_category === "Therapist" && row.expert_name && row.user_id) {
         try {
           const therapistProfiles = await dbFetch(`profiles?is_therapist=eq.true&therapist_expert_name=eq.${encodeURIComponent(row.expert_name)}&select=user_id`);
