@@ -5961,79 +5961,15 @@ document.getElementById('bobInfoCloseBtn').onclick = function(){
 };
 document.getElementById('bobInfoModalBackdrop').onclick = document.getElementById('bobInfoCloseBtn').onclick;
 document.getElementById('assistantCloseBtn').onclick = function(){
-  // Real fix: for Bob specifically, closing is a genuine moment, not a silent dismiss -- shows
-  // his actual closing message (content-based if anything real was said, a plain warm goodbye
-  // if not) before the modal actually closes, giving the person a couple seconds to read it.
-  if(assistantActiveCharacter === 'bob' && assistantConversations.bob.length > 0){
-    var wrap = document.getElementById('assistantMessages');
-    var typingRow = document.createElement('div');
-    typingRow.id = 'assistantTypingIndicator';
-    typingRow.style.cssText = 'display:flex;gap:8px;align-items:flex-start;margin-bottom:12px;';
-    var bobChar = ASSISTANT_CHARACTERS.bob;
-    // No new outgoing message here (this is the closing flow) -- always the plain wave, never
-    // a worded state, since there's no fresh message to read emotional/recall context from.
-    typingRow.innerHTML = '<img src="'+bobChar.img+'" style="width:30px;height:30px;object-fit:contain;flex-shrink:0;" loading="lazy">'+
-      '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:11px 14px;"><span class="bob-wave-dot"></span><span class="bob-wave-dot"></span><span class="bob-wave-dot"></span></div>';
-    wrap.appendChild(typingRow);
-    wrap.scrollTop = wrap.scrollHeight;
-    // Same real hardening as the greeting call: a hard timeout so this can never hang forever
-    // on a slow/unreliable real network, plus real error logging instead of failing silently.
-    var closingSettled = false;
-    var closingTimeout = setTimeout(function(){
-      if(closingSettled) return;
-      closingSettled = true;
-      var indicator = document.getElementById('assistantTypingIndicator');
-      if(indicator) indicator.remove();
-      document.getElementById('assistantModalBackdrop').style.display = 'none';
-      document.getElementById('assistantModal').style.display = 'none';
-      assistantConversationState = null;
-      try {
-        sb.from('error_logs').insert({
-          user_id: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null,
-          message: 'Bob closing mode timed out after 8s with no response',
-          stack: '', page_url: window.location.href
-        }).then(function(){});
-      } catch(logErr){}
-    }, 8000);
-    sb.functions.invoke('character-chat-reply', { body: { character: 'bob', mode: 'closing', recentConversation: assistantConversations.bob.slice(-10) } }).then(function(result){
-      if(closingSettled) return;
-      closingSettled = true;
-      clearTimeout(closingTimeout);
-      var indicator = document.getElementById('assistantTypingIndicator');
-      if(indicator) indicator.remove();
-      var closingText = (result.data && result.data.reply) ? result.data.reply : "I'll be right here, chief. See ya when you need me.";
-      renderAssistantMessage('bob', closingText);
-      assistantConversations.bob = [];
-      // Real fix, per direct feedback: this delay stacks on top of the real network wait
-      // above it, and the combined total was genuinely too long -- Bob's closings are short
-      // (1-2 sentences), so a shorter real pause is still enough time to actually read it
-      // before the window closes, without the whole sequence feeling insane end to end.
-      setTimeout(function(){
-        document.getElementById('assistantModalBackdrop').style.display = 'none';
-        document.getElementById('assistantModal').style.display = 'none';
-        assistantConversationState = null;
-      }, 1200);
-    }).catch(function(err){
-      if(closingSettled) return;
-      closingSettled = true;
-      clearTimeout(closingTimeout);
-      var indicator = document.getElementById('assistantTypingIndicator');
-      if(indicator) indicator.remove();
-      document.getElementById('assistantModalBackdrop').style.display = 'none';
-      document.getElementById('assistantModal').style.display = 'none';
-      assistantConversationState = null;
-      try {
-        sb.from('error_logs').insert({
-          user_id: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null,
-          message: 'Bob closing mode threw: ' + (err && err.message ? err.message : String(err)),
-          stack: '', page_url: window.location.href
-        }).then(function(){});
-      } catch(logErr){}
-    });
-    return;
-  }
+  // Real, direct fix, per explicit instruction: the X button previously triggered a whole
+  // "Bob says a real goodbye" flow -- a real network call, a wave indicator, a real wait --
+  // before actually closing. That was too slow for what a close button should do; confirmed
+  // directly as a real, repeated frustration. The X now closes genuinely immediately, always,
+  // no exceptions -- no network call, no goodbye message, nothing to wait on.
   document.getElementById('assistantModalBackdrop').style.display = 'none';
   document.getElementById('assistantModal').style.display = 'none';
+  var indicator = document.getElementById('assistantTypingIndicator');
+  if(indicator) indicator.remove();
   // Extra safety net alongside the 2-minute expiry above: closing the modal is itself a clear
   // signal the conversation is over, so don't let a pending clarifying-question state survive
   // into whatever the person asks next time they open the assistant.
@@ -6910,10 +6846,20 @@ async function startOrOpenDirectChat(otherUserId){
   if(directChatInFlight[otherUserId]) return;
   directChatInFlight[otherUserId] = true;
   try{
+    // Real, immediate check, no network call needed: messaging your own account (a real,
+    // reachable case -- your own real name can appear in the Experts directory, and clicking
+    // your own listing's message button is a genuinely easy thing to try) isn't a network
+    // failure, so it shouldn't look like one. currentUser may not always be set this early in
+    // every real call path, so this stays a soft check, not a hard requirement.
+    if(typeof currentUser !== 'undefined' && currentUser && currentUser.id === otherUserId){
+      showToast("That's you! You can't start a chat with yourself.");
+      return;
+    }
     var { data: roomId, error } = await sb.rpc('get_or_create_direct_chat_room', { other_user_id: otherUserId });
     if(error || !roomId){
-      showToast(error && error.message && error.message.indexOf('No active connection') !== -1
-        ? "You'll need an active connection with this person first."
+      var msg = error && error.message ? error.message : '';
+      showToast(msg.indexOf('No active connection') !== -1 ? "You'll need an active connection with this person first."
+        : msg.indexOf('yourself') !== -1 ? "That's you! You can't start a chat with yourself."
         : "Couldn't start chat");
       return;
     }
