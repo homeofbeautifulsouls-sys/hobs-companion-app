@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
     // Not a donation -- check expert_bookings for either a regular session payment or a
     // separate cancellation charge (two different order_id columns on the same table, since a
     // booking can have both a real session payment AND, later, a separate cancellation charge).
-    const bookingsBySessionPay = await dbFetch(`expert_bookings?razorpay_order_id=eq.${orderId}&select=id,payment_confirmed`);
+    const bookingsBySessionPay = await dbFetch(`expert_bookings?razorpay_order_id=eq.${orderId}&select=id,payment_confirmed,user_id,expert_name,role_category`);
     if (Array.isArray(bookingsBySessionPay) && bookingsBySessionPay.length > 0) {
       const row = bookingsBySessionPay[0];
       if (row.payment_confirmed) {
@@ -104,6 +104,29 @@ Deno.serve(async (req) => {
       });
       if (!updateResult.ok) {
         return new Response(JSON.stringify({ error: "Could not update booking record", detail: updateResult.data }), { status: 500 });
+      }
+      // Real, new feature (Sept 16 2026): a confirmed, paid Therapist booking is what actually
+      // connects a client to that therapist's real account for the new direct-chat feature --
+      // this had no real, working mechanism anywhere before now (confirmed by searching the
+      // whole client codebase). Matches the booking's expert_name against the THERAPIST'S OWN
+      // profile (where their account is linked to their directory listing via
+      // therapist_expert_name, set when they accept their invite) rather than the `experts`
+      // table's id, since that id does not correspond to a real login account. Scoped to
+      // role_category = 'Therapist' specifically for now, matching this phase's real scope --
+      // Psychiatrist/Doctor/Caregiver get their own version of this in a later phase, not
+      // silently folded in here. A failed match or lookup never blocks the actual payment
+      // confirmation above, which has already succeeded and returned by the time this runs.
+      if (row.role_category === "Therapist" && row.expert_name && row.user_id) {
+        try {
+          const therapistProfiles = await dbFetch(`profiles?is_therapist=eq.true&therapist_expert_name=eq.${encodeURIComponent(row.expert_name)}&select=user_id`);
+          if (Array.isArray(therapistProfiles) && therapistProfiles.length > 0) {
+            await dbWrite(`profiles?user_id=eq.${row.user_id}`, "PATCH", {
+              assigned_therapist_user_id: therapistProfiles[0].user_id,
+            });
+          }
+        } catch (assignErr) {
+          console.error("razorpay-webhook: therapist auto-assignment failed", assignErr);
+        }
       }
       return new Response(JSON.stringify({ received: true, confirmed: true, type: "booking_payment" }), { status: 200 });
     }

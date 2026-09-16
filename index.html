@@ -719,31 +719,6 @@
     <button id="continueBtn" style="display:none;width:100%;padding:15px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:15px;font-weight:700;cursor:pointer;margin-top:16px;">Continue</button>
 
     <div id="homeExtraContent">
-    <p class="home-section-title" style="margin-top:26px;">Our crew is always here to guide you</p>
-    <p class="home-section-sub">Tap anyone — they'll point you somewhere useful.</p>
-    <div class="mascot-lineup" id="mascotLineup">
-      <button class="mascot-figure" id="meetBobBtn">
-        <img src="bob.jpg" alt="Bob the elephant" id="bobHomeImg" onerror="if(window.bobImgFallback){bobImgFallback(this);}else{this.style.display='none';}" loading="lazy">
-        <span class="mascot-figure-name">Bob</span>
-        <span class="mascot-figure-helps" id="mascotHelpsBob">Anxiety, calming down</span>
-      </button>
-      <button class="mascot-figure" id="meetKunnuBtn" style="display:none;">
-        <img src="kunnu.jpg" alt="Kunnu the cat" onerror="this.style.display='none'" loading="lazy">
-        <span class="mascot-figure-name">Kunnu</span>
-        <span class="mascot-figure-helps" id="mascotHelpsKunnu">Feeling alone, need an ear</span>
-      </button>
-      <button class="mascot-figure" id="meetCookieBtn" style="display:none;">
-        <img src="cookie.jpg" alt="Cookie the golden retriever" onerror="this.style.display='none'" loading="lazy">
-        <span class="mascot-figure-name">Cookie</span>
-        <span class="mascot-figure-helps" id="mascotHelpsCookie">Relationships, patterns</span>
-      </button>
-      <button class="mascot-figure" id="meetPoBtn" style="display:none;">
-        <img src="po.jpg" alt="Po the panda" onerror="this.style.display='none'" loading="lazy">
-        <span class="mascot-figure-name">Po</span>
-        <span class="mascot-figure-helps" id="mascotHelpsPo">Talking to a professional</span>
-      </button>
-    </div>
-
     <button id="createTaskHighlightBtn" style="display:flex;flex-direction:column;align-items:center;width:100%;padding:20px 16px;border-radius:18px;border:none;background:linear-gradient(135deg,#7FA3E0,#4A6FB5);cursor:pointer;margin-bottom:22px;box-shadow:0 8px 18px rgba(74,111,181,0.3);">
       <span style="width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,0.25);display:flex;align-items:center;justify-content:center;margin-bottom:10px;">
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
@@ -1582,7 +1557,7 @@
       Back
     </button>
     <div id="supportIntro" style="text-align:center;">
-      <img src="kunnu.jpg" alt="Kunnu" style="width:64px;height:64px;object-fit:contain;margin:0 auto 16px;display:block;" loading="lazy">
+      <img src="bob.jpg" alt="Bob" style="width:64px;height:64px;border-radius:50%;object-fit:cover;margin:0 auto 16px;display:block;" loading="lazy">
       <p class="prompt-title">Support groups</p>
       <p class="prompt-sub" style="max-width:280px;margin:0 auto 24px;">Full groups are still being built. You don't have to carry this by yourself — join the list and we'll bring you in as soon as one's ready.</p>
       <div id="supportMascotTip"></div>
@@ -2222,11 +2197,11 @@
     logic in switchAssistantTab) are untouched -- when Kunnu/Po/Cookie return, they reappear as
     proper compact side-by-side tabs instead of stacked full-width buttons, restyled then too. -->
     <div style="display:flex;align-items:center;gap:12px;padding:18px 20px 14px;border-bottom:1px solid #F0E9D8;">
-      <div id="assistantTabBar" style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
-        <button class="assistant-tab" data-char="bob" style="display:flex;align-items:center;gap:10px;background:none;border:none;padding:0;cursor:pointer;text-align:left;min-width:0;">
+      <div id="assistantTabBar" style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;">
+        <button class="assistant-tab" data-char="bob" style="display:flex;align-items:center;gap:10px;background:none;border:none;padding:0;cursor:pointer;text-align:left;min-width:0;max-width:120px;flex-shrink:0;overflow:hidden;">
           <img src="bob.jpg" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;box-shadow:0 2px 6px rgba(0,0,0,0.12);" loading="lazy">
-          <div style="min-width:0;">
-            <p id="assistantModalTitle" style="font-size:15px;font-weight:800;color:#2A2013;margin:0;line-height:1.2;">Bob</p>
+          <div style="min-width:0;overflow:hidden;">
+            <p id="assistantModalTitle" style="font-size:15px;font-weight:800;color:#2A2013;margin:0;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Bob</p>
             <p style="font-size:10.5px;color:#9AABCE;margin:1px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="assistantTabFunctionLine">Check-ins, breathing, or anything open-ended.</p>
           </div>
         </button>
@@ -2238,6 +2213,21 @@
         </button>
         <button class="assistant-tab" data-char="cookie" style="display:none;align-items:center;gap:8px;background:none;border:none;padding:4px;border-radius:10px;cursor:pointer;">
           <img src="cookie.jpg" style="width:30px;height:30px;border-radius:50%;object-fit:cover;" loading="lazy">
+        </button>
+        <!-- Real, new tabs, Sept 16 2026: Therapist and Support Group, replacing Kunnu/Po/Cookie's
+        old slots for real destinations instead of other AI characters, per direct instruction.
+        These don't switch content WITHIN this modal like Bob's own tab does -- they bridge out to
+        the real, existing human-chat system (chat_rooms/chat_messages), closing this modal and
+        opening the real room, since that's a genuinely different underlying system from Bob's AI
+        chat, not something to force into the same rendering path. Hidden by default; shown by
+        populateExtraChatTabs() based on real, current connection data. -->
+        <button class="assistant-tab" id="therapistTabBtn" style="display:none;align-items:center;gap:8px;background:none;border:none;padding:4px 8px;border-radius:10px;cursor:pointer;background:#F0E9D8;flex-shrink:0;">
+          <span style="font-size:16px;">🧑‍⚕️</span>
+          <span style="font-size:12px;font-weight:700;color:#2A2013;white-space:nowrap;">Therapist</span>
+        </button>
+        <button class="assistant-tab" id="supportGroupTabBtn" style="display:none;align-items:center;gap:8px;background:none;border:none;padding:4px 8px;border-radius:10px;cursor:pointer;background:#F0E9D8;flex-shrink:0;">
+          <span style="font-size:16px;">👥</span>
+          <span style="font-size:12px;font-weight:700;color:#2A2013;white-space:nowrap;">Support Group</span>
         </button>
       </div>
       <button id="assistantInfoBtn" style="background:none;border:none;font-size:18px;color:#9AABCE;cursor:pointer;padding:4px 2px;line-height:1;flex-shrink:0;" title="About Bob">ⓘ</button>
@@ -6903,29 +6893,31 @@ var directChatInFlight = {}; // otherUserId -> true while a start/open attempt i
 // created 0.65 seconds apart. Fixing with an in-flight guard keyed by the other person's id,
 // rather than patching every button that calls this individually -- protects every current
 // call site and any future one automatically.
+//
+// Real, second, deeper bug found and fixed Sept 16 2026: the original version of this function
+// did the connection check, then a raw chat_rooms insert, then a raw chat_room_members insert
+// for both people -- which only ever actually worked for admins. For a real, regular client,
+// the room INSERT's own RETURNING clause silently failed RLS (the new room has no members yet,
+// so nobody can "see" it to get it back), and even past that, adding the first two members to a
+// brand-new room requires already being a room admin of it -- a genuine, unavoidable bootstrap
+// problem for anyone who isn't an admin. This had likely never actually worked for a real
+// client before; confirmed directly (admin succeeded, a real client account failed at both
+// points, precisely root-caused before writing this fix). Replaced with a single call to
+// get_or_create_direct_chat_room, a real SECURITY DEFINER function that does its own connection
+// verification and creates the room plus both members atomically, with real, elevated
+// privilege -- solving the bootstrap problem properly instead of working around it client-side.
 async function startOrOpenDirectChat(otherUserId){
   if(directChatInFlight[otherUserId]) return;
   directChatInFlight[otherUserId] = true;
   try{
-    if(!appState.isAdmin){
-      var { data: hasConnection } = await sb.rpc('users_have_active_connection', { user_a: currentUser.id, user_b: otherUserId });
-      if(!hasConnection){
-        showToast("You'll need an active connection with this person first.");
-        return;
-      }
+    var { data: roomId, error } = await sb.rpc('get_or_create_direct_chat_room', { other_user_id: otherUserId });
+    if(error || !roomId){
+      showToast(error && error.message && error.message.indexOf('No active connection') !== -1
+        ? "You'll need an active connection with this person first."
+        : "Couldn't start chat");
+      return;
     }
-    var { data: existingRooms } = await sb.from('chat_room_members').select('room_id, chat_rooms!inner(type)').eq('user_id', currentUser.id).eq('chat_rooms.type', 'direct');
-    for(var r of (existingRooms || [])){
-      var { data: otherMember } = await sb.from('chat_room_members').select('user_id').eq('room_id', r.room_id).eq('user_id', otherUserId).maybeSingle();
-      if(otherMember){ openChatRoom(r.room_id); return; }
-    }
-    var { data: newRoom, error } = await sb.from('chat_rooms').insert({ type: 'direct', created_by: currentUser.id }).select().single();
-    if(error){ showToast("Couldn't start chat"); return; }
-    await sb.from('chat_room_members').insert([
-      { room_id: newRoom.id, user_id: currentUser.id, status: 'joined', joined_at: new Date().toISOString() },
-      { room_id: newRoom.id, user_id: otherUserId, status: 'joined', joined_at: new Date().toISOString() }
-    ]);
-    openChatRoom(newRoom.id);
+    openChatRoom(roomId);
   } finally {
     delete directChatInFlight[otherUserId];
   }
@@ -10428,12 +10420,52 @@ function openAssistantModal(charKey){
   document.getElementById('assistantModalBackdrop').style.display = 'block';
   document.getElementById('assistantModal').style.display = 'flex';
   switchAssistantTab(charKey);
+  populateExtraChatTabs();
   document.getElementById('assistantInput').focus();
 }
-document.getElementById('meetBobBtn').onclick = function(){ openAssistantModal('bob'); };
-document.getElementById('meetKunnuBtn').onclick = function(){ openAssistantModal('bob'); };
-document.getElementById('meetCookieBtn').onclick = function(){ openAssistantModal('bob'); };
-document.getElementById('meetPoBtn').onclick = function(){ openAssistantModal('bob'); };
+
+// Real, new function, Sept 16 2026: populates the Therapist and Support Group tabs with real,
+// current connection data every time the modal opens (connections can change between opens --
+// a new booking, a new group join -- so this isn't cached). Both tabs always show, per direct
+// instruction for Therapist specifically ("it would still show Therapist except it would show
+// them connect to a therapist if they are not connected to one") -- extended the same pattern
+// to Support Group for consistency, since no different instruction was given for that one.
+// Clicking either closes this modal and bridges to the real, existing human-chat system
+// (chat_rooms) rather than rendering inside this AI-chat modal -- a genuinely different
+// underlying system, not forced into the same rendering path.
+function populateExtraChatTabs(){
+  var therapistBtn = document.getElementById('therapistTabBtn');
+  var supportBtn = document.getElementById('supportGroupTabBtn');
+  therapistBtn.style.display = 'flex';
+  supportBtn.style.display = 'flex';
+
+  therapistBtn.onclick = function(){
+    sb.from('profiles').select('assigned_therapist_user_id').eq('user_id', currentUser.id).single().then(function(result){
+      var assignedId = result && result.data ? result.data.assigned_therapist_user_id : null;
+      document.getElementById('assistantModalBackdrop').style.display = 'none';
+      document.getElementById('assistantModal').style.display = 'none';
+      if(assignedId){
+        startOrOpenDirectChat(assignedId);
+      } else {
+        showOnly('panel-team');
+        if(typeof renderTeamList === 'function') renderTeamList();
+      }
+    }).catch(function(){});
+  };
+
+  supportBtn.onclick = function(){
+    sb.from('chat_room_members').select('room_id, chat_rooms!inner(type)').eq('user_id', currentUser.id).eq('chat_rooms.type', 'support_group').eq('status', 'joined').limit(1).then(function(result){
+      document.getElementById('assistantModalBackdrop').style.display = 'none';
+      document.getElementById('assistantModal').style.display = 'none';
+      if(result && result.data && result.data.length > 0){
+        openChatRoom(result.data[0].room_id);
+      } else {
+        showOnly('panel-support');
+      }
+    }).catch(function(){});
+  };
+}
+
 // The floating button is a second, quick-access entry point alongside the Home-page crew
 // section, not a replacement for it -- opens to whichever tab was last active (Bob by default),
 // same underlying modal either way.

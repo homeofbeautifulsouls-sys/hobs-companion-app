@@ -1,0 +1,64 @@
+CREATE OR REPLACE FUNCTION public.delete_user_data_atomic(target_user_id uuid)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+begin
+  delete from notification_recipients where user_id = target_user_id;
+  delete from subtasks where user_id = target_user_id;
+  delete from tasks where user_id = target_user_id;
+  delete from entries where user_id = target_user_id;
+  delete from expert_bookings where user_id = target_user_id;
+  delete from test_results where user_id = target_user_id;
+  delete from worksheet_responses where user_id = target_user_id;
+  delete from who5_entries where user_id = target_user_id;
+  delete from period_logs where user_id = target_user_id;
+  delete from consent_agreements where user_id = target_user_id;
+  delete from credit_log where user_id = target_user_id;
+  delete from chat_poll_votes where user_id = target_user_id;
+  delete from chat_room_members where user_id = target_user_id;
+  delete from app_analytics_events where user_id = target_user_id;
+  delete from error_logs where user_id = target_user_id;
+  delete from app_update_reminders where user_id = target_user_id;
+  delete from gcal_connect_state_tokens where user_id = target_user_id;
+  delete from professional_calendar_connections where user_id = target_user_id;
+
+  -- Only ever relevant on the admin-delete-someone-else path (self-delete is blocked entirely
+  -- for staff accounts before this is ever called).
+  delete from calendar_change_requests where professional_user_id = target_user_id;
+  delete from session_calendar_events where professional_user_id = target_user_id;
+  delete from professional_busy_blocks where professional_user_id = target_user_id;
+
+  -- SOFT-TOUCH: a coordination chat_room is built around a specific client. The room and its
+  -- messages stay (a therapist's continuity-of-care record for THEIR side of things), but the
+  -- reference to the now-deleted client is cleared.
+  update chat_rooms set client_id = null where client_id = target_user_id;
+
+  -- Real, second gap found and fixed Sept 16 2026, same session as the text-not-null fix above:
+  -- created_by was never handled either -- confirmed directly, a real account that had ever
+  -- created a chat room (now possible for a genuine client, not just an admin, since today's
+  -- direct-chat fix) would fail deletion here too. Nullifying is correct and safe: created_by
+  -- is nullable, and the room itself (with its real message history for the other participant)
+  -- should keep existing after the creator's account is gone, same real reasoning as client_id
+  -- just above.
+  update chat_rooms set created_by = null where created_by = target_user_id;
+
+  -- SOFT-TOUCH: hard-deleting chat messages would leave real gaps in other people's
+  -- conversation history. Uses the app's existing "deleted" flag/rendering path instead.
+  -- Real, third fix in this same real chain, Sept 16 2026: sender_id itself was never nulled,
+  -- only the content -- confirmed directly, this still blocked the actual auth.users deletion
+  -- with a foreign-key violation. sender_id was NOT NULL, genuinely blocking this fix, so
+  -- altered the column nullable first (verified the real rendering code handles a null
+  -- sender_id safely -- isMine correctly evaluates false, and the message already shows
+  -- "Message deleted" from the flag above regardless of who sent it).
+  update chat_messages set deleted = true, text = '', sender_id = null where sender_id = target_user_id;
+
+  -- SOFT-TOUCH: donations are a financial/accounting record, plausibly needed for 80G tax
+  -- receipt and bookkeeping purposes independent of the donor's account existing.
+  update donations set user_id = null, donor_name = null where user_id = target_user_id;
+
+  delete from profiles where user_id = target_user_id;
+end;
+$function$
+
