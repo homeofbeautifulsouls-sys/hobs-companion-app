@@ -7255,6 +7255,9 @@ function appendTherapistChangeDisconnectButtons(tArea){
 }
 
 function renderProfile(){
+  refreshExpertBookings(renderProfileInner);
+}
+function renderProfileInner(){
   var profileName = getDisplayName();
   document.getElementById('profilePageTitle').textContent = profileName || 'You';
   if(appState.photoUrl){
@@ -14636,7 +14639,28 @@ function cancelSession(m){
 }
 
 var teamActiveLanguageFilter = null;
+// Real, systemic fix, Sept 17 2026, per direct, repeated report across two separate real role
+// categories (Therapist, General Physician): appState.expertBookings was only ever populated
+// once, during initial app load -- confirmed directly, it has exactly one real assignment site
+// anywhere in the whole app. Every page that shows connection/request status (Our Experts, the
+// profile page, an individual expert's detail page) was reading that same stale, in-memory copy
+// no matter how long ago it was fetched, so a real admin action (approving a change request,
+// reassigning someone) genuinely changed the database but the client had no way to know until a
+// full app relaunch -- looking exactly like "approving did nothing." Refetches expert_bookings
+// fresh every time any of these three real pages is actually opened, before rendering, rather
+// than trusting whatever was last loaded at login.
+function refreshExpertBookings(callback){
+  if(!currentUser || !currentUser.id){ callback(); return; }
+  sb.from('expert_bookings').select('*').eq('user_id', currentUser.id).then(function(result){
+    if(!result.error && result.data) appState.expertBookings = result.data;
+    callback();
+  });
+}
+
 function renderTeamList(){
+  refreshExpertBookings(renderTeamListInner);
+}
+function renderTeamListInner(){
   // Derive real, currently-available languages from actual expert data — not a fixed list.
   var availableLanguages = [];
   TEAM_MEMBERS.forEach(function(m){
@@ -15010,6 +15034,9 @@ document.getElementById('donateContinueBtn').onclick = function(){
 
 
 function openExpertDetail(idx){
+  refreshExpertBookings(function(){ openExpertDetailInner(idx); });
+}
+function openExpertDetailInner(idx){
   loadRazorpayCheckout(); // this screen can show a Pay Now button; get a head start on it
   var m = TEAM_MEMBERS[idx];
   var initials = m.name.split(' ').filter(function(w){ return w!=='Dr.'; }).map(function(w){ return w[0]; }).slice(0,2).join('');
