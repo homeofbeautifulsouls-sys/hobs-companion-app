@@ -8,13 +8,6 @@ declare
   professional_id uuid;
   assign_column text;
 begin
-  -- Real, generalized fix, Sept 16 2026, per direct instruction: the exact same real logic now
-  -- applies to every real professional role (Therapist, Psychiatrist, General Physician,
-  -- Peer Caregiver), not just Therapist -- this was explicitly scoped to Therapist only when
-  -- first built, with a real note that the others would come in a later phase. This is that
-  -- phase. Maps role_category to its own real assignment column on profiles rather than one
-  -- shared column, since a client can genuinely be connected to more than one kind of
-  -- professional at once (a Therapist AND a Psychiatrist, say).
   assign_column := case new.role_category
     when 'Therapist' then 'assigned_therapist_user_id'
     when 'Psychiatrist' then 'assigned_psychiatrist_user_id'
@@ -29,7 +22,18 @@ begin
     from profiles p
     where p.is_therapist = true and p.therapist_expert_name = new.expert_name
     limit 1;
-    if professional_id is not null then
+    -- Real, new guard, Sept 17 2026, per direct instruction, found by directly reproducing a
+    -- real, reported bug: a client and the professional they're being matched to can genuinely
+    -- be the exact same real account (a combined admin/client/therapist account assigning itself
+    -- to itself while testing, confirmed directly as the real cause of a report that looked like
+    -- a broken assignment flow). Without this, the update below sets a person as their own
+    -- assigned professional -- not a database error, just a real, nonsensical state that then
+    -- confuses every real page reading it (their own profile, their own therapist dashboard,
+    -- chat routing). Skips the self-referencing update entirely rather than letting it happen
+    -- silently; the booking itself still goes active (a person can still be listed as
+    -- requesting/matched with themselves at the booking level if that's genuinely what was
+    -- intended, e.g. for testing), only the profile-level assignment column is guarded.
+    if professional_id is not null and professional_id != new.user_id then
       execute format('update profiles set %I = $1 where user_id = $2', assign_column)
         using professional_id, new.user_id;
     end if;
