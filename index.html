@@ -1590,16 +1590,6 @@
     </div>
   </div>
 
-  <div class="content" id="panel-therapist-select" style="display:none;">
-    <button id="therapistSelectBackBtn" style="background:none;border:none;cursor:pointer;padding:0;margin-bottom:14px;color:#5C6B94;display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600;">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-      Back
-    </button>
-    <p class="prompt-title" style="text-align:center;">Who's your therapist?</p>
-    <p class="prompt-sub" style="text-align:center;max-width:280px;margin:0 auto 20px;">Select them so we can connect you properly.</p>
-    <div id="therapistList"></div>
-  </div>
-
   <div class="content" id="panel-intake" style="display:none;">
     <button id="intakeBackBtn" style="background:none;border:none;cursor:pointer;padding:0;margin-bottom:14px;color:#5C6B94;display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600;">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
@@ -4809,43 +4799,13 @@ document.getElementById('expandBtn').onclick = function(){
   this.title = isExpanded ? 'Collapse' : 'Expand';
 };
 
-var therapists = [
-  {name:'Dr. Priya Shah', tag:'Anxiety & stress'},
-  {name:'Rohan Mehta, Counsellor', tag:'Relationships & loneliness'},
-  {name:'Dr. Anjali Rao', tag:'Depression & mood'}
-];
-var therapistSelectReturnTo = 'journal';
-
-function renderTherapistList(returnTo){
-  therapistSelectReturnTo = returnTo;
-  var list = document.getElementById('therapistList');
-  list.innerHTML = '';
-  therapists.forEach(function(t){
-    var card = document.createElement('button');
-    card.style.cssText = 'display:flex;align-items:center;justify-content:space-between;width:100%;padding:14px;border-radius:14px;border:1px solid #EEE0C4;background:#FFFFFF;cursor:pointer;margin-bottom:10px;text-align:left;';
-    card.innerHTML = '<div><div style="font-size:14px;font-weight:700;color:#2A2013;">'+t.name+'</div><div style="font-size:11px;color:#9AABCE;">'+t.tag+'</div></div><span style="color:#6690D6;font-size:12px;font-weight:700;">Select</span>';
-    card.onclick = function(){
-      appState.userHasTherapist = true;
-      appState.therapistName = t.name;
-      saveState();
-      document.getElementById('panel-therapist-select').style.display = 'none';
-      if(therapistSelectReturnTo === 'journal'){
-        document.getElementById('panel-journal').style.display = 'block';
-      } else {
-        renderSavedPanel();
-        document.getElementById('panel-saved').style.display = 'block';
-      }
-    };
-    list.appendChild(card);
-  });
-}
-
-document.getElementById('therapistSelectBackBtn').onclick = function(){
-  document.getElementById('panel-therapist-select').style.display = 'none';
-  document.getElementById('panel-' + therapistSelectReturnTo).style.display = 'block';
-  if(therapistSelectReturnTo === 'profile'){ setActiveNav('navYou'); } else { setActiveNav('navHome'); }
-};
-
+// Real, dead-code removal, Sept 17 2026, per direct, urgent report: this whole flow (three
+// hardcoded fake names, no real connection to expert_bookings, admin review, or anything else
+// real) was a pre-backend placeholder from before the real therapist-matching system existed.
+// It had exactly one real caller left anywhere in the app -- the main "Change therapist" button
+// on the profile page, which got fixed to use the real requestExpertChange flow instead (the
+// same fix its sibling Disconnect button already had). Removing the whole thing outright, not
+// just its last caller, so it can never accidentally get wired up again the way it just was.
 // Shown once per session, right before the actual writing page -- per direct request, a
 // leather "Treasures of [Name]" cover that opens like a book. Per direct correction: this
 // belongs on the Journal SECTION entry point (the bottom-nav Journal tab, landing on the
@@ -5322,7 +5282,7 @@ document.getElementById('intakeDoneBtn').onclick = function(){
 };
 
 // ---- Bottom nav: Home / Journal / You ----
-var allPanels = ['panel-bubbles','panel-journal','panel-quick-journal','panel-saved','panel-support','panel-therapist-select','panel-intake','panel-booking','panel-history','panel-profile','panel-mood-tracker','panel-period-tracker','panel-who5','panel-who5-results','panel-calendar','panel-day','panel-celebration','panel-bodydouble','panel-tips','panel-calmroom','panel-progress','panel-achievements','panel-rewards','panel-search','panel-team','panel-expert-detail','panel-admin','panel-therapist-dashboard','panel-edit-profile','panel-my-bookings','panel-therapist-schedule','panel-tests','panel-test-detail','panel-test-results','panel-grounding','panel-grounding-detail','panel-worksheets','panel-worksheet-category','panel-worksheet-detail','panel-chat-list','panel-chat-room','panel-chat-create-group','panel-chat-room-info'];
+var allPanels = ['panel-bubbles','panel-journal','panel-quick-journal','panel-saved','panel-support','panel-intake','panel-booking','panel-history','panel-profile','panel-mood-tracker','panel-period-tracker','panel-who5','panel-who5-results','panel-calendar','panel-day','panel-celebration','panel-bodydouble','panel-tips','panel-calmroom','panel-progress','panel-achievements','panel-rewards','panel-search','panel-team','panel-expert-detail','panel-admin','panel-therapist-dashboard','panel-edit-profile','panel-my-bookings','panel-therapist-schedule','panel-tests','panel-test-detail','panel-test-results','panel-grounding','panel-grounding-detail','panel-worksheets','panel-worksheet-category','panel-worksheet-detail','panel-chat-list','panel-chat-room','panel-chat-create-group','panel-chat-room-info'];
 var panelHistoryStack = ['panel-bubbles'];
 // Real ask: text in a fixed-height textarea (campaign description, therapist bio, session
 // notes, etc.) was only visible up to whatever the CSS min-height happened to be -- the rest
@@ -7267,7 +7227,15 @@ function appendTherapistChangeDisconnectButtons(tArea){
   var changeBtn = document.createElement('button');
   changeBtn.textContent = 'Change therapist';
   changeBtn.style.cssText = 'width:100%;padding:11px;border-radius:10px;border:1px solid #C7D2E8;background:transparent;color:#5C6B94;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:8px;';
-  changeBtn.onclick = function(){ renderTherapistList('profile'); showOnly('panel-therapist-select'); };
+  // Real, genuine bug found and fixed here, Sept 17 2026, by direct report -- confirmed by
+  // checking every other Change/Request Change button in the app: this was the one remaining
+  // place still pointed at a dead, pre-backend demo flow (renderTherapistList/panel-therapist-
+  // select, three hardcoded fake names with no real connection to anything) instead of the
+  // real, existing admin-review flow (requestExpertChange) -- the exact same real gap the
+  // Disconnect button right below this one already had fixed, on the exact same real function,
+  // simply never caught for this sibling button at the same time. Now uses that same, real,
+  // proper flow instead.
+  changeBtn.onclick = function(){ requestExpertChange({ roleCategory: 'Therapist' }, appState.therapistName); };
 
   var disconnectBtn = document.createElement('button');
   disconnectBtn.textContent = 'Disconnect';
@@ -11197,7 +11165,7 @@ function renderAdminErrorLogs(){
 // raw panel id / event name, never any content typed or selected within a screen.
 var PANEL_FRIENDLY_LABELS = {
   'panel-bubbles': 'Home', 'panel-journal': 'Journal (writing)', 'panel-quick-journal': 'Quick journal',
-  'panel-saved': 'Saved entry', 'panel-support': 'Support groups info', 'panel-therapist-select': 'Choose therapist',
+  'panel-saved': 'Saved entry', 'panel-support': 'Support groups info',
   'panel-intake': 'Intake form', 'panel-booking': 'Booking', 'panel-history': 'Journal index',
   'panel-profile': 'Profile (You)', 'panel-mood-tracker': 'Mood tracker', 'panel-period-tracker': 'Period tracker', 'panel-who5': 'WHO-5 check-in',
   'panel-who5-results': 'WHO-5 results', 'panel-calendar': 'Calendar', 'panel-day': 'Day detail',
