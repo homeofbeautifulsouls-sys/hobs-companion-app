@@ -1070,6 +1070,8 @@
     <p style="font-size:11px;color:#B0AA98;margin:0 0 10px;">Everyone currently connected to you as their therapist.</p>
     <div id="therapistClientsList" style="margin-bottom:22px;"></div>
 
+    <button id="therapistOpenScheduleBtn" style="display:block;width:100%;padding:12px;border-radius:10px;border:1px solid #C7D2E8;background:transparent;color:#5C6B94;font-size:12.5px;font-weight:700;cursor:pointer;margin-bottom:22px;">View My Schedule</button>
+
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Send Homework</p>
     <p style="font-size:11px;color:#B0AA98;margin:0 0 10px;">They'll see it and can accept it into their Tasks, marked as coming from you.</p>
     <select id="homeworkClientSelect" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:8px;"></select>
@@ -1270,6 +1272,19 @@
     <p class="prompt-title" style="text-align:center;">My Sessions &amp; Cancellations</p>
     <p class="prompt-sub" style="text-align:center;margin-bottom:22px;">A clear record of where things stand.</p>
     <div id="myBookingsList"></div>
+  </div>
+
+  <!-- Real, new panel, Sept 16 2026, per direct instruction: a complete, clean past+future
+  schedule for the professional themselves, across every real client -- the "My Clients" list
+  above only ever showed one combined latest-session date per client, never the full picture. -->
+  <div class="content" id="panel-therapist-schedule" style="display:none;">
+    <button id="therapistScheduleBackBtn" style="background:none;border:none;cursor:pointer;padding:0;margin-bottom:14px;color:#5C6B94;display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      Dashboard
+    </button>
+    <p class="prompt-title" style="text-align:center;">My Schedule</p>
+    <p class="prompt-sub" style="text-align:center;margin-bottom:22px;">Every real session with every client — past and upcoming.</p>
+    <div id="therapistScheduleList"></div>
   </div>
 
   <div id="slotPickerModalBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.45);z-index:60;"></div>
@@ -1676,6 +1691,14 @@
     <div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:16px;padding:16px;margin-bottom:14px;">
       <p style="font-size:12px;color:#9AABCE;margin:0 0 6px;font-weight:700;">Therapist</p>
       <div id="profileTherapistArea"></div>
+      <!-- Real, new containers, Sept 16 2026, per direct instruction: the exact same real
+      connection logic now applies to every professional role, not just Therapist. Each only
+      ever shows content when the client actually has a real connection in that category --
+      renderProfileProfessionalSection leaves them empty otherwise, so someone with only a
+      Therapist sees just the one section above, unchanged. -->
+      <div id="profilePsychiatristArea"></div>
+      <div id="profileDoctorArea"></div>
+      <div id="profileCaregiverArea"></div>
     </div>
     <div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:16px;padding:16px;margin-bottom:14px;">
       <p style="font-size:12px;color:#9AABCE;margin:0 0 6px;font-weight:700;">Support group</p>
@@ -3757,28 +3780,48 @@ function openMyBookings(){
   showOnly('panel-my-bookings');
   var wrap = document.getElementById('myBookingsList');
   wrap.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">Loading...</p>';
-  // Was ordered by created_at (when the booking record was made), not session_date (when the
-  // session actually happened) -- meaningfully different once someone has more than one
-  // session, and the actual date/time was never shown at all. That's the real gap: a client
-  // could see "Confirmed" or "Ended" but never when their sessions actually took place.
+  // Real fix, Sept 16 2026, per direct instruction: this used to show only the single most
+  // recent session_date per relationship (from expert_bookings itself), which is genuinely all
+  // that field has ever held -- meaning someone's full session history was never actually
+  // visible, only their latest appointment. Now pulls every real session_history row per
+  // relationship and lists them all, each with its own real notes-upload status and Gmeet link.
   Promise.all([
     sb.from('expert_bookings').select('*').eq('user_id', currentUser.id).order('session_date', {ascending:false, nullsFirst:false}),
-    // Real fix, Sept 16 2026, per direct instruction: homework is now per-session
-    // (session_booking_id, added alongside the new session_history table -- see its own real
-    // comment for why a dedicated history table was needed), and needs a real client accept
-    // step before it's a genuine task (homework_accept_status) -- both now selected so this
-    // view can show homework grouped by its real session where linked, and offer Accept
-    // directly here for anything still pending.
+    sb.from('session_history').select('*').eq('user_id', currentUser.id).order('session_date', {ascending:false}),
     sb.from('tasks').select('id,title,done,deadline,assigned_by_therapist,session_booking_id,homework_accept_status').eq('user_id', currentUser.id).not('assigned_by_therapist', 'is', null).order('created_at', {ascending:false})
   ]).then(function(results){
     var result = results[0];
     if(result.error){ wrap.innerHTML = '<p style="text-align:center;color:#C77B7B;font-size:12.5px;">Could not load your sessions.</p>'; return; }
     var bookings = result.data || [];
-    var homeworkByTherapist = {};
-    (results[1].data || []).forEach(function(t){
-      if(!homeworkByTherapist[t.assigned_by_therapist]) homeworkByTherapist[t.assigned_by_therapist] = [];
-      homeworkByTherapist[t.assigned_by_therapist].push(t);
+    var historyByBooking = {};
+    (results[1].data || []).forEach(function(h){
+      if(!historyByBooking[h.booking_id]) historyByBooking[h.booking_id] = [];
+      historyByBooking[h.booking_id].push(h);
     });
+    // Real fix, Sept 16 2026: homework now groups by the specific real session_history row it
+    // was actually given in (session_booking_id), not by therapist name -- matches the real fix
+    // to how it's saved. A separate 'general' bucket catches anything not tied to one real
+    // session (legacy homework from before this existed, or deliberately general notes).
+    var homeworkBySessionId = {};
+    var generalHomeworkByTherapist = {};
+    (results[2].data || []).forEach(function(t){
+      if(t.session_booking_id){
+        if(!homeworkBySessionId[t.session_booking_id]) homeworkBySessionId[t.session_booking_id] = [];
+        homeworkBySessionId[t.session_booking_id].push(t);
+      } else {
+        if(!generalHomeworkByTherapist[t.assigned_by_therapist]) generalHomeworkByTherapist[t.assigned_by_therapist] = [];
+        generalHomeworkByTherapist[t.assigned_by_therapist].push(t);
+      }
+    });
+    var renderHomeworkItem = function(t){
+      if(t.homework_accept_status === 'pending'){
+        return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px;">'+
+          '<p style="font-size:11.5px;color:#2A2013;margin:0;flex:1;">'+t.title.replace(/</g,'&lt;')+(t.deadline ? ' <span style="color:#B0AA98;">— due '+new Date(t.deadline).toLocaleDateString('en-IN',{day:'numeric',month:'short'})+'</span>' : '')+'</p>'+
+          '<button class="accept-homework-btn" data-id="'+t.id+'" style="flex-shrink:0;padding:6px 12px;border-radius:8px;border:none;background:#6690D6;color:#FFF8F0;font-size:10.5px;font-weight:700;cursor:pointer;">Accept</button>'+
+        '</div>';
+      }
+      return '<p style="font-size:11.5px;color:#2A2013;margin:0 0 6px;">'+(t.done ? '✓ ' : '• ')+t.title.replace(/</g,'&lt;')+(t.deadline ? ' <span style="color:#B0AA98;">— due '+new Date(t.deadline).toLocaleDateString('en-IN',{day:'numeric',month:'short'})+'</span>' : '')+'</p>';
+    };
     if(bookings.length === 0){
       // Real fix, Sept 16 2026, per direct instruction: an empty session history should
       // actively encourage booking a first session, not just state the absence of one.
@@ -3797,33 +3840,41 @@ function openMyBookings(){
       var cancelText = cancelCount === 0
         ? 'You have 1 free cancellation available for this booking.'
         : 'You\'ve used your free cancellation for this booking — a further one would need to go through our team, with a 50% charge.';
-      var dateLabel = b.session_date
-        ? new Date(b.session_date).toLocaleDateString('en-IN', {day:'numeric', month:'short', year:'numeric'}) + ' · ' + new Date(b.session_date).toLocaleTimeString('en-IN', {hour:'numeric', minute:'2-digit'})
-        : 'No time set yet';
-      var homeworkList = homeworkByTherapist[b.expert_name] || [];
-      var homeworkHtml = homeworkList.length === 0 ? '' :
+      var generalHomeworkList = generalHomeworkByTherapist[b.expert_name] || [];
+      var generalHomeworkHtml = generalHomeworkList.length === 0 ? '' :
         '<div style="background:#F9F6EE;border-radius:10px;padding:10px 12px;margin-top:10px;">'+
-          '<p style="font-size:10px;font-weight:700;color:#9A7B3E;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 6px;">Homework from '+b.expert_name+'</p>'+
-          homeworkList.map(function(t){
-            // Real, new branch, Sept 16 2026, per direct instruction: homework needs a real
-            // accept step before it's a genuine task -- pending items get their own real
-            // row with an Accept button here, instead of appearing as an already-active task.
-            if(t.homework_accept_status === 'pending'){
-              return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px;">'+
-                '<p style="font-size:11.5px;color:#2A2013;margin:0;flex:1;">'+t.title.replace(/</g,'&lt;')+(t.deadline ? ' <span style="color:#B0AA98;">— due '+new Date(t.deadline).toLocaleDateString('en-IN',{day:'numeric',month:'short'})+'</span>' : '')+'</p>'+
-                '<button class="accept-homework-btn" data-id="'+t.id+'" style="flex-shrink:0;padding:6px 12px;border-radius:8px;border:none;background:#6690D6;color:#FFF8F0;font-size:10.5px;font-weight:700;cursor:pointer;">Accept</button>'+
-              '</div>';
-            }
-            return '<p style="font-size:11.5px;color:#2A2013;margin:0 0 6px;">'+(t.done ? '✓ ' : '• ')+t.title.replace(/</g,'&lt;')+(t.deadline ? ' <span style="color:#B0AA98;">— due '+new Date(t.deadline).toLocaleDateString('en-IN',{day:'numeric',month:'short'})+'</span>' : '')+'</p>';
-          }).join('')+
+          '<p style="font-size:10px;font-weight:700;color:#9A7B3E;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 6px;">General homework from '+b.expert_name+'</p>'+
+          generalHomeworkList.map(renderHomeworkItem).join('')+
         '</div>';
+      // Real, new block, Sept 16 2026, per direct instruction: every real past/upcoming session
+      // for this relationship, each with its own real notes-upload status (red/green) and
+      // Gmeet link where one exists, plus any homework given specifically in that session.
+      var sessionRows = (historyByBooking[b.id] || []).map(function(h){
+        var dateLabel = new Date(h.session_date).toLocaleDateString('en-IN', {day:'numeric', month:'short', year:'numeric'}) + ' · ' + new Date(h.session_date).toLocaleTimeString('en-IN', {hour:'numeric', minute:'2-digit'});
+        var isPast = new Date(h.session_date) < new Date();
+        var notesColor = h.payment_locked ? '#3B8F63' : '#C77B7B';
+        var notesLabel = h.payment_locked ? 'Notes uploaded' : (isPast ? 'Notes not uploaded yet' : 'Upcoming');
+        var sessionHomework = homeworkBySessionId[h.id] || [];
+        return '<div style="border-top:1px solid #F0E9D8;padding-top:10px;margin-top:10px;">'+
+          '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">'+
+            '<p style="font-size:12px;color:#2A2013;font-weight:600;margin:0;">'+dateLabel+'</p>'+
+            (isPast ? '<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:'+notesColor+';"><span style="width:7px;height:7px;border-radius:50%;background:'+notesColor+';display:inline-block;"></span>'+notesLabel+'</span>' : '')+
+          '</div>'+
+          (h.meet_link ? '<a href="'+h.meet_link+'" target="_blank" style="display:inline-block;margin-top:4px;font-size:11px;color:#6690D6;font-weight:700;">Join with Google Meet</a>' : '')+
+          (sessionHomework.length > 0 ?
+            '<div style="background:#F9F6EE;border-radius:10px;padding:10px 12px;margin-top:8px;">'+
+              '<p style="font-size:10px;font-weight:700;color:#9A7B3E;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 6px;">Homework from this session</p>'+
+              sessionHomework.map(renderHomeworkItem).join('')+
+            '</div>' : ''
+          )+
+        '</div>';
+      }).join('');
       return '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:14px;padding:14px;margin-bottom:10px;">'+
         '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">'+
           '<p style="font-size:13px;font-weight:700;color:#2A2013;margin:0;">'+b.expert_name+'</p>'+
           '<span style="font-size:9px;font-weight:700;color:'+statusColor+';background:'+statusBg+';padding:3px 7px;border-radius:8px;white-space:nowrap;">'+statusLabel+'</span>'+
         '</div>'+
         '<p style="font-size:11px;color:#9AABCE;margin:0 0 4px;">'+b.role_category+'</p>'+
-        '<p style="font-size:11.5px;color:#6690D6;font-weight:600;margin:0 0 8px;">'+dateLabel+'</p>'+
         (b.status === 'active' ? '<p style="font-size:11px;color:#5C6B94;margin:0;">'+cancelText+'</p>' : '')+
         (b.cancellation_charge_owed ?
           (b.cancellation_amount_due ?
@@ -3834,13 +3885,10 @@ function openMyBookings(){
             '<p style="font-size:11px;color:#C77B7B;margin:8px 0 0;">A cancellation charge applies — we\'ll let you know the amount shortly.</p>'
           ) : ''
         )+
-        homeworkHtml+
+        (sessionRows || '<p style="font-size:11.5px;color:#9AABCE;margin:10px 0 0;">No sessions scheduled yet.</p>')+
+        generalHomeworkHtml+
       '</div>';
     }).join('');
-    // Real, new wiring, Sept 16 2026: accepting homework here is what actually creates the
-    // real, active task -- flips homework_accept_status to 'accepted' on the same row (no new
-    // row needed, the task already exists, just wasn't visible in the normal tasklist yet
-    // because of that pending status -- see getTasks' own real filtering for that other half).
     document.querySelectorAll('.accept-homework-btn').forEach(function(btn){
       btn.onclick = function(){
         var taskId = btn.dataset.id;
@@ -5257,7 +5305,7 @@ document.getElementById('intakeDoneBtn').onclick = function(){
 };
 
 // ---- Bottom nav: Home / Journal / You ----
-var allPanels = ['panel-bubbles','panel-journal','panel-quick-journal','panel-saved','panel-support','panel-therapist-select','panel-intake','panel-booking','panel-history','panel-profile','panel-mood-tracker','panel-period-tracker','panel-who5','panel-who5-results','panel-calendar','panel-day','panel-celebration','panel-bodydouble','panel-tips','panel-calmroom','panel-progress','panel-achievements','panel-rewards','panel-search','panel-team','panel-expert-detail','panel-admin','panel-therapist-dashboard','panel-edit-profile','panel-my-bookings','panel-tests','panel-test-detail','panel-test-results','panel-grounding','panel-grounding-detail','panel-worksheets','panel-worksheet-category','panel-worksheet-detail','panel-chat-list','panel-chat-room','panel-chat-create-group','panel-chat-room-info'];
+var allPanels = ['panel-bubbles','panel-journal','panel-quick-journal','panel-saved','panel-support','panel-therapist-select','panel-intake','panel-booking','panel-history','panel-profile','panel-mood-tracker','panel-period-tracker','panel-who5','panel-who5-results','panel-calendar','panel-day','panel-celebration','panel-bodydouble','panel-tips','panel-calmroom','panel-progress','panel-achievements','panel-rewards','panel-search','panel-team','panel-expert-detail','panel-admin','panel-therapist-dashboard','panel-edit-profile','panel-my-bookings','panel-therapist-schedule','panel-tests','panel-test-detail','panel-test-results','panel-grounding','panel-grounding-detail','panel-worksheets','panel-worksheet-category','panel-worksheet-detail','panel-chat-list','panel-chat-room','panel-chat-create-group','panel-chat-room-info'];
 var panelHistoryStack = ['panel-bubbles'];
 // Real ask: text in a fixed-height textarea (campaign description, therapist bio, session
 // notes, etc.) was only visible up to whatever the CSS min-height happened to be -- the rest
@@ -7130,6 +7178,74 @@ function toClearAndReselectMoodsForEdit(moods){
 // Real, new helper, Sept 16 2026: extracted so both real "matched" states (still needs to
 // pick a first session time, and already has one) show the exact same Change
 // therapist/Disconnect buttons, rather than keeping two copies in sync by hand.
+// Real, new function, Sept 16 2026, per direct, repeated instruction: the exact same real
+// connection states Therapist already has (pending request, matched-needs-time, matched-with-
+// a-time, not connected) generalized to any real professional role, computed fresh from
+// appState.expertBookings rather than relying on Therapist-only appState fields. Leaves the
+// container empty (not even a "not connected" message) when there's never been a real request
+// in this category, so someone with only a Therapist sees just that one section, not three
+// more empty ones underneath it.
+function renderProfileProfessionalSection(containerId, roleCategory, assignedFieldName){
+  var area = document.getElementById(containerId);
+  area.innerHTML = '';
+  var booking = appState.expertBookings.find(function(b){
+    return b.role_category === roleCategory && (b.status === 'active' || b.status === 'pending' || (b.status === 'change_requested' && !b.change_approved));
+  });
+  if(!booking) return; // never requested in this category -- nothing to show, not even empty state
+
+  var label = roleCategory === 'General Physician' ? 'Doctor' : roleCategory;
+  area.innerHTML = '<p style="font-size:12px;font-weight:700;color:#9AABCE;margin:18px 0 8px;">'+label+'</p>';
+
+  if(booking.status === 'pending'){
+    area.innerHTML += '<p style="font-size:13px;color:#7B4F00;background:#FEF3D8;border-radius:10px;padding:11px;margin:0;">Your request has been sent — we\'ll confirm your match soon.</p>';
+    return;
+  }
+  if(booking.status === 'change_requested'){
+    area.innerHTML += '<p style="font-size:13px;color:#7B4F00;background:#FEF3D8;border-radius:10px;padding:11px;margin:0;">Change requested — we\'re reviewing it.</p>';
+    return;
+  }
+  if(booking.time_request_status === 'pending'){
+    var reqLabel = booking.requested_session_date ? new Date(booking.requested_session_date).toLocaleString('en-IN', {weekday:'long', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}) : '';
+    area.innerHTML += '<p style="font-size:13px;color:#7B4F00;background:#FEF3D8;border-radius:10px;padding:11px;margin:0;">You requested '+reqLabel+' with '+booking.expert_name+' — awaiting confirmation.</p>';
+    return;
+  }
+
+  var nameP = document.createElement('p');
+  nameP.style.cssText = 'font-size:14px;color:#2A2013;font-weight:700;margin:0 0 4px;';
+  nameP.textContent = booking.expert_name;
+  area.appendChild(nameP);
+
+  if(!booking.session_date){
+    var matchedP = document.createElement('p');
+    matchedP.style.cssText = 'font-size:12px;color:#3B8F63;margin:0 0 10px;';
+    matchedP.textContent = "You've been matched! Pick a time for your first session.";
+    area.appendChild(matchedP);
+    var pickBtn = document.createElement('button');
+    pickBtn.textContent = 'Pick a Time';
+    pickBtn.style.cssText = 'width:100%;padding:11px;border-radius:10px;border:none;background:#6690D6;color:#FFF8F0;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:8px;';
+    pickBtn.onclick = function(){
+      var m = TEAM_MEMBERS.find(function(tm){ return tm.name === booking.expert_name; });
+      if(m) pickSessionTimeForBooking(booking, m);
+    };
+    area.appendChild(pickBtn);
+  }
+
+  var changeBtn = document.createElement('button');
+  changeBtn.textContent = 'Change ' + label.toLowerCase();
+  changeBtn.style.cssText = 'width:100%;padding:11px;border-radius:10px;border:1px solid #C7D2E8;background:transparent;color:#5C6B94;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:8px;';
+  changeBtn.onclick = function(){ renderTeamList(); showOnly('panel-team'); };
+
+  var disconnectBtn = document.createElement('button');
+  disconnectBtn.textContent = 'Disconnect';
+  disconnectBtn.style.cssText = 'width:100%;padding:11px;border-radius:10px;border:1px solid #F0C7C7;background:transparent;color:#C77B7B;font-size:12px;font-weight:700;cursor:pointer;';
+  disconnectBtn.onclick = function(){
+    requestExpertChange({ roleCategory: roleCategory }, booking.expert_name);
+  };
+
+  area.appendChild(changeBtn);
+  area.appendChild(disconnectBtn);
+}
+
 function appendTherapistChangeDisconnectButtons(tArea){
   var changeBtn = document.createElement('button');
   changeBtn.textContent = 'Change therapist';
@@ -7224,6 +7340,12 @@ function renderProfile(){
     };
     tArea.appendChild(findBtn);
   }
+
+  // Real, new calls, Sept 16 2026, per direct, repeated instruction: the exact same real
+  // connection logic as Therapist above, now for every other real professional role too.
+  renderProfileProfessionalSection('profilePsychiatristArea', 'Psychiatrist', 'assigned_psychiatrist_user_id');
+  renderProfileProfessionalSection('profileDoctorArea', 'General Physician', 'assigned_doctor_user_id');
+  renderProfileProfessionalSection('profileCaregiverArea', 'Peer Caregiver', 'assigned_caregiver_user_id');
 
   var sArea = document.getElementById('profileSupportArea');
   sArea.innerHTML = '';
@@ -12999,6 +13121,69 @@ document.querySelectorAll('.therapist-appt-filter-btn').forEach(function(btn){
     renderTherapistAppointmentsList();
   };
 });
+
+// Real, new function, Sept 16 2026, per direct instruction: a complete, clean past+future
+// schedule for the professional themselves -- every real session, with every real client,
+// with the same real detail (red/green notes status, Gmeet link) the client's own Session Log
+// shows. Pulls session_history across every real booking under this therapist's real name,
+// not just the one combined "latest session" date the My Clients list shows per client.
+function openTherapistSchedule(){
+  showOnly('panel-therapist-schedule');
+  var wrap = document.getElementById('therapistScheduleList');
+  wrap.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">Loading...</p>';
+  Promise.all([
+    sb.from('expert_bookings').select('id,user_id,expert_name,role_category').eq('expert_name', appState.therapistExpertName),
+    sb.from('profiles').select('user_id,name')
+  ]).then(function(bookingResults){
+    var bookings = bookingResults[0].data || [];
+    var nameByUserId = {};
+    (bookingResults[1].data || []).forEach(function(p){ nameByUserId[p.user_id] = p.name; });
+    var bookingIds = bookings.map(function(b){ return b.id; });
+    if(bookingIds.length === 0){
+      wrap.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">No sessions with any client yet.</p>';
+      return;
+    }
+    var clientNameByBookingId = {};
+    bookings.forEach(function(b){ clientNameByBookingId[b.id] = nameByUserId[b.user_id] || 'Client'; });
+
+    sb.from('session_history').select('*').in('booking_id', bookingIds).order('session_date', {ascending:false}).then(function(historyResult){
+      var sessions = historyResult.data || [];
+      if(sessions.length === 0){
+        wrap.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">No sessions scheduled yet.</p>';
+        return;
+      }
+      var now = new Date();
+      var upcoming = sessions.filter(function(s){ return new Date(s.session_date) >= now; }).sort(function(a,b){ return new Date(a.session_date) - new Date(b.session_date); });
+      var past = sessions.filter(function(s){ return new Date(s.session_date) < now; });
+
+      var renderRow = function(s){
+        var isPast = new Date(s.session_date) < now;
+        var dateLabel = new Date(s.session_date).toLocaleDateString('en-IN', {day:'numeric', month:'short', year:'numeric'}) + ' · ' + new Date(s.session_date).toLocaleTimeString('en-IN', {hour:'numeric', minute:'2-digit'});
+        var notesColor = s.payment_locked ? '#3B8F63' : '#C77B7B';
+        var notesLabel = s.payment_locked ? 'Notes uploaded' : (isPast ? 'Notes not uploaded' : 'Upcoming');
+        return '<div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:14px;padding:14px;margin-bottom:10px;">'+
+          '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">'+
+            '<p style="font-size:13px;font-weight:700;color:#2A2013;margin:0;">'+(clientNameByBookingId[s.booking_id]||'Client').replace(/</g,'&lt;')+'</p>'+
+            (isPast ? '<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:'+notesColor+';"><span style="width:7px;height:7px;border-radius:50%;background:'+notesColor+';display:inline-block;"></span>'+notesLabel+'</span>' : '')+
+          '</div>'+
+          '<p style="font-size:12px;color:#6690D6;font-weight:600;margin:0 0 6px;">'+dateLabel+'</p>'+
+          (s.meet_link ? '<a href="'+s.meet_link+'" target="_blank" style="font-size:11px;color:#6690D6;font-weight:700;">Join with Google Meet</a>' : '')+
+        '</div>';
+      };
+
+      var html = '';
+      if(upcoming.length > 0){
+        html += '<p style="font-size:11px;font-weight:700;color:#9AABCE;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 8px;">Upcoming</p>' + upcoming.map(renderRow).join('');
+      }
+      if(past.length > 0){
+        html += '<p style="font-size:11px;font-weight:700;color:#9AABCE;text-transform:uppercase;letter-spacing:0.03em;margin:18px 0 8px;">Past</p>' + past.map(renderRow).join('');
+      }
+      wrap.innerHTML = html;
+    });
+  });
+}
+document.getElementById('therapistOpenScheduleBtn').onclick = openTherapistSchedule;
+document.getElementById('therapistScheduleBackBtn').onclick = function(){ showOnly('panel-therapist-dashboard'); };
 
 function renderTherapistClientsList(){
   var listEl = document.getElementById('therapistClientsList');

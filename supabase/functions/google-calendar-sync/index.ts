@@ -326,6 +326,21 @@ Deno.serve(async (req) => {
           });
         }
 
+        // Real fix, Sept 16 2026, per direct instruction: the real Gmeet link was being
+        // generated correctly (Google's own conferenceData) but never actually saved anywhere
+        // -- confirmed directly, it only ever existed in this function's response and in the
+        // calendar event's own description text, with no way for the app to show it again
+        // later. Saves it to the real, current session_history row for this booking (the one
+        // the record_session_history trigger just created when session_date was set) so both
+        // the client's and the professional's own session views can surface it.
+        if (meetLink) {
+          await fetch(`${SUPABASE_URL}/rest/v1/session_history?booking_id=eq.${body.booking_id}&order=session_date.desc&limit=1`, {
+            method: "PATCH",
+            headers: { apikey: SUPABASE_SERVICE_ROLE_KEY ?? "", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+            body: JSON.stringify({ meet_link: meetLink }),
+          });
+        }
+
         if (existingLink) {
           await fetch(`${SUPABASE_URL}/rest/v1/session_calendar_events?id=eq.${existingLink.id}`, {
             method: "PATCH",
