@@ -383,7 +383,25 @@ Deno.serve(async (req) => {
         }
       }
 
-      if (!isStaffCaller && !isRoomMemberNotifyingOwnRoom) {
+      // Real, new exception, Sept 16 2026, same real security philosophy as the chat_message
+      // one above: a client marking their own accepted homework done needs to notify the real
+      // therapist who assigned it -- verified narrowly and specifically (the task is genuinely
+      // theirs, genuinely done, genuinely homework, and the target genuinely resolves to the
+      // real therapist who assigned it), not just trusted because the caller claims it.
+      let isCompletingOwnHomework = false;
+      if (data && data.type === "homework_completed" && typeof data.task_id === "string" && userId) {
+        const { data: taskArr } = await restGet(
+          `tasks?id=eq.${data.task_id}&user_id=eq.${callerId}&done=eq.true&homework_accept_status=eq.accepted&assigned_by_therapist=not.is.null&select=assigned_by_therapist`
+        );
+        if (taskArr && taskArr.length > 0) {
+          const { data: therapistArr } = await restGet(
+            `profiles?is_therapist=eq.true&user_id=eq.${userId}&therapist_expert_name=eq.${encodeURIComponent(taskArr[0].assigned_by_therapist)}&select=user_id`
+          );
+          isCompletingOwnHomework = !!(therapistArr && therapistArr.length > 0);
+        }
+      }
+
+      if (!isStaffCaller && !isRoomMemberNotifyingOwnRoom && !isCompletingOwnHomework) {
         return new Response(
           JSON.stringify({ error: "Only admins/therapists, or members of the relevant chat room, can send to other users" }),
           { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }

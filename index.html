@@ -1071,8 +1071,9 @@
     <div id="therapistClientsList" style="margin-bottom:22px;"></div>
 
     <p style="font-size:12px;font-weight:700;color:#9AABCE;margin:0 0 10px;">Send Homework</p>
-    <p style="font-size:11px;color:#B0AA98;margin:0 0 10px;">It'll show up automatically in their Tasks, marked as coming from you.</p>
+    <p style="font-size:11px;color:#B0AA98;margin:0 0 10px;">They'll see it and can accept it into their Tasks, marked as coming from you.</p>
     <select id="homeworkClientSelect" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:8px;"></select>
+    <select id="homeworkSessionSelect" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:8px;"></select>
     <input type="text" id="homeworkTitleInput" placeholder="What would you like them to try?" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:8px;box-sizing:border-box;">
     <input type="date" id="homeworkDeadlineInput" style="width:100%;padding:10px;border-radius:10px;border:1px solid #EEE0C4;font-size:12px;font-family:inherit;margin-bottom:8px;">
     <button id="homeworkSendBtn" style="width:100%;padding:12px;border-radius:10px;border:none;background:#6690D6;color:#fff;font-size:12.5px;font-weight:700;cursor:pointer;margin-bottom:22px;">Send Homework</button>
@@ -2198,7 +2199,8 @@
     <div id="therapistInfoModalContent" style="text-align:center;">
       <p style="font-size:13px;color:#9AABCE;">Loading…</p>
     </div>
-    <button id="therapistInfoCloseBtn" style="width:100%;background:#6690D6;border:none;border-radius:14px;padding:13px;color:#FFF8F0;font-weight:700;font-size:13.5px;cursor:pointer;margin-top:16px;">Close</button>
+    <button id="therapistInfoSessionLogBtn" style="width:100%;background:transparent;border:1px solid #C7D2E8;border-radius:14px;padding:12px;color:#5C6B94;font-weight:700;font-size:13px;cursor:pointer;margin-top:16px;">View Session Log</button>
+    <button id="therapistInfoCloseBtn" style="width:100%;background:#6690D6;border:none;border-radius:14px;padding:13px;color:#FFF8F0;font-weight:700;font-size:13.5px;cursor:pointer;margin-top:10px;">Close</button>
   </div>
 
   <div id="assistantModal" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;height:78vh;background:#FFF8F0;border-radius:24px 24px 0 0;box-sizing:border-box;z-index:65;box-shadow:0 -10px 30px rgba(0,0,0,0.15);flex-direction:column;">
@@ -3761,11 +3763,13 @@ function openMyBookings(){
   // could see "Confirmed" or "Ended" but never when their sessions actually took place.
   Promise.all([
     sb.from('expert_bookings').select('*').eq('user_id', currentUser.id).order('session_date', {ascending:false, nullsFirst:false}),
-    // Homework isn't linked to one specific session (no session_id on tasks), so it's grouped
-    // by which therapist assigned it and shown under that therapist's session card -- the real
-    // ask was seeing it in context of the relevant session, not just a generic badge buried in
-    // the main task list elsewhere.
-    sb.from('tasks').select('id,title,done,deadline,assigned_by_therapist').eq('user_id', currentUser.id).not('assigned_by_therapist', 'is', null).order('created_at', {ascending:false})
+    // Real fix, Sept 16 2026, per direct instruction: homework is now per-session
+    // (session_booking_id, added alongside the new session_history table -- see its own real
+    // comment for why a dedicated history table was needed), and needs a real client accept
+    // step before it's a genuine task (homework_accept_status) -- both now selected so this
+    // view can show homework grouped by its real session where linked, and offer Accept
+    // directly here for anything still pending.
+    sb.from('tasks').select('id,title,done,deadline,assigned_by_therapist,session_booking_id,homework_accept_status').eq('user_id', currentUser.id).not('assigned_by_therapist', 'is', null).order('created_at', {ascending:false})
   ]).then(function(results){
     var result = results[0];
     if(result.error){ wrap.innerHTML = '<p style="text-align:center;color:#C77B7B;font-size:12.5px;">Could not load your sessions.</p>'; return; }
@@ -3776,7 +3780,11 @@ function openMyBookings(){
       homeworkByTherapist[t.assigned_by_therapist].push(t);
     });
     if(bookings.length === 0){
-      wrap.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">No sessions booked yet.</p>';
+      // Real fix, Sept 16 2026, per direct instruction: an empty session history should
+      // actively encourage booking a first session, not just state the absence of one.
+      wrap.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;margin-bottom:14px;">No sessions booked yet — once you connect with someone, your session history and any homework they send will show up here.</p>'+
+        '<button id="myBookingsEmptyBookBtn" style="display:block;width:100%;padding:13px;border-radius:12px;border:1.5px solid #6690D6;background:transparent;color:#6690D6;font-size:13px;font-weight:700;cursor:pointer;">Book a Session</button>';
+      document.getElementById('myBookingsEmptyBookBtn').onclick = function(){ renderTeamList(); showOnly('panel-team'); };
       return;
     }
     wrap.innerHTML = bookings.map(function(b){
@@ -3797,6 +3805,15 @@ function openMyBookings(){
         '<div style="background:#F9F6EE;border-radius:10px;padding:10px 12px;margin-top:10px;">'+
           '<p style="font-size:10px;font-weight:700;color:#9A7B3E;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 6px;">Homework from '+b.expert_name+'</p>'+
           homeworkList.map(function(t){
+            // Real, new branch, Sept 16 2026, per direct instruction: homework needs a real
+            // accept step before it's a genuine task -- pending items get their own real
+            // row with an Accept button here, instead of appearing as an already-active task.
+            if(t.homework_accept_status === 'pending'){
+              return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px;">'+
+                '<p style="font-size:11.5px;color:#2A2013;margin:0;flex:1;">'+t.title.replace(/</g,'&lt;')+(t.deadline ? ' <span style="color:#B0AA98;">— due '+new Date(t.deadline).toLocaleDateString('en-IN',{day:'numeric',month:'short'})+'</span>' : '')+'</p>'+
+                '<button class="accept-homework-btn" data-id="'+t.id+'" style="flex-shrink:0;padding:6px 12px;border-radius:8px;border:none;background:#6690D6;color:#FFF8F0;font-size:10.5px;font-weight:700;cursor:pointer;">Accept</button>'+
+              '</div>';
+            }
             return '<p style="font-size:11.5px;color:#2A2013;margin:0 0 6px;">'+(t.done ? '✓ ' : '• ')+t.title.replace(/</g,'&lt;')+(t.deadline ? ' <span style="color:#B0AA98;">— due '+new Date(t.deadline).toLocaleDateString('en-IN',{day:'numeric',month:'short'})+'</span>' : '')+'</p>';
           }).join('')+
         '</div>';
@@ -3820,6 +3837,22 @@ function openMyBookings(){
         homeworkHtml+
       '</div>';
     }).join('');
+    // Real, new wiring, Sept 16 2026: accepting homework here is what actually creates the
+    // real, active task -- flips homework_accept_status to 'accepted' on the same row (no new
+    // row needed, the task already exists, just wasn't visible in the normal tasklist yet
+    // because of that pending status -- see getTasks' own real filtering for that other half).
+    document.querySelectorAll('.accept-homework-btn').forEach(function(btn){
+      btn.onclick = function(){
+        var taskId = btn.dataset.id;
+        btn.disabled = true; btn.textContent = 'Accepting…';
+        sb.from('tasks').update({ homework_accept_status: 'accepted' }).eq('id', taskId).then(function(result){
+          if(result.error){ btn.disabled = false; btn.textContent = 'Accept'; showToast('Could not accept — please try again.'); return; }
+          showToast('Added to your tasks.');
+          loadUserDataFromSupabase(); // real refresh so both this view and the tasklist itself reflect it
+          openMyBookings();
+        });
+      };
+    });
     document.querySelectorAll('.pay-cancellation-charge-btn').forEach(function(btn){
       btn.onclick = function(){
         var bookingId = btn.dataset.id;
@@ -4212,6 +4245,13 @@ function loadUserDataFromSupabase(){
     });
     appState.tasksByDate = {};
     (tasksRes.data || []).forEach(function(t){
+      // Real fix, Sept 16 2026, per direct instruction: homework needs a real client accept
+      // step before it's a genuine task -- a row with homework_accept_status still 'pending'
+      // hasn't been accepted yet, so it stays out of the normal tasklist entirely; it's shown
+      // instead (with its own real Accept button) inside My Sessions & Cancellations, grouped
+      // under the session/therapist it came from. Once accepted, this same row (no new row
+      // created) flows through here normally like any other task.
+      if(t.homework_accept_status === 'pending') return;
       if(!appState.tasksByDate[t.date_key]) appState.tasksByDate[t.date_key] = [];
       appState.tasksByDate[t.date_key].push({
         id: t.id, title: t.title, done: t.done, priority: t.priority,
@@ -8596,6 +8636,24 @@ function toggleTaskCal(taskId){
   if(String(taskId).indexOf('temp_') !== 0){
     syncToSupabase('tasks', { id: taskId, done: task.done });
   }
+  // Real, new notification, Sept 16 2026, per direct instruction: "upon completion, the
+  // therapist will be notified." Only real homework (assignedByTherapist set -- and being in
+  // this list at all already means it was accepted, since pending ones are filtered out at
+  // load) fires this, only on the real false->true transition, never on undo/uncheck.
+  if(task.assignedByTherapist && task.done && !wasDone){
+    sb.from('profiles').select('user_id').eq('is_therapist', true).eq('therapist_expert_name', task.assignedByTherapist).maybeSingle().then(function(profResult){
+      if(profResult.data && profResult.data.user_id){
+        sb.functions.invoke('send-push-notification', {
+          body: {
+            userId: profResult.data.user_id,
+            title: 'Homework completed',
+            body: (appState.name || 'Your client') + ' marked "' + task.title + '" as done.',
+            data: { type: 'homework_completed', task_id: taskId }
+          }
+        }).catch(function(){}); // best-effort, matches the pattern used elsewhere for notifications
+      }
+    });
+  }
   cascadedSubtaskIds.forEach(function(subId){
     if(String(subId).indexOf('temp_') !== 0){
       syncToSupabase('subtasks', { id: subId, done: task.done });
@@ -10075,6 +10133,18 @@ document.getElementById('therapistInfoCloseBtn').onclick = function(){
   document.getElementById('therapistInfoModal').style.display = 'none';
 };
 document.getElementById('therapistInfoModalBackdrop').onclick = document.getElementById('therapistInfoCloseBtn').onclick;
+// Real, new wiring, Sept 16 2026: this is the real, discoverable entry point into the
+// "My Sessions & Cancellations" panel that has existed in the codebase this whole time but had
+// no button anywhere reaching it except as an internal post-payment refresh -- confirmed
+// directly, zero real call sites besides that one. Closes this modal first so the person isn't
+// looking at two overlapping surfaces at once.
+document.getElementById('therapistInfoSessionLogBtn').onclick = function(){
+  document.getElementById('therapistInfoModalBackdrop').style.display = 'none';
+  document.getElementById('therapistInfoModal').style.display = 'none';
+  document.getElementById('assistantModalBackdrop').style.display = 'none';
+  document.getElementById('assistantModal').style.display = 'none';
+  openMyBookings();
+};
 
 async function openChatRoomInfo(){
   showOnly('panel-chat-room-info');
@@ -13216,11 +13286,36 @@ function populateHomeworkClientSelect(){
     sel.innerHTML = uniqueClientIds.map(function(uid){
       return '<option value="'+uid+'">'+(nameByUserId[uid] || 'Client')+'</option>';
     }).join('');
+    populateHomeworkSessionSelect();
   });
 }
 
+// Real, new function, Sept 16 2026: homework is now per-session, per direct instruction --
+// populates the real sessions this specific client has actually had with this therapist, from
+// the new session_history table (the real, permanent record; expert_bookings.session_date
+// itself only ever holds the single most recent one). Always offers a "General (not tied to a
+// specific session)" option too, since not every real note needs a session attached, and legacy
+// homework sent before this feature existed has no session link either.
+function populateHomeworkSessionSelect(){
+  var sessSel = document.getElementById('homeworkSessionSelect');
+  var clientId = document.getElementById('homeworkClientSelect').value;
+  if(!clientId){ sessSel.innerHTML = '<option value="">General (no specific session)</option>'; return; }
+  sessSel.innerHTML = '<option value="">Loading sessions...</option>';
+  sb.from('session_history').select('id, session_date').eq('user_id', clientId).eq('expert_name', appState.therapistExpertName).order('session_date', {ascending:false}).then(function(result){
+    var sessions = (result.data || []);
+    var options = '<option value="">General (no specific session)</option>' +
+      sessions.map(function(s){
+        var label = new Date(s.session_date).toLocaleString('en-IN', {weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'});
+        return '<option value="'+s.id+'">'+label+'</option>';
+      }).join('');
+    sessSel.innerHTML = options;
+  });
+}
+document.getElementById('homeworkClientSelect').onchange = populateHomeworkSessionSelect;
+
 document.getElementById('homeworkSendBtn').onclick = function(){
   var clientId = document.getElementById('homeworkClientSelect').value;
+  var sessionHistoryId = document.getElementById('homeworkSessionSelect').value;
   var title = document.getElementById('homeworkTitleInput').value.trim();
   var deadlineInput = document.getElementById('homeworkDeadlineInput').value;
 
@@ -13237,23 +13332,39 @@ document.getElementById('homeworkSendBtn').onclick = function(){
   var btn = document.getElementById('homeworkSendBtn');
   btn.textContent = 'Sending...'; btn.disabled = true;
 
-  sb.from('tasks').insert({
-    user_id: clientId,
-    date_key: dateKey,
-    title: title,
-    done: false,
-    deadline: deadlineInput ? new Date(deadlineInput).toISOString() : null,
-    assigned_by_therapist: appState.therapistExpertName
-  }).then(function(result){
-    btn.textContent = 'Send Homework'; btn.disabled = false;
-    if(result.error){
-      showToast('Could not send — please try again.');
-      return;
-    }
-    document.getElementById('homeworkTitleInput').value = '';
-    document.getElementById('homeworkDeadlineInput').value = '';
-    showToast('Sent — it\'ll appear in their tasks automatically.');
-  });
+  // Real, new field, Sept 16 2026: session_booking_id links this to the real session it was
+  // assigned in (session_history.booking_id, not session_history.id itself -- the real,
+  // permanent expert_bookings row that session actually belongs to). homework_accept_status
+  // starts 'pending' now, per direct instruction -- the client has to actually accept it
+  // before it becomes a real, active task in their list, rather than appearing there directly.
+  var sendHomework = function(bookingId){
+    sb.from('tasks').insert({
+      user_id: clientId,
+      date_key: dateKey,
+      title: title,
+      done: false,
+      deadline: deadlineInput ? new Date(deadlineInput).toISOString() : null,
+      assigned_by_therapist: appState.therapistExpertName,
+      session_booking_id: bookingId || null,
+      homework_accept_status: 'pending'
+    }).then(function(result){
+      btn.textContent = 'Send Homework'; btn.disabled = false;
+      if(result.error){
+        showToast('Could not send — please try again.');
+        return;
+      }
+      document.getElementById('homeworkTitleInput').value = '';
+      document.getElementById('homeworkDeadlineInput').value = '';
+      showToast('Sent — they\'ll see it and can accept it into their tasks.');
+    });
+  };
+  if(sessionHistoryId){
+    sb.from('session_history').select('booking_id').eq('id', sessionHistoryId).single().then(function(shResult){
+      sendHomework(shResult.data ? shResult.data.booking_id : null);
+    });
+  } else {
+    sendHomework(null);
+  }
 };
 document.getElementById('therapistDashboardBtn').onclick = openTherapistDashboard;
 document.getElementById('therapistDashboardBackBtn').onclick = function(){ showOnly('panel-profile'); };

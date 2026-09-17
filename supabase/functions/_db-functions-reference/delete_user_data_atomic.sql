@@ -5,10 +5,24 @@ CREATE OR REPLACE FUNCTION public.delete_user_data_atomic(target_user_id uuid)
  SET search_path TO 'public'
 AS $function$
 begin
+  -- Real, new fix, Sept 16 2026: if this account is a therapist, any real client who is
+  -- currently connected to them (assigned_therapist_user_id) would otherwise block this
+  -- deletion with a foreign-key violation -- confirmed directly. Clearing it here is correct
+  -- and safe: it's the same real event the auto-assignment trigger already treats as "this
+  -- connection is over" (a cancelled/ended booking), just reached from the therapist's side
+  -- instead of the booking's.
+  update profiles set assigned_therapist_user_id = null where assigned_therapist_user_id = target_user_id;
   delete from notification_recipients where user_id = target_user_id;
   delete from subtasks where user_id = target_user_id;
   delete from tasks where user_id = target_user_id;
   delete from entries where user_id = target_user_id;
+  -- Real, new fix, Sept 16 2026: session_history (added the same day, for the new Session Log
+  -- feature) references expert_bookings by booking_id -- confirmed directly, deleting a real
+  -- account failed here with a foreign-key violation before this was added. Deletes the
+  -- client's own history rows first; deletes nothing for a therapist whose old bookings get
+  -- referenced (session_history.user_id is always the client, never the therapist, so this is
+  -- correctly scoped and never removes another person's real record of their own sessions).
+  delete from session_history where user_id = target_user_id;
   delete from expert_bookings where user_id = target_user_id;
   delete from test_results where user_id = target_user_id;
   delete from worksheet_responses where user_id = target_user_id;
