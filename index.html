@@ -3467,7 +3467,13 @@ function handleNotificationTap(notifData){
   } else if(type === 'journal_reminder'){
     renderHistory(); showOnly('panel-history'); setActiveNav('navJournal');
   } else if(type === 'new_booking_request' && appState.isAdmin){
+    // Real, direct-report fix, Sept 17 2026: openAdminDashboard() always lands on Overview --
+    // confirmed directly, this notification correctly opened the Admin Panel but never actually
+    // showed the request itself, just general stats, leaving the real, actionable request
+    // exactly as hard to find as if the notification hadn't linked anywhere at all. Requests &
+    // Bookings is where a pending request actually lives and can be assigned.
     openAdminDashboard();
+    switchAdminDashTab('requests');
   } else if((type === 'therapist_assignment' || type === 'session_confirmed' || type === 'session_time_proposed') && appState.userHasTherapist){
     // Client-facing booking-lifecycle notifications -- land on their Profile, where the
     // Therapist card shows exactly what state they're in (pick a time / pay now / confirmed).
