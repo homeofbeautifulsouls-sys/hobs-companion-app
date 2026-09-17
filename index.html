@@ -10935,6 +10935,20 @@ function showSlotPicker(m, onSlotChosen, onNoSlots){
 // possibly to someone else better suited) -- see renderAdminPendingRequests(). No slot-picking or
 // payment happens at this stage; that comes later via pickSessionTimeForBooking, once assigned.
 function bookExpert(m){
+  // Urgent, direct-report fix, Sept 17 2026: nothing here checked for an existing real request
+  // in this same role category before creating a new one -- confirmed directly, two rapid taps
+  // (or the same role requested twice at different times) created two separate real, ongoing
+  // rows for the exact same person and category, which is exactly what a new real database
+  // constraint now also blocks at the data layer as a second, independent safeguard. This is
+  // the real, honest user-facing side of that fix: catches the common case before ever trying,
+  // with a clear message instead of a silent duplicate or a raw error.
+  var existing = getActiveBookingForCategory(m.roleCategory);
+  if(existing){
+    showToast(existing.status === 'pending'
+      ? "You already have a pending request for this — we'll be in touch soon."
+      : "You're already connected for this category.");
+    return;
+  }
   showPolicyModal(function(){
     var newBooking = { id: 'temp_' + uidGen(), expert_name: m.name, role_category: m.roleCategory, status: 'pending', cancellation_count: 0, payment_confirmed: false, session_date: null };
     appState.expertBookings.push(newBooking);
@@ -10943,7 +10957,17 @@ function bookExpert(m){
     sb.from('expert_bookings').insert({
       user_id: currentUser.id, expert_name: m.name, role_category: m.roleCategory, status: 'pending', cancellation_count: 0, payment_confirmed: false
     }).select().single().then(function(result){
-      if(!result.error) newBooking.id = result.data.id;
+      if(result.error){
+        // Real safeguard actually firing: the new database constraint rejected a genuine race
+        // (two near-simultaneous requests slipping past the check above). Removes the local,
+        // optimistic duplicate and tells the person honestly, rather than leaving a request on
+        // screen that was never actually saved.
+        appState.expertBookings = appState.expertBookings.filter(function(b){ return b.id !== newBooking.id; });
+        renderTeamList();
+        showToast("You already have a request in for this — we'll be in touch soon.");
+        return;
+      }
+      newBooking.id = result.data.id;
     });
     showToast("Request sent — we'll match you with the right person and let you know.");
     sb.functions.invoke('send-push-notification', {
