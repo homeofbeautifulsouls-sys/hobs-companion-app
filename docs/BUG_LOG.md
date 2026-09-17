@@ -1491,10 +1491,20 @@ confirmed as a real, plausible explanation for "the journal just closes on its o
 that cycle entirely if either is true, letting the next check (still on its own cooldown) retry
 once the person is no longer in either state.
 
-### 75. History loading silently failed on a real, reproducible app-launch race condition
-`currentUser` can genuinely be `null` for a brief window during launch; an earlier guard against
-this converted what would have been a crash into a silent skip, so chat history simply never
-loaded, with no error and no retry.
+### 75. A real crash, then the fix for it silently hid a different real bug -- correcting and completing the earlier, thinner version of this entry
+The full, real sequence, sourced from the actual transcript rather than a one-line summary.
+**First, a real, confirmed crash**, found in real production error logs, not guessed at:
+`switchAssistantTab`'s real-history loading crashed with "Cannot read properties of null (reading
+id)" when `currentUser` was still `null` at the exact moment the auto-open flow fires right after
+app launch -- a genuine timing/race condition a fast local test environment never exposed. Fixed
+with a real null guard, verified by directly reproducing the exact scenario
+(`currentUser = null`, then calling `switchAssistantTab`) -- confirmed no crash, zero page errors.
+**Then, a real, separate problem that guard itself introduced**: converting the crash into a
+silent skip meant chat history simply never loaded on that exact race, with no error and no retry
+-- reported as "my conversations are gone every update." **The most important part, confirmed
+directly and worth stating plainly**: no real data was ever lost -- checked the database directly,
+all real messages, some going back days, were completely intact the whole time. This was a real
+display bug, not data loss.
 **Real fix**: a real retry loop (`tryLoadRealBobHistory`), checking every 300ms for up to 3
 seconds, rather than a single check-and-give-up. Verified by directly reproducing the race
 condition, not just reasoning about it.
@@ -1534,6 +1544,20 @@ in-conversation plus cross-session history) was created, and the backend code to
 written, but directly, honestly flagged mid-session as possibly never actually deployed or tested
 before the conversation moved on to a different feature -- confirmed as a real gap needing closure
 rather than assumed complete.
+
+### (undated addendum) Two further real bugs from the second, later Sept 16 session ("Bob
+intelligence build"), also never logged at the time, found the same way -- by actually reading the
+real transcript rather than trusting a summary
+**A literal "name" appeared in a real reply, as a placeholder rather than an actual instruction
+being followed**: a new addressing instruction told the model to "use 'name' specifically," which
+was genuinely ambiguous wording for a real test account that had no name set -- the model took it
+literally rather than as a placeholder token. Found immediately on a real test, not assumed safe.
+Fixed with more precise instruction wording.
+**A second, real, distinct hallucination** (separate from #76's "Meera" recall bug, from the
+earlier session): Bob referenced a "note" that never existed anywhere in the real conversation.
+Confirmed directly against the actual conversation history -- genuinely fabricated, not a missed
+real detail. Verified the existing anti-fabrication rule now correctly handles this exact pattern
+on a fresh, real retest.
 
 ### 77. Direct chat had apparently never actually worked for a real, non-admin client -- a genuine bootstrap problem in the RLS design
 Building the new Therapist chat tab surfaced this: `startOrOpenDirectChat`'s original
