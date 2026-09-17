@@ -1750,6 +1750,38 @@ existed. Each had its own copy of the connected-professional card logic.
 **Real fix**: added the same real "View Session Log" button to both remaining locations, reusing
 the same real entry point (`openMyBookings`) everywhere. Verified directly in both.
 
+### 96. Three real bugs found by actually running the complete real professional-connection chain end to end, rather than trusting the pieces built separately
+Real, deliberate exercise: admin assigns a client -> professional sets real availability ->
+client picks a real slot -> professional accepts -> payment -> professional locks real notes ->
+Session Log correctly shows green -- run as one continuous, real sequence with real test
+accounts, not verified piece by piece.
+**The therapist-facing "Save Notes & Lock Payment" action never actually wrote to
+`session_history`**, only to `expert_bookings` (the single, overwritten row) -- despite
+`session_history` existing specifically to solve this exact overwrite problem for this exact
+kind of data (see #86). Confirmed directly: real notes saved through the real UI never showed up
+in the Session Log or the professional's own schedule view. Fixed to also update the correct,
+specific `session_history` row, matched by `booking_id` and the booking's current
+`session_date` (one relationship can hold several real sessions, and PostgREST doesn't apply
+`order`/`limit` to an `UPDATE`, so the right row has to be found first, not just assumed to be
+the latest).
+**That fix then silently did nothing on the first real retry** -- traced to a second, real gap:
+`session_history` had `SELECT` policies for both a client and their own therapist, but no
+`UPDATE` policy for anyone at all. The earlier Meet-link save (#90) worked only because it runs
+through a service-role Edge Function, bypassing RLS entirely; this real, client-side action does
+not. Added the real, correct `UPDATE` policy, scoped to a therapist's own real clients.
+**A third real gap, found while cleaning up the real test accounts afterward**:
+`expert_availability_slots.booked_by` references `auth.users` directly and was never handled in
+`delete_user_data_atomic`, so deleting a real account that had ever booked a real slot failed
+with a foreign-key violation. Fixed by clearing the reference (not deleting the slot, which is
+the professional's own real record of what was offered). Found and fixed two further things
+while properly rebuilding this same function: a professional's own posted slots were never
+cleaned up on their own deletion, and the three newer role-assignment columns
+(Psychiatrist/Doctor/Caregiver, added when #81's auto-assignment work was generalized beyond
+Therapist in #91) had never been added alongside the existing Therapist fix from #83.
+All three verified directly: the full real chain re-run end to end after each fix, confirmed
+correct at every step, including both the client's Session Log and the professional's own
+schedule view genuinely showing the real, saved notes with the correct green status.
+
 ---
 
 ## Standing lessons (do not re-learn these)

@@ -68,14 +68,20 @@ correctly wired everywhere instead of an old, bypassing shortcut.
       client, showing the real client's name instead of a generic label) -- discussed and
       understood, not built. The underlying `chat_rooms` type (`coordination`) already exists in
       the schema with one real row, but no real UI surfaces it yet.
-- [ ] **The professional's own calendar/availability management** -- Akash's described real flow
-      ("they update their calendar and their availability") isn't confirmed to have a clean,
-      dedicated UI for this specifically; needs a real look before assuming it's covered by the
-      existing Google Calendar sync alone.
-- [ ] **A real, live end-to-end test of the whole chain** -- admin assigns -> client books and
-      pays -> professional confirms -> both get a working Meet link -> professional uploads real
-      notes -> Session Log correctly shows green -- built and unit-tested in pieces, never run as
-      one real, continuous flow start to finish.
+- [x] ~~The professional's own calendar/availability management~~ -- corrected: this was a
+      premature assessment. Checked directly and it already exists as a complete, well-built real
+      feature (a "My Client Schedule" panel with Calendar/Appointments/Availability tabs,
+      including recurring/repeat slot support), used for real as part of the chain test below.
+- [x] **A real, live end-to-end test of the whole chain** -- run for real Sept 17, 2026: admin
+      assigns -> professional sets real availability -> client picks a real slot -> professional
+      accepts -> payment -> professional locks real notes -> Session Log correctly shows green,
+      all through real UI interaction with real test accounts, not verified piece by piece. Found
+      and fixed three further real bugs in the process (see BUG_LOG #96) -- the notes/payment-lock
+      action never actually wrote to `session_history`, a missing RLS `UPDATE` policy that made
+      the first fix silently do nothing, and a real account-deletion gap
+      (`expert_availability_slots.booked_by`). The one piece not covered by this real test: actual
+      Google Meet link generation, which needs a genuinely OAuth-connected account and so can only
+      be verified on your own real, already-connected account, not a test one.
 - [ ] **The still-unexplained "only connected professionals visible" report** -- investigated
       thoroughly (RLS, the fetch query, the language filter), no code-level cause found; saved in
       memory per Akash's own request, not pursued further yet.
