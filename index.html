@@ -12381,9 +12381,10 @@ function openAdminDashboard(){
   renderAdminExpertsManageList();
   Promise.all([
     sb.from('expert_bookings').select('*').order('created_at', {ascending:false}),
-    sb.from('profiles').select('user_id,name,email,phone_number')
+    sb.from('profiles').select('user_id,name,email,phone_number'),
+    sb.from('experts').select('name,role_category')
   ]).then(function(results){
-    var bookingsRes = results[0], profilesRes = results[1];
+    var bookingsRes = results[0], profilesRes = results[1], expertsRes = results[2];
     if(bookingsRes.error){
       document.getElementById('adminBookingsList').innerHTML = '<p style="text-align:center;color:#C77B7B;font-size:12.5px;">Could not load bookings: ' + bookingsRes.error.message + '</p>';
       return;
@@ -12393,6 +12394,11 @@ function openAdminDashboard(){
     var nameByUserId = {};
     (profilesRes.data || []).forEach(function(p){ nameByUserId[p.user_id] = p.name; });
     var bookings = bookingsRes.data || [];
+    var changeExpertsByCategory = {};
+    (expertsRes.data || []).forEach(function(e){
+      if(!changeExpertsByCategory[e.role_category]) changeExpertsByCategory[e.role_category] = [];
+      changeExpertsByCategory[e.role_category].push(e.name);
+    });
 
     var pendingChanges = bookings.filter(function(b){ return b.status === 'change_requested' && !b.change_approved; });
     var changeSection = document.getElementById('adminChangeRequestsSection');
@@ -12402,6 +12408,20 @@ function openAdminDashboard(){
       changeSection.style.display = 'block';
       document.getElementById('adminChangeRequestsList').innerHTML = pendingChanges.map(function(b){
         var prof = profileByUserId[b.user_id] || {};
+        // Real, genuine gap found and fixed here, Sept 17 2026, by direct report: "Approve
+        // Change" only ever cancelled the current connection and left the category open --
+        // correct as far as it went, but it left the client on "Not connected yet, Find a
+        // therapist" and required them to redo the whole intake flow themselves, with no direct
+        // path for admin to actually reassign someone right here. Confirmed as the real gap
+        // behind "I approved it, didn't work at all" -- the approval itself worked exactly as
+        // built, it just never did the one thing a change request is actually for. Now offers a
+        // real dropdown of every other real professional in the same real category (reusing the
+        // exact same options + assignPendingBooking mechanism the Pending Session Requests panel
+        // already uses successfully), so approving a change can directly reassign in one step
+        // instead of two.
+        var changeOptions = (changeExpertsByCategory[b.role_category] || []).map(function(name){
+          return '<option value="'+name+'"'+(name === b.expert_name ? ' disabled' : '')+'>'+name+(name === b.expert_name ? ' (current)' : '')+'</option>';
+        }).join('');
         return '<div style="background:#FEF3D8;border:1.5px solid #F0D48A;border-radius:14px;padding:14px;margin-bottom:10px;">'+
           '<p style="font-size:13.5px;font-weight:800;color:#2A2013;margin:0 0 4px;">'+(prof.name||'Unknown client')+'</p>'+
           '<p style="font-size:11px;color:#5C6B94;margin:0 0 2px;">✉ '+(prof.email||'—')+'</p>'+
@@ -12411,16 +12431,27 @@ function openAdminDashboard(){
             '<p style="font-size:9.5px;font-weight:700;color:#9AABCE;text-transform:uppercase;margin:0 0 4px;">Reason given</p>'+
             '<p style="font-size:12px;color:#2A2013;margin:0;">'+(b.change_reason||'No reason given')+'</p>'+
           '</div>'+
+          '<div style="display:flex;gap:6px;margin-bottom:8px;">'+
+            '<select class="change-reassign-select" data-id="'+b.id+'" style="flex:1;padding:9px;border-radius:10px;border:1px solid #EEE0C4;font-size:11.5px;font-family:inherit;">'+changeOptions+'</select>'+
+            '<button class="change-reassign-btn" data-id="'+b.id+'" data-uid="'+b.user_id+'" data-category="'+b.role_category+'" style="font-size:11px;font-weight:700;color:#fff;background:#3B8F63;border:none;border-radius:10px;padding:9px 14px;cursor:pointer;white-space:nowrap;">Reassign</button>'+
+          '</div>'+
           '<div style="display:flex;gap:8px;">'+
-            '<button class="admin-approve-change-btn" data-id="'+b.id+'" style="flex:1;padding:10px;border-radius:10px;border:none;background:#7B4F00;color:#fff;font-size:12px;font-weight:700;cursor:pointer;">Approve Change</button>'+
-            '<button class="admin-reject-change-btn" data-id="'+b.id+'" style="flex:1;padding:10px;border-radius:10px;border:1px solid #C77B7B;background:transparent;color:#C77B7B;font-size:12px;font-weight:700;cursor:pointer;">Reject</button>'+
+            '<button class="admin-approve-change-btn" data-id="'+b.id+'" style="flex:1;padding:9px;border-radius:10px;border:1px solid #C7D2E8;background:transparent;color:#5C6B94;font-size:11px;font-weight:700;cursor:pointer;">End connection (no replacement yet)</button>'+
+            '<button class="admin-reject-change-btn" data-id="'+b.id+'" style="flex:1;padding:9px;border-radius:10px;border:1px solid #C77B7B;background:transparent;color:#C77B7B;font-size:11px;font-weight:700;cursor:pointer;">Reject</button>'+
           '</div>'+
         '</div>';
       }).join('');
+      document.querySelectorAll('.change-reassign-btn').forEach(function(btn){
+        btn.onclick = function(){
+          var select = document.querySelector('.change-reassign-select[data-id="'+btn.dataset.id+'"]');
+          if(!select.value){ showToast('Pick a replacement first.'); return; }
+          assignPendingBooking(btn.dataset.id, select.value, btn.dataset.uid, btn.dataset.category);
+        };
+      });
       document.querySelectorAll('.admin-approve-change-btn').forEach(function(btn){
         btn.onclick = function(){
           sb.from('expert_bookings').update({ status: 'cancelled', change_approved: true }).eq('id', btn.dataset.id).then(function(result){
-            if(!result.error){ showToast('Change approved — this category is now open for a new booking.'); syncSessionToCalendar(btn.dataset.id); openAdminDashboard(); }
+            if(!result.error){ showToast('Connection ended — this category is now open, and the client can request someone new.'); syncSessionToCalendar(btn.dataset.id); openAdminDashboard(); }
           });
         };
       });
