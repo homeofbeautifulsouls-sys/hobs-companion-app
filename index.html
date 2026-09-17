@@ -4219,27 +4219,15 @@ function loadUserDataFromSupabase(){
     // could drift out of sync with the real booking data -- exactly what happened when the new
     // request/assign flow was built without anything updating this old flag. Now it's derived
     // fresh from the actual expert_bookings row every time, so there's only one source of truth.
-    var therapistBooking = appState.expertBookings.find(function(b){
-      return b.role_category === 'Therapist' && (b.status === 'active' || b.status === 'pending');
-    });
-    appState.userHasTherapist = !!(therapistBooking && therapistBooking.status === 'active');
-    appState.therapistName = therapistBooking ? therapistBooking.expert_name : '';
-    appState.therapistBookingPending = !!(therapistBooking && therapistBooking.status === 'pending');
-    appState.therapistBookingTimeRequested = !!(therapistBooking && therapistBooking.status === 'active' && therapistBooking.time_request_status === 'pending');
-    appState.therapistRequestedSessionDate = therapistBooking ? therapistBooking.requested_session_date : null;
-    appState.therapistBookingNeedsTime = !!(therapistBooking && therapistBooking.status === 'active' && !therapistBooking.session_date && therapistBooking.time_request_status !== 'pending');
-
-    // Real gap found and fixed: the therapy consent gate below only ever checked
-    // userHasTherapist, which is specifically scoped to an active Therapist-category booking --
-    // a client connected only to a Psychiatrist, General Physician, or Peer Caregiver (no
-    // Therapist at all) would never trigger it, despite genuinely being a client receiving
-    // clinical services. Kept userHasTherapist itself untouched everywhere else it's used (home
-    // greeting, notification routing, demo-mode checks all specifically mean "has a Therapist"),
-    // and added this separate flag scoped to what the consent gate actually needs to check --
-    // any active connection across all clinical role categories.
-    appState.userHasAnyClinicalConnection = appState.expertBookings.some(function(b){
-      return b.status === 'active';
-    });
+    // Real, second-layer staleness fix, Sept 17 2026, found by direct report: refreshing
+    // appState.expertBookings itself (the earlier fix) wasn't enough on its own -- this whole
+    // derivation, plus the userHasAnyClinicalConnection flag just below (added for the
+    // multi-role consent gate), only ever ran once, right here, at initial load. The main
+    // profile page's Therapist card reads these derived flags directly, not the raw array, so
+    // after an admin action the raw data was fresh but these flags -- and the card built from
+    // them -- stayed exactly as stale as before. Extracted both into deriveTherapistBookingFlags
+    // so they can be re-run every time the data is refreshed, not just once.
+    deriveTherapistBookingFlags();
 
     // Real gap found and fixed, same shape as the has_therapist bug above: profiles.has_support_group
     // is a separate flag (originally a pre-launch "join our support group" waitlist indicator) that
@@ -14666,10 +14654,26 @@ var teamActiveLanguageFilter = null;
 // full app relaunch -- looking exactly like "approving did nothing." Refetches expert_bookings
 // fresh every time any of these three real pages is actually opened, before rendering, rather
 // than trusting whatever was last loaded at login.
+function deriveTherapistBookingFlags(){
+  var therapistBooking = appState.expertBookings.find(function(b){
+    return b.role_category === 'Therapist' && (b.status === 'active' || b.status === 'pending');
+  });
+  appState.userHasTherapist = !!(therapistBooking && therapistBooking.status === 'active');
+  appState.therapistName = therapistBooking ? therapistBooking.expert_name : '';
+  appState.therapistBookingPending = !!(therapistBooking && therapistBooking.status === 'pending');
+  appState.therapistBookingTimeRequested = !!(therapistBooking && therapistBooking.status === 'active' && therapistBooking.time_request_status === 'pending');
+  appState.therapistRequestedSessionDate = therapistBooking ? therapistBooking.requested_session_date : null;
+  appState.therapistBookingNeedsTime = !!(therapistBooking && therapistBooking.status === 'active' && !therapistBooking.session_date && therapistBooking.time_request_status !== 'pending');
+  appState.userHasAnyClinicalConnection = appState.expertBookings.some(function(b){
+    return b.status === 'active';
+  });
+}
+
 function refreshExpertBookings(callback){
   if(!currentUser || !currentUser.id){ callback(); return; }
   sb.from('expert_bookings').select('*').eq('user_id', currentUser.id).then(function(result){
     if(!result.error && result.data) appState.expertBookings = result.data;
+    deriveTherapistBookingFlags();
     callback();
   });
 }
