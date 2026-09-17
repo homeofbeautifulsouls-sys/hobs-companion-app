@@ -5,31 +5,42 @@ CREATE OR REPLACE FUNCTION public.auto_assign_therapist_on_match()
  SET search_path TO 'public'
 AS $function$
 declare
-  therapist_id uuid;
+  professional_id uuid;
+  assign_column text;
 begin
-  if new.role_category = 'Therapist' and new.status = 'active' and new.expert_name is not null
+  -- Real, generalized fix, Sept 16 2026, per direct instruction: the exact same real logic now
+  -- applies to every real professional role (Therapist, Psychiatrist, General Physician,
+  -- Peer Caregiver), not just Therapist -- this was explicitly scoped to Therapist only when
+  -- first built, with a real note that the others would come in a later phase. This is that
+  -- phase. Maps role_category to its own real assignment column on profiles rather than one
+  -- shared column, since a client can genuinely be connected to more than one kind of
+  -- professional at once (a Therapist AND a Psychiatrist, say).
+  assign_column := case new.role_category
+    when 'Therapist' then 'assigned_therapist_user_id'
+    when 'Psychiatrist' then 'assigned_psychiatrist_user_id'
+    when 'General Physician' then 'assigned_doctor_user_id'
+    when 'Peer Caregiver' then 'assigned_caregiver_user_id'
+    else null
+  end;
+
+  if assign_column is not null and new.status = 'active' and new.expert_name is not null
      and (tg_op = 'INSERT' or old.status is distinct from 'active') then
-    select p.user_id into therapist_id
+    select p.user_id into professional_id
     from profiles p
     where p.is_therapist = true and p.therapist_expert_name = new.expert_name
     limit 1;
-    if therapist_id is not null then
-      update profiles set assigned_therapist_user_id = therapist_id where user_id = new.user_id;
+    if professional_id is not null then
+      execute format('update profiles set %I = $1 where user_id = $2', assign_column)
+        using professional_id, new.user_id;
     end if;
   end if;
 
-  -- Real, second real gap fixed here, Sept 16 2026: the real disconnect/change-approval flow
-  -- (an admin approving a cancellation request) sets status to 'cancelled' directly, but
-  -- nothing ever cleared assigned_therapist_user_id when that happened -- confirmed as a real
-  -- bug, found while fixing the disconnect button itself. Clears the connection the moment a
-  -- Therapist booking becomes genuinely cancelled, matching the real event this field is
-  -- actually meant to track, the same as the 'active' case above.
-  if new.role_category = 'Therapist' and new.status = 'cancelled'
+  if assign_column is not null and new.status = 'cancelled'
      and (tg_op = 'INSERT' or old.status is distinct from 'cancelled') then
-    update profiles set assigned_therapist_user_id = null
-    where user_id = new.user_id and assigned_therapist_user_id = (
-      select p2.user_id from profiles p2 where p2.is_therapist = true and p2.therapist_expert_name = new.expert_name limit 1
-    );
+    execute format(
+      'update profiles set %I = null where user_id = $1 and %I = (select p2.user_id from profiles p2 where p2.is_therapist = true and p2.therapist_expert_name = $2 limit 1)',
+      assign_column, assign_column
+    ) using new.user_id, new.expert_name;
   end if;
 
   return new;

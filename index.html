@@ -13332,39 +13332,33 @@ document.getElementById('homeworkSendBtn').onclick = function(){
   var btn = document.getElementById('homeworkSendBtn');
   btn.textContent = 'Sending...'; btn.disabled = true;
 
-  // Real, new field, Sept 16 2026: session_booking_id links this to the real session it was
-  // assigned in (session_history.booking_id, not session_history.id itself -- the real,
-  // permanent expert_bookings row that session actually belongs to). homework_accept_status
-  // starts 'pending' now, per direct instruction -- the client has to actually accept it
-  // before it becomes a real, active task in their list, rather than appearing there directly.
-  var sendHomework = function(bookingId){
-    sb.from('tasks').insert({
-      user_id: clientId,
-      date_key: dateKey,
-      title: title,
-      done: false,
-      deadline: deadlineInput ? new Date(deadlineInput).toISOString() : null,
-      assigned_by_therapist: appState.therapistExpertName,
-      session_booking_id: bookingId || null,
-      homework_accept_status: 'pending'
-    }).then(function(result){
-      btn.textContent = 'Send Homework'; btn.disabled = false;
-      if(result.error){
-        showToast('Could not send — please try again.');
-        return;
-      }
-      document.getElementById('homeworkTitleInput').value = '';
-      document.getElementById('homeworkDeadlineInput').value = '';
-      showToast('Sent — they\'ll see it and can accept it into their tasks.');
-    });
-  };
-  if(sessionHistoryId){
-    sb.from('session_history').select('booking_id').eq('id', sessionHistoryId).single().then(function(shResult){
-      sendHomework(shResult.data ? shResult.data.booking_id : null);
-    });
-  } else {
-    sendHomework(null);
-  }
+  // Real, new field, Sept 16 2026: homework_accept_status starts 'pending' now, per direct
+  // instruction -- the client has to actually accept it before it becomes a real, active task
+  // in their list, rather than appearing there directly.
+  // Real, second fix, Sept 16 2026: session_booking_id used to look up session_history.booking_id
+  // and link homework to the whole ongoing relationship, not the specific real session it was
+  // actually given in -- confirmed as wrong once session_history could genuinely hold more than
+  // one real session per relationship. Now saves session_history.id directly (the FK on tasks was
+  // repointed to match), no extra lookup needed.
+  sb.from('tasks').insert({
+    user_id: clientId,
+    date_key: dateKey,
+    title: title,
+    done: false,
+    deadline: deadlineInput ? new Date(deadlineInput).toISOString() : null,
+    assigned_by_therapist: appState.therapistExpertName,
+    session_booking_id: sessionHistoryId || null,
+    homework_accept_status: 'pending'
+  }).then(function(result){
+    btn.textContent = 'Send Homework'; btn.disabled = false;
+    if(result.error){
+      showToast('Could not send — please try again.');
+      return;
+    }
+    document.getElementById('homeworkTitleInput').value = '';
+    document.getElementById('homeworkDeadlineInput').value = '';
+    showToast('Sent — they\'ll see it and can accept it into their tasks.');
+  });
 };
 document.getElementById('therapistDashboardBtn').onclick = openTherapistDashboard;
 document.getElementById('therapistDashboardBackBtn').onclick = function(){ showOnly('panel-profile'); };
