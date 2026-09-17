@@ -1475,6 +1475,227 @@ confirmed still present.
 
 ---
 
+### 73. `ASSISTANT_COMMANDS` was hijacking ordinary conversation any time it contained a matching keyword mid-sentence
+A message containing a word like "mood" anywhere in it -- even deep inside an otherwise unrelated
+sentence -- was matching a command regex meant for short, deliberate commands, and silently
+navigating the person away from whatever they were actually doing.
+**Real fix**: command matching now only applies when the whole message is short enough
+(`isShortEnoughForCommandMatch`, a real word-count ceiling) to plausibly be a deliberate command
+rather than a sentence that happens to contain the word. Fixed in both places this matching logic
+ran, not just the first one found.
+
+### 74. The auto-update check force-reloaded the page even while someone had an open journal entry or an open Bob conversation
+A new build landing at the wrong moment silently discarded real, unsaved work with zero warning --
+confirmed as a real, plausible explanation for "the journal just closes on its own."
+**Real fix**: the reload now checks for unsaved journal text and an open Bob chat first, and skips
+that cycle entirely if either is true, letting the next check (still on its own cooldown) retry
+once the person is no longer in either state.
+
+### 75. History loading silently failed on a real, reproducible app-launch race condition
+`currentUser` can genuinely be `null` for a brief window during launch; an earlier guard against
+this converted what would have been a crash into a silent skip, so chat history simply never
+loaded, with no error and no retry.
+**Real fix**: a real retry loop (`tryLoadRealBobHistory`), checking every 300ms for up to 3
+seconds, rather than a single check-and-give-up. Verified by directly reproducing the race
+condition, not just reasoning about it.
+
+### 76. A real hallucination caught by testing, not assumed safe from the prompt alone
+Confirmed directly with a real test rather than trusting the system prompt's own instructions to
+prevent it. Full detail earlier in this log; noted here for today's real chronology.
+
+### 77. Direct chat had apparently never actually worked for a real, non-admin client -- a genuine bootstrap problem in the RLS design
+Building the new Therapist chat tab surfaced this: `startOrOpenDirectChat`'s original
+implementation did a raw `chat_rooms` insert immediately followed by `.select()`, then a raw
+`chat_room_members` insert for both people. Confirmed directly, side by side: this worked for an
+admin account and failed for a real client account, at two separate points. First,
+`.select()` right after the insert failed RLS -- a brand-new room has no members yet, so nobody
+can "see" it to get it back. Second, and unavoidably, adding the first members to a new room
+requires already being a room admin of it, which is impossible for a room that doesn't exist yet.
+This had likely never actually worked for any real, non-admin user before -- only ever exercised
+by an admin/therapist initiating contact.
+**Real fix**: a new `SECURITY DEFINER` database function, `get_or_create_direct_chat_room`, that
+does its own real connection verification (the same real logic already used elsewhere,
+`users_have_active_connection`, plus an admin exception) and creates the room and both members
+atomically, with genuine elevated privilege -- solving the bootstrap problem properly rather than
+working around it client-side. Verified end to end with a real, fresh connected test pair: a real
+message sent, received, and replied to from both sides, confirmed directly in the database.
+
+### 78. Three separate, real gaps in `delete_user_data_atomic`, all found only because a real account that had actually used the new chat feature was being cleaned up
+- Tried to null out `chat_messages.text` directly; the column is `NOT NULL`, so this threw a real
+  error and aborted the whole deletion partway through for any account that had ever sent a real
+  chat message. Fixed to set it to an empty string instead, which achieves the same real privacy
+  goal (clearing the actual content) without violating the constraint.
+- Never handled `chat_rooms.created_by` at all -- a real account that had ever created a chat room
+  (now possible for a genuine client, not just an admin, because of #77's fix) would fail deletion
+  here too. Fixed by nullifying it, matching the same real reasoning already used for `client_id`
+  on the same table.
+- Never handled `chat_messages.sender_id`, which is also `NOT NULL` -- required making the column
+  nullable first (checked the real rendering code first: a null `sender_id` is handled safely,
+  since the message already shows "Message deleted" from the other flag regardless of who sent
+  it).
+**Verified**: the real, complete deletion chain re-tested and confirmed to succeed end to end only
+after all three fixes landed together.
+
+### 79. Messaging your own account (a real, reachable case, not hypothetical) showed a generic "Couldn't start chat" instead of a clear explanation
+A real name can appear in the Experts directory and also be the account currently logged in (an
+account that is both a client and a listed professional) -- clicking that listing's own message
+button hit the correct, intentional self-chat block, but with a confusing, generic error.
+**Real fix**: a specific, immediate check (no network call needed) that shows "That's you! You
+can't start a chat with yourself." instead.
+
+### 80. Bob's close (X) button triggered a full "say a real goodbye" flow -- a real network call and a real wait -- instead of actually closing
+Confirmed as a real, repeated source of frustration. The X now closes genuinely instantly, always
+-- no network call, no goodbye generation, nothing to wait on. Verified directly: 61ms from click
+to fully closed.
+
+### 81. The real business logic for "matched" was misunderstood when building the new therapist auto-assignment mechanism -- confirmed by direct correction, not a guess
+The first version waited for a confirmed, paid booking (`payment_confirmed = true`) before
+connecting a client to their therapist for the new chat feature. This was simply wrong: "matched"
+means `status` becoming `'active'` on `expert_bookings`, set the moment an admin assigns a pending
+request to a specific professional (`assignPendingBooking`), completely independent of payment.
+Confirmed directly against real, live data: a real account had been `status = 'active'` with
+`payment_confirmed = false` for a genuine while, exactly the case the wrong logic was missing.
+**Real fix**: replaced the payment-gated logic with a real database trigger
+(`auto_assign_therapist_on_match`) firing on the actual real event (`status` becoming `'active'`),
+correct regardless of which code path actually sets that status. Re-ran the connection backfill
+with the corrected criteria -- found and fixed several more real, existing connections the wrong
+version had missed.
+
+### 82. The "Disconnect" button bypassed a real, already-built, proper admin-approval flow entirely
+Not a deletion or a regression in the usual sense -- a real, complete version of this flow already
+existed (`requestExpertChange`: a required reason, a real pending `change_requested` status, a
+real admin review panel) and was correctly wired to two other real buttons. A separate, newer,
+simpler "Disconnect" button did an instant, unapproved cancel instead, with no reason required and
+no review step -- two parallel mechanisms that had drifted apart, confirmed directly by finding
+both and comparing them.
+**Real fix**: pointed Disconnect at the same real, proper flow, and removed the now-dead
+instant-cancel code that used to sit behind it.
+
+### 83. `assigned_therapist_user_id` was never cleared when a connection genuinely ended
+A real, related gap surfaced while fixing #82: nothing ever cleared this field when a booking
+became `'cancelled'`, whether through the proper approved path or any other. Extended the same
+trigger from #81 to also clear the connection on that real event. Verified directly: a real
+booking correctly set the connection on becoming active, then correctly cleared it on
+cancellation.
+
+### 84. Change therapist / Disconnect were invisible until a client had also picked a first session time -- confirmed wrong, twice, before the actual cause was found
+Reported as "missing buttons" on two separate occasions before the real, precise cause was
+pinned down: an earlier, more specific app state (`therapistBookingNeedsTime`, "matched, no time
+picked yet") resolved before the state that actually rendered these buttons, hiding them entirely
+until a time was chosen -- never the intended design.
+**Real fix**: extracted the button logic into a shared helper
+(`appendTherapistChangeDisconnectButtons`) and called it from both real matched states, so
+Change/Disconnect now show as soon as someone is matched, exactly as instructed. Verified with a
+real test matching the exact reported account state (`status: 'active'`, no `session_date`).
+
+### 85. A substantial, already-built Session Log panel existed with no real way to reach it anywhere in the app
+`openMyBookings` ("My Sessions & Cancellations" -- full booking status, cancellation policy,
+homework) was a real, complete panel, but had zero real call sites except as an internal
+post-payment refresh callback. This fully explained why the feature appeared to not exist at all.
+**Real fix**: added a real "View Session Log" entry point. This alone still wasn't enough --
+see #95.
+
+### 86. Homework had no real link to a specific session, because the underlying data model had no permanent record of past sessions at all
+`expert_bookings` holds exactly one row per real client-professional relationship, and
+`session_date` gets directly overwritten every time a new session is scheduled -- confirmed
+directly across six separate real code paths that do this. There was genuinely no way to show "a
+session's homework" as anything other than "all homework from this professional, ever," and no
+way to show session history beyond the single most recent date.
+**Real fix**: a new `session_history` table, populated by a real trigger
+(`record_session_history`) firing on the actual event (`session_date` genuinely changing), not
+hooked into each of the six paths individually. This became the real foundation for the Session
+Log's full history, per-session homework, and the professional's own schedule view.
+
+### 87. Homework's session link initially pointed at the wrong granularity -- the whole relationship, not the specific session
+Found and fixed while still in the same area as #86: `tasks.session_booking_id` was saving
+`session_history.booking_id` (the ongoing relationship) instead of `session_history.id` (the one
+real session it was actually given in) -- correct behavior for "per session" only once a
+relationship could genuinely hold more than one real session, which #86 had just made possible.
+**Real fix**: repointed the foreign key to `session_history` directly and simplified the sending
+code to save the real session id with no extra lookup.
+
+### 88. A therapist could not actually read their own client's session history -- a real RLS gap found by testing the real, both-sides flow
+The first RLS policy on the new `session_history` table only let the client themselves read their
+own rows; a therapist querying for a real client's sessions (to populate the homework-sending
+session picker) was silently blocked. Confirmed directly: the dropdown only ever showed "General,"
+never the real session.
+**Real fix**: added a second, real policy letting a therapist read session history for their own
+real clients specifically (matched the same real function, `get_my_therapist_expert_name()`,
+already used elsewhere for this exact purpose).
+
+### 89. The real, first attempt at a homework-completion notification was correctly rejected by a real security check -- fixed properly, not bypassed
+`send-push-notification` correctly blocks a regular client from notifying arbitrary other users;
+the first real test call for "notify the therapist when homework is marked done" was rightly
+rejected with a 403.
+**Real fix**: added a new, narrowly-scoped exception -- verified against the real task (genuinely
+the caller's own, genuinely done, genuinely accepted homework, genuinely resolving to the named
+therapist) before allowing the cross-user notification -- the same real security philosophy as the
+existing `chat_message` exception beside it, not a blanket bypass. Verified directly: the call
+moved from a hard 403 to a correct "no eligible recipients" once the real test account's genuine
+lack of a push token was the only remaining reason it couldn't complete.
+
+### 90. The real Google Meet link was being generated correctly this whole time, but never actually saved anywhere
+`google-calendar-sync` already requested a real Meet link from Google's own `conferenceData` when
+creating a calendar event -- confirmed directly, this part worked. It only ever existed in that
+one function's response and in the calendar event's own description text, with no way for the app
+to show it again later.
+**Real fix**: saves it to the real, current `session_history` row for that booking the moment it's
+generated.
+
+### 91. Auto-assignment and the profile page's connection UI were hardcoded to Therapist only, with the other real roles explicitly deferred to a later phase
+That deferral was noted directly in the original code; today was that later phase, per direct
+instruction that the same real logic has to apply to every professional role, always, going
+forward.
+**Real fix**: added `assigned_psychiatrist_user_id`, `assigned_doctor_user_id`,
+`assigned_caregiver_user_id` to `profiles`; generalized the auto-assignment trigger to map any
+real `role_category` to its own column dynamically; built a new, real, role-agnostic profile-page
+rendering function so every professional type gets the identical connect/change/disconnect
+experience Therapist already had. Verified directly with a real Psychiatrist connection: correct
+column set, correct section rendered, correct buttons worked, and the other three roles correctly
+stayed untouched.
+
+### 92. Two further, real gaps in `delete_user_data_atomic`, found the same way as #78 -- by actually cleaning up real test accounts, not assuming it still worked
+- `session_history` (new the same day, for the Session Log work) was never accounted for --
+  deleting a real account with real session history failed with a foreign-key violation.
+- Nothing ever cleared `assigned_therapist_user_id` on *other* real accounts when the therapist
+  side of that connection gets deleted -- a real client still pointing at a just-deleted therapist
+  blocked that therapist's own deletion.
+**Real fix**: both handled directly, both reverified with a clean, complete deletion afterward.
+
+### 93. A newly-built panel rendered its content correctly but was never actually visible -- a missing registration, not a rendering bug
+The professional's own new "My Schedule" panel (past+future sessions across every real client)
+had genuinely correct content underneath -- confirmed by extracting the raw HTML directly -- but
+the panel itself stayed at `display: none` no matter what. `showOnly` works from a fixed array of
+known panel ids (`allPanels`); the new panel was never added to it, so `showOnly` had no way to
+know it existed.
+**Real fix**: added the one missing array entry. Reverified visually correct afterward -- this is
+exactly the kind of gap a "the code looks right" read would have missed; only checking the actual
+rendered `display` value caught it.
+
+### 94. A real, successful Google Calendar reconnect looked exactly like a broken one, because of a real interaction with the auto-update-check from #74
+Reported as "the bug has returned" -- investigated calmly rather than assumed: the real OAuth
+exchange had genuinely succeeded, confirmed directly in `professional_calendar_connections`,
+timestamped right around the report. The real issue was narrower and more specific: the
+success banner telling the person to manually return to the app (Android can't auto-close that
+browser tab, a real, documented Capacitor limitation) got wiped by the #74 reload guard, which
+correctly protects an open journal or Bob chat but never accounted for "mid- or just-after- the
+Calendar OAuth flow." Several new staging builds landing in quick succession during real testing
+made this a live, real risk that day specifically, not just a theoretical gap.
+**Real fix**: two guards added to the reload check -- the banner's own presence (protects the
+display window) and a new explicit in-progress flag covering the earlier network round-trip too
+(protects the exchange itself from being abandoned mid-flight, not just its result from being
+hidden).
+
+### 95. The Session Log entry point from #85 was real but incomplete -- two further, separate rendering locations had the exact same gap
+Confirmed directly, twice, by direct report before being fully resolved: the profile-page fix from
+#85 never touched the Our Experts list view (`renderTeamList`) or the individual "View Profile"
+detail page (`openExpertDetail`) -- both genuinely separate code paths, neither aware the other
+existed. Each had its own copy of the connected-professional card logic.
+**Real fix**: added the same real "View Session Log" button to both remaining locations, reusing
+the same real entry point (`openMyBookings`) everywhere. Verified directly in both.
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 **Run `deployment/verify-before-deploy.sh` before every single deploy, web or Android, no
@@ -1512,3 +1733,24 @@ Skipping this check is how the exact same class of bug happens again.
 - **Proactively check for the same bug pattern elsewhere in the codebase once one instance is
   found**, rather than only fixing the reported instance — this caught the busy-block sync
   `on_conflict` bug in August before it was ever separately reported.
+- **A UI element that shares a real concept (a connected professional, a booking, a session) is
+  very often rendered from more than one, completely separate place in this codebase — the
+  Session Log entry point alone had to be added in three genuinely different locations (#85, #95)
+  before it was actually reachable everywhere it should be, and the Change/Disconnect buttons had
+  a real, similar split (#82, #84).** When a real "add this button/feature" fix lands cleanly in
+  one place, search for every other place the same underlying data renders before considering it
+  done — don't wait for a second report to find the next one.
+- **Any new table or column added to something a real account can own must be added to
+  `delete_user_data_atomic` in the same session it's created, not discovered later by a failed
+  deletion.** This happened three separate times in one day (#78, #92) purely because cleaning up
+  real test accounts is what actually exercises this function — a feature that works perfectly for
+  every other real purpose can still leave account deletion broken if this step is skipped.
+- **Never assume what a business-logic term like "matched" or "confirmed" means from how it
+  sounds — find the actual code path that sets it, or ask directly.** The real therapist
+  auto-assignment mechanism (#81) was built once on a reasonable-sounding but wrong assumption
+  (payment confirms a match) and had to be rebuilt on the real, confirmed one (an admin's
+  assignment action does) after directly contradicting real, live data.
+- **A panel's content rendering correctly is not the same as the panel being visible.** `showOnly`
+  depends on a manually maintained list of every real panel id (`allPanels`); a new panel left out
+  of it renders perfectly underneath a `display: none` that never lifts (#93). Check the actual
+  computed `display` value on a new panel, not just that its inner HTML looks right.
