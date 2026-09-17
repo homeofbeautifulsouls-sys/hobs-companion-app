@@ -543,8 +543,20 @@ Deno.serve(async (req) => {
           // instance is the recurring series' id, an underscore, then that instance's own
           // timestamp), for the case where what comes back is the series' own cancellation
           // rather than each instance's.
+          //
+          // Real bug found and fixed by the real, live end-to-end test itself, Sept 17 2026,
+          // before ever calling this done: a real cancellation deleted a real busy block
+          // correctly, but the matching real slot silently stayed behind. Root cause, confirmed
+          // directly against the raw real response: Google's own cancellation payload for a
+          // deleted event does not reliably include the title -- so re-deriving
+          // isHobsSlotMarker from event.summary at cancellation time is unreliable, since
+          // summary is frequently just absent by then. Always attempts the slot-side deletion on
+          // a real cancellation now, regardless of whether a title came back with it -- this is
+          // safe on its own, since expert_availability_slots.source_google_event_id only ever
+          // has a row in the first place if this exact event genuinely was synced as a real HOBS
+          // slot marker at creation time; nothing else could ever match there.
           if (event.status === "cancelled") {
-            await deleteMatchingBusyBlocksAndSlots(conn.user_id, event.id, isHobsSlotMarker);
+            await deleteMatchingBusyBlocksAndSlots(conn.user_id, event.id, true);
           } else if (event.start?.dateTime && event.end?.dateTime) {
             if (isHobsSlotMarker) {
               await upsertHobsSlotFromCalendarEvent(conn.user_id, event);
