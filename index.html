@@ -14330,6 +14330,20 @@ function renderTeamList(){
     ? TEAM_MEMBERS.filter(function(m){ return (m.languages || '').indexOf(teamActiveLanguageFilter) !== -1; })
     : TEAM_MEMBERS;
 
+  // Real, new sort, Sept 16 2026, per direct instruction: whoever the client is currently
+  // connected/matched with (in any real category, not just Therapist) sorts to the top, ahead
+  // of everyone else. Array.prototype.sort is stable in every real, modern JS engine this app
+  // runs on, so ties (two connected people, or the whole non-connected remainder) keep their
+  // existing relative order rather than getting reshuffled.
+  var connectedNames = (appState.expertBookings || [])
+    .filter(function(b){ return b.status === 'active' || b.status === 'pending' || (b.status === 'change_requested' && !b.change_approved); })
+    .map(function(b){ return b.expert_name; });
+  filteredMembers = filteredMembers.slice().sort(function(a, b){
+    var aConnected = connectedNames.indexOf(a.name) !== -1 ? 0 : 1;
+    var bConnected = connectedNames.indexOf(b.name) !== -1 ? 0 : 1;
+    return aConnected - bConnected;
+  });
+
   var wrap = document.getElementById('teamList');
   if(filteredMembers.length === 0){
     wrap.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;padding:20px 0;">No experts match that language yet.</p>';
@@ -14356,7 +14370,14 @@ function renderTeamList(){
       actionHtml = '<div style="margin-top:6px;padding:11px;border-radius:12px;background:#FEF3D8;color:#7B4F00;font-size:11.5px;font-weight:700;text-align:center;">Requested '+reqTimeLabel+' — awaiting confirmation</div>';
     } else if(isThisPersonBooked && !activeBooking.session_date){
       actionHtml = '<div style="margin-top:6px;padding:11px;border-radius:12px;background:#EAF4EE;color:#3B8F63;font-size:11.5px;font-weight:700;text-align:center;margin-bottom:6px;">You\'ve been matched! Pick a session time.</div>'+
-        '<button class="pick-time-btn" data-idx="'+idx+'" style="display:block;width:100%;padding:11px;border-radius:12px;border:none;background:#6690D6;color:#FFF8F0;font-size:12.5px;font-weight:700;cursor:pointer;">Pick a Time</button>';
+        '<button class="pick-time-btn" data-idx="'+idx+'" style="display:block;width:100%;padding:11px;border-radius:12px;border:none;background:#6690D6;color:#FFF8F0;font-size:12.5px;font-weight:700;cursor:pointer;margin-bottom:6px;">Pick a Time</button>'+
+        // Real fix, Sept 16 2026, per direct, repeated instruction: this real request-change
+        // option (already correctly using the proper, admin-approval flow, same as the
+        // confirmed-booking state below) was missing specifically from this "matched, not yet
+        // scheduled" state -- confirmed as a genuine gap, not something intentionally withheld.
+        // Reuses the exact same class as the confirmed-booking state's button below, so the
+        // existing click-wiring picks this up automatically with no new JS needed.
+        '<button class="request-change-btn" data-idx="'+idx+'" style="display:block;width:100%;padding:11px;border-radius:12px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:12.5px;font-weight:700;cursor:pointer;">Request Change</button>';
     } else if(isThisPersonBooked){
       var confirmedTimeLabel = activeBooking.session_date ? new Date(activeBooking.session_date).toLocaleString('en-IN', {weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}) : '';
       var statusBadge = activeBooking.payment_confirmed
