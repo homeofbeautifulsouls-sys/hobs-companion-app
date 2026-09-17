@@ -1700,6 +1700,12 @@
       <div id="profileDoctorArea"></div>
       <div id="profileCaregiverArea"></div>
     </div>
+    <!-- Real, new button, Sept 16 2026, per direct, repeated instruction: this was previously
+    only reachable through Bob's chat -> Therapist tab -> the (i) info icon -> a button inside
+    that modal -- several real taps deep, and confirmed directly as genuinely hard to find. A
+    real, direct entry point right on the profile page itself, always visible (the empty state
+    inside already, correctly, encourages booking a first session if there's nothing yet). -->
+    <button id="profileSessionLogBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #EEE0C4;background:#FFFFFF;color:#2A2013;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:14px;">📋 View Session Log</button>
     <div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:16px;padding:16px;margin-bottom:14px;">
       <p style="font-size:12px;color:#9AABCE;margin:0 0 6px;font-weight:700;">Support group</p>
       <div id="profileSupportArea"></div>
@@ -2437,7 +2443,18 @@
             var journalEl = document.getElementById('journalText');
             var journalHasUnsavedText = journalEl && journalEl.innerText && journalEl.innerText.trim().length > 0;
             var bobChatOpen = document.getElementById('assistantModal') && document.getElementById('assistantModal').style.display !== 'none';
-            if(!journalHasUnsavedText && !bobChatOpen){
+            // Real, second gap found and fixed here, Sept 16 2026: the exact same real bug this
+            // whole guard exists for -- confirmed directly, live, while this was being tested:
+            // the Google Calendar reconnect success banner (shown specifically in a detached
+            // browser tab, telling the person to manually tap back to the app, since Android
+            // can't auto-close that tab) got wiped by a forced reload landing mid-flow, before
+            // the person had a real chance to even read it, let alone act on it -- leaving them
+            // on a bare, freshly-reloaded page with no path back, looking exactly like "the app
+            // never returned." The real fix isn't a stronger banner; it's not force-reloading
+            // out from under someone who's already reading a real, one-time instruction like
+            // this one.
+            var gcalBannerShowing = !!document.getElementById('gcalConnectedBanner');
+            if(!journalHasUnsavedText && !bobChatOpen && !gcalBannerShowing && !window.gcalCallbackInProgress){
               // Force a genuinely fresh fetch, not a cached reload -- appending a cache-busting
               // param so the WebView can't serve this specific request from its HTTP cache either.
               window.location.href = window.location.pathname + '?v=' + data.build;
@@ -13183,6 +13200,7 @@ function openTherapistSchedule(){
   });
 }
 document.getElementById('therapistOpenScheduleBtn').onclick = openTherapistSchedule;
+document.getElementById('profileSessionLogBtn').onclick = openMyBookings;
 document.getElementById('therapistScheduleBackBtn').onclick = function(){ showOnly('panel-therapist-dashboard'); };
 
 function renderTherapistClientsList(){
@@ -13652,6 +13670,7 @@ async function completeGoogleCalendarConnect(code, stateToken){
   // doesn't depend on that plugin working at all.
   if(!IS_NATIVE_APP){
     var banner = document.createElement('div');
+    banner.id = 'gcalConnectedBanner';
     banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#3B8F63;color:#fff;padding:20px 16px;text-align:center;font-size:15px;font-weight:700;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,0.2);line-height:1.5;';
     banner.innerHTML = '✓ Calendar connected!<br><span style="font-weight:400;font-size:13px;">Tap the ← arrow at the top of this screen to go back to HOBS Companion.</span>';
     document.body.appendChild(banner);
@@ -13912,8 +13931,14 @@ async function handleGoogleCalendarCallback(){
   // against a fixed literal string the way the old 'gcal_connect' constant allowed.
   var looksLikeStateToken = stateToken && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(stateToken);
   if(!code || !looksLikeStateToken) return;
+  // Real, additional guard, Sept 16 2026: covers the real, narrower window between arriving
+  // here and the success banner actually existing (the network round-trip to exchange the
+  // code) -- the banner-presence check alone doesn't protect this earlier moment, and a forced
+  // reload landing here would abandon the exchange entirely, not just hide its result.
+  window.gcalCallbackInProgress = true;
   window.history.replaceState({}, document.title, window.location.pathname);
   await completeGoogleCalendarConnect(code, stateToken);
+  window.gcalCallbackInProgress = false;
   // Real, documented platform limitation, confirmed via Capacitor's own docs: Browser.close()
   // is "Web & iOS only... No-op on other platforms" -- it never actually closes anything on
   // Android, regardless of how correctly it's called. completeGoogleCalendarConnect's own
