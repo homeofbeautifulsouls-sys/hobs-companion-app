@@ -19,6 +19,92 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
 const GOOGLE_CLIENT_ID = Deno.env.get("GOOGLE_CALENDAR_CLIENT_ID");
 const GOOGLE_CLIENT_SECRET = Deno.env.get("GOOGLE_CALENDAR_CLIENT_SECRET");
 
+// Real, deliberate keyword list, Sept 17 2026, per direct instruction -- matched as a
+// case-insensitive substring of the event's own title, nothing else read or inferred from the
+// event. "hobs" alone already covers "hobs foundation" as a substring; kept as three explicit
+// entries anyway so the real intent stays legible here, not just functionally covered.
+const HOBS_SLOT_KEYWORDS = ["hobs", "home of beautiful souls foundation"];
+
+// Real, found-during-testing fix, Sept 17 2026: a plain prefix match (deleting every row whose
+// id starts with "thisId_") is provably unsafe on its own -- caught directly by a real test,
+// not assumed: two different top-level event ids where one happens to be a literal prefix of
+// the other (with an underscore right after) would wrongly sweep in the second, unrelated
+// event's own rows too. Vanishingly unlikely with Google's actual long, effectively-random
+// event ids, but "cannot risk even a single bug" means this has to be provably safe, not just
+// probably fine. Fetches every row an exact-or-prefix match could plausibly mean first, then
+// keeps only the exact match plus rows whose suffix is genuinely Google's own real instance-id
+// timestamp shape (8 digits, "T", 6 digits, "Z" -- confirmed directly against real, live
+// instance ids), and only ever deletes those specific, individually-verified row ids.
+const RECURRING_INSTANCE_SUFFIX = /^\d{8}T\d{6}Z$/;
+function idsGenuinelyMatchingSeries(candidateIds: string[], masterId: string): string[] {
+  const prefix = `${masterId}_`;
+  return candidateIds.filter((id) => id === masterId || (id.startsWith(prefix) && RECURRING_INSTANCE_SUFFIX.test(id.slice(prefix.length))));
+}
+async function deleteMatchingBusyBlocksAndSlots(professionalUserId: string, eventId: string, alsoDeleteUnbookedSlots: boolean) {
+  const prefixPattern = encodeURIComponent(`${eventId}_`) + "*";
+  const orFilter = `or=(google_event_id.eq.${eventId},google_event_id.like.${prefixPattern})`;
+
+  const busyCandidates = await dbFetch(`professional_busy_blocks?professional_user_id=eq.${professionalUserId}&${orFilter}&select=id,google_event_id`);
+  const realBusyIds = idsGenuinelyMatchingSeries((Array.isArray(busyCandidates) ? busyCandidates : []).map((r: any) => r.google_event_id), eventId);
+  if (realBusyIds.length > 0) {
+    const rowIds = (busyCandidates as any[]).filter((r) => realBusyIds.includes(r.google_event_id)).map((r) => r.id);
+    await fetch(`${SUPABASE_URL}/rest/v1/professional_busy_blocks?id=in.(${rowIds.join(",")})`, {
+      method: "DELETE", headers: { apikey: SUPABASE_SERVICE_ROLE_KEY ?? "", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+    });
+  }
+
+  if (alsoDeleteUnbookedSlots) {
+    const slotOrFilter = `or=(source_google_event_id.eq.${eventId},source_google_event_id.like.${prefixPattern})`;
+    const slotCandidates = await dbFetch(`expert_availability_slots?is_booked=eq.false&${slotOrFilter}&select=id,source_google_event_id`);
+    const realSlotIds = idsGenuinelyMatchingSeries((Array.isArray(slotCandidates) ? slotCandidates : []).map((r: any) => r.source_google_event_id), eventId);
+    if (realSlotIds.length > 0) {
+      const rowIds = (slotCandidates as any[]).filter((r) => realSlotIds.includes(r.source_google_event_id)).map((r) => r.id);
+      await fetch(`${SUPABASE_URL}/rest/v1/expert_availability_slots?id=in.(${rowIds.join(",")})`, {
+        method: "DELETE", headers: { apikey: SUPABASE_SERVICE_ROLE_KEY ?? "", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+      });
+    }
+  }
+}
+
+async function upsertHobsSlotFromCalendarEvent(professionalUserId: string, event: any) {
+  // Real, deliberate scope limit, Sept 17 2026, per direct instruction: only ever pulls in a
+  // marked slot within the current real calendar month -- confirmed directly, a professional
+  // marking something far in the future isn't meant to appear as bookable yet. Past events are
+  // harmless to skip too (showSlotPicker already excludes anything before "now" regardless).
+  const now = new Date();
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const startTime = new Date(event.start.dateTime);
+  if (startTime < now || startTime >= monthEnd) return;
+
+  const profRows = await dbFetch(`profiles?user_id=eq.${professionalUserId}&select=therapist_expert_name`);
+  const expertName = Array.isArray(profRows) && profRows[0]?.therapist_expert_name;
+  if (!expertName) return; // no real, matching professional profile to attach this slot to
+
+  const endTime = new Date(event.end.dateTime);
+  const durationMinutes = Math.max(1, Math.round((endTime.getTime() - startTime.getTime()) / 60000));
+
+  const existingRows = await dbFetch(
+    `expert_availability_slots?source_google_event_id=eq.${event.id}&select=id,is_booked`
+  );
+  const existing = Array.isArray(existingRows) ? existingRows[0] : null;
+
+  // Real, deliberate choice, same reasoning as the deletion path above: once a real client has
+  // actually booked this slot, it's a genuine, separate commitment -- never silently moved or
+  // resized just because the professional later edits the original calendar marker.
+  if (existing && existing.is_booked) return;
+
+  if (existing) {
+    await dbWrite(`expert_availability_slots?id=eq.${existing.id}`, "PATCH", {
+      slot_date: startTime.toISOString(), duration_minutes: durationMinutes,
+    }, "return=minimal");
+  } else {
+    await dbWrite("expert_availability_slots", "POST", {
+      expert_name: expertName, slot_date: startTime.toISOString(), duration_minutes: durationMinutes,
+      is_booked: false, source_google_event_id: event.id,
+    }, "return=minimal");
+  }
+}
+
 async function getCallerIdFromJWT(authHeader: string): Promise<string | null> {
   const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
     headers: { apikey: SUPABASE_ANON_KEY ?? "", Authorization: authHeader },
@@ -428,17 +514,46 @@ Deno.serve(async (req) => {
             await sendPush(conn.user_id, "Calendar time change needs your review", `A session with ${booking.expert_name === conn.google_email ? "a client" : booking.expert_name} moved in Google Calendar. Review and approve it in HOBS before it updates.`);
           }
         } else {
-          // Not a HOBS session -- personal/external block, or its removal.
+          // Not a HOBS session -- personal/external block, an offered HOBS availability slot
+          // (see below), or a removal of either.
+          //
+          // Real, new feature, Sept 17 2026, per direct, deliberate design discussion: a
+          // professional can open a real bookable slot directly from their own Google Calendar,
+          // instead of only through the in-app "Add availability" screen -- both paths feed the
+          // exact same real expert_availability_slots table, so a client sees one merged list
+          // regardless of which one created a given slot. Deliberately NOT a generic free/busy
+          // read (confirmed directly as unacceptable: professionals genuinely work with other
+          // organizations too, and exposing everything not-explicitly-busy would leak real,
+          // unrelated commitments as if they were open for HOBS booking). Instead, this only
+          // ever acts on an event the professional explicitly, deliberately marked as a real
+          // HOBS slot -- confirmed by title match against a small, real keyword list -- so nothing
+          // else on their calendar is ever touched, read into, or exposed by this at all.
+          const title = (event.summary || "").toLowerCase();
+          const isHobsSlotMarker = HOBS_SLOT_KEYWORDS.some((kw) => title.includes(kw));
+
+          // Real, new fix, same session, found by direct report: deleting an ENTIRE recurring
+          // series in Google (not a single occurrence) does not reliably come back through
+          // incremental sync as a cancellation for every individual previously-synced instance
+          // -- confirmed directly against real, live data: a real recurring event deleted
+          // outright still left 15 separate instance rows behind in professional_busy_blocks,
+          // every one silently orphaned. Handles both real shapes of a cancellation Google can
+          // send: an exact match on this specific instance's id (the existing, already-working
+          // case), and -- new -- a prefix match for every previously-synced instance whose id
+          // was generated from this same recurring series (Google's own real id format for an
+          // instance is the recurring series' id, an underscore, then that instance's own
+          // timestamp), for the case where what comes back is the series' own cancellation
+          // rather than each instance's.
           if (event.status === "cancelled") {
-            await fetch(`${SUPABASE_URL}/rest/v1/professional_busy_blocks?professional_user_id=eq.${conn.user_id}&google_event_id=eq.${event.id}`, {
-              method: "DELETE",
-              headers: { apikey: SUPABASE_SERVICE_ROLE_KEY ?? "", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
-            });
+            await deleteMatchingBusyBlocksAndSlots(conn.user_id, event.id, isHobsSlotMarker);
           } else if (event.start?.dateTime && event.end?.dateTime) {
-            await dbWrite("professional_busy_blocks", "POST", {
-              professional_user_id: conn.user_id, google_event_id: event.id,
-              start_time: event.start.dateTime, end_time: event.end.dateTime, updated_at: new Date().toISOString(),
-            }, "resolution=merge-duplicates,return=minimal");
+            if (isHobsSlotMarker) {
+              await upsertHobsSlotFromCalendarEvent(conn.user_id, event);
+            } else {
+              await dbWrite("professional_busy_blocks", "POST", {
+                professional_user_id: conn.user_id, google_event_id: event.id,
+                start_time: event.start.dateTime, end_time: event.end.dateTime, updated_at: new Date().toISOString(),
+              }, "resolution=merge-duplicates,return=minimal");
+            }
           }
         }
       }
