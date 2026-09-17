@@ -14673,16 +14673,28 @@ function cancelSession(m){
       var newLastCancelledAt = now.toISOString();
 
       function finalizeCancellationLocally(){
-        booking.status = 'cancelled';
+        // Urgent, direct-report bug fix, Sept 17 2026: this used to set booking.status =
+        // 'cancelled' -- the exact same status change a full Disconnect uses, and the exact
+        // same one the auto-assignment trigger treats as "this connection is over," clearing
+        // the real assigned_therapist_user_id link. Confirmed directly as the real cause behind
+        // "cancelling the session disconnected the therapist" -- a client meaning only "I can't
+        // make this specific time" was unintentionally ending the whole relationship. The real
+        // cancellation policy (charge tracking, the 24-hour window, the monthly grace) was
+        // always correct and is untouched here; what was wrong was conflating "clear this one
+        // session" with "end the connection." Now only clears the session's own date, leaving
+        // status genuinely alone -- the relationship stays active, and the client lands back in
+        // the real, existing "matched, pick a time" state to choose a new one.
+        booking.session_date = null;
+        booking.time_request_status = null;
         booking.cancellation_count = newCancellationCount;
         booking.last_cancelled_at = newLastCancelledAt;
         booking.cancellation_charge_percent = chargePercent;
         booking.cancellation_charge_owed = chargePercent > 0;
         saveState();
         if(chargePercent > 0){
-          showToast("Cancelled — a " + chargePercent + "% cancellation charge applies. We'll let you know the exact amount shortly, in My Sessions & Cancellations.");
+          showToast("Cancelled — a " + chargePercent + "% cancellation charge applies. We'll let you know the exact amount shortly, in My Sessions & Cancellations. Pick a new time whenever you're ready.");
         } else {
-          showToast('Session cancelled — the full amount carries forward to your next booking.');
+          showToast('Session cancelled — the full amount carries forward to your next booking. Pick a new time whenever you\'re ready.');
         }
         renderTeamList();
         renderProfile();
@@ -14690,7 +14702,8 @@ function cancelSession(m){
 
       if(String(booking.id).indexOf('temp_') !== 0){
         sb.from('expert_bookings').update({
-          status: 'cancelled',
+          session_date: null,
+          time_request_status: null,
           cancellation_count: newCancellationCount,
           last_cancelled_at: newLastCancelledAt,
           cancellation_charge_percent: chargePercent,
