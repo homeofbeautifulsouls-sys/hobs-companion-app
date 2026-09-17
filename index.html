@@ -12666,8 +12666,20 @@ function openAdminDashboard(){
         '<p style="font-size:11px;color:#9AABCE;margin:0 0 6px;">'+b.role_category+' · Cancelled '+(b.cancellation_count||0)+' time(s)</p>'+
         (b.status === 'active' && !b.payment_confirmed ?
           (b.amount_due ?
+            // Real, second fix here, per direct instruction ("make sure even that's connected
+            // is properly set"): the amount persisting correctly across sessions is right, but
+            // there was no way to change it once set at all -- a real, needed gap once a
+            // client's rate can ever genuinely change. Real amount shown plainly, with a real,
+            // explicit way to update it, not just silently reusing whatever was set once.
             '<div style="background:#FEF3D8;border-radius:10px;padding:10px;margin-bottom:8px;">'+
-              '<p style="font-size:11px;color:#7B4F00;font-weight:700;margin:0;">⏳ Waiting for client to pay ₹'+b.amount_due+' (confirms automatically once paid)</p>'+
+              '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">'+
+                '<p style="font-size:11px;color:#7B4F00;font-weight:700;margin:0;">⏳ Waiting for client to pay ₹'+b.amount_due+' (confirms automatically once paid)</p>'+
+                '<button class="admin-edit-amount-due-btn" data-id="'+b.id+'" style="font-size:10px;font-weight:700;color:#7B4F00;background:none;border:1px solid #7B4F00;border-radius:8px;padding:5px 8px;cursor:pointer;white-space:nowrap;">Edit</button>'+
+              '</div>'+
+              '<div class="admin-amount-due-edit-row" data-id="'+b.id+'" style="display:none;gap:6px;margin-top:8px;">'+
+                '<input type="number" class="admin-amount-due-input" data-id="'+b.id+'" placeholder="Amount (₹)" value="'+b.amount_due+'" style="flex:1;padding:8px;border-radius:8px;border:1px solid #EEE0C4;font-size:11px;font-family:inherit;">'+
+                '<button class="admin-set-amount-due-btn" data-id="'+b.id+'" style="font-size:10px;font-weight:700;color:#fff;background:#6690D6;border:none;border-radius:8px;padding:8px 10px;cursor:pointer;white-space:nowrap;">Update</button>'+
+              '</div>'+
             '</div>' :
             '<div style="background:#FEF3D8;border-radius:10px;padding:10px;margin-bottom:8px;">'+
               '<p style="font-size:11px;color:#7B4F00;font-weight:700;margin:0 0 6px;">Set the amount for this client to pay</p>'+
@@ -12735,6 +12747,12 @@ function openAdminDashboard(){
       };
     });
 
+    document.querySelectorAll('.admin-edit-amount-due-btn').forEach(function(btn){
+      btn.onclick = function(){
+        var row = document.querySelector('.admin-amount-due-edit-row[data-id="'+btn.dataset.id+'"]');
+        if(row) row.style.display = 'flex';
+      };
+    });
     document.querySelectorAll('.admin-set-amount-due-btn').forEach(function(btn){
       btn.onclick = function(){
         var input = document.querySelector('.admin-amount-due-input[data-id="'+btn.dataset.id+'"]');
@@ -12787,8 +12805,12 @@ function openAdminDashboard(){
         var timeInput = document.querySelector('.admin-session-time-input[data-id="'+id+'"]');
         if(!dateInput.value || !timeInput.value) return;
         var isoValue = new Date(dateInput.value + 'T' + timeInput.value).toISOString();
-        sb.from('expert_bookings').update({ session_date: isoValue }).eq('id', id).then(function(result){
-          if(!result.error){ showToast('Session date set.'); syncSessionToCalendar(id); }
+        // Real fix, per direct instruction, same reasoning as the therapist's own accept-time
+        // handler: admin can set a session date directly too, and this path had the exact same
+        // gap -- a booking already paid once would never ask for payment again. amount_due is
+        // deliberately left alone -- the real, per-client rate persists.
+        sb.from('expert_bookings').update({ session_date: isoValue, payment_confirmed: false }).eq('id', id).then(function(result){
+          if(!result.error){ showToast('Session date set.'); syncSessionToCalendar(id); openAdminDashboard(); }
         });
       };
     });
@@ -12978,8 +13000,15 @@ function renderTherapistTimeRequests(){
     listEl.querySelectorAll('.therapist-accept-time-btn').forEach(function(btn){
       btn.onclick = function(){
         var req = requests.find(function(r){ return r.id === btn.dataset.id; });
+        // Real fix, per direct instruction, found while looking into the per-client amount
+        // question: nothing anywhere ever reset payment_confirmed once a booking had been paid
+        // once -- confirmed directly, accepting a new session time never touched it at all.
+        // Since sessions are billed individually (confirmed directly: "they would need to pay
+        // for every session"), a new accepted time has to ask for a fresh payment. amount_due
+        // is deliberately left untouched here -- it's the real, per-client rate, set once and
+        // meant to persist, not something to clear or ask admin to re-enter each time.
         sb.from('expert_bookings').update({
-          session_date: req.requested_session_date, time_request_status: 'accepted', requested_session_date: null
+          session_date: req.requested_session_date, time_request_status: 'accepted', requested_session_date: null, payment_confirmed: false
         }).eq('id', btn.dataset.id).then(function(result){
           if(result.error){ showToast('Could not accept — please try again.'); return; }
           showToast('Time confirmed.');
