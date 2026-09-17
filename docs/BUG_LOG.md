@@ -1499,9 +1499,41 @@ loaded, with no error and no retry.
 seconds, rather than a single check-and-give-up. Verified by directly reproducing the race
 condition, not just reasoning about it.
 
-### 76. A real hallucination caught by testing, not assumed safe from the prompt alone
-Confirmed directly with a real test rather than trusting the system prompt's own instructions to
-prevent it. Full detail earlier in this log; noted here for today's real chronology.
+### 76. A real recall failure, initially misdiagnosed as a data bug -- traced to a mismatched model setting, not the pipeline
+Correcting the earlier, too-vague version of this entry with the real detail, found by going back
+to the actual transcript rather than trusting a one-line summary. Bob failed to recall a specific,
+real detail (a name, "Meera") that a person had told him earlier in the same real conversation.
+**Real diagnosis, not assumed**: added a temporary debug endpoint to check whether the data was
+actually reaching the model at all -- confirmed directly, `containsMeera: true`, sent correctly in
+a real 41-message context. So the bug wasn't in the data pipeline; the model itself was failing to
+surface a fact it had genuinely been given, a different, real problem (model reliability, not a
+data bug).
+**Real fix**: found the actual, proven crisis classifier already used `reasoning_effort: "medium"`
+with `max_tokens: 2000`; the newer recall/significance classifier had neither properly set,
+running on a weaker configuration than the pattern already known to work. Matched it to the proven
+settings, retested, confirmed fixed.
+
+### (undated addendum) Several further real bugs found in the same earlier session (Sept 15,
+"Bob memory/safety build"), never logged at the time -- added now after a direct challenge that
+the log hadn't kept up, and a real check confirmed it hadn't
+**A real, stacking race condition caused both the stuck "..." indicator and duplicate/repeated
+greetings**: multiple simultaneous calls to open Bob's chat were each independently checking "is
+this empty?" before any of them finished fetching, so more than one fired a real greeting request
+at once, stacking up. Fixed properly, then stress-tested with a simulated rapid triple-tap to
+confirm it actually holds under real, repeated pressure, not just a single clean test.
+**The same class of bug resurfaced on a real device even after the above fix, in a genuinely
+different environment**: a real device on a real mobile network exposed a slow/failing request the
+original fix's local testing hadn't accounted for. Added a real hard timeout so it can never hang
+forever again, plus real error logging so a future recurrence is diagnosable instead of a repeat
+guess -- documented honestly at the time as not a 100%-certain root cause, just a structural
+guarantee against hanging indefinitely.
+**Bob was using a person's full name instead of their first name** in at least one real path.
+Fixed to use the first name only, regardless of what's actually stored.
+**A real, caught-before-shipping gap, not a shipped bug**: the `character_messages` table (real
+in-conversation plus cross-session history) was created, and the backend code to use it was
+written, but directly, honestly flagged mid-session as possibly never actually deployed or tested
+before the conversation moved on to a different feature -- confirmed as a real gap needing closure
+rather than assumed complete.
 
 ### 77. Direct chat had apparently never actually worked for a real, non-admin client -- a genuine bootstrap problem in the RLS design
 Building the new Therapist chat tab surfaced this: `startOrOpenDirectChat`'s original
