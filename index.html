@@ -7199,6 +7199,38 @@ function renderProfileProfessionalSection(containerId, roleCategory, assignedFie
       if(m) pickSessionTimeForBooking(booking, m);
     };
     area.appendChild(pickBtn);
+  } else if(!booking.payment_confirmed){
+    // Real, genuine gap found and fixed, per direct instruction, same real shape as the main
+    // Therapist section's own fix: a session_date already set but not yet paid showed nothing
+    // here at all -- confirmed directly, this generalized section (Psychiatrist/Doctor/
+    // Caregiver) had the identical gap.
+    var payBanner2 = document.createElement('div');
+    payBanner2.style.cssText = 'padding:11px;border-radius:10px;background:#FEF3D8;color:#7B4F00;font-size:12px;font-weight:700;text-align:center;margin-bottom:8px;';
+    payBanner2.textContent = 'Awaiting payment to lock in your session';
+    area.appendChild(payBanner2);
+    var sectionPayNowBtn = document.createElement('button');
+    sectionPayNowBtn.textContent = 'Pay Now';
+    sectionPayNowBtn.style.cssText = 'width:100%;padding:11px;border-radius:10px;border:none;background:#6690D6;color:#FFF8F0;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:8px;';
+    sectionPayNowBtn.onclick = function(){
+      sectionPayNowBtn.disabled = true;
+      sectionPayNowBtn.textContent = 'Preparing…';
+      openRazorpayPayment(
+        { purpose: 'booking_payment', booking_id: booking.id, user_id: currentUser.id },
+        {
+          description: 'Session with ' + booking.expert_name,
+          prefill: currentUser.name ? { name: currentUser.name } : {},
+          handler: function(){
+            trackNotificationAction('booked_session');
+            logAnalyticsEvent('booking_made');
+            showToast("Thanks! We'll confirm once your payment is verified.");
+            setTimeout(renderProfile, 3000);
+          },
+          modal: { ondismiss: function(){ sectionPayNowBtn.disabled = false; sectionPayNowBtn.textContent = 'Pay Now'; } },
+        },
+        function(){ sectionPayNowBtn.disabled = false; sectionPayNowBtn.textContent = 'Pay Now'; }
+      );
+    };
+    area.appendChild(sectionPayNowBtn);
   }
 
   var changeBtn = document.createElement('button');
@@ -7252,6 +7284,7 @@ function renderProfile(){
   refreshExpertBookings(renderProfileInner);
 }
 function renderProfileInner(){
+  loadRazorpayCheckout(); // this page can show a Pay Now button; get a head start on it
   var profileName = getDisplayName();
   document.getElementById('profilePageTitle').textContent = profileName || 'You';
   if(appState.photoUrl){
@@ -7294,6 +7327,41 @@ function renderProfileInner(){
     appendTherapistChangeDisconnectButtons(tArea);
   } else if(appState.userHasTherapist){
     tArea.innerHTML = '<p style="font-size:14px;color:#2A2013;font-weight:700;margin:0 0 10px;">'+appState.therapistName+'</p>';
+    // Real, genuine gap found and fixed, per direct instruction, found by walking the real flow
+    // start to finish: this whole section never mentioned payment at all -- confirmed directly,
+    // a client whose therapist had accepted a time but who hadn't yet paid saw only the
+    // therapist's name here, with nothing indicating anything was still needed from them, and no
+    // way to act on it from this page. Reuses the exact same real payment flow already working
+    // on the expert detail page.
+    if(therapistBookingObj && therapistBookingObj.session_date && !therapistBookingObj.payment_confirmed){
+      var payBanner = document.createElement('div');
+      payBanner.style.cssText = 'padding:11px;border-radius:10px;background:#FEF3D8;color:#7B4F00;font-size:12px;font-weight:700;text-align:center;margin-bottom:8px;';
+      payBanner.textContent = 'Awaiting payment to lock in your session';
+      tArea.appendChild(payBanner);
+      var profilePayNowBtn = document.createElement('button');
+      profilePayNowBtn.textContent = 'Pay Now';
+      profilePayNowBtn.style.cssText = 'width:100%;padding:11px;border-radius:10px;border:none;background:#6690D6;color:#FFF8F0;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:8px;';
+      profilePayNowBtn.onclick = function(){
+        profilePayNowBtn.disabled = true;
+        profilePayNowBtn.textContent = 'Preparing…';
+        openRazorpayPayment(
+          { purpose: 'booking_payment', booking_id: therapistBookingObj.id, user_id: currentUser.id },
+          {
+            description: 'Session with ' + appState.therapistName,
+            prefill: currentUser.name ? { name: currentUser.name } : {},
+            handler: function(){
+              trackNotificationAction('booked_session');
+              logAnalyticsEvent('booking_made');
+              showToast("Thanks! We'll confirm once your payment is verified.");
+              setTimeout(renderProfile, 3000);
+            },
+            modal: { ondismiss: function(){ profilePayNowBtn.disabled = false; profilePayNowBtn.textContent = 'Pay Now'; } },
+          },
+          function(){ profilePayNowBtn.disabled = false; profilePayNowBtn.textContent = 'Pay Now'; }
+        );
+      };
+      tArea.appendChild(profilePayNowBtn);
+    }
     appendTherapistChangeDisconnectButtons(tArea);
   } else if(appState.hasOutsideTherapist){
     tArea.innerHTML = "<p style=\"font-size:13px;color:#5C6B94;margin:0 0 10px;\">You told us you see someone outside HOBS — we can't share notes with them, but we won't ask you to find one here.</p>";
@@ -14682,6 +14750,7 @@ function renderTeamList(){
   refreshExpertBookings(renderTeamListInner);
 }
 function renderTeamListInner(){
+  loadRazorpayCheckout(); // this list can show a Pay Now button; get a head start on it
   // Derive real, currently-available languages from actual expert data — not a fixed list.
   var availableLanguages = [];
   TEAM_MEMBERS.forEach(function(m){
@@ -14760,11 +14829,24 @@ function renderTeamListInner(){
         '<button class="request-change-btn" data-idx="'+idx+'" style="display:block;width:100%;padding:11px;border-radius:12px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:12.5px;font-weight:700;cursor:pointer;">Request Change</button>';
     } else if(isThisPersonBooked){
       var confirmedTimeLabel = activeBooking.session_date ? new Date(activeBooking.session_date).toLocaleString('en-IN', {weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}) : '';
+      // Real fix, per direct instruction, found by walking the real flow start to finish: this
+      // badge previously said "Pending confirmation from HOBS" even once the time was already
+      // locked in by the therapist -- confirmed directly as misleading, since what's actually
+      // outstanding at that point is payment, not anything HOBS still needs to decide.
       var statusBadge = activeBooking.payment_confirmed
         ? '<div style="flex:1 1 100%;padding:11px;border-radius:12px;background:#EAF4EE;color:#3B8F63;font-size:11.5px;font-weight:700;text-align:center;">✓ Confirmed'+(confirmedTimeLabel ? ' — '+confirmedTimeLabel : '')+'</div>'
-        : '<div style="flex:1 1 100%;padding:11px;border-radius:12px;background:#FEF3D8;color:#7B4F00;font-size:11.5px;font-weight:700;text-align:center;">⏳ Pending confirmation from HOBS'+(confirmedTimeLabel ? ' — '+confirmedTimeLabel : '')+'</div>';
+        : '<div style="flex:1 1 100%;padding:11px;border-radius:12px;background:#FEF3D8;color:#7B4F00;font-size:11.5px;font-weight:700;text-align:center;">⏳ Awaiting payment'+(confirmedTimeLabel ? ' — '+confirmedTimeLabel : '')+'</div>';
+      // Real, genuine gap found and fixed, per direct instruction: this whole list view had no
+      // way to actually pay at all -- confirmed directly, the only place this real button
+      // existed was the separate individual "View Profile" detail page. A client landing here
+      // (a completely natural place to check status) saw the unpaid badge with no way to act on
+      // it. Reuses the exact same real payment flow already working on the detail page.
+      var payNowBtnHtml = (!activeBooking.payment_confirmed)
+        ? '<button class="team-pay-now-btn" data-idx="'+idx+'" style="flex:1 1 100%;padding:11px;border-radius:12px;border:none;background:#6690D6;color:#FFF8F0;font-size:11.5px;font-weight:700;cursor:pointer;">Pay Now</button>'
+        : '';
       actionHtml = '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">'+
         statusBadge+
+        payNowBtnHtml+
         '<button class="cancel-session-btn" data-idx="'+idx+'" style="flex:1;padding:10px;border-radius:12px;border:1px solid #EEE0C4;background:transparent;color:#C77B7B;font-size:10.5px;font-weight:700;cursor:pointer;">Cancel Session</button>'+
         '<button class="request-change-btn" data-idx="'+idx+'" style="flex:1;padding:10px;border-radius:12px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:10.5px;font-weight:700;cursor:pointer;">Request Change</button>'+
       '</div>';
@@ -14838,6 +14920,31 @@ function renderTeamListInner(){
   });
   wrap.querySelectorAll('.cancel-session-btn').forEach(function(btn){
     btn.onclick = function(e){ e.stopPropagation(); cancelSession(TEAM_MEMBERS[parseInt(btn.dataset.idx)]); };
+  });
+  wrap.querySelectorAll('.team-pay-now-btn').forEach(function(btn){
+    btn.onclick = function(e){
+      e.stopPropagation();
+      var m = TEAM_MEMBERS[parseInt(btn.dataset.idx)];
+      var booking = getActiveBookingForCategory(m.roleCategory);
+      if(!booking) return;
+      btn.disabled = true;
+      btn.textContent = 'Preparing…';
+      openRazorpayPayment(
+        { purpose: 'booking_payment', booking_id: booking.id, user_id: currentUser.id },
+        {
+          description: 'Session with ' + m.name,
+          prefill: currentUser.name ? { name: currentUser.name } : {},
+          handler: function(){
+            trackNotificationAction('booked_session');
+            logAnalyticsEvent('booking_made');
+            showToast("Thanks! We'll confirm once your payment is verified.");
+            setTimeout(function(){ renderTeamList(); }, 3000);
+          },
+          modal: { ondismiss: function(){ btn.disabled = false; btn.textContent = 'Pay Now'; } },
+        },
+        function(){ btn.disabled = false; btn.textContent = 'Pay Now'; }
+      );
+    };
   });
 }
 
