@@ -14067,8 +14067,29 @@ function therapistLockPayment(bookingId){
         btn.textContent = 'Save Notes & Lock Payment'; btn.disabled = false;
         return;
       }
-      showToast('Notes saved and payment locked.');
-      renderTherapistSummaryAndDetail();
+      // Real, genuine gap found and fixed here, Sept 17 2026, by actually running the real
+      // chain end to end rather than trusting the pieces built separately: this only ever wrote
+      // notes/payment_locked to expert_bookings (the single, overwritten row) -- confirmed
+      // directly, the exact same "gets silently overwritten by the next session" problem
+      // session_history was built to solve in the first place, for the one real action that
+      // actually produces this data. The Session Log and the professional's own schedule view
+      // both correctly read from session_history; this is what was never writing to it. Finds
+      // the current, real session_history row for this booking specifically (the one whose date
+      // matches the booking's current session_date -- one relationship can genuinely hold
+      // several real session_history rows, so this can't just update every row for the booking,
+      // and PostgREST doesn't apply order/limit to an UPDATE, so the matching row has to be
+      // found first) and updates that one row, not the whole relationship's history.
+      var historyUpdate = { session_notes: notes, payment_locked: true };
+      if(fileUrl) historyUpdate.session_note_file_url = fileUrl;
+      sb.from('expert_bookings').select('session_date').eq('id', bookingId).single().then(function(bookingResult){
+        var sessionDate = bookingResult.data ? bookingResult.data.session_date : null;
+        var historyQuery = sb.from('session_history').update(historyUpdate).eq('booking_id', bookingId);
+        if(sessionDate) historyQuery = historyQuery.eq('session_date', sessionDate);
+        historyQuery.then(function(){
+          showToast('Notes saved and payment locked.');
+          renderTherapistSummaryAndDetail();
+        });
+      });
     });
   };
 

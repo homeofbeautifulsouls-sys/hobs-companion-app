@@ -4,6 +4,8 @@ CREATE OR REPLACE FUNCTION public.delete_user_data_atomic(target_user_id uuid)
  SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
+declare
+  target_therapist_expert_name text;
 begin
   -- Real, new fix, Sept 16 2026: if this account is a therapist, any real client who is
   -- currently connected to them (assigned_therapist_user_id) would otherwise block this
@@ -11,7 +13,14 @@ begin
   -- and safe: it's the same real event the auto-assignment trigger already treats as "this
   -- connection is over" (a cancelled/ended booking), just reached from the therapist's side
   -- instead of the booking's.
+  -- Real fix, Sept 17 2026: the same real reasoning now covers all four real professional role
+  -- columns (added the same day auto-assignment was generalized beyond Therapist), not just
+  -- this one -- confirmed directly, a real Psychiatrist/Doctor/Caregiver being deleted would
+  -- have hit the identical foreign-key violation this was never extended to cover.
   update profiles set assigned_therapist_user_id = null where assigned_therapist_user_id = target_user_id;
+  update profiles set assigned_psychiatrist_user_id = null where assigned_psychiatrist_user_id = target_user_id;
+  update profiles set assigned_doctor_user_id = null where assigned_doctor_user_id = target_user_id;
+  update profiles set assigned_caregiver_user_id = null where assigned_caregiver_user_id = target_user_id;
   delete from notification_recipients where user_id = target_user_id;
   delete from subtasks where user_id = target_user_id;
   delete from tasks where user_id = target_user_id;
@@ -23,6 +32,24 @@ begin
   -- referenced (session_history.user_id is always the client, never the therapist, so this is
   -- correctly scoped and never removes another person's real record of their own sessions).
   delete from session_history where user_id = target_user_id;
+  -- Real, new fix, Sept 17 2026: found by actually running the real, complete booking chain end
+  -- to end and then cleaning up the real test accounts afterward, the same way the two fixes
+  -- above were each found. expert_availability_slots.booked_by references auth.users directly
+  -- -- confirmed directly, deleting a real client account that had ever booked a real slot
+  -- failed here with a foreign-key violation. Clearing it (not deleting the slot itself) is
+  -- correct: the slot's owner is the professional, not the client, and the slot itself should
+  -- still exist as a real record of what was offered, just no longer marked as booked by
+  -- someone who no longer exists.
+  update expert_availability_slots set is_booked = false, booked_by = null where booked_by = target_user_id;
+  -- Real, same-session fix: if this account is itself a therapist (or any professional) being
+  -- deleted, their own posted availability slots have no other owner and should go with them --
+  -- confirmed directly, these would otherwise become permanent orphan rows with no real
+  -- professional behind them, silently offered forever with no one to actually take the
+  -- session.
+  select therapist_expert_name into target_therapist_expert_name from profiles where user_id = target_user_id;
+  if target_therapist_expert_name is not null then
+    delete from expert_availability_slots where expert_name = target_therapist_expert_name;
+  end if;
   delete from expert_bookings where user_id = target_user_id;
   delete from test_results where user_id = target_user_id;
   delete from worksheet_responses where user_id = target_user_id;
