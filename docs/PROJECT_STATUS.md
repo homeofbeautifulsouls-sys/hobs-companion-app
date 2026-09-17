@@ -5,11 +5,15 @@ submission, launch-readiness) — separate from `docs/BUG_LOG.md`, which is for 
 Kept as plain markdown in the repo deliberately, so it survives environment resets without
 needing to rebuild a document-generation pipeline just to update one line.
 
-*Last updated Sept 16, 2026, after a full day's real work: Bob's memory system (permanent
-storage, significant-memory recall, semantic search, weekly extraction), crisis escalation to a
-real professional, tiered psychoeducation, the single-companion Bob redesign, several real,
-confirmed bugs found and fixed in real production use, and the sequenced Bob Intelligence
-Architecture plan (see `docs/BOB-INTELLIGENCE-ARCHITECTURE-PLAN.md`) for the next phase of work.*
+*Last updated Sept 17, 2026, after a second full day's real work on top of Sept 16: real,
+per-session history for every professional relationship (not just the single most recent date),
+a working direct-chat system generalized to all four real professional roles (Therapist,
+Psychiatrist, Doctor, Caregiver), a real Session Log surfaced in three separate real UI
+locations, per-session homework with a real accept step and completion notifications, real
+red/green notes-upload tracking and a persisted Google Meet link per session, a real professional
+schedule view, a genuine, root-caused fix for the Calendar-reconnect-vs-auto-reload interaction,
+and a full, honest catch-up of `docs/BUG_LOG.md` covering two real sessions that had never been
+logged at all.*
 
 ## Play Store submission blockers
 
@@ -42,6 +46,42 @@ the real hallucination safeguard), Phase 2 (measurement/benchmark), Phase 3 (res
 review), Phase 4 (memory confidence/staleness), Phase 5 (Bobness regression suite). Real
 streaming (for perceived response speed) is a separate, larger, explicitly-deferred decision --
 raised repeatedly as a real concern, not yet started pending explicit go-ahead.
+
+## Real professional-connection system -- built Sept 16-17, genuinely new, not yet in production
+
+Everything below is live and verified on **staging only** (through v26). None of it has been
+promoted to production yet.
+
+**Done**: direct 1-on-1 chat with a connected professional, generalized to all four real roles
+(Therapist/Psychiatrist/Doctor/Caregiver) at both the database (auto-assignment trigger) and UI
+(profile page) level; a real `session_history` table recording every actual session, not just the
+most recent one; a full Session Log showing complete history with a real red/green notes-upload
+status and a working Google Meet link per session, reachable from three separate real places
+(profile page, Our Experts list, the individual View Profile page); per-session homework with a
+real client accept step (pending items never appear as active tasks until accepted) and a real
+push notification back to the professional on completion; a professional's own complete
+past+future schedule view across every real client; the proper, admin-approval disconnect flow
+correctly wired everywhere instead of an old, bypassing shortcut.
+
+**Real, known gaps not yet addressed**:
+- [ ] **The Coordination Group concept** (multiple professionals coordinating around one shared
+      client, showing the real client's name instead of a generic label) -- discussed and
+      understood, not built. The underlying `chat_rooms` type (`coordination`) already exists in
+      the schema with one real row, but no real UI surfaces it yet.
+- [ ] **The professional's own calendar/availability management** -- Akash's described real flow
+      ("they update their calendar and their availability") isn't confirmed to have a clean,
+      dedicated UI for this specifically; needs a real look before assuming it's covered by the
+      existing Google Calendar sync alone.
+- [ ] **A real, live end-to-end test of the whole chain** -- admin assigns -> client books and
+      pays -> professional confirms -> both get a working Meet link -> professional uploads real
+      notes -> Session Log correctly shows green -- built and unit-tested in pieces, never run as
+      one real, continuous flow start to finish.
+- [ ] **The still-unexplained "only connected professionals visible" report** -- investigated
+      thoroughly (RLS, the fetch query, the language filter), no code-level cause found; saved in
+      memory per Akash's own request, not pursued further yet.
+- [ ] Homework/Session-Log/schedule-view testing so far has focused on the Therapist role
+      specifically -- not separately re-verified end-to-end for Psychiatrist/Doctor/Caregiver,
+      even though the underlying logic is now genuinely role-agnostic.
 
 ## Other real, outstanding items (not blockers, but genuinely open)
 
@@ -79,6 +119,13 @@ raised repeatedly as a real concern, not yet started pending explicit go-ahead.
 - [ ] Kunnu, Po, Cookie -- currently fully hidden (not deleted) across every UI and routing path;
       Bob currently handles everything. Awaiting a decision on when/how to bring them back with
       the same depth of character work Bob has now received.
+- [ ] When (if at all) to promote the whole new professional-connection system (Sept 16-17) from
+      staging to production -- a real, substantial amount of new, safety-adjacent surface area
+      (real chat between clients and real professionals) that hasn't had the same length of real
+      staging soak time as some earlier features.
+- [ ] Your own real, in-house calendar system (linked to email/WhatsApp) as a possible eventual
+      replacement for the current Google Calendar integration -- raised as a real idea, explicitly
+      set aside for a later, separate conversation, not started.
 
 ## Lower-priority technical work
 
@@ -90,3 +137,4 @@ raised repeatedly as a real concern, not yet started pending explicit go-ahead.
 
 *Update this file whenever a real blocker resolves or a new one surfaces — don't let status
 updates like the D-U-N-S resolution live only in chat history.*
+
