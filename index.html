@@ -14708,6 +14708,15 @@ function renderTeamList(){
     } else {
       actionHtml = '<button class="book-session-btn" data-idx="'+idx+'" style="display:block;width:100%;margin-top:6px;padding:11px;border-radius:12px;border:1.5px solid #6690D6;background:transparent;color:#6690D6;font-size:12.5px;font-weight:700;cursor:pointer;">Book Session</button>';
     }
+    // Real, new button, Sept 16 2026, per direct, repeated instruction: this real, existing
+    // connected-professional card had no path to the Session Log at all -- confirmed directly,
+    // this is a genuinely separate rendering location from the profile page's own button,
+    // never touched by that earlier fix. Shows for any real, active connection with this
+    // person, regardless of which specific sub-state (pending, needs-time, confirmed) they're
+    // currently in, since session_history can hold real past sessions in any of those states.
+    var sessionLogHtml = isThisPersonBooked
+      ? '<button class="view-session-log-btn" data-idx="'+idx+'" style="display:block;width:100%;margin-top:8px;padding:10px;border-radius:12px;border:1px solid #EEE0C4;background:#FFFFFF;color:#2A2013;font-size:11.5px;font-weight:700;cursor:pointer;">📋 View Session Log</button>'
+      : '';
 
     return '<div class="team-list-card" data-idx="'+idx+'" style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:18px;padding:14px;margin-bottom:12px;cursor:pointer;">'+
       '<div style="display:flex;gap:14px;">'+
@@ -14726,6 +14735,7 @@ function renderTeamList(){
         '</div>'+
       '</div>'+
       actionHtml+
+      sessionLogHtml+
     '</div>';
   }).join('');
   // Real fix: previously only the small 100x126px thumbnail was clickable to view a profile --
@@ -14742,6 +14752,9 @@ function renderTeamList(){
   });
   wrap.querySelectorAll('.book-session-btn').forEach(function(btn){
     btn.onclick = function(e){ e.stopPropagation(); bookExpert(TEAM_MEMBERS[parseInt(btn.dataset.idx)]); };
+  });
+  wrap.querySelectorAll('.view-session-log-btn').forEach(function(btn){
+    btn.onclick = function(e){ e.stopPropagation(); openMyBookings(); };
   });
   wrap.querySelectorAll('.pick-time-btn').forEach(function(btn){
     btn.onclick = function(e){
@@ -15020,6 +15033,12 @@ function openExpertDetail(idx){
   var messageBtnHtml = isThisPersonBooked
     ? '<button id="expertDetailMessageBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #6690D6;background:transparent;color:#6690D6;font-size:13px;font-weight:700;cursor:pointer;margin-top:8px;">💬 Message '+m.name.split(' ')[0]+'</button>'
     : '';
+  // Real, new button, Sept 16 2026, per direct, repeated instruction: this is a third, separate
+  // rendering location (the full "View Profile" detail page) with the exact same real gap --
+  // confirmed directly, never touched by either earlier fix.
+  var sessionLogBtnHtml = isThisPersonBooked
+    ? '<button id="expertDetailSessionLogBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #EEE0C4;background:#FFFFFF;color:#2A2013;font-size:13px;font-weight:700;cursor:pointer;margin-top:8px;">📋 View Session Log</button>'
+    : '';
 
   document.getElementById('expertDetailContent').innerHTML =
     '<div style="background:linear-gradient(165deg,#8FB0EA 0%,#6690D6 60%,#5372B8 100%);border-radius:24px;padding:28px 20px;text-align:center;margin-bottom:20px;">'+
@@ -15083,7 +15102,11 @@ function openExpertDetail(idx){
       '</div>' : ''
     )+
     actionHtml+
-    messageBtnHtml;
+    messageBtnHtml+
+    sessionLogBtnHtml;
+
+  var sessionLogBtnEl = document.getElementById('expertDetailSessionLogBtn');
+  if(sessionLogBtnEl) sessionLogBtnEl.onclick = openMyBookings;
 
   document.querySelectorAll('.expert-accordion-toggle').forEach(function(btn){
     btn.onclick = function(){
