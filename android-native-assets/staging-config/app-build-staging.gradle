@@ -7,8 +7,8 @@ android {
         applicationId "com.hobsfoundation.companion.staging"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 37
-        versionName "staging-v37-per-session-payment-fix"
+        versionCode 38
+        versionName "staging-v38-client-grid-redesign"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

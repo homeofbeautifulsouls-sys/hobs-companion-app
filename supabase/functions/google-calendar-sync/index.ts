@@ -504,7 +504,7 @@ Deno.serve(async (req) => {
             const chargeMsg = chargePercent > 0 ? ` A ${chargePercent}% cancellation charge applies per policy.` : " No charge applies (more than 24 hours' notice).";
             await sendPush(booking.user_id, "Your session was cancelled", `Your session with ${booking.expert_name} was cancelled (calendar event removed).${chargeMsg}`);
             await sendPush(conn.user_id, "Session cancelled", `The session on your calendar was removed, so it's been cancelled in HOBS too.${chargeMsg}`);
-          } else if (event.start?.dateTime && link.last_known_start && event.start.dateTime !== link.last_known_start) {
+          } else if (event.start?.dateTime && link.last_known_start && new Date(event.start.dateTime).getTime() !== new Date(link.last_known_start).getTime()) {
             // Time changed -- flag for approval, never auto-applied.
             await dbWrite("calendar_change_requests", "POST", {
               booking_id: booking.id, professional_user_id: conn.user_id, change_type: "time_changed",

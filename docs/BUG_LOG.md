@@ -1782,6 +1782,23 @@ All three verified directly: the full real chain re-run end to end after each fi
 correct at every step, including both the client's Session Log and the professional's own
 schedule view genuinely showing the real, saved notes with the correct green status.
 
+### 97. The "Calendar time changed — needs your review" prompt could fire on a real session that never actually moved at all
+Found by direct report -- a real screenshot showing the exact same time on both sides of the
+arrow ("9:00 pm → 9:00 pm"), asking for approval of a change that plainly hadn't happened.
+**Root cause, confirmed precisely, not guessed**: the comparison deciding whether a synced
+session's time had genuinely changed compared two ISO datetime strings with plain `!==` --
+`event.start.dateTime !== link.last_known_start`. Two different string representations of the
+exact same instant (a different timezone-offset notation, a trailing `.000` versus none) compare
+as unequal as raw strings even though they mean the identical moment. Confirmed directly: the two
+real, live rows behind this exact report both showed `old_start` and `new_start` as byte-identical
+once actually stored (Postgres normalizes timestamptz values on write, which is exactly why the
+bug only ever showed up in the app's own pre-storage string comparison, never in the database
+itself) -- definitive proof these were false positives, not real changes that had somehow reverted.
+**Real fix**: compares actual moments in time now (`new Date(a).getTime() !== new Date(b).getTime()`)
+instead of raw strings. Verified directly with the exact real scenario that caused this report
+before considering it fixed. The two real, confirmed false-positive rows behind this specific
+report were removed directly, rather than left sitting there unresolved forever.
+
 ---
 
 ## Standing lessons (do not re-learn these)
