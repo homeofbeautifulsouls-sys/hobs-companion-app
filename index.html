@@ -1182,7 +1182,11 @@
 
     <div id="therapistClientDetailBackdrop" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,20,20,0.45);z-index:60;"></div>
     <div id="therapistClientDetailModal" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;max-height:80vh;overflow-y:auto;background:#FFFFFF;border-radius:24px 24px 0 0;padding:24px 22px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;z-index:61;box-shadow:0 -10px 30px rgba(0,0,0,0.15);">
-      <p class="prompt-title" style="margin-bottom:16px;" id="therapistClientDetailName">Client details</p>
+      <p class="prompt-title" style="margin-bottom:8px;" id="therapistClientDetailName">Client details</p>
+      <div style="display:flex;gap:8px;margin-bottom:16px;">
+        <button id="therapistClientDetailMessageBtn" style="flex:1;padding:11px;border-radius:12px;border:1px solid #C7E8D2;background:transparent;color:#3B8F63;font-size:12px;font-weight:700;cursor:pointer;">💬 Message</button>
+        <button id="therapistClientDetailScheduleBtn" style="flex:1;padding:11px;border-radius:12px;border:1px solid #C7D2E8;background:transparent;color:#6690D6;font-size:12px;font-weight:700;cursor:pointer;">📅 Manage Schedule</button>
+      </div>
       <div id="therapistClientDetailBody"></div>
       <button id="therapistClientDetailCloseBtn" style="display:block;width:100%;padding:13px;border-radius:14px;border:1px solid #EEE0C4;background:transparent;color:#5C6B94;font-size:13px;font-weight:700;cursor:pointer;margin-top:16px;">Close</button>
     </div>
@@ -13373,48 +13377,51 @@ function renderTherapistClientsList(){
       listEl.innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12.5px;">No clients connected yet.</p>';
       return;
     }
-    var appClientsHtml = clientIds.map(function(uid){
+    // Real, new grid layout, per direct instruction ("squares arranged properly") -- replaces
+    // the previous plain vertical list. Tapping a square now opens the same real, complete
+    // detail view directly (address, emergency contacts from the signed contract, shared
+    // entries, appointment history) -- the two real actions the old list buried in a row
+    // (message, manage schedule) are still there, just moved inside that detail view itself
+    // instead of being crammed onto every square.
+    listEl.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:10px;';
+    var avatarColors = ['#6690D6','#3B8F63','#C77B7B','#9A7B3E','#5C6B94'];
+    var appClientsHtml = clientIds.map(function(uid, idx){
       var profile = profileByUserId[uid] || {};
       var info = byClient[uid];
+      var name = profile.name || 'Unknown client';
+      var initials = name.split(' ').filter(Boolean).slice(0,2).map(function(w){ return w[0].toUpperCase(); }).join('');
       var sessionText = info.latestSessionDate
-        ? 'Next/latest session: ' + new Date(info.latestSessionDate).toLocaleDateString('en-IN', {day:'numeric', month:'short'})
-        : (info.count + ' booking' + (info.count===1?'':'s') + ', no date set yet');
-      return '<div class="therapist-client-row" data-user-id="'+uid+'" data-session-date="'+(info.latestSessionDate||'')+'" data-name="'+(profile.name||'Unknown client')+'" style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:12px;padding:11px 13px;margin-bottom:7px;cursor:pointer;">'+
-        '<p style="font-size:12.5px;font-weight:700;color:#2A2013;margin:0 0 2px;">'+(profile.name||'Unknown client')+'</p>'+
-        '<p style="font-size:11px;color:#5C6B94;margin:0 0 2px;">'+(profile.email||'')+'</p>'+
-        '<p style="font-size:10px;color:#9AABCE;margin:0 0 6px;">'+sessionText+'</p>'+
-        '<div style="display:flex;gap:6px;">'+
-        '<button class="therapist-client-view-details-btn" data-user-id="'+uid+'" data-name="'+(profile.name||'Unknown client')+'" style="font-size:10.5px;font-weight:700;color:#6690D6;background:none;border:1px solid #C7D2E8;border-radius:8px;padding:5px 10px;cursor:pointer;">View shared entries &amp; details</button>'+
-        '<button class="therapist-client-message-btn" data-user-id="'+uid+'" style="font-size:10.5px;font-weight:700;color:#3B8F63;background:none;border:1px solid #C7E8D2;border-radius:8px;padding:5px 10px;cursor:pointer;">💬 Message</button>'+
-        '</div>'+
-        '</div>';
+        ? new Date(info.latestSessionDate).toLocaleDateString('en-IN', {day:'numeric', month:'short'})
+        : (info.count + ' booking' + (info.count===1?'':'s'));
+      var color = avatarColors[idx % avatarColors.length];
+      return '<button class="therapist-client-square" data-user-id="'+uid+'" data-name="'+name.replace(/"/g,'&quot;')+'" style="display:flex;flex-direction:column;align-items:center;text-align:center;background:#FFFFFF;border:1px solid #EEE0C4;border-radius:16px;padding:16px 10px;cursor:pointer;">'+
+        '<div style="width:52px;height:52px;border-radius:50%;background:'+color+';color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;margin-bottom:8px;">'+initials+'</div>'+
+        '<p style="font-size:12px;font-weight:700;color:#2A2013;margin:0 0 2px;line-height:1.25;">'+name.replace(/</g,'&lt;')+'</p>'+
+        '<p style="font-size:10px;color:#9AABCE;margin:0;">'+sessionText+'</p>'+
+      '</button>';
     }).join('');
 
     var externalClientsHtml = externalRows.map(function(b){
-      var sessionText = b.session_date ? new Date(b.session_date).toLocaleString('en-IN', {day:'numeric', month:'short', hour:'numeric', minute:'2-digit'}) : 'no time set';
-      return '<div class="therapist-client-row" data-booking-id="'+b.id+'" data-session-date="'+(b.session_date||'')+'" data-name="'+(b.external_client_name||'Unnamed')+'" style="background:#FFF8F0;border:1px dashed #EEE0C4;border-radius:12px;padding:11px 13px;margin-bottom:7px;cursor:pointer;">'+
-        '<p style="font-size:12.5px;font-weight:700;color:#2A2013;margin:0 0 2px;">'+(b.external_client_name||'Unnamed')+' <span style="font-size:9px;font-weight:700;color:#9AABCE;background:#F0EEE8;padding:2px 6px;border-radius:6px;">Outside app</span></p>'+
-        (b.external_client_contact ? '<p style="font-size:11px;color:#5C6B94;margin:0 0 2px;">'+b.external_client_contact+'</p>' : '')+
+      var name = b.external_client_name || 'Unnamed';
+      var initials = name.split(' ').filter(Boolean).slice(0,2).map(function(w){ return w[0].toUpperCase(); }).join('');
+      var sessionText = b.session_date ? new Date(b.session_date).toLocaleDateString('en-IN', {day:'numeric', month:'short'}) : 'no time set';
+      return '<button class="therapist-client-square" data-booking-id="'+b.id+'" data-session-date="'+(b.session_date||'')+'" data-name="'+name.replace(/"/g,'&quot;')+'" style="display:flex;flex-direction:column;align-items:center;text-align:center;background:#FFF8F0;border:1px dashed #EEE0C4;border-radius:16px;padding:16px 10px;cursor:pointer;">'+
+        '<div style="width:52px;height:52px;border-radius:50%;background:#B0AA98;color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;margin-bottom:8px;">'+initials+'</div>'+
+        '<p style="font-size:12px;font-weight:700;color:#2A2013;margin:0 0 2px;line-height:1.25;">'+name.replace(/</g,'&lt;')+' <span style="font-size:8.5px;font-weight:700;color:#9AABCE;">(outside app)</span></p>'+
         '<p style="font-size:10px;color:#9AABCE;margin:0;">'+sessionText+'</p>'+
-        '</div>';
+      '</button>';
     }).join('');
 
     listEl.innerHTML = appClientsHtml + externalClientsHtml;
-    listEl.querySelectorAll('.therapist-client-row').forEach(function(row){
-      row.onclick = function(){
-        openTherapistScheduleEdit(row.dataset.userId || null, row.dataset.bookingId || null, row.dataset.name, row.dataset.sessionDate || null);
-      };
-    });
-    listEl.querySelectorAll('.therapist-client-view-details-btn').forEach(function(btn){
-      btn.onclick = function(e){
-        e.stopPropagation();
-        openTherapistClientDetail(btn.dataset.userId, btn.dataset.name);
-      };
-    });
-    listEl.querySelectorAll('.therapist-client-message-btn').forEach(function(btn){
-      btn.onclick = function(e){
-        e.stopPropagation();
-        startOrOpenDirectChat(btn.dataset.userId);
+    listEl.querySelectorAll('.therapist-client-square').forEach(function(sq){
+      sq.onclick = function(){
+        if(sq.dataset.userId){
+          openTherapistClientDetail(sq.dataset.userId, sq.dataset.name);
+        } else {
+          // A client outside the app has no real profile to show -- the schedule editor is
+          // the one real, relevant action available for them.
+          openTherapistScheduleEdit(null, sq.dataset.bookingId, sq.dataset.name, sq.dataset.sessionDate || null);
+        }
       };
     });
   });
@@ -13425,7 +13432,13 @@ function renderTherapistClientsList(){
 // confirmed by checking -- there was no therapist-facing equivalent at all), and no visibility
 // into emergency contact/address for safety purposes. One view serves both, reusing the exact
 // same shared-entries query pattern the admin view already uses.
+var therapistClientDetailCurrentUserId = null;
+var therapistClientDetailCurrentBookingId = null;
+var therapistClientDetailCurrentSessionDate = null;
 function openTherapistClientDetail(userId, name){
+  therapistClientDetailCurrentUserId = userId;
+  therapistClientDetailCurrentBookingId = null;
+  therapistClientDetailCurrentSessionDate = null;
   document.getElementById('therapistClientDetailName').textContent = name;
   document.getElementById('therapistClientDetailBody').innerHTML = '<p style="text-align:center;color:#9AABCE;font-size:12px;">Loading...</p>';
   document.getElementById('therapistClientDetailBackdrop').style.display = 'block';
@@ -13437,17 +13450,21 @@ function openTherapistClientDetail(userId, name){
     sb.from('worksheet_responses').select('worksheet_key,category_key,answers').eq('user_id', userId).eq('shared_with_therapist', true),
     // Scoped to appointments with THIS therapist specifically, not the client's history with
     // other professionals -- matches the same privacy boundary as everything else here.
-    sb.from('expert_bookings').select('session_date,status,payment_confirmed,payment_note').eq('user_id', userId).eq('expert_name', appState.therapistExpertName).order('session_date', {ascending:false}),
+    sb.from('expert_bookings').select('id,session_date,status,payment_confirmed,payment_note').eq('user_id', userId).eq('expert_name', appState.therapistExpertName).order('session_date', {ascending:false}),
     // Real ask: admin and therapist should be able to see that a client has actually signed
     // the consent and no-suicide agreement, not just assume it based on them being able to book
     // at all -- surfacing the real signature name/date on record.
-    sb.from('consent_agreements').select('signature_name,signature_date,no_suicide_signature_name,no_suicide_signature_date').eq('user_id', userId).order('created_at', {ascending:false}).limit(1)
+    sb.from('consent_agreements').select('signature_name,signature_date,no_suicide_signature_name,no_suicide_signature_date,emergency_contact_1_name,emergency_contact_1_phone,emergency_contact_2_name,emergency_contact_2_phone,emergency_contact_3_name,emergency_contact_3_phone').eq('user_id', userId).order('created_at', {ascending:false}).limit(1)
   ]).then(function(results){
     var profile = results[0].data || {};
     var shared = results[1].data || [];
     var sharedWorksheetAnswers = {};
     (results[2].data || []).forEach(function(w){ sharedWorksheetAnswers[w.worksheet_key] = w; });
     var appointmentHistory = results[3].data || [];
+    if(appointmentHistory.length > 0){
+      therapistClientDetailCurrentBookingId = appointmentHistory[0].id;
+      therapistClientDetailCurrentSessionDate = appointmentHistory[0].session_date;
+    }
     var consent = (results[4].data && results[4].data[0]) || null;
     var html = '';
     if(profile.photo_url){
@@ -13461,6 +13478,24 @@ function openTherapistClientDetail(userId, name){
       html += '</div>';
     } else {
       html += '<p style="font-size:11.5px;color:#B0AA98;margin:0 0 16px;">Not provided yet.</p>';
+    }
+
+    // Real, new section, per direct instruction: the profile-level emergency contact above is
+    // a simpler, separate pair a client can edit any time -- the real, on-record contacts are
+    // specifically the ones given while signing the No-Suicide Agreement itself (up to three),
+    // confirmed directly as what was actually meant by "mentioned in their contract." Never
+    // shown here before at all; now shown as its own real section, sourced from the real signed
+    // contract, not the editable profile field.
+    var contractContacts = consent ? [1,2,3].map(function(n){
+      return { name: consent['emergency_contact_'+n+'_name'], phone: consent['emergency_contact_'+n+'_phone'] };
+    }).filter(function(c){ return c.name; }) : [];
+    if(contractContacts.length > 0){
+      html += '<p style="font-size:11px;font-weight:700;color:#9AABCE;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 6px;">Emergency Contacts (from signed contract)</p>'+
+        '<div style="background:#FBF2F2;border-radius:10px;padding:12px;margin-bottom:16px;">'+
+        contractContacts.map(function(c){
+          return '<p style="font-size:11.5px;color:#2A2013;margin:0 0 6px;">'+c.name.replace(/</g,'&lt;')+(c.phone ? ' — '+c.phone.replace(/</g,'&lt;') : '')+'</p>';
+        }).join('')+
+        '</div>';
     }
 
     html += '<p style="font-size:11px;font-weight:700;color:#9AABCE;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 6px;">Signed Contracts</p>';
@@ -13538,6 +13573,13 @@ document.getElementById('therapistClientDetailCloseBtn').onclick = function(){
   document.getElementById('therapistClientDetailModal').style.display = 'none';
 };
 document.getElementById('therapistClientDetailBackdrop').onclick = document.getElementById('therapistClientDetailCloseBtn').onclick;
+document.getElementById('therapistClientDetailMessageBtn').onclick = function(){
+  if(therapistClientDetailCurrentUserId) startOrOpenDirectChat(therapistClientDetailCurrentUserId);
+};
+document.getElementById('therapistClientDetailScheduleBtn').onclick = function(){
+  if(!therapistClientDetailCurrentUserId) return;
+  openTherapistScheduleEdit(therapistClientDetailCurrentUserId, therapistClientDetailCurrentBookingId, document.getElementById('therapistClientDetailName').textContent, therapistClientDetailCurrentSessionDate);
+};
 
 // Tapping a client's name in My Clients opens this -- lets a therapist directly set or change
 // that client's next session time, same underlying update Log Appointment does, just reached
