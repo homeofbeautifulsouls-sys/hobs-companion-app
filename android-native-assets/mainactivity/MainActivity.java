@@ -1,15 +1,21 @@
 package com.hobsfoundation.companion;
 
+import android.Manifest;
+import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.webkit.CookieManager;
+import android.webkit.PermissionRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.webkit.WebSettingsCompat;
 import androidx.webkit.WebViewFeature;
 import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.BridgeWebChromeClient;
 import com.getcapacitor.PluginHandle;
 import com.getcapacitor.WebViewListener;
 import com.razorpay.PaymentData;
@@ -34,6 +40,19 @@ public class MainActivity extends BridgeActivity implements PaymentResultWithDat
   public static void setPendingPaymentCallbackId(String callbackId) {
     pendingPaymentCallbackId = callbackId;
   }
+
+  // Real, genuine root cause found and fixed here, Sept 20 2026, by direct report: journal
+  // voice input calls the standard web getUserMedia API, which on Android specifically depends
+  // on the native WebView being asked for RESOURCE_AUDIO_CAPTURE and granting it -- confirmed
+  // directly, nothing anywhere in this app (staging or the real, cached production build alike)
+  // ever did that. The manifest declaring RECORD_AUDIO alone was never going to be enough on
+  // its own; a WebView doesn't automatically forward its own permission prompts to the real
+  // Android runtime permission system, that bridge has to be built explicitly. Holds the
+  // WebView's own pending request open while the real, native runtime dialog is showing, since
+  // that's a genuinely separate, asynchronous step the WebView's own callback can't wait on
+  // directly.
+  private PermissionRequest pendingMicWebPermissionRequest;
+  private static final int MIC_RUNTIME_PERMISSION_REQUEST_CODE = 9401;
 
   @Override
   public void onPaymentSuccess(String razorpayPaymentId, PaymentData paymentData) {
@@ -60,6 +79,20 @@ public class MainActivity extends BridgeActivity implements PaymentResultWithDat
   }
 
   @Override
+  public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+    super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+    if (requestCode == MIC_RUNTIME_PERMISSION_REQUEST_CODE && pendingMicWebPermissionRequest != null) {
+      boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+      if (granted) {
+        pendingMicWebPermissionRequest.grant(new String[]{PermissionRequest.RESOURCE_AUDIO_CAPTURE});
+      } else {
+        pendingMicWebPermissionRequest.deny();
+      }
+      pendingMicWebPermissionRequest = null;
+    }
+  }
+
+  @Override
   public void onCreate(Bundle savedInstanceState) {
     // Real fix, following Capacitor's own documented pattern for custom plugins: must be
     // registered before super.onCreate().
@@ -76,6 +109,30 @@ public class MainActivity extends BridgeActivity implements PaymentResultWithDat
     if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
       WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, false);
     }
+
+    // Real fix, same real gap as above: subclasses Capacitor's own BridgeWebChromeClient (its
+    // documented extension point for exactly this) rather than a plain WebChromeClient, so
+    // whatever Capacitor's own client already handles (file inputs, etc.) keeps working
+    // unchanged -- only onPermissionRequest is actually overridden here.
+    getBridge().getWebView().setWebChromeClient(new BridgeWebChromeClient(getBridge()) {
+      @Override
+      public void onPermissionRequest(final PermissionRequest request) {
+        for (String resource : request.getResources()) {
+          if (resource.equals(PermissionRequest.RESOURCE_AUDIO_CAPTURE)) {
+            runOnUiThread(() -> {
+              if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                request.grant(new String[]{PermissionRequest.RESOURCE_AUDIO_CAPTURE});
+              } else {
+                pendingMicWebPermissionRequest = request;
+                ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.RECORD_AUDIO}, MIC_RUNTIME_PERMISSION_REQUEST_CODE);
+              }
+            });
+            return;
+          }
+        }
+        request.deny();
+      }
+    });
 
     // Real fix, Aug 27, 2026, following Razorpay's own documented WebView integration
     // requirements: their checkout depends on cookies (for features like saved cards, and

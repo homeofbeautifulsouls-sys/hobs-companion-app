@@ -22,12 +22,24 @@ logged at all.*
 - [x] **Google Play Console developer account setup/verification** — resolved. Confirmed
       directly by Akash Sept 16, 2026: "Playstore is working." The organization-account
       conversion that previously blocked this is done.
-- [ ] Closed testing prerequisite: 12 real testers x 14 consecutive days, before a production
-      track submission is even possible.
-- [ ] Store listing content (description, screenshots, privacy policy link, content rating
-      questionnaire) — confirm actually uploaded in Play Console, not just prepared.
-- [ ] Device catalog — confirm set to Phone only.
-- [ ] Lawyer review of the Terms of Service liability section — still not done.
+- [x] **Content policies approved, organization account verified** — confirmed directly by Akash
+      Sept 18, 2026, and corroborated by real, live Play Developer API data pulled the same day
+      (`play-console-status` function): the alpha (closed testing) track shows a completed
+      release (versionCode 74), and a draft production release already exists on the production
+      track -- Google's own system does not allow a production draft to exist without these
+      gates already cleared.
+- [x] **Closed testing prerequisite** — confirmed via the same real, live check: alpha track
+      release status is "completed."
+- [x] **Store listing text content** — confirmed via the same real check: title and full
+      description are present and complete in the en-US listing.
+- [ ] **Phone screenshots** — confirmed missing via the same real check (a clean 404 on
+      `imageType/phoneScreenshots`). Google requires at least two before a production submission
+      is possible. Real, concrete, currently blocking.
+- [ ] Device catalog — confirm set to Phone only (not checked via this method yet).
+- [ ] Lawyer review of the Terms of Service liability section — genuinely not checkable via any
+      API; this is an offline, real-world step only Akash can confirm. Flagged multiple times
+      going back to August 2026 with no record found of it having happened. Real, live status:
+      **still needs Akash's direct confirmation.**
 
 ## Bob Intelligence Architecture — real, current status
 

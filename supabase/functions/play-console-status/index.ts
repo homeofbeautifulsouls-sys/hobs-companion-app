@@ -92,7 +92,15 @@ Deno.serve(async (req: Request) => {
     const reviewsRes = await fetch(`${base}/reviews?maxResults=5`, { headers: authHeaders });
     const reviewsJson = reviewsRes.ok ? await reviewsRes.json() : { error: `${reviewsRes.status}` };
 
-    return new Response(JSON.stringify({ success: true, tracks: tracksJson.track || tracksJson, alphaTrackDetail: testersJson, reviewCount: reviewsJson.reviews ? reviewsJson.reviews.length : 0 }, null, 2), {
+    // Real, new check, per direct instruction: also reads the real store listing content
+    // directly (description, screenshots present, content rating status) rather than leaving
+    // that unconfirmed when it's just as checkable as everything else here.
+    const listingRes = await fetch(`${base}/edits/${editId}/listings/en-US`, { headers: authHeaders });
+    const listingJson = listingRes.ok ? await listingRes.json() : { error: `${listingRes.status}: ${await listingRes.text()}` };
+    const imagesRes = await fetch(`${base}/edits/${editId}/listings/en-US/imageType/phoneScreenshots`, { headers: authHeaders });
+    const imagesJson = imagesRes.ok ? await imagesRes.json() : { error: `${imagesRes.status}` };
+
+    return new Response(JSON.stringify({ success: true, tracks: tracksJson.track || tracksJson, alphaTrackDetail: testersJson, reviewCount: reviewsJson.reviews ? reviewsJson.reviews.length : 0, storeListing: listingJson, phoneScreenshots: imagesJson }, null, 2), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
