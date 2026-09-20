@@ -7,8 +7,8 @@ android {
         applicationId "com.hobsfoundation.companion.staging"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 40
-        versionName "staging-v40-mood-tracker-race-fix"
+        versionCode 41
+        versionName "staging-v41-mic-audio-settings-spacing-fix"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
