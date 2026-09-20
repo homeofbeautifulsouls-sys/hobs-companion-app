@@ -32,10 +32,22 @@ logged at all.*
       release status is "completed."
 - [x] **Store listing text content** — confirmed via the same real check: title and full
       description are present and complete in the en-US listing.
-- [ ] **Phone screenshots** — confirmed missing via the same real check (a clean 404 on
-      `imageType/phoneScreenshots`). Google requires at least two before a production submission
-      is possible. Real, concrete, currently blocking.
-- [ ] Device catalog — confirm set to Phone only (not checked via this method yet).
+- [x] **Health apps declaration, Data safety questionnaire, Content rating questionnaire,
+      Privacy policy URL, Ads declaration, Target audience and content, App category** — all
+      confirmed directly by Akash Sept 20, 2026, via real, direct screenshots of Play Console's
+      own App content page and submission history (not just his word -- verified against
+      Play Console's own records). No longer open items.
+- [ ] **Phone screenshots** — real API check (`play-console-status` function) still shows empty
+      as of Sept 20, 2026, even after Akash's direct report that these were uploaded. Neither of
+      the two Play Console screenshots he's shown so far (App content declarations, and the
+      Closed testing release history) actually covers the Main store listing submission
+      specifically, where phone screenshots would show -- so this is genuinely still
+      unconfirmed either way, not resolved. Asked Akash to check Main store listing directly and
+      confirm what he sees there.
+- [ ] Device catalog — confirmed via Akash's own Sept 20 screenshot that it's still set to
+      Phones, Tablets, Chrome OS, and Android XR (not narrowed to Phone only). Step-by-step
+      instructions given (Setup → Advanced settings → Device catalog → restrict to Phone only).
+      Not yet confirmed done.
 - [ ] Lawyer review of the Terms of Service liability section — genuinely not checkable via any
       API; this is an offline, real-world step only Akash can confirm. Flagged multiple times
       going back to August 2026 with no record found of it having happened. Real, live status:

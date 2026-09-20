@@ -100,7 +100,21 @@ Deno.serve(async (req: Request) => {
     const imagesRes = await fetch(`${base}/edits/${editId}/listings/en-US/imageType/phoneScreenshots`, { headers: authHeaders });
     const imagesJson = imagesRes.ok ? await imagesRes.json() : { error: `${imagesRes.status}` };
 
-    return new Response(JSON.stringify({ success: true, tracks: tracksJson.track || tracksJson, alphaTrackDetail: testersJson, reviewCount: reviewsJson.reviews ? reviewsJson.reviews.length : 0, storeListing: listingJson, phoneScreenshots: imagesJson }, null, 2), {
+    // Real, temporary debug addition, per direct report that screenshots were already
+    // uploaded, contradicting the en-US-only check above: lists every locale that actually has
+    // a listing at all, and checks phoneScreenshots against each one, rather than assuming
+    // en-US was the right (or only) one to look at.
+    const allListingsRes = await fetch(`${base}/edits/${editId}/listings`, { headers: authHeaders });
+    const allListingsJson = allListingsRes.ok ? await allListingsRes.json() : { error: `${allListingsRes.status}: ${await allListingsRes.text()}` };
+    const perLocaleScreenshots: Record<string, any> = {};
+    if (allListingsJson.listings) {
+      for (const l of allListingsJson.listings) {
+        const r = await fetch(`${base}/edits/${editId}/listings/${l.language}/imageType/phoneScreenshots`, { headers: authHeaders });
+        perLocaleScreenshots[l.language] = r.ok ? (await r.json()).images?.length ?? 0 : `error ${r.status}`;
+      }
+    }
+
+    return new Response(JSON.stringify({ success: true, tracks: tracksJson.track || tracksJson, alphaTrackDetail: testersJson, reviewCount: reviewsJson.reviews ? reviewsJson.reviews.length : 0, storeListing: listingJson, phoneScreenshots: imagesJson, allLocales: allListingsJson, phoneScreenshotsPerLocale: perLocaleScreenshots }, null, 2), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
