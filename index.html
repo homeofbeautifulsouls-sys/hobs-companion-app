@@ -3123,7 +3123,16 @@ function onAuthSuccess(user){
   // finish). Previously blocked the entire boot sequence on this finishing too, adding a full
   // extra network round-trip before anything could show.
   loadExpertsFromSupabase();
+  // Real fix, per direct report, found by tracing the actual shared cause behind two seemingly
+  // unrelated symptoms (Mood Tracker looking empty, not just the earlier crash already fixed):
+  // the earlier fix only ever stopped this from throwing when data wasn't loaded yet -- it
+  // never made the screen actually wait for and show the real data once the load itself
+  // finished. If someone opens Mood Tracker before this promise resolves, they'd see a
+  // correctly-not-crashing but genuinely empty screen, and nothing was ever set up to
+  // re-render once the real data arrived a moment later. Resolves the real, externally-created
+  // promise declared at true script-start (see there for why it isn't created fresh here).
   loadUserDataFromSupabase().then(function(){
+    _resolveInitialDataLoad(); // data is genuinely ready now -- resolve before any early return below
     var overlay = document.getElementById('authOverlay');
     overlay.style.display = 'none';
     void overlay.offsetHeight; // force immediate reflow so the change paints right away
@@ -4421,6 +4430,17 @@ function getDefaultAppState(){
     dontShowSupportPitch: false
   };
 }
+// Real, second-layer fix, found by my own direct testing before shipping: declaring
+// window.initialDataLoadPromise only inside the post-login flow left a real gap -- if
+// something tries to wait on it before login has even reached that point, it doesn't exist
+// yet, and a `|| Promise.resolve()` fallback would render immediately with stale/empty data
+// and never come back once the real data actually arrives. A real, externally-resolvable
+// promise exists from the very start of the script instead, before any button could possibly
+// be tapped, so anything waiting on it always genuinely waits for the real data, however early
+// it asks.
+var _resolveInitialDataLoad;
+window.initialDataLoadPromise = new Promise(function(resolve){ _resolveInitialDataLoad = resolve; });
+
 var appState = getDefaultAppState();
 var optimisticBootTaken = false;
 
@@ -7523,6 +7543,7 @@ var isRecording = false;
 // persisted to that already-saved entry. This flag lets Save wait for a real transcription
 // already in flight instead of racing it.
 var isTranscribing = false;
+var recordingStartTime = 0;
 
 function stopMicUI(){
   isRecording = false;
@@ -7536,8 +7557,25 @@ document.getElementById('micBtn').onclick = function(){
   var indicatorText = indicator.querySelector('span:last-child') || indicator;
 
   if(isRecording){
-    indicator.innerHTML = '<span id="micPulseDot" style="width:8px;height:8px;border-radius:50%;background:#C77B7B;display:inline-block;"></span> Transcribing…';
-    mediaRecorder.stop();
+    // Real, more robust fix, per direct report that the 300ms display-delay alone still
+    // wasn't reliable enough: that only ever encouraged the user to wait before speaking, it
+    // never actually guaranteed anything about the real recording itself. This enforces a
+    // real minimum recording duration programmatically instead -- if stop is tapped before
+    // enough real time has passed for the mic to be reliably capturing (matching the same
+    // real Android cold-start latency this is about), the actual stop() call is delayed until
+    // that minimum has genuinely elapsed, rather than ever truncating whatever was captured
+    // in that first unreliable stretch. Doesn't depend on anyone waiting for anything.
+    var elapsed = Date.now() - recordingStartTime;
+    var minimumMs = 1200;
+    if(elapsed < minimumMs){
+      setTimeout(function(){
+        indicator.innerHTML = '<span id="micPulseDot" style="width:8px;height:8px;border-radius:50%;background:#C77B7B;display:inline-block;"></span> Transcribing…';
+        mediaRecorder.stop();
+      }, minimumMs - elapsed);
+    } else {
+      indicator.innerHTML = '<span id="micPulseDot" style="width:8px;height:8px;border-radius:50%;background:#C77B7B;display:inline-block;"></span> Transcribing…';
+      mediaRecorder.stop();
+    }
     return;
   }
 
@@ -7601,6 +7639,7 @@ document.getElementById('micBtn').onclick = function(){
     };
 
     mediaRecorder.start();
+    recordingStartTime = Date.now();
     isRecording = true;
     // Real fix, per direct report of inconsistent/wrong transcriptions specifically on very
     // short (1-2s) recordings: confirmed the transcription backend itself is reliable on short,
@@ -7675,10 +7714,12 @@ document.getElementById('who5EntryBtn').onclick = function(){
 
 // ---- Mood Tracker: real chart from actual mood entries, last 14 days ----
 document.getElementById('openMoodTrackerBtn').onclick = function(){
-  refreshWho5EntryButton();
-  renderMoodChart();
-  renderMoodPastDays();
-  showOnly('panel-mood-tracker');
+  showOnly('panel-mood-tracker'); // navigate immediately -- feels instant even while data loads
+  window.initialDataLoadPromise.then(function(){
+    refreshWho5EntryButton();
+    renderMoodChart();
+    renderMoodPastDays();
+  });
 };
 document.getElementById('moodTrackerBackBtn').onclick = function(){ showOnly('panel-bubbles'); setActiveNav('navHome'); };
 
