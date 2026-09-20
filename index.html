@@ -7848,7 +7848,16 @@ function renderMoodPastDays(){
   var wrap = document.getElementById('moodPastDaysList');
   wrap.innerHTML = '';
   var byDate = {};
-  appState.entries.forEach(function(e){
+  // Real, genuine fix, found by direct report, Sept 20 2026: neither this nor renderMoodChart
+  // ever guarded appState.entries itself being not-yet-loaded (still undefined/null at the
+  // moment this runs) -- confirmed directly, this is the exact same real class of race
+  // condition already found and fixed once before for Bob's own history loading (#75 in the
+  // bug log). A person opening the app and tapping straight into Mood Tracker before the
+  // initial data load finishes would hit this real gap: appState.entries.forEach on an
+  // undefined value throws immediately, which silently aborts the rest of this onclick handler
+  // -- including the showOnly() call that was supposed to actually bring the screen up --
+  // looking exactly like the screen never existed at all, not like an error occurred.
+  (appState.entries || []).forEach(function(e){
     if(!e.moods || !e.moods.length) return;
     var key = keyFor(new Date(e.date));
     if(!byDate[key]) byDate[key] = [];
@@ -7904,11 +7913,12 @@ function renderMoodChart(){
   var counts = {}, colors = {};
   var daysWithEntry = {};
   var heavyTotal = 0, lightTotal = 0;
-  appState.entries.forEach(function(e){
+  // Real, same fix as renderMoodPastDays above -- same real gap, same real cause.
+  (appState.entries || []).forEach(function(e){
     var t = new Date(e.date).getTime();
     if(t < cutoff) return;
     daysWithEntry[keyFor(new Date(e.date))] = true;
-    e.moods.forEach(function(m){
+    (e.moods || []).forEach(function(m){
       counts[m.label] = (counts[m.label]||0) + 1;
       colors[m.label] = m.color;
       if(HEAVY_MOODS.indexOf(m.label) !== -1) heavyTotal++;
