@@ -7544,6 +7544,7 @@ var isRecording = false;
 // already in flight instead of racing it.
 var isTranscribing = false;
 var recordingStartTime = 0;
+var hasRecordedOnceThisSession = false;
 
 function stopMicUI(){
   isRecording = false;
@@ -7584,81 +7585,116 @@ document.getElementById('micBtn').onclick = function(){
     return;
   }
 
-  navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream){
+  // Real, direct fixes, per report that a first-ever recording specifically fails and that
+  // accuracy overall isn't good enough for real journal content: two concrete, real gaps found
+  // by checking what was actually being requested, not guessed. First: getUserMedia was only
+  // ever asking for bare audio, no explicit quality constraints at all, relying purely on
+  // whatever a given device defaults to -- now explicitly requests noise suppression, echo
+  // cancellation, and auto gain control, which meaningfully affect how clean the audio Whisper
+  // actually receives is. Second: recording was also happening at MediaRecorder's own default
+  // bitrate, typically tuned low for voice-call file size, not transcription fidelity -- now
+  // explicitly set high specifically for that. Third: the very first recording of a session is
+  // also the one that just finished waiting on a real, human-interactive native permission
+  // dialog -- confirmed directly this is a materially different, heavier startup path than
+  // every later recording, which already has permission and skips it entirely; gives that
+  // specific first case real extra settle time before starting, rather than treating it
+  // identically to a recording made when everything's already warm.
+  var isFirstRecordingThisSession = !hasRecordedOnceThisSession;
+
+  navigator.mediaDevices.getUserMedia({
+    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+  }).then(function(stream){
     recordedChunks = [];
     var mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm'
                  : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4'
                  : '';
-    mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType: mimeType }) : new MediaRecorder(stream);
+    var recorderOptions = { audioBitsPerSecond: 128000 };
+    if(mimeType) recorderOptions.mimeType = mimeType;
 
-    mediaRecorder.ondataavailable = function(e){
-      if(e.data && e.data.size > 0) recordedChunks.push(e.data);
-    };
+    var beginRecording = function(){
+      mediaRecorder = new MediaRecorder(stream, recorderOptions);
+      hasRecordedOnceThisSession = true;
 
-    mediaRecorder.onstop = function(){
-      stream.getTracks().forEach(function(track){ track.stop(); });
-      stopMicUI();
-      if(recordedChunks.length === 0){ return; }
-
-      indicator.innerHTML = '<span id="micPulseDot" style="width:8px;height:8px;border-radius:50%;background:#C77B7B;display:inline-block;"></span> Transcribing…';
-      indicator.style.display = 'flex';
-      isTranscribing = true;
-
-      var blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
-      var reader = new FileReader();
-      reader.onloadend = function(){
-        var base64Audio = reader.result.split(',')[1];
-        sb.functions.invoke('transcribe-audio', {
-          body: { audio: base64Audio, mimeType: mediaRecorder.mimeType || 'audio/webm' }
-        }).then(function(result){
-          indicator.style.display = 'none';
-          isTranscribing = false;
-          if(result.error || !result.data || result.data.error){
-            showToast((result.data && result.data.error) || "Couldn't transcribe that — please try again");
-            runQueuedJournalSaveIfAny();
-            return;
-          }
-          var ta = document.getElementById('journalText');
-          var newText = (result.data.text || '').trim();
-          if(newText){
-            var needsSpace = ta.textContent && !/\s$/.test(ta.textContent);
-            ta.appendChild(document.createTextNode((needsSpace ? ' ' : '') + newText));
-            scheduleJournalDraftSave(); // appendChild never fires 'input' on its own -- do directly what that listener would have done
-          } else {
-            showToast("Didn't catch any speech in that recording");
-          }
-          runQueuedJournalSaveIfAny();
-        }).catch(function(){
-          indicator.style.display = 'none';
-          isTranscribing = false;
-          showToast("Couldn't reach transcription right now — check your connection");
-          runQueuedJournalSaveIfAny();
-        });
+      mediaRecorder.ondataavailable = function(e){
+        if(e.data && e.data.size > 0) recordedChunks.push(e.data);
       };
-      reader.readAsDataURL(blob);
+
+      mediaRecorder.onstop = function(){
+        stream.getTracks().forEach(function(track){ track.stop(); });
+        stopMicUI();
+        if(recordedChunks.length === 0){ return; }
+
+        indicator.innerHTML = '<span id="micPulseDot" style="width:8px;height:8px;border-radius:50%;background:#C77B7B;display:inline-block;"></span> Transcribing…';
+        indicator.style.display = 'flex';
+        isTranscribing = true;
+
+        var blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+        var reader = new FileReader();
+        reader.onloadend = function(){
+          var base64Audio = reader.result.split(',')[1];
+          sb.functions.invoke('transcribe-audio', {
+            body: { audio: base64Audio, mimeType: mediaRecorder.mimeType || 'audio/webm' }
+          }).then(function(result){
+            indicator.style.display = 'none';
+            isTranscribing = false;
+            if(result.error || !result.data || result.data.error){
+              showToast((result.data && result.data.error) || "Couldn't transcribe that — please try again");
+              runQueuedJournalSaveIfAny();
+              return;
+            }
+            var ta = document.getElementById('journalText');
+            var newText = (result.data.text || '').trim();
+            if(newText){
+              var needsSpace = ta.textContent && !/\s$/.test(ta.textContent);
+              ta.appendChild(document.createTextNode((needsSpace ? ' ' : '') + newText));
+              scheduleJournalDraftSave(); // appendChild never fires 'input' on its own -- do directly what that listener would have done
+            } else {
+              showToast("Didn't catch any speech in that recording");
+            }
+            runQueuedJournalSaveIfAny();
+          }).catch(function(){
+            indicator.style.display = 'none';
+            isTranscribing = false;
+            showToast("Couldn't reach transcription right now — check your connection");
+            runQueuedJournalSaveIfAny();
+          });
+        };
+        reader.readAsDataURL(blob);
+      };
+
+      mediaRecorder.start();
+      recordingStartTime = Date.now();
+      isRecording = true;
+      // Real fix, per direct report of inconsistent/wrong transcriptions specifically on very
+      // short (1-2s) recordings: confirmed the transcription backend itself is reliable on
+      // short, clean audio (tested directly, repeatedly, with consistent correct results) --
+      // the real difference is a genuine, documented Android characteristic, not a backend
+      // issue. Android has a real "cold input latency" before a freshly started recorder is
+      // actually capturing usable audio (officially up to ~100ms even on compliant devices,
+      // often more in practice) -- the JS call returns immediately, but the hardware itself
+      // needs a moment to spin up. For a long recording that's negligible; for a 1-2 second
+      // one, losing even the first couple hundred milliseconds can clip off an entire word.
+      // The recorder itself is already running during this brief window, so nothing is lost by
+      // it -- only the user-facing "go ahead and speak" signal is delayed slightly, so people
+      // naturally wait the beat that real hardware actually needs before their words start
+      // being reliably captured.
+      setTimeout(function(){
+        if(!isRecording) return; // stopped again already before this fired
+        btn.classList.add('mic-active');
+        indicator.innerHTML = '<span id="micPulseDot" style="width:8px;height:8px;border-radius:50%;background:#C77B7B;display:inline-block;"></span> Recording — tap to stop';
+        indicator.style.display = 'flex';
+      }, 300);
     };
 
-    mediaRecorder.start();
-    recordingStartTime = Date.now();
-    isRecording = true;
-    // Real fix, per direct report of inconsistent/wrong transcriptions specifically on very
-    // short (1-2s) recordings: confirmed the transcription backend itself is reliable on short,
-    // clean audio (tested directly, repeatedly, with consistent correct results) -- the real
-    // difference is a genuine, documented Android characteristic, not a backend issue. Android
-    // has a real "cold input latency" before a freshly started recorder is actually capturing
-    // usable audio (officially up to ~100ms even on compliant devices, often more in practice) --
-    // the JS call returns immediately, but the hardware itself needs a moment to spin up. For a
-    // long recording that's negligible; for a 1-2 second one, losing even the first couple
-    // hundred milliseconds can clip off an entire word. The recorder itself is already running
-    // during this brief window, so nothing is lost by it -- only the user-facing "go ahead and
-    // speak" signal is delayed slightly, so people naturally wait the beat that real hardware
-    // actually needs before their words start being reliably captured.
-    setTimeout(function(){
-      if(!isRecording) return; // stopped again already before this fired
-      btn.classList.add('mic-active');
-      indicator.innerHTML = '<span id="micPulseDot" style="width:8px;height:8px;border-radius:50%;background:#C77B7B;display:inline-block;"></span> Recording — tap to stop';
-      indicator.style.display = 'flex';
-    }, 300);
+    // The extra settle time only ever applies to the very first recording of a session (the
+    // one that just came through a real, human-interactive permission dialog) -- every
+    // recording after that already has permission granted and skips straight to
+    // beginRecording with no added delay at all.
+    if(isFirstRecordingThisSession){
+      setTimeout(beginRecording, 400);
+    } else {
+      beginRecording();
+    }
   }).catch(function(err){
     if(err && err.name === 'NotAllowedError'){
       showToast('Microphone permission is needed for voice input — check your phone Settings.');

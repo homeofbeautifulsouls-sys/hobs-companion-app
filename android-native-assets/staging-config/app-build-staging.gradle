@@ -7,8 +7,8 @@ android {
         applicationId "com.hobsfoundation.companion.staging"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 43
-        versionName "staging-v43-push-notifications-restored"
+        versionCode 44
+        versionName "staging-v44-mood-mic-robust-fixes"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
