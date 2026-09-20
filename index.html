@@ -7565,9 +7565,24 @@ document.getElementById('micBtn').onclick = function(){
 
     mediaRecorder.start();
     isRecording = true;
-    btn.classList.add('mic-active');
-    indicator.innerHTML = '<span id="micPulseDot" style="width:8px;height:8px;border-radius:50%;background:#C77B7B;display:inline-block;"></span> Recording — tap to stop';
-    indicator.style.display = 'flex';
+    // Real fix, per direct report of inconsistent/wrong transcriptions specifically on very
+    // short (1-2s) recordings: confirmed the transcription backend itself is reliable on short,
+    // clean audio (tested directly, repeatedly, with consistent correct results) -- the real
+    // difference is a genuine, documented Android characteristic, not a backend issue. Android
+    // has a real "cold input latency" before a freshly started recorder is actually capturing
+    // usable audio (officially up to ~100ms even on compliant devices, often more in practice) --
+    // the JS call returns immediately, but the hardware itself needs a moment to spin up. For a
+    // long recording that's negligible; for a 1-2 second one, losing even the first couple
+    // hundred milliseconds can clip off an entire word. The recorder itself is already running
+    // during this brief window, so nothing is lost by it -- only the user-facing "go ahead and
+    // speak" signal is delayed slightly, so people naturally wait the beat that real hardware
+    // actually needs before their words start being reliably captured.
+    setTimeout(function(){
+      if(!isRecording) return; // stopped again already before this fired
+      btn.classList.add('mic-active');
+      indicator.innerHTML = '<span id="micPulseDot" style="width:8px;height:8px;border-radius:50%;background:#C77B7B;display:inline-block;"></span> Recording — tap to stop';
+      indicator.style.display = 'flex';
+    }, 300);
   }).catch(function(err){
     if(err && err.name === 'NotAllowedError'){
       showToast('Microphone permission is needed for voice input — check your phone Settings.');
