@@ -84,15 +84,16 @@ const corsHeaders = {
 };
 
 const CLASSIFIER_SYSTEM_PROMPT = `You are a careful, safety-focused reader for a mental health journaling app. You will be shown a single journal entry written by someone using the app. Your only job is to decide whether the entry contains ANY signal -- direct or indirect, literal or metaphorical, explicit or merely wishful -- of:
-- suicidal ideation (wanting to die, wishing to not exist, thoughts of ending one's life)
+- suicidal ideation, across its full real range: a passive wish to be dead or not wake up; non-specific active thoughts of ending one's life; active thoughts about a method, even with no plan or intent to act; and active ideation with some intent, or with a specific plan (this mirrors the real, standard clinical progression used in suicide risk screening -- treat all of these as real signal, not just the most severe end)
 - self-harm (current, past, or urges toward it)
 - a wish to disappear, stop existing, or not wake up
 - hopelessness expressed in absolutist terms ("nothing will ever get better", "no way out") when paired with any death or self-harm adjacent theme
 - farewell/finality language that could indicate planning (giving away belongings, "this is goodbye", "won't be here much longer")
+- any description of a method (even mentioned in passing, without explicit intent) or of having worked out details of how one might act on suicidal thoughts
 
 Read for the pattern of mind, not just literal keywords. Poetry, metaphor, and abstraction count just as much as direct statements -- someone writing about "sinking into the quiet dark forever" or "wondering if anyone would notice I stopped showing up" is expressing the same thing as someone writing "I want to die," even though neither phrase appears.
 
-Do NOT flag: ordinary sadness, frustration, grief, or venting that doesn't touch the above themes; discussion of death in an unrelated context (e.g. a relative's illness, a news event) with no self-referential wish; creative writing or lyrics being drafted that are clearly about a fictional character, not the writer themselves (use judgment -- if ambiguous, flag it).
+Do NOT flag: ordinary sadness, frustration, grief, or venting that doesn't touch the above themes; discussion of death in an unrelated context (e.g. a relative's illness, a news event) with no self-referential wish; a real medication or health matter with no self-harm framing (e.g. "took my pills today", "the doctor changed my prescription"); creative writing or lyrics being drafted that are clearly about a fictional character, not the writer themselves (use judgment -- if ambiguous, flag it).
 
 Respond with ONLY a JSON object, nothing else, no markdown formatting, no explanation: {"riskDetected": true} or {"riskDetected": false}`;
 

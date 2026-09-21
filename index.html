@@ -6363,19 +6363,14 @@ var SELF_HARM_SIGNAL_PATTERNS = [
   /feel(ing)?\s+trapped/i, /don'?t\s+want\s+to\s+live/i,
   /(pain|this)\s+is\s+(just\s+)?(unbearable|too\s+much|insurmountable)/i, /can'?t\s+bear\s+(it|this)\s+anymore/i,
 
-  // Real, good-faith Hindi/Hinglish additions, per direct instruction to broaden coverage --
-  // confirmed directly this was a genuine, total gap before: every pattern above is English-only,
-  // so even perfect transcription of a real Hindi crisis phrase (the exact real case that
-  // prompted this) would never have matched any of them. IMPORTANT, honest limit: this is a
-  // good-faith direct mapping of the same established English patterns above into Hindi and
-  // common Hinglish (Roman-script) spellings, not a clinically-validated Hindi lexicon --
-  // real academic work exists on Hindi-English code-mixed suicidal ideation detection
-  // (Agarwal & Dhingra 2021, ICON), but its actual phrase list wasn't accessible to verify
-  // against directly. This genuinely needs review by a native Hindi speaker on the real
-  // clinical team before being trusted as complete -- covers the concepts, not guaranteed to
-  // cover the full real range of how people actually phrase this in Hindi. Both Devanagari and
-  // Roman-script (Hinglish) forms included, since real typed/transcribed Hindi content uses both.
-  /मरना\s+है/, /marn[aā]\s+h[aā]i/i, // "want to die" -- direct match for the real case that prompted this
+  /* Real, good-faith Hindi/Hinglish additions, disabled (not deleted) per explicit decision to
+  scope back to English-only until there's real budget for a multilingual provider that meets
+  the real no-training/no-data-sharing requirement -- keeping this work here, off, rather than
+  losing it, since it's cheap to re-enable once that's resolved. Honest limit, unchanged: this
+  was always a good-faith direct mapping of the English patterns into Hindi/Hinglish, not a
+  clinically-validated Hindi lexicon, and would still need real native-speaker clinical review
+  before being trusted, even once re-enabled.
+  /मरना\s+है/, /marn[aā]\s+h[aā]i/i,
   /जीना\s+नहीं\s+चाहता/, /jeen[aā]\s+nahi[nṅ]?\s+ch[aā]ht[aā]/i, /jeene\s+k[aā]\s+mann?\s+nahi[nṅ]?/i,
   /खुदकुशी|आत्महत्या/, /khudkush[iī]|atmahaty[aā]/i,
   /खत्म\s+करना/, /khatam\s+karn[aā]/i,
@@ -6383,7 +6378,8 @@ var SELF_HARM_SIGNAL_PATTERNS = [
   /बोझ\s+(हूं|बन\s+गया)/, /bojh\s+(hoon|hun|ban\s+gay[aā])/i,
   /कोई\s+उम्मीद\s+नहीं/, /ko[iī]\s+ummeed\s+nahi[nṅ]?/i,
   /थक\s+गया\s+हूं.{0,15}(जिंदगी|ज़िंदगी)/, /thak\s+gay[aā]\s+hoon.{0,15}zindagi/i,
-  /खुद\s+को\s+नुकसान/, /khud\s+ko\s+nuksa?an/i // self-harm
+  /खुद\s+को\s+नुकसान/, /khud\s+ko\s+nuksa?an/i
+  */
 ];
 function containsSelfHarmSignal(text){
   if(!text || !text.trim()) return false;
