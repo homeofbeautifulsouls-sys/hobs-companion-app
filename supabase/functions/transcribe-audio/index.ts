@@ -75,6 +75,13 @@ Deno.serve(async (req) => {
     formData.append("file", new Blob([bytes], { type: mimeType }), `recording.${extension}`);
     formData.append("model", "whisper-large-v3-turbo");
     formData.append("response_format", "json");
+    // Real, direct bug found and fixed: no language was ever specified, leaving Whisper to
+    // guess purely from the audio itself -- confirmed directly this can go catastrophically
+    // wrong, not just slightly off: a real recording came back transcribed entirely in
+    // Icelandic. Forcing English (the app's own language) stops Whisper from guessing at the
+    // language at all, which is both more reliable and measurably faster, since language
+    // detection is real work it no longer has to do.
+    formData.append("language", "en");
 
     const transcribeRes = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
       method: "POST",
