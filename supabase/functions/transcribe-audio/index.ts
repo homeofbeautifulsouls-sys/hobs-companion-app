@@ -71,33 +71,59 @@ Deno.serve(async (req) => {
 
     // A single, synchronous multipart call -- no upload step, no job id, no polling.
     const extension = mimeType.includes("mp4") ? "mp4" : mimeType.includes("ogg") ? "ogg" : "webm";
-    const formData = new FormData();
-    formData.append("file", new Blob([bytes], { type: mimeType }), `recording.${extension}`);
-    formData.append("model", "whisper-large-v3-turbo");
-    formData.append("response_format", "json");
-    // Real, direct bug found and fixed: no language was ever specified, leaving Whisper to
-    // guess purely from the audio itself -- confirmed directly this can go catastrophically
-    // wrong, not just slightly off: a real recording came back transcribed entirely in
-    // Icelandic. Forcing English (the app's own language) stops Whisper from guessing at the
-    // language at all, which is both more reliable and measurably faster, since language
-    // detection is real work it no longer has to do.
-    formData.append("language", "en");
 
-    const transcribeRes = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${GROQ_API_KEY}` },
-      body: formData,
-    });
+    // Real, direct fix, per explicit instruction that journaling needs to genuinely handle
+    // Hindi, English, and Hinglish (code-switched Hindi-English within one recording) --
+    // confirmed directly, Whisper's own language parameter only ever accepts one single
+    // language at a time, there's no real "either of these" mode to ask for. Auto-detection
+    // handles genuine code-switching reasonably well on its own (Whisper's multilingual
+    // training includes real code-switched speech), but auto-detection alone is exactly what
+    // produced the earlier real Icelandic failure -- so this doesn't just trust whatever
+    // language it guesses. Requests verbose_json specifically to get the real detected
+    // language back, and only trusts that result when it's actually one of this app's two real,
+    // expected languages; anything else (a implausible guess like Icelandic again) is treated
+    // as a real detection failure and retried once, forcing English as a safe, sensible
+    // default, rather than ever surfacing a wrong-language hallucination again.
+    async function callGroqWhisper(forceLanguage: string | null) {
+      const formData = new FormData();
+      formData.append("file", new Blob([bytes], { type: mimeType }), `recording.${extension}`);
+      formData.append("model", "whisper-large-v3-turbo");
+      formData.append("response_format", "verbose_json");
+      if (forceLanguage) formData.append("language", forceLanguage);
+      const res = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${GROQ_API_KEY}` },
+        body: formData,
+      });
+      if (!res.ok) {
+        const errText = await res.text();
+        return { ok: false as const, status: res.status, errText };
+      }
+      const json = await res.json();
+      return { ok: true as const, text: json.text || "", language: json.language || null };
+    }
 
-    if (!transcribeRes.ok) {
-      console.error("Groq transcription error:", transcribeRes.status, await transcribeRes.text());
+    const PLAUSIBLE_LANGUAGES = ["english", "hindi"]; // Groq/Whisper's verbose_json names, not ISO codes
+
+    let attempt = await callGroqWhisper(null); // auto-detect first, so real Hindi/Hinglish isn't forced into English
+    if (!attempt.ok) {
+      console.error("Groq transcription error:", attempt.status, attempt.errText);
       return new Response(JSON.stringify({ error: "Couldn't transcribe that — please try again." }), {
         status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const result = await transcribeRes.json();
-    return new Response(JSON.stringify({ text: result.text || "" }), {
+    const detected = (attempt.language || "").toLowerCase();
+    if (detected && !PLAUSIBLE_LANGUAGES.includes(detected)) {
+      // A real detection failure, not a real third language -- retry once, forced to English.
+      const retry = await callGroqWhisper("en");
+      if (retry.ok) attempt = retry;
+      // If the retry itself fails, deliberately keep the first (implausible) result rather than
+      // fail the whole request -- a wrong-language guess a person can still see and redo is
+      // better than losing the recording outright.
+    }
+
+    return new Response(JSON.stringify({ text: attempt.ok ? attempt.text : "" }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
