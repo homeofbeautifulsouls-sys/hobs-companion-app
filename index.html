@@ -596,19 +596,9 @@
     <button id="basicTosGateSubmitBtn" style="display:block;width:100%;padding:15px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:15px;font-weight:700;cursor:pointer;margin-top:18px;">Continue</button>
   </div>
 
-  <div id="addressGateOverlay" style="position:absolute;inset:0;z-index:101;background:#FFF8F0;display:none;flex-direction:column;padding:28px 22px;box-sizing:border-box;overflow-y:auto;">
-    <p style="text-align:center;font-size:18px;font-weight:800;color:#2E5090;margin:4px 0 4px;">One more thing for your safety</p>
-    <p style="text-align:center;font-size:12px;color:#5C6B94;margin:0 0 20px;">If you ever use the SOS button, your connected professional and emergency contacts need to know where to reach you. Please add your complete home address before continuing.</p>
-
-    <textarea id="addressGateInput" rows="4" placeholder="Flat/House no., street, area, city, state, PIN code" style="width:100%;box-sizing:border-box;padding:14px;border-radius:12px;border:1px solid #EEE0C4;font-family:inherit;font-size:14px;color:#2A2013;resize:vertical;margin-bottom:10px;"></textarea>
-    <p id="addressGateError" style="display:none;color:#9A4A4A;font-size:12px;margin:0 0 12px;"></p>
-
-    <button id="addressGateSubmitBtn" style="width:100%;padding:15px;border-radius:14px;border:none;background:#6690D6;color:#FFF8F0;font-size:15px;font-weight:700;cursor:pointer;">Save & Continue</button>
-  </div>
-
   <div id="consentGateOverlay" style="position:absolute;inset:0;z-index:101;background:#FFF8F0;display:none;flex-direction:column;padding:28px 22px;box-sizing:border-box;overflow-y:auto;">
-    <p style="text-align:center;font-size:18px;font-weight:800;color:#2E5090;margin:4px 0 4px;">One more thing before your first session</p>
-    <p style="text-align:center;font-size:12px;color:#5C6B94;margin:0 0 20px;">You've been connected with a therapist! Please read this and fill in your details — this has to be completed before you can pick a session time.</p>
+    <p style="text-align:center;font-size:18px;font-weight:800;color:#2E5090;margin:4px 0 4px;">Before you get started</p>
+    <p style="text-align:center;font-size:12px;color:#5C6B94;margin:0 0 20px;">Please read this and fill in your details — this covers real safety information (like your address and emergency contacts) that we need on file for every client, and has to be completed before you can use the app.</p>
 
     <div style="background:#FFFFFF;border:1px solid #EEE0C4;border-radius:14px;padding:16px;margin-bottom:16px;font-size:12px;color:#3A4A6A;line-height:1.6;">
       <p style="font-weight:800;color:#2A2013;margin:0 0 8px;">Informed Consent — Home of Beautiful Souls Foundation</p>
@@ -3157,8 +3147,7 @@ function onAuthSuccess(user){
     // to do here for that case. Calling either again here would mean showing the welcome-back
     // overlay twice in quick succession.
     if(optimisticBootTaken && appState.onboardingComplete && appState.basicTosSigned &&
-       !(!appState.address && !appState.isTherapist && !appState.isAdmin) &&
-       !(appState.userHasAnyClinicalConnection && !appState.consentSigned && !appState.isTherapist) &&
+       !(!appState.consentSigned && !appState.isTherapist && !appState.isAdmin) &&
        appState.hasSeenIntro){
       return;
     }
@@ -3171,19 +3160,15 @@ function onAuthSuccess(user){
       // existing accounts that already had basic_tos_signed=true from before the AI
       // disclaimer checkbox existed -- they still need to see and agree to it specifically.
       showBasicTosGate();
-    } else if(!appState.address && !appState.isTherapist && !appState.isAdmin){
-      // Real, direct instruction: a complete address is required for every client, not just
-      // those who've already reached the clinical consent gate below (which only fires once
-      // there's an actual therapist connection) -- confirmed directly against real data that
-      // this gap was real: 21 real clients, only 8 had ever reached that gate and had an
-      // address on file, leaving 13 with none at all despite the SOS feature depending on it.
-      // Placed before the consent gate specifically so it also catches clients who don't yet
-      // have a clinical connection, which the consent gate structurally can't reach.
-      showAddressGate();
-    } else if(appState.userHasAnyClinicalConnection && !appState.consentSigned && !appState.isTherapist){
-      // Covers existing users who already had a therapist connection before this gate existed,
-      // and anyone assigned while they weren't actively in the app -- without this, they'd only
-      // ever hit the gate if they happened to tap "Pick a Time" specifically.
+    } else if(!appState.consentSigned && !appState.isTherapist && !appState.isAdmin){
+      // Real, direct instruction: the full therapy consent and No-Suicide Agreement -- which
+      // already includes a real, required address field along with emergency contacts -- is
+      // required for every client, not just those who've already been connected with a
+      // therapist. Previously this only fired once there was an actual clinical connection,
+      // which is exactly why 13 of 21 real clients had no address on file at all: they'd
+      // simply never been assigned a therapist yet, so they'd never reached this gate.
+      // Removing that condition closes the real gap directly, rather than asking for address
+      // alone in a separate, smaller gate that would have duplicated part of this same form.
       showConsentGate();
     } else if(!appState.hasSeenIntro){
       showWalkthrough();
@@ -4008,7 +3993,6 @@ var walkthroughIdx = 0;
 // checkbox are handled separately at signup for everyone; THIS form is the fuller clinical
 // consent + No Suicide Agreement, shown once a real therapist connection exists.
 var consentGatePendingAction = null; // what to resume once consent is signed (usually: pick a session time)
-var addressGatePendingAction = null; // what to resume once the address gate is completed
 // General ToS + 18+ gate for literally everyone -- separate from and simpler than the clinical
 // consent gate below. Exists specifically to (a) catch every existing account from before the
 // signup-time checkboxes existed, and (b) catch Google OAuth signups, which never see those
@@ -4036,49 +4020,13 @@ document.getElementById('basicTosGateSubmitBtn').onclick = function(){
     }
     appState.basicTosSigned = true;
     document.getElementById('basicTosGateOverlay').style.display = 'none';
-    if(appState.userHasAnyClinicalConnection && !appState.consentSigned && !appState.isTherapist){
+    if(!appState.consentSigned && !appState.isTherapist && !appState.isAdmin){
       showConsentGate();
     } else if(!appState.hasSeenIntro){
       showWalkthrough();
     } else {
       renderHomeGreeting();
     }
-  });
-};
-
-function showAddressGate(resumeAction){
-  addressGatePendingAction = resumeAction || null;
-  document.getElementById('addressGateInput').value = appState.address || '';
-  document.getElementById('addressGateError').style.display = 'none';
-  document.getElementById('addressGateOverlay').style.display = 'flex';
-}
-
-document.getElementById('addressGateSubmitBtn').onclick = function(){
-  var address = document.getElementById('addressGateInput').value.trim();
-  var errEl = document.getElementById('addressGateError');
-  // A real, complete address, not just any non-empty text -- a bare word or two isn't
-  // actually usable for an emergency contact or professional trying to reach someone.
-  if(address.length < 10 || address.split(/\s+/).length < 3){
-    errEl.textContent = 'Please enter your complete address (house/flat, street, area, city, state, PIN).';
-    errEl.style.display = 'block';
-    return;
-  }
-  errEl.style.display = 'none';
-  var btn = document.getElementById('addressGateSubmitBtn');
-  btn.disabled = true; btn.textContent = 'Saving…';
-
-  sb.from('profiles').update({ address: address }).eq('user_id', currentUser.id).then(function(result){
-    btn.disabled = false; btn.textContent = 'Save & Continue';
-    if(result.error){
-      errEl.textContent = 'Could not save — please check your connection and try again.';
-      errEl.style.display = 'block';
-      return;
-    }
-    appState.address = address;
-    document.getElementById('addressGateOverlay').style.display = 'none';
-    var resume = addressGatePendingAction;
-    addressGatePendingAction = null;
-    if(typeof resume === 'function') resume();
   });
 };
 
@@ -4507,7 +4455,7 @@ function attemptOptimisticBoot(){
     var cachedSessionRaw = localStorage.getItem(authStorageKey); // Supabase's own storage, untouched by this migration -- see the note above hobsStorageGet
     var hasCachedSession = !!(cachedSessionRaw && JSON.parse(cachedSessionRaw).access_token);
     var looksFullyOnboarded = appState.onboardingComplete && appState.basicTosSigned && appState.hasSeenIntro &&
-      !(appState.userHasAnyClinicalConnection && !appState.consentSigned && !appState.isTherapist);
+      !(!appState.consentSigned && !appState.isTherapist && !appState.isAdmin);
     if(hasCachedSession && looksFullyOnboarded){
       optimisticBootTaken = true;
       showOnly('panel-bubbles');
@@ -11208,7 +11156,7 @@ function pickSessionTimeForBooking(booking, m){
   // This is the actual moment "assigned a therapist... doesn't go ahead till they fill it"
   // refers to -- not a generic login gate, but specifically blocking the next real step
   // (picking a session time) until the clinical consent + No Suicide Agreement is on file.
-  if(!appState.consentSigned && !appState.isTherapist){
+  if(!appState.consentSigned && !appState.isTherapist && !appState.isAdmin){
     showConsentGate(function(){ pickSessionTimeForBooking(booking, m); });
     return;
   }
