@@ -153,15 +153,14 @@ of 21 real clients previously had no address on file.
 landed on production. Don't trust staging as representative of this specific behavior until it's
 rebuilt from current production code.
 
-## Security cleanup — awaiting Akash's go-ahead (found Sept 27, 2026)
+## Security cleanup — resolved Sept 27, 2026
 
-- [ ] **Two live, unauthenticated Edge Functions still deployed**, both self-labeled
-      "TEMPORARY, one-time-use" in their own source, neither ever deleted after their one-time
-      job: `temp-create-templates-v2` (created WhatsApp templates) and `temp-deactivate-alpha`
-      (deactivates the Play Store alpha/closed-testing track). Both `verify_jwt: false` --
-      callable by anyone with the URL, no login needed. Same class of real incident as the six
-      leftover diagnostic functions cleaned up earlier the same day. Not deleted yet -- deleting
-      a deployed function is a write action, needs an explicit yes first (per §5 of `MASTER.md`).
+- [x] **Two live, unauthenticated Edge Functions**, both self-labeled "TEMPORARY, one-time-use"
+      in their own source, neither ever deleted after their one-time job:
+      `temp-create-templates-v2` (created WhatsApp templates) and `temp-deactivate-alpha`
+      (deactivates the Play Store alpha/closed-testing track). Both were `verify_jwt: false` --
+      callable by anyone with the URL, no login needed. Deleted, with Akash's explicit go-ahead,
+      and confirmed gone via a fresh live check against the Supabase Management API afterward.
 
 ## Other real, outstanding items (not blockers, but genuinely open)
 

@@ -204,14 +204,13 @@ notes.
 | `update-donate-page-meta` | Keeps the public donate page's metadata current. |
 | `uptime-monitor` | Every 5 min; pings prod + staging, alerts on status change. Same real bug as error-alert-monitor, same fix. |
 
-**Two functions deployed live right now that should almost certainly not be** (found in the Sept
-27, 2026 audit, not yet deleted -- awaiting Akash's explicit go-ahead per §5's confirm-before-write
-rule, since deleting a deployed function is itself a write action):
-- `temp-create-templates-v2` -- self-labeled in its own source comment "TEMPORARY, one-time-use",
-  created the finalized WhatsApp templates. Still `ACTIVE`, still `verify_jwt: false` (anyone with
-  the URL can call it, no login required).
-- `temp-deactivate-alpha` -- self-labeled "TEMPORARY, one-time-use", deactivates the Play Store
-  alpha/closed-testing track. Still `ACTIVE`, still `verify_jwt: false`.
+**Two functions found deployed live that should not have been** (Sept 27, 2026 audit):
+`temp-create-templates-v2` (created the finalized WhatsApp templates) and `temp-deactivate-alpha`
+(deactivates the Play Store alpha/closed-testing track) -- both self-labeled "TEMPORARY,
+one-time-use" in their own source, both still `verify_jwt: false` (callable by anyone with the
+URL, no login required) despite their one real job being done. **Deleted the same day**, with
+Akash's explicit go-ahead, confirmed gone via a fresh live check against the Supabase Management
+API afterward.
 
 Same class of real incident as the six leftover diagnostic WhatsApp-debug functions cleaned up
 earlier the same day (see `BUG_LOG.md`) -- a function built "temporary" needs to actually be
