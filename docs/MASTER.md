@@ -40,6 +40,12 @@ Once you have that one starting credential:
 
 ## 1. What this project is
 
+**For the full, exhaustive, screen-by-screen picture of the entire app** — every user role's
+real flow, every table, every Edge Function re-verified, a complete feature inventory with
+live/staging/planned status tags, and the real roadmap — see `docs/APP-BLUEPRINT.md` (written
+Sept 27, 2026, directly from the live repo). This file (`MASTER.md`) stays the fast entry point
+and the operational rules; `APP-BLUEPRINT.md` is the deep reference.
+
 **HOBS Companion** — a mental health companion app for **Home of Beautiful Souls Foundation**
 (HOBS), an Ahmedabad-based mental health NGO founded by **Akash Ramchandani** (psychologist,
 neurodivergent, ADHD — communicate in short, direct messages, ask before consequential actions,
@@ -218,7 +224,8 @@ deleted once its one-time job is done, not just abandoned live and unauthenticat
 
 Also found, harmless: `test-embedding` -- a scratch test of Supabase's built-in `gte-small`
 embedding model, `verify_jwt: true` (not publicly exposed), never cleaned up, no real purpose
-anymore.
+anymore. **Same gap as `send-whatsapp-template` had**: live on Supabase with no committed source
+until this same audit -- now pulled into the repo at `supabase/functions/test-embedding/index.ts`.
 
 All cron schedules are set via `pg_cron` directly in the production database (not visible in
 this repo as files — query `select jobname, schedule from cron.job;` against production to see
