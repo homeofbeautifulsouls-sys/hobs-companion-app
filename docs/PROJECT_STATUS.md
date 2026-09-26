@@ -113,6 +113,27 @@ correctly wired everywhere instead of an old, bypassing shortcut.
       specifically -- not separately re-verified end-to-end for Psychiatrist/Doctor/Caregiver,
       even though the underlying logic is now genuinely role-agnostic.
 
+## WhatsApp Business API integration — built Sept 27, 2026, real status
+
+Full detail in `docs/MASTER.md` §10. **Live and confirmed**: real registered number, all 8
+templates approved, generic sender function, one real trigger (`notify_professional_assigned` —
+client gets a WhatsApp message when a professional is assigned), and a permanent DB-level
+safeguard against fake/country-code-less phone numbers.
+
+**Not yet built, real open items**:
+- [ ] Admin (Akash) WhatsApp notification for: client books an appointment, client or therapist
+      cancels, a crisis is flagged. Requested Sept 27, 2026, nothing built yet.
+- [ ] The other 7 approved templates (`hobs_appointment_update`, `hobs_missed_appointment`,
+      `hobs_payment_update`, `hobs_disconnect_request`, `hobs_agreement_signed`,
+      `hobs_sos_alert`, `hobs_system_alert`) — approved but not wired to any real trigger yet.
+- [ ] App contract / therapy contract gating ("no user proceeds without signing the app
+      contract, no client proceeds without the therapy contract") — discussed in an earlier
+      session; **unverified whether this actually exists in the app's UI/navigation code** — the
+      DB scaffolding exists (`profiles.basic_tos_signed`, `ai_disclaimer_signed`,
+      `consent_signed`, the `consent_agreements` table) but nobody has actually read the app
+      code to confirm a gate is enforced. Needs checking directly against `index.html`'s real
+      onboarding/routing logic, not assumed from the column names existing.
+
 ## Other real, outstanding items (not blockers, but genuinely open)
 
 - [ ] **Real native task/subtask alarm** -- attempted Aug 26, 2026, crashed on the real device
@@ -135,9 +156,12 @@ correctly wired everywhere instead of an old, bypassing shortcut.
 - [ ] Tasklist constellation redesign — prototype exists, never decided on
 - [ ] React migration — deliberately paused until the external developer is confirmed ready
 - [ ] In-app day/month calendar view — not built yet
-- [ ] SOS button — fully scoped (see character AI master scope doc), blocked specifically on
-      the emergency-contact-reaching mechanism decision (paid SMS/WhatsApp Business API with
-      DLT registration, vs. a lower-fidelity manual-tap WhatsApp link)
+- [ ] SOS button — fully scoped (see character AI master scope doc). **Update Sept 27, 2026**:
+      the WhatsApp Business Cloud API side of this decision is no longer hypothetical -- it's
+      actually set up and live (see `docs/MASTER.md` §10): a real registered number, all 8
+      templates approved including `hobs_sos_alert`, a working generic sender function. Still
+      blocked on: the actual SOS-button UI/trigger itself (not built), and deciding exactly who
+      receives the SOS alert and when.
 - [ ] Automated email marketing — never scoped at all, needs its own conversation
 - [ ] Real streaming for Bob's replies (perceived response speed) -- raised repeatedly as a real
       concern; explicitly not started pending explicit go-ahead, given the real scope of the

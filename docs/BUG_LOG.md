@@ -1801,6 +1801,84 @@ report were removed directly, rather than left sitting there unresolved forever.
 
 ---
 
+## September 27, 2026 — WhatsApp Business API integration, a delivery mystery, and a real doc-location mistake
+
+### 98. Session reset mid-work lost all live infrastructure access
+**What happened**: a session working on WhatsApp Business API setup ended and a fresh session
+picked up mid-task with zero persisted context -- no CLI login, no cloned repo, no environment
+variables. Real cost: Akash had to re-supply credentials by hand, in a conversation, before any
+work could resume.
+**Real fix, going forward**: this is exactly the gap `system_credentials` (§2 of `MASTER.md`)
+and this repo's docs exist to close. A fresh session should query `system_credentials` first
+using whatever one starting credential Akash provides, rather than needing everything re-typed
+by hand each time. **This entry exists so a future session recognizes the pattern immediately
+instead of costing Akash the same re-explanation again.**
+
+### 99. WhatsApp number registered under the wrong WABA -- templates don't carry across WABAs
+**What happened**: the real registered number (+91 94262 12083) was created under a new WABA
+(`2585366201875184`), while all previously-approved message templates lived on a *different*
+WABA (`1101168369517284`, an old test account) from earlier work. WhatsApp templates are scoped
+per-WABA, not portable.
+**Real fix**: recreated all 8 templates fresh under the new WABA, using the exact real approved
+content recovered from the old WABA (not reconstructed from memory) -- all approved. Old
+WABA/number kept alive deliberately as a known-good control for future diagnosis.
+
+### 100. New number's sends were "accepted" by the API but never delivered, and Meta's own analytics showed zero -- root-caused, not guessed
+**What happened**: every send returned `200`, a real message ID, `message_status: accepted` --
+but nothing ever arrived, for roughly two hours after the number was first registered.
+**Real root cause, confirmed via direct data, not assumption**: queried Meta's own WABA-level
+analytics (`GET /{waba_id}?fields=analytics.start(...).end(...)`) directly and found **zero**
+sent/delivered for the new number over the same window where the *old* test number's send in the
+same window showed `sent: 1, delivered: 1` -- definitive proof this wasn't a permissions,
+template, or webhook config problem (all of which were separately ruled out and came back
+clean), but Meta's own backend silently holding sends from a brand-new, `quality_rating: UNKNOWN`
+number during its natural warm-up/probation period, with zero error surfaced anywhere in the API
+response.
+**Resolution**: resolved itself after roughly two hours, no intervention -- confirmed via an
+actual delivered message and a follow-up analytics check.
+**Standing lesson, added below**: a "everything says accepted but nothing arrives" report on a
+newly-registered WhatsApp number should check Meta's own analytics directly before assuming a
+config bug -- and just needs real time, not more debugging.
+
+### 101. Six temporary diagnostic Edge Functions left publicly exposing the access token
+**What happened**: while diagnosing #100, several one-off diagnostic Edge Functions were
+deployed with `verify_jwt: false` (required so they're invokable for testing) to call the Graph
+API using the stored `WHATSAPP_ACCESS_TOKEN` secret. Each one was meant to be deleted right after
+its one use, but six of them (`wa-check-numbers`, `wa-diag2`, `wa-diag3`, `wa-diag4`,
+`wa-check-webhook-store`, `wa-resend-once`) were left deployed and publicly invokable, with the
+real access token reachable through them, for the rest of the session until a later cleanup pass
+caught them.
+**Real fix**: all six deleted. **Standing lesson, added below**: delete each temporary diagnostic
+function immediately after that one use, not batched for a "cleanup later" pass -- a public
+endpoint holding a path to a real secret is a real exposure for every minute it exists, not just
+if someone eventually finds it.
+
+### 102. Fake and country-code-less phone numbers were sitting in production data undetected
+**What happened**: `profiles.phone_number` had no format enforcement -- real numbers were stored
+inconsistently (some with `+91`, most bare 10-digit), and two outright fake values had gone
+unnoticed: `9876543210` (the classic sequential dummy number) and `99999999999` (11 identical
+digits), both on test accounts.
+**Real fix**: added `public.is_valid_wa_phone(text)` (real Indian-mobile pattern check,
+rejects all-identical-digit numbers and known dummy sequences) and enforced it via CHECK
+constraints on `profiles.phone_number` and `profiles.emergency_contact_phone` -- confirmed
+by testing that Postgres itself now rejects a fake write, not just application-level filtering.
+Existing valid numbers normalized to include `+91`; the two fake ones nulled (both on test-only
+accounts, not real users).
+
+### 103. This session initially wrote "the master doc" into the wrong place entirely
+**What happened**: rather than reading and updating this repo's actual `docs/MASTER.md` (the
+established, real single source of truth per §0 of that file), a session wrote a duplicate
+summary of the WhatsApp work into a separate claude.ai Project memory doc instead -- a place nobody
+else, and no future session working from this repo, would ever find it. Akash had to point this
+out directly and supply this repo's own real handoff docs before the actual gap got closed.
+**Real fix**: this entry, plus the real §10 addition to `MASTER.md` and the real updates to
+`PROJECT_STATUS.md` above, replacing the misplaced copy.
+**Standing lesson, added below**: this repo's `docs/MASTER.md`, `PROJECT_STATUS.md`, and
+`BUG_LOG.md` are the one real, permanent source of truth for this project. A session's own memory
+tooling, or any other side document, is not a substitute for actually updating these files, ever.
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 **Run `deployment/verify-before-deploy.sh` before every single deploy, web or Android, no
@@ -1859,3 +1937,19 @@ Skipping this check is how the exact same class of bug happens again.
   depends on a manually maintained list of every real panel id (`allPanels`); a new panel left out
   of it renders perfectly underneath a `display: none` that never lifts (#93). Check the actual
   computed `display` value on a new panel, not just that its inner HTML looks right.
+- **Delete every temporary diagnostic/debug Edge Function immediately after its one real use, not
+  in a later batched cleanup pass (#101).** Any function deployed with `verify_jwt: false` to test
+  something is a public endpoint for as long as it exists -- if it touches a real secret (an
+  access token, an API key) via `Deno.env.get`, that secret is reachable through it for every
+  minute it's left deployed.
+- **A brand-new WhatsApp Cloud API number returning `accepted` on every send while nothing
+  actually arrives is very likely the number's own quality-rating warm-up period, not a config bug
+  (#100).** Confirm via Meta's own WABA-level analytics endpoint directly (zero sent/delivered is
+  the real signature) before assuming permissions, templates, or webhooks are broken -- and know
+  that it typically resolves on its own with time, not more debugging.
+- **This repo's `docs/MASTER.md`, `PROJECT_STATUS.md`, and `BUG_LOG.md` are the one real,
+  permanent source of truth for this project's state -- not a session's own memory tooling, not a
+  separate document anywhere else (#103).** If a session's tooling offers a place to save "project
+  context" that isn't one of these three files, that is not where this project's real state lives,
+  and using it instead of updating these files recreates the exact gap this repo was built to
+  close.

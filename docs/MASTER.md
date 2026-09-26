@@ -1,5 +1,6 @@
 # HOBS Companion — Master Reference
-Last rebuilt: September 16, 2026. **Read this file first, before doing anything else, at the start
+Last rebuilt: September 16, 2026. Last real update: September 27, 2026 (§10, WhatsApp Business
+API). **Read this file first, before doing anything else, at the start
 of any session working on this project** — whether this is a fresh chat, a sandbox reset, or
 just picking this up after time away. This is the single entry point everything else is
 findable from.
@@ -183,6 +184,8 @@ notes.
 | `send-group-poll` | Sends the recurring support-group check-in prompts (morning/evening/variety). |
 | `send-push-notification` | Shared, generic push-send function every other function calls. Accepts a `data` field for deep-link routing (see `handleNotificationTap` in the client). Also the real delivery mechanism for crisis escalation -- accepts a `bypassPause: true` flag (deliberate: a routine "notifications paused" preference must never be able to silently suppress a genuine crisis alert), and a real fallback so even a recipient with no registered device still gets a persistent, queryable log entry rather than the alert vanishing with zero trace. |
 | `send-task-alarms` | Runs every minute; fires task-specific alarms at their set time. |
+| `send-whatsapp-template` | **New Sept 27, 2026.** Generic WhatsApp Cloud API template sender -- see §10. Takes `{to, template, params, lang?}`, requires header `x-scheduler-secret` (same secret as every other internal function-to-function call in this project), normalizes the phone number, sends via Meta Graph API. Every real send is auto-logged by `pg_net`'s own `net._http_response` table -- no separate logging needed. |
+| `whatsapp-webhook` | Meta's webhook endpoint for the registered WhatsApp number -- inbound messages and delivery-status callbacks. Persists every real event into `whatsapp_webhook_events` (see §10). |
 | `sync-test-result-to-hubspot` | Pushes psychometric test results to HubSpot CRM. |
 | `transcribe-audio` | Voice-to-text for journal entries (AssemblyAI). |
 | `update-donate-page-meta` | Keeps the public donate page's metadata current. |
@@ -375,7 +378,72 @@ this feature on your own initiative.
 
 ---
 
-## 10. Standing communication preferences (do not relearn these either)
+## 10. WhatsApp Business API (Cloud API) — real, current status (new Sept 27, 2026)
+
+**Live facts**: registered number **+91 94262 12083**, Phone Number ID `1347122808487896`, under
+WABA `2585366201875184` ("Home of Beautiful Souls Foundation"), Meta App ID `2627243291067381`
+("HOBS Companion App"). All 8 real templates are `APPROVED` on this WABA: `hobs_sos_alert`,
+`hobs_professional_assigned`, `hobs_appointment_update`, `hobs_missed_appointment`,
+`hobs_payment_update`, `hobs_disconnect_request`, `hobs_agreement_signed`, `hobs_system_alert`
+(exact param order for each is in the WABA itself -- query
+`GET /{waba_id}/message_templates` rather than trusting a stale copy of this list).
+
+**Real incident, resolved**: the number was originally registered under a *different* WABA
+(`2585366201875184`, new) than the one holding the already-approved templates
+(`1101168369517284`, old "Test WhatsApp Business Account") -- templates don't carry across WABAs.
+Fixed by recreating all 8 templates fresh under the new WABA (all approved). The old WABA/test
+number (`+1 555-194-7836`) still exists and still works -- useful as a known-good control when
+diagnosing delivery issues on the real number.
+
+**Real incident, resolved**: for roughly the first two hours after registering, the API accepted
+every send (`200`, real message ID, `message_status: accepted`) but Meta's own analytics
+(`GET /{waba_id}?fields=analytics...`) showed **zero** sent/delivered the entire time, and the
+recipient never received anything -- root-caused, via that direct analytics query (not
+speculation), to the number's `quality_rating: UNKNOWN` warm-up/probation period that a brand-new
+Cloud API number goes through, during which Meta can silently hold sends with no error surfaced
+anywhere in the API response. **Resolved itself after ~2 hours with zero intervention** --
+confirmed via a real delivered message. **Standing lesson**: if a freshly registered number's
+sends are all `accepted` but nothing arrives and analytics shows 0, this is very likely the same
+thing -- check Meta's analytics directly rather than assuming a config problem, and give it real
+time before escalating.
+
+**What's actually built and wired**:
+- Generic sender: `send-whatsapp-template` Edge Function (see §4).
+- One real trigger live in production: Postgres trigger `notify_professional_assigned` on
+  `public.profiles`, fires when `assigned_therapist_user_id` / `assigned_psychiatrist_user_id` /
+  `assigned_doctor_user_id` / `assigned_caregiver_user_id` changes to non-null. Sends
+  `hobs_professional_assigned` to the **client** (not the professional, not admin). Confirmed
+  live and delivered.
+- Phone number data safeguard, permanent, DB-level: `public.is_valid_wa_phone(text)` requires
+  `+91` + a real 10-digit Indian mobile pattern (starts 6-9), rejects all-identical-digit numbers
+  and known dummy sequences (`9876543210` etc). Enforced via CHECK constraints
+  `profiles_phone_number_valid` and `profiles_emergency_phone_valid` on `public.profiles` --
+  confirmed by testing that a fake number write is actually rejected by Postgres itself, not just
+  filtered by application code. Existing data was normalized (bare 10-digit numbers got `+91`
+  prepended); two fake numbers on test-only accounts were nulled.
+- Secrets used, values intentionally not recorded here per §2 policy: `WHATSAPP_ACCESS_TOKEN`,
+  `WHATSAPP_PHONE_NUMBER_ID` (Supabase Edge Function secrets, production project). Note:
+  `WHATSAPP_ACCESS_TOKEN` needs periodic manual rotation via the WhatsApp Manager API Setup page
+  -- if sends start failing with a permission/access error, this is the first thing to check.
+
+**Explicitly NOT built yet — real, current gaps**:
+- Admin (Akash, `+91 8320470976`) does not get notified of anything yet. Requested Sept 27,
+  2026: a WhatsApp message to admin whenever a client books an appointment, a client or
+  therapist cancels, or a crisis is flagged. Not started. Relevant tables: `expert_bookings`
+  (status values `active`/`pending`/`cancelled`) for booking/cancel events; crisis flag lives on
+  `test_results` (`elevated`, `self_harm_flagged`) -- read the existing `check-journal-risk`
+  function first before wiring anything on top, to avoid duplicating its logic.
+- The other 7 approved templates beyond `hobs_professional_assigned` are not wired to anything.
+- The SOS button's emergency-contact-reaching mechanism decision (see `PROJECT_STATUS.md`) can
+  now realistically use this Cloud API setup instead of treating it as a future hypothetical --
+  the plumbing genuinely exists now. Still needs the actual SOS-button UI/trigger built and a
+  real decision on exactly who receives `hobs_sos_alert` and when.
+- Whether client-facing UI should surface a therapist's own WhatsApp number to the client
+  directly (e.g. a tap-to-chat link) -- raised, explicitly deferred by Akash, not built.
+
+---
+
+## 12. Standing communication preferences (do not relearn these either)
 
 - Short messages. No long paragraphs unless explicitly asked for detail.
 - Ask before anything consequential or hard to reverse — a real yes/no question, and wait for a
