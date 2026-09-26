@@ -1,9 +1,13 @@
 # HOBS Companion — Master Reference
-Last rebuilt: September 16, 2026. Last real update: September 27, 2026 (§10, WhatsApp Business
-API). **Read this file first, before doing anything else, at the start
+Last rebuilt: September 16, 2026. Last real update: September 27, 2026 (§10 WhatsApp Business
+API; §4 Edge Function audit -- 4 undocumented live functions added, 2 live unauthenticated
+"temporary" functions flagged for deletion, `transcribe-audio`'s real provider corrected; §12
+new standing safeguard against session-reset drift; CLAUDE.md added at repo root). **Read this
+file first, before doing anything else, at the start
 of any session working on this project** — whether this is a fresh chat, a sandbox reset, or
 just picking this up after time away. This is the single entry point everything else is
-findable from.
+findable from. If a `CLAUDE.md` loaded automatically before you saw this line, that is
+deliberate — see §12.
 
 ---
 
@@ -126,8 +130,13 @@ but their actual values are only in Akash's own records or the original source t
 If a function using one of these starts failing, this is why — get the real value from Akash,
 don't try to guess or regenerate: `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`,
 `GOOGLE_CALENDAR_CLIENT_ID`, `GOOGLE_CALENDAR_CLIENT_SECRET`, `HUBSPOT_API_TOKEN`,
-`ASSEMBLYAI_API_KEY`, `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`,
-`SCHEDULER_SECRET`.
+`GLADIA_API_KEY`, `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`,
+`SCHEDULER_SECRET`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`.
+**Corrected Sept 27, 2026**: this list previously said `ASSEMBLYAI_API_KEY` — checked directly
+against the real, deployed `transcribe-audio` source and AssemblyAI isn't used anywhere in it.
+The function actually uses `GLADIA_API_KEY` (primary provider, Gladia/Solaria) with
+`GROQ_API_KEY` as its automatic fallback (see §4). `ASSEMBLYAI_API_KEY` may still exist as a
+leftover secret from before that switch; it's no longer load-bearing for anything.
 
 ---
 
@@ -171,6 +180,7 @@ notes.
 | `check-journal-risk` | The AI crisis classifier for journal entries specifically — see §3. |
 | `check-journal-psychoeducation` | Reads journal entries for non-death depression/anxiety signals and physical-symptom patterns, routing toward the right real test (PHQ-9/GAD-7/PSQI) or the right kind of professional (GP/psychiatrist/therapist) via the existing mascot-tip system. Completely separate from and additive to the crisis check -- never a replacement. |
 | `create-razorpay-order` | Payment order creation for donations/sessions. |
+| `crisis-classifier-health-check` | **Undocumented until Sept 27, 2026 audit -- live and real.** Real, direct answer to "make the classifier fail-proof, no matter what": built after `check-journal-risk` broke silently for real days in September (invalid API key, then a deprecated model) and nobody noticed until logs were checked by chance. Monitors that the classifier is actually reachable and responding, not just deployed. |
 | `database-backup` | Daily Postgres backup. |
 | `database-backup-offsite` | Daily backup mirrored to a separate location. |
 | `delete-user-account` | Full account deletion, atomic. |
@@ -179,17 +189,37 @@ notes.
 | `google-calendar-oauth` | OAuth flow for therapist Google Calendar linking. |
 | `google-calendar-sync` | Keeps calendar availability in sync; watch channel renewed every 6h via cron. |
 | `notification-scheduler` | Runs every 15 min; fires scheduled reminders (task alarms, mood check-ins, etc.). |
+| `play-console-status` | **Undocumented until Sept 27, 2026 audit -- live and real.** Real integration with the Google Play Developer API (Android Publisher API) via a service-account signed JWT (RS256, Deno's built-in Web Crypto, no external library). Reads real track/release status. Read-only by design -- opens the required Android-Publisher "edit" session (mandatory even for reads) and always explicitly deletes it at the end, success or failure, so nothing it does can ever change what's actually live. This is what `PROJECT_STATUS.md`'s Play Store section verified against. |
+| `publish-production-release` | **Undocumented until Sept 27, 2026 audit -- live and real.** Full automation to take an already-built, already-verified production AAB live: upload it, create the release, roll it out -- not stopping at a draft. Reuses the same auth already proven in `play-console-status`. Real, consequential write action -- confirm with Akash before ever calling this, per §5's production-action rule. |
+| `razorpay-payment-callback` | **Undocumented until Sept 27, 2026 audit -- live and real.** Required by Razorpay's own documented WebView integration pattern (their standard checkout doesn't reliably work in an embedded WebView) -- this is the `callback_url` their checkout POSTs to after a payment attempt. Only sends the WebView back to a real in-app page; does **not** verify or record the payment itself -- `razorpay-webhook` (server-to-server, independently signature-verified) remains the only thing allowed to mark a donation/payment as real. |
 | `razorpay-webhook` | Payment confirmation webhook. |
 | `send-apk-update-notification` | Daily; notifies users of a new app version if one exists. |
 | `send-group-poll` | Sends the recurring support-group check-in prompts (morning/evening/variety). |
 | `send-push-notification` | Shared, generic push-send function every other function calls. Accepts a `data` field for deep-link routing (see `handleNotificationTap` in the client). Also the real delivery mechanism for crisis escalation -- accepts a `bypassPause: true` flag (deliberate: a routine "notifications paused" preference must never be able to silently suppress a genuine crisis alert), and a real fallback so even a recipient with no registered device still gets a persistent, queryable log entry rather than the alert vanishing with zero trace. |
 | `send-task-alarms` | Runs every minute; fires task-specific alarms at their set time. |
-| `send-whatsapp-template` | **New Sept 27, 2026.** Generic WhatsApp Cloud API template sender -- see §10. Takes `{to, template, params, lang?}`, requires header `x-scheduler-secret` (same secret as every other internal function-to-function call in this project), normalizes the phone number, sends via Meta Graph API. Every real send is auto-logged by `pg_net`'s own `net._http_response` table -- no separate logging needed. |
+| `send-whatsapp-template` | **New Sept 27, 2026.** Generic WhatsApp Cloud API template sender -- see §10. Takes `{to, template, params, lang?}`, requires header `x-scheduler-secret` (same secret as every other internal function-to-function call in this project), normalizes the phone number, sends via Meta Graph API. Every real send is auto-logged by `pg_net`'s own `net._http_response` table -- no separate logging needed. **Real gap, fixed same day**: this was live on Supabase for hours with no copy of its source committed anywhere in this repo -- see `supabase/functions/send-whatsapp-template/index.ts`, now committed. |
 | `whatsapp-webhook` | Meta's webhook endpoint for the registered WhatsApp number -- inbound messages and delivery-status callbacks. Persists every real event into `whatsapp_webhook_events` (see §10). |
 | `sync-test-result-to-hubspot` | Pushes psychometric test results to HubSpot CRM. |
-| `transcribe-audio` | Voice-to-text for journal entries (AssemblyAI). |
+| `transcribe-audio` | Voice-to-text for journal entries. **Corrected Sept 27, 2026**: this row said "(AssemblyAI)" -- wrong, checked directly against the real deployed source. Real primary provider is **Gladia (Solaria model)**, switched to deliberately for accuracy (benchmarks ~94% word accuracy on English vs Whisper's ~92.4%, Deepgram's 93.5%, AssemblyAI's 91.5%) and a genuine no-training guarantee on its paid tier. **Groq's Whisper** (`whisper-large-v3-turbo`) is the automatic fallback if Gladia is unavailable -- free, already proven not to retain data. AssemblyAI is not called anywhere in this function. |
 | `update-donate-page-meta` | Keeps the public donate page's metadata current. |
 | `uptime-monitor` | Every 5 min; pings prod + staging, alerts on status change. Same real bug as error-alert-monitor, same fix. |
+
+**Two functions deployed live right now that should almost certainly not be** (found in the Sept
+27, 2026 audit, not yet deleted -- awaiting Akash's explicit go-ahead per §5's confirm-before-write
+rule, since deleting a deployed function is itself a write action):
+- `temp-create-templates-v2` -- self-labeled in its own source comment "TEMPORARY, one-time-use",
+  created the finalized WhatsApp templates. Still `ACTIVE`, still `verify_jwt: false` (anyone with
+  the URL can call it, no login required).
+- `temp-deactivate-alpha` -- self-labeled "TEMPORARY, one-time-use", deactivates the Play Store
+  alpha/closed-testing track. Still `ACTIVE`, still `verify_jwt: false`.
+
+Same class of real incident as the six leftover diagnostic WhatsApp-debug functions cleaned up
+earlier the same day (see `BUG_LOG.md`) -- a function built "temporary" needs to actually be
+deleted once its one-time job is done, not just abandoned live and unauthenticated.
+
+Also found, harmless: `test-embedding` -- a scratch test of Supabase's built-in `gte-small`
+embedding model, `verify_jwt: true` (not publicly exposed), never cleaned up, no real purpose
+anymore.
 
 All cron schedules are set via `pg_cron` directly in the production database (not visible in
 this repo as files — query `select jobname, schedule from cron.job;` against production to see
@@ -323,7 +353,8 @@ the one exception — do not "fix" it by removing the reference or generating a 
 
 ## 7. Full bug history and standing lessons
 
-**Do not skip this.** `docs/BUG_LOG.md` (1514 lines as of this writing) contains 72 detailed,
+**Do not skip this.** `docs/BUG_LOG.md` (check its own line count/entry numbers directly -- do
+not trust a specific number written here, it goes stale fast) contains detailed,
 real, root-caused bug entries plus a running list of standing lessons at its top. Reading it in
 full before starting work is the single highest-leverage thing a new session can do — several of
 the bugs in it were caused by not knowing something an earlier entry in the same file already
@@ -440,6 +471,46 @@ time before escalating.
   real decision on exactly who receives `hobs_sos_alert` and when.
 - Whether client-facing UI should surface a therapist's own WhatsApp number to the client
   directly (e.g. a tap-to-chat link) -- raised, explicitly deferred by Akash, not built.
+
+---
+
+## 11. Standing safeguard against session-reset drift (new, Sept 27, 2026)
+
+**Why this section exists**: a real, repeated failure mode across this project's history --
+a new chat/session relies on stale summaries, an outdated handoff zip, or its own memory of a
+prior session instead of the actual live repo/database/deployed functions, and reports something
+false as a result. This happened again this same day: an uploaded handoff zip and this file's own
+function table were both stale in different ways, and got caught only by directly diffing live
+Supabase state against both. The fix is not "try harder to remember" -- it's structural.
+
+**The actual structural safeguard, now in place**: a `CLAUDE.md` file at the repo root. Any
+Claude Code session with this repo attached loads it automatically, without needing to be told,
+before doing anything else. It exists specifically so a session reset, a new chat, or a
+completely fresh sandbox cannot silently skip this file the way a plain markdown doc buried in
+`docs/` can be skipped. If you are reading this section but never saw `CLAUDE.md` load
+automatically, something about how this repo was attached is non-standard -- read
+`/CLAUDE.md` directly before continuing.
+
+**The standing rule `CLAUDE.md` enforces, restated here so it survives even if that file is ever
+lost**:
+1. Read `docs/MASTER.md` (this file), `docs/PROJECT_STATUS.md`, and `docs/BUG_LOG.md` in full,
+   every session, before making any claim about current app state -- never from memory of a
+   previous session, never from an uploaded zip or doc without first checking it against the
+   live repo/database/deployed functions.
+2. A zip, PDF, or doc a person uploads may be older than the live repo. Treat the live repo,
+   live Supabase project, and live deployed Edge Functions as ground truth over any uploaded
+   file, any chat summary, and any memory of a prior session -- always diff before trusting.
+3. Never state something is built, fixed, live, or working without showing the actual
+   verification in the same message (a real query result, a real deployed-function list, a real
+   log line) -- see §12 (formerly §12, "Standing communication preferences," renumbered below).
+4. Update `docs/MASTER.md`, `docs/PROJECT_STATUS.md`, and `docs/BUG_LOG.md` before a session
+   describing real work on this app ends -- not "next session," not "later."
+5. Periodically re-audit: list every Edge Function actually deployed (`GET
+   /v1/projects/{ref}/functions` via the Supabase Management API) and diff it against both this
+   file's §4 table and the repo's `supabase/functions/` directory. The Sept 27, 2026 audit alone
+   found 4 real undocumented live functions, 2 live unauthenticated functions that should have
+   been deleted after one-time use, one function with no source control backup at all, and one
+   stale provider name. Assume more exist until a clean audit says otherwise.
 
 ---
 

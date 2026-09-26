@@ -5,15 +5,21 @@ submission, launch-readiness) — separate from `docs/BUG_LOG.md`, which is for 
 Kept as plain markdown in the repo deliberately, so it survives environment resets without
 needing to rebuild a document-generation pipeline just to update one line.
 
-*Last updated Sept 17, 2026, after a second full day's real work on top of Sept 16: real,
-per-session history for every professional relationship (not just the single most recent date),
-a working direct-chat system generalized to all four real professional roles (Therapist,
-Psychiatrist, Doctor, Caregiver), a real Session Log surfaced in three separate real UI
-locations, per-session homework with a real accept step and completion notifications, real
-red/green notes-upload tracking and a persisted Google Meet link per session, a real professional
-schedule view, a genuine, root-caused fix for the Calendar-reconnect-vs-auto-reload interaction,
-and a full, honest catch-up of `docs/BUG_LOG.md` covering two real sessions that had never been
-logged at all.*
+*Last updated Sept 27, 2026: WhatsApp Business API integration (see below and `MASTER.md` §10);
+a full Edge Function audit against live Supabase state found 4 undocumented live functions, 2
+live unauthenticated "temporary" functions awaiting deletion, one function with no source-control
+backup, and one stale provider name (`transcribe-audio` -- real primary is Gladia, not
+AssemblyAI); the long-open app/therapy contract-gating question resolved (confirmed real and
+enforced, see below); a new standing safeguard against session-reset drift added to `MASTER.md`
+§11, plus a repo-root `CLAUDE.md` that auto-loads it. Previous update Sept 17, 2026, after a
+second full day's real work on top of Sept 16: real, per-session history for every professional
+relationship (not just the single most recent date), a working direct-chat system generalized to
+all four real professional roles (Therapist, Psychiatrist, Doctor, Caregiver), a real Session Log
+surfaced in three separate real UI locations, per-session homework with a real accept step and
+completion notifications, real red/green notes-upload tracking and a persisted Google Meet link
+per session, a real professional schedule view, a genuine, root-caused fix for the
+Calendar-reconnect-vs-auto-reload interaction, and a full, honest catch-up of `docs/BUG_LOG.md`
+covering two real sessions that had never been logged at all.*
 
 ## Play Store submission blockers
 
@@ -126,13 +132,36 @@ safeguard against fake/country-code-less phone numbers.
 - [ ] The other 7 approved templates (`hobs_appointment_update`, `hobs_missed_appointment`,
       `hobs_payment_update`, `hobs_disconnect_request`, `hobs_agreement_signed`,
       `hobs_sos_alert`, `hobs_system_alert`) — approved but not wired to any real trigger yet.
-- [ ] App contract / therapy contract gating ("no user proceeds without signing the app
-      contract, no client proceeds without the therapy contract") — discussed in an earlier
-      session; **unverified whether this actually exists in the app's UI/navigation code** — the
-      DB scaffolding exists (`profiles.basic_tos_signed`, `ai_disclaimer_signed`,
-      `consent_signed`, the `consent_agreements` table) but nobody has actually read the app
-      code to confirm a gate is enforced. Needs checking directly against `index.html`'s real
-      onboarding/routing logic, not assumed from the column names existing.
+
+## App / therapy contract gating — resolved, confirmed Sept 27, 2026 (was open for months)
+
+**Previously marked "unverified whether this actually exists in the app's UI/navigation code."**
+Checked directly against the real production `index.html` (extracted from the actual installed
+APK, not assumed): `appState.consentSigned` is loaded straight from `profiles.consent_signed` on
+login, and `showConsentGate()` -- the real function that blocks the rest of the app until the
+therapy consent + No-Suicide Agreement form (including address and emergency contacts) is
+completed -- is called at real navigation checkpoints, including the main app-entry gate and
+again immediately before a client can pick a session time. **The gate is real and enforced in
+code, not just scaffolded in the database.** As of production build `v74`/`v82`, it applies to
+every client (therapists and admins excluded), a deliberate universal-gate fix -- an earlier,
+narrower version only applied it to clients with an existing clinical connection, which is why 13
+of 21 real clients previously had no address on file.
+
+**New real gap found in the same check**: the currently-distributed **staging** build
+(`staging-v42-transcription-save-race-fix`) still has the old, narrower gate (only fires if
+`appState.userHasAnyClinicalConnection` is true) -- it was branched before the universal-gate fix
+landed on production. Don't trust staging as representative of this specific behavior until it's
+rebuilt from current production code.
+
+## Security cleanup — awaiting Akash's go-ahead (found Sept 27, 2026)
+
+- [ ] **Two live, unauthenticated Edge Functions still deployed**, both self-labeled
+      "TEMPORARY, one-time-use" in their own source, neither ever deleted after their one-time
+      job: `temp-create-templates-v2` (created WhatsApp templates) and `temp-deactivate-alpha`
+      (deactivates the Play Store alpha/closed-testing track). Both `verify_jwt: false` --
+      callable by anyone with the URL, no login needed. Same class of real incident as the six
+      leftover diagnostic functions cleaned up earlier the same day. Not deleted yet -- deleting
+      a deployed function is a write action, needs an explicit yes first (per §5 of `MASTER.md`).
 
 ## Other real, outstanding items (not blockers, but genuinely open)
 

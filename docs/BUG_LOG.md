@@ -1877,6 +1877,62 @@ out directly and supply this repo's own real handoff docs before the actual gap 
 `BUG_LOG.md` are the one real, permanent source of truth for this project. A session's own memory
 tooling, or any other side document, is not a substitute for actually updating these files, ever.
 
+### 104. Two "temporary, one-time-use" Edge Functions were still live and unauthenticated weeks after their one real job was done
+**What happened**: a full audit (Sept 27, 2026) of every Edge Function actually deployed on
+Supabase, diffed against both this repo and `MASTER.md`'s own function table, found
+`temp-create-templates-v2` and `temp-deactivate-alpha` still `ACTIVE` and still `verify_jwt:
+false` (callable by anyone with the URL, no login required) despite each one's own source comment
+explicitly labeling itself "TEMPORARY, one-time-use." Same root cause as #101 (six leftover
+diagnostic functions the same day) -- a function built to be temporary needs an explicit deletion
+step, or it just stays live and exposed indefinitely.
+**Real fix**: not deleted yet as of this entry -- flagged in `PROJECT_STATUS.md` under Security
+cleanup, awaiting Akash's explicit go-ahead before deleting (deleting a live deployed function is
+itself a write action against production, per §5 of `MASTER.md`).
+**Standing lesson, added below**: a function labeled "temporary" or "one-time-use" in its own
+source needs to actually be deleted the moment its one job is done -- flagging it as temporary in
+a comment is not a cleanup step, it's a note nobody reads until the next audit.
+
+### 105. `send-whatsapp-template` was live in production with no copy of its source anywhere in this repo
+**What happened**: the same Sept 27 audit found this function deployed and working, but its
+source had only ever been written directly via the Supabase Management API, never committed. If
+it had ever needed to be redeployed or debugged from scratch, there was no version-controlled
+copy to work from -- only whatever was still live on Supabase's servers.
+**Real fix**: the real, live source (confirmed byte-identical against the actual deployed
+function, not reconstructed from memory) is now committed at
+`supabase/functions/send-whatsapp-template/index.ts`.
+**Standing lesson, added below**: any Edge Function deployed directly via the Management API
+(rather than through a normal `git`-tracked deploy) needs its source pulled back into the repo in
+the same session it's created, not assumed to be safe because it's "working."
+
+### 106. `MASTER.md`'s own function table said `transcribe-audio` used AssemblyAI; the real, live function has used Gladia (primary) with Groq/Whisper (fallback) for some time
+**What happened**: checked directly against the real deployed source, not assumed from the
+table. AssemblyAI is not called anywhere in the function. The real primary provider is Gladia
+(Solaria model), switched to deliberately for accuracy (~94% word accuracy vs Whisper's ~92.4%,
+Deepgram's 93.5%, AssemblyAI's 91.5%) and a genuine no-training guarantee; Groq's Whisper
+(`whisper-large-v3-turbo`) is the automatic fallback if Gladia is unavailable. `MASTER.md` still
+listed the old provider, and still listed `ASSEMBLYAI_API_KEY` as a secret to worry about instead
+of `GLADIA_API_KEY`.
+**Real fix**: `MASTER.md` §4 and §2 corrected in the same session this was found.
+**Standing lesson, added below**: a documented "what provider does X" fact needs re-checking
+against the real deployed source whenever anything nearby changes, not carried forward
+indefinitely from whenever it was first written.
+
+### 107. The staging APK currently in circulation is behind production on the universal consent-gate fix, and this was the actual, resolvable answer to a months-old open question
+**What happened**: `PROJECT_STATUS.md` had carried "app/therapy contract gating -- unverified
+whether this actually exists in code" as an open item for months. Given both the current
+production and staging APKs directly, extracting and diffing their real `index.html` resolved it
+completely: the gate is real, is enforced (`showConsentGate()`, called at the real app-entry
+point and again before booking a session), and is universal on production as of `v74`/`v82`. But
+staging (`staging-v42-transcription-save-race-fix`) still has the older, narrower version of the
+same gate (`appState.userHasAnyClinicalConnection` required) -- it was branched before the
+universal-gate fix landed, to test an unrelated transcription bug.
+**Real fix**: `PROJECT_STATUS.md` updated to mark this resolved, with the staging caveat recorded
+explicitly so nobody tests contract-gating behavior on staging and draws the wrong conclusion.
+**Standing lesson, added below**: an "unverified in code" item does not require new code to
+resolve -- it can often be answered directly from an APK or repo already in hand, just never
+actually checked. And staging is not automatically ahead of production on every fix; check which
+build a specific fix actually landed in before assuming either one is current.
+
 ---
 
 ## Standing lessons (do not re-learn these)
@@ -1953,3 +2009,16 @@ Skipping this check is how the exact same class of bug happens again.
   context" that isn't one of these three files, that is not where this project's real state lives,
   and using it instead of updating these files recreates the exact gap this repo was built to
   close.
+- **A function labeled "temporary" in its own source comment still needs an explicit deletion
+  step (#104).** Flagging something as temporary is not the same as removing it -- it just stays
+  live, exposed, and forgotten until the next audit happens to find it.
+- **Any Edge Function ever deployed directly via the Management API needs its source pulled back
+  into the repo the same session, not left living only on Supabase's servers (#105).**
+- **A documented fact about which provider/library a function uses goes stale the moment that
+  function changes and nobody updates the doc -- re-check it directly against deployed source
+  rather than trusting what's already written, especially for anything that's changed before
+  (#106).**
+- **Run a full Edge Function audit periodically**: list everything actually deployed
+  (`GET /v1/projects/{ref}/functions`), diff it against both this repo's `supabase/functions/`
+  directory and `MASTER.md`'s own function table. All of #104-#106 were found in one such audit;
+  assume more exist until a clean one says otherwise (see `MASTER.md` §11).
