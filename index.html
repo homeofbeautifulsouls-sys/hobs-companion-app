@@ -2925,6 +2925,37 @@ if (IS_NATIVE_APP && window.Capacitor?.Plugins?.App) {
     }
 
     // -------------------------
+    // Google Calendar connect handoff (new, Sept 27 2026)
+    // -------------------------
+    // Not part of Supabase's own auth flow -- this is the Google Calendar OAuth callback
+    // handing off from the external browser/Custom Tab back into the native app, so the
+    // connection completes here (no fallback "tap back arrow" banner needed) instead of
+    // being stranded in the browser. Uses gcal_code/gcal_state specifically so this never
+    // collides with the "?code=" check above (that's Supabase's own param, unrelated).
+    if(url.indexOf("gcal_code=") !== -1){
+
+      console.log("Detected Google Calendar connect handoff");
+
+      try{
+
+        var gcalParsed = new URL(url);
+        var gcalCode = gcalParsed.searchParams.get("gcal_code");
+        var gcalState = gcalParsed.searchParams.get("gcal_state");
+
+        if(gcalCode && gcalState){
+          await completeGoogleCalendarConnect(gcalCode, gcalState);
+        }
+
+      }catch(err){
+        console.error(err);
+        showToast("Couldn't connect your calendar — please try again.");
+      }
+
+      return;
+
+    }
+
+    // -------------------------
     // Token Flow
     // -------------------------
 
@@ -14263,6 +14294,23 @@ async function handleGoogleCalendarCallback(){
   // against a fixed literal string the way the old 'gcal_connect' constant allowed.
   var looksLikeStateToken = stateToken && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(stateToken);
   if(!code || !looksLikeStateToken) return;
+
+  // New, Sept 27 2026: Google's OAuth client type here only accepts https:// redirect URIs, so
+  // landing in an external browser/Custom Tab (not the native app) is unavoidable -- but if the
+  // native app is actually installed, we can hand off to it immediately via the same custom
+  // scheme (hobscompanion://) Google Sign-In already uses successfully, instead of completing
+  // the connection here and leaving the person stranded on a "tap back" banner.
+  // Purely additive, not a replacement: if the app intercepts this, Android tears down this
+  // page mid-navigation and nothing below ever runs (the app's own appUrlOpen listener
+  // completes the real exchange instead). If nothing intercepts it within the timeout (app not
+  // installed, or this is a plain desktop/web visit), execution just continues normally below,
+  // exactly as it did before this change.
+  if(/Android/i.test(navigator.userAgent)){
+    window.location.href = 'hobscompanion://callback?gcal_code=' + encodeURIComponent(code) + '&gcal_state=' + encodeURIComponent(stateToken);
+    await new Promise(function(resolve){ setTimeout(resolve, 900); });
+    if(document.hidden || document.visibilityState === 'hidden') return; // handed off successfully, native app takes over
+  }
+
   // Real, additional guard, Sept 16 2026: covers the real, narrower window between arriving
   // here and the success banner actually existing (the network round-trip to exchange the
   // code) -- the banner-presence check alone doesn't protect this earlier moment, and a forced
