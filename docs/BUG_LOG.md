@@ -1933,6 +1933,54 @@ resolve -- it can often be answered directly from an APK or repo already in hand
 actually checked. And staging is not automatically ahead of production on every fix; check which
 build a specific fix actually landed in before assuming either one is current.
 
+### 108. Google Calendar reconnect kept "getting stuck in the browser" -- real, repeated report, not a fresh regression
+**What happened**: reconnecting Google Calendar repeatedly left the person stranded on the web
+version of the app inside a browser/Custom Tab instead of returning to the native app. Root
+cause, confirmed directly against the deployed `google-calendar-oauth` function and the client
+code: Google's OAuth client here is a "Web application" type, which only accepts `https://`
+redirect URIs -- Google flatly rejects a custom scheme for this client type. The connection
+itself was already completing correctly server-side (a real fix from Sept 16, 2026, confirmed
+present in the current production APK) -- what was missing was any way back into the native app
+beyond a banner asking the person to manually tap the browser's back arrow, since
+`Browser.close()` is a documented no-op on Android.
+**Real fix**: on Android, the callback page now attempts an immediate handoff to the native
+app's own custom scheme before doing anything else -- if the app is installed, Android
+intercepts this and tears the browser page down mid-navigation; the app's own `appUrlOpen`
+listener (new `gcal_code`/`gcal_state` branch, deliberately distinct from Supabase's own
+`?code=` Sign-In branch) completes the connection from inside the app directly. Purely additive
+-- if nothing intercepts it within ~900ms, the existing browser-side completion + banner runs
+exactly as before.
+**Not yet deployed anywhere** as of this entry -- committed to source control, pending a staging
+build and a real-device test (see #109 for a real complication found while preparing that test).
+**Standing lesson, added below**: a browser-based OAuth completion succeeding server-side is not
+the same as the person actually getting back into the app -- check the actual return path
+Android-side, not just that the connection was saved.
+
+### 109. Staging and production apps registered the identical `hobscompanion://` custom scheme -- a real collision waiting to happen, found while preparing to test #108
+**What happened**: while preparing to test #108's fix on staging, found that
+`AndroidManifest-staging.xml` registered the exact same `hobscompanion://` scheme as
+production's manifest. With both apps installed side by side -- the normal, documented setup --
+Android has no reliable way to know which one should catch a link using that scheme; any
+deep-link handoff (Sign-In's existing one, or #108's new one) could land in the wrong app.
+Compounding this: Google's OAuth redirect_uri for the Calendar flow is hardcoded to the
+*production* website for both staging and production client code (only one redirect_uri is
+registered with this Google OAuth client), so the shared landing page has to be told which app
+originated a given request, since neither its own domain nor its own backend project can tell it.
+**Also found in the same pass**: the staging Supabase project (`ivqlqrpcamoshmgibjph`) was
+paused (`INACTIVE`, Free-tier auto-pause) -- staging was non-functional regardless of any app
+fix. Restored via the Management API, confirmed `ACTIVE_HEALTHY`. Its Auth "Redirect URLs"
+allow-list was also missing `hobscompanion://callback` entirely, meaning native Sign-In via that
+exact path may never have actually been exercised successfully on staging before this.
+**Real fix**: staging now registers its own distinct scheme, `hobscompanionstaging://` (manifest
++ `NATIVE_CALLBACK_URL` + Supabase Auth allow-list all updated and confirmed via live read-back).
+For the Calendar flow specifically, staging's own OAuth request now prefixes its state token
+`stg:` before it ever reaches Google -- the only channel available to signal origin to the shared
+production landing page, since Google echoes `state` back verbatim without touching it.
+**Standing lesson, added below**: "installs side by side, doesn't conflict" (the stated design
+goal for staging vs production) needs to be checked against every mechanism that routes by a
+shared identifier, not just the package name -- a custom URL scheme is exactly this kind of
+shared identifier and was never actually verified distinct until this incident.
+
 ---
 
 ## Standing lessons (do not re-learn these)
@@ -2022,3 +2070,13 @@ Skipping this check is how the exact same class of bug happens again.
   (`GET /v1/projects/{ref}/functions`), diff it against both this repo's `supabase/functions/`
   directory and `MASTER.md`'s own function table. All of #104-#106 were found in one such audit;
   assume more exist until a clean one says otherwise (see `MASTER.md` §11).
+- **A server-side OAuth completion succeeding is not the same as the person getting back into
+  the app -- check the actual Android-side return path, not just that the connection saved
+  (#108).**
+- **"Installs side by side, doesn't conflict" needs checking against every shared identifier a
+  staging/production pair uses -- package name isn't the only one. A custom URL scheme is
+  exactly this kind of identifier and was never actually verified distinct until it caused a
+  real incident (#109).**
+- **Check whether a project on Supabase's Free tier is actually `ACTIVE_HEALTHY` before trusting
+  any test result against it -- auto-pause after inactivity is real and silent, and staging
+  specifically has no traffic keeping it awake between test sessions (#109).**
