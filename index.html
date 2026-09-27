@@ -14288,7 +14288,14 @@ document.getElementById('gcalEventEditDeleteBtn').onclick = async function(){
 async function handleGoogleCalendarCallback(){
   var params = new URLSearchParams(window.location.search);
   var code = params.get('code');
-  var stateToken = params.get('state');
+  var rawStateParam = params.get('state');
+  // Sept 27 2026: a staging-initiated request prefixes its state 'stg:' before ever reaching
+  // Google, specifically because Google always redirects back to THIS website (production)
+  // regardless of which app started the flow -- there is only one redirect_uri registered with
+  // Google for this OAuth client. This prefix is the only signal available here for telling a
+  // staging request apart from a production one, so the right app can be handed off to.
+  var isStagingOrigin = rawStateParam && rawStateParam.indexOf('stg:') === 0;
+  var stateToken = isStagingOrigin ? rawStateParam.slice(4) : rawStateParam;
   // A UUID state token specifically (not any other feature that might use ?state= or ?code=
   // on this same URL) -- the format itself is the signal, since this can no longer check
   // against a fixed literal string the way the old 'gcal_connect' constant allowed.
@@ -14297,14 +14304,33 @@ async function handleGoogleCalendarCallback(){
 
   // New, Sept 27 2026: Google's OAuth client type here only accepts https:// redirect URIs, so
   // landing in an external browser/Custom Tab (not the native app) is unavoidable -- but if the
-  // native app is actually installed, we can hand off to it immediately via the same custom
-  // scheme (hobscompanion://) Google Sign-In already uses successfully, instead of completing
-  // the connection here and leaving the person stranded on a "tap back" banner.
-  // Purely additive, not a replacement: if the app intercepts this, Android tears down this
-  // page mid-navigation and nothing below ever runs (the app's own appUrlOpen listener
-  // completes the real exchange instead). If nothing intercepts it within the timeout (app not
-  // installed, or this is a plain desktop/web visit), execution just continues normally below,
-  // exactly as it did before this change.
+  // native app is actually installed, we can hand off to it immediately via its own custom
+  // scheme (the same mechanism Google Sign-In already uses successfully), instead of completing
+  // the connection here and leaving the person stranded on a "tap back" banner. Staging and
+  // production each register their own distinct scheme (see AndroidManifest.xml /
+  // AndroidManifest-staging.xml) specifically so this always reaches the right app, never both.
+  //
+  // A staging-originated request (isStagingOrigin) can ONLY be completed by handing off --
+  // this production page's own `sb` client is bound to the PRODUCTION Supabase project, so it
+  // has no way to correctly exchange a code that was requested against staging's backend. If
+  // the hop doesn't land (staging app not installed here), there is deliberately no web-based
+  // fallback for this case -- say so plainly rather than pretending to complete it.
+  if(isStagingOrigin){
+    window.gcalCallbackInProgress = true;
+    window.history.replaceState({}, document.title, window.location.pathname);
+    window.location.href = 'hobscompanionstaging://callback?gcal_code=' + encodeURIComponent(code) + '&gcal_state=' + encodeURIComponent(stateToken);
+    await new Promise(function(resolve){ setTimeout(resolve, 900); });
+    window.gcalCallbackInProgress = false;
+    if(document.hidden || document.visibilityState === 'hidden') return; // handed off successfully
+    showToast("Couldn't reach the HOBS Companion (Staging) app on this device — open it directly and try connecting again from there.");
+    return;
+  }
+
+  // Purely additive, not a replacement: if the production app intercepts this, Android tears
+  // down this page mid-navigation and nothing below ever runs (the app's own appUrlOpen
+  // listener completes the real exchange instead). If nothing intercepts it within the timeout
+  // (app not installed, or this is a plain desktop/web visit), execution just continues
+  // normally below, exactly as it did before this change.
   if(/Android/i.test(navigator.userAgent)){
     window.location.href = 'hobscompanion://callback?gcal_code=' + encodeURIComponent(code) + '&gcal_state=' + encodeURIComponent(stateToken);
     await new Promise(function(resolve){ setTimeout(resolve, 900); });

@@ -2608,7 +2608,14 @@ var WEB_APP_URL = 'https://app.homeofbeautifulsouls.com/';
 // the native update-check safely no-ops rather than checking against a URL that doesn't exist.
 var REMOTE_VERSION_CHECK_URL = 'https://staging-app.homeofbeautifulsouls.com/version.json';
 var APK_DOWNLOAD_URL = 'https://staging-app.homeofbeautifulsouls.com/HOBS-Companion-staging.apk';
-var NATIVE_CALLBACK_URL = 'hobscompanion://callback';
+var NATIVE_CALLBACK_URL = 'hobscompanionstaging://callback';
+// Real fix, Sept 27 2026: was 'hobscompanion://callback', identical to production's -- a real
+// scheme collision with no way for Android to know which app should catch it if both are
+// installed side by side. Staging now uses its own distinct scheme (manifest updated to
+// match), and this project's own Supabase Auth "Redirect URLs" allow-list has been updated to
+// include it (Supabase rejects any redirectTo not on that list) -- confirmed it was previously
+// missing 'hobscompanion://callback' entirely, so native Sign-In via this path may never have
+// actually been tested working on staging before this fix.
 // Deliberately separate from WEB_APP_URL and NOT updated to the new domain: this exact URL is
 // registered as the authorized redirect URI for this OAuth client in Google Cloud Console.
 // Changing it here without also updating it there would break the connection flow outright
@@ -2787,6 +2794,37 @@ if (IS_NATIVE_APP && window.Capacitor?.Plugins?.App) {
         return;
 
       }
+
+    }
+
+    // -------------------------
+    // Google Calendar connect handoff (new, Sept 27 2026)
+    // -------------------------
+    // Not part of Supabase's own auth flow -- this is the Google Calendar OAuth callback
+    // handing off from the external browser/Custom Tab back into the native app, so the
+    // connection completes here instead of being stranded in the browser. Uses
+    // gcal_code/gcal_state specifically so this never collides with the "?code=" check above
+    // (that's Supabase's own param, unrelated).
+    if(url.indexOf("gcal_code=") !== -1){
+
+      console.log("Detected Google Calendar connect handoff");
+
+      try{
+
+        var gcalParsed = new URL(url);
+        var gcalCode = gcalParsed.searchParams.get("gcal_code");
+        var gcalState = gcalParsed.searchParams.get("gcal_state");
+
+        if(gcalCode && gcalState){
+          await completeGoogleCalendarConnect(gcalCode, gcalState);
+        }
+
+      }catch(err){
+        console.error(err);
+        showToast("Couldn't connect your calendar — please try again.");
+      }
+
+      return;
 
     }
 
@@ -12643,7 +12681,14 @@ async function startGoogleCalendarConnect(){
     scope: GOOGLE_CALENDAR_SCOPE,
     access_type: 'offline', // required to receive a refresh token at all
     prompt: 'consent',      // forces a fresh refresh token every time, not just on first-ever connect
-    state: tokenData.token
+    // Prefixed 'stg:', Sept 27 2026: Google always redirects to the PRODUCTION website
+    // (redirect_uri is shared/hardcoded, only one URI is registered with Google for this
+    // client) regardless of which app started the flow -- so the page that lands there needs
+    // a way to tell a staging-initiated request apart from a production one, to hand off to
+    // the right app via the right custom scheme. This prefix is that signal. The raw,
+    // unprefixed token underneath is unchanged and is exactly what this project's own
+    // exchange_code action still validates against.
+    state: 'stg:' + tokenData.token
   }).toString();
 
   // Real, confirmed cause of "clicked continue but never came back to the app": Google's OAuth
@@ -12938,14 +12983,29 @@ document.getElementById('gcalEventEditDeleteBtn').onclick = async function(){
 async function handleGoogleCalendarCallback(){
   var params = new URLSearchParams(window.location.search);
   var code = params.get('code');
-  var stateToken = params.get('state');
+  var rawStateParam = params.get('state');
+  var stateToken = (rawStateParam && rawStateParam.indexOf('stg:') === 0) ? rawStateParam.slice(4) : rawStateParam;
   // A UUID state token specifically (not any other feature that might use ?state= or ?code=
   // on this same URL) -- the format itself is the signal, since this can no longer check
   // against a fixed literal string the way the old 'gcal_connect' constant allowed.
   var looksLikeStateToken = stateToken && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(stateToken);
   if(!code || !looksLikeStateToken) return;
+
+  // Synced from the production copy, Sept 27 2026 (this file had fallen out of sync with it --
+  // see the README's own warning about that). In practice, Google always redirects to the
+  // PRODUCTION website for this flow (see index.html's own comment on this), so this exact
+  // function rarely if ever actually runs -- it only matters if staging's own site is loaded
+  // directly. Kept at parity anyway per this directory's own stated convention.
+  if(/Android/i.test(navigator.userAgent)){
+    window.location.href = 'hobscompanionstaging://callback?gcal_code=' + encodeURIComponent(code) + '&gcal_state=' + encodeURIComponent(stateToken);
+    await new Promise(function(resolve){ setTimeout(resolve, 900); });
+    if(document.hidden || document.visibilityState === 'hidden') return;
+  }
+
+  window.gcalCallbackInProgress = true;
   window.history.replaceState({}, document.title, window.location.pathname);
   await completeGoogleCalendarConnect(code, stateToken);
+  window.gcalCallbackInProgress = false;
   // Real, documented platform limitation, confirmed via Capacitor's own docs: Browser.close()
   // is "Web & iOS only... No-op on other platforms" -- it never actually closes anything on
   // Android, regardless of how correctly it's called. completeGoogleCalendarConnect's own

@@ -28,11 +28,16 @@
                  the user is stranded on Google's account picker with no way back into the app.
                  The JS-side appUrlOpen handler already correctly parses this exact URL pattern
                  (its "Token Flow" branch): this was purely a missing registration. -->
+            <!-- Real fix, Sept 27 2026: was "hobscompanion", identical to production's own
+                 scheme -- a genuine collision, since Android has no way to know which app
+                 should catch a "hobscompanion://" link if both are installed side by side
+                 (the normal, expected setup). Staging gets its own distinct scheme so a
+                 deep-link handoff always reaches the right app. -->
             <intent-filter android:autoVerify="false">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="hobscompanion" />
+                <data android:scheme="hobscompanionstaging" />
             </intent-filter>
 
         </activity>
