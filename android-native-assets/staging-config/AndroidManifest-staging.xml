@@ -29,7 +29,7 @@
                  The JS-side appUrlOpen handler already correctly parses this exact URL pattern
                  (its "Token Flow" branch): this was purely a missing registration. -->
             <!-- Real fix, Sept 27 2026: was "hobscompanion", identical to production's own
-                 scheme -- a genuine collision, since Android has no way to know which app
+                 scheme, a genuine collision, since Android has no way to know which app
                  should catch a "hobscompanion://" link if both are installed side by side
                  (the normal, expected setup). Staging gets its own distinct scheme so a
                  deep-link handoff always reaches the right app. -->
