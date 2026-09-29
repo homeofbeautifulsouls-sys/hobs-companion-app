@@ -69,7 +69,7 @@ the chunks and recorded in `HISTORY.md` in words, with the command where it matt
 
 - Total chunks: **65** (each ~100k characters)
 - Sept 29: found keystore / test-account passwords (no fixed prefix) in the pushed code docs; added them as exact values to the scratch regen grep and regenerated. Earlier commits in git history still contain them, and MASTER.md itself lists two of them -- flagged to Akash, not changed without his OK.
-- **Resume point (timestamp of the last message fully recorded): 2026-07-05T10:49:00Z**
+- **Resume point (timestamp of the last message fully recorded): 2026-07-05T20:30:08Z**
   Chunk numbers can change if the reading copy is rebuilt, so always resume by timestamp:
   `grep -l '<timestamp>' <scratch>/timeline/chunk_*.txt` and continue after that message.
 - Last updated: 2026-09-29

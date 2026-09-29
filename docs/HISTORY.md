@@ -601,3 +601,79 @@ pattern the app sessions followed.
   the journal issue continues. "Should I change the model… I need to **publish the app by
   tomorrow**… in previous chat, when I changed model, it literally forgot the conversation and
   couldn't even read the same chat!"
+- **10:53 — Claude's fixes:** **Mood Tracker bug:** with no mood data yet, the empty-state code
+  replaced the parent's `innerHTML`, **deleting the chart container**; every later render hit
+  `null` (E-019f31e5-24). **Subtask bug:** a rule auto-completed the parent task when all
+  subtasks were checked — with one subtask that happened instantly; rule removed (-34, -38).
+  Journal scroll switched to explicit scroll math (-46). On switching models, Claude advised
+  staying in the same thread, since a new chat has none of the history.
+- **11:07 — Akash:** "YOU ARE STUCK HERE! I WANT YOU TO INVESTIGATE, DIAGNOSE AND FIX IT!";
+  Mood Tracker must allow tracking **past days**; "let's list them all out first! EVERY SINGLE
+  FLOW BREAK!"
+- **11:08–14:28 — Journal rebuilt architecturally:** a **self-contained journal entry screen**
+  (`panel-quick-journal`: mood chips and text box together, no redirect or scroll)
+  (E-019f32a9-4, -9, -14); the old banner left in place, always hidden. Tested down to
+  500×400. **"Past days" list in Mood Tracker** (-37, -45). Claude ran a flow audit (every Home
+  entry and back button, nested Grounding/Worksheets/Tests, mascot actions, Calendar, Search,
+  celebration, body doubling) and found **no further breaks**; it listed 10 bugs fixed that
+  session.
+- **14:32–14:37 — the move to a real backend and an APK.** Akash asked to publish. Claude first
+  offered Netlify Drop for testing and listed launch blockers (no accounts; therapist link is a
+  demo checkbox; booking, reports and HubSpot simulated; credits have no backend; no
+  therapist-facing app; content pending from Akash; only 6 worksheets). **Akash: "No, I mean
+  proper publish, where I download the apk from and if I make a change here with you, it
+  reflects on the app and you can access it too… like we used to do on website! So we can
+  create the backend and everything!"** Choices: **"Full backend + real APK"**; backend must be
+  "something we both can access and edit and is free". Claude said a signed APK plus full
+  backend **by tomorrow** could not be promised.
+- **14:39 — Akash:** the APK can be a download link, not the Play Store — **"for first 25 users
+  to collect feedback"**; and he wanted "Fable" to check everything before it "only lasts till
+  tomorrow" (Claude didn't know of such a deadline).
+- **14:48 — First APK built in Claude's sandbox:** Android SDK command-line tools installed,
+  **Capacitor 8.4.1** wraps the web app; package **`com.hobsfoundation.companion`**, name
+  "HOBS Companion". **Bugs:** only a JRE was present (no `javac`) → full JDK installed; Gradle
+  cached the broken toolchain → Gradle home wiped. **Debug-signed** APK delivered; data still
+  per-device localStorage.
+- **14:49 — Akash: "Let's set up everything first, so APK and data and backend everything works
+  in sync."** Claude wrote an **8-table Supabase schema** with Row Level Security
+  (`supabase_schema.sql`, E-019f32c1-2: entries, tasks, subtasks, worksheet_responses,
+  test_results, WHO-5 check-ins, profiles, credit history).
+- **14:53–15:16 — Supabase project created by Akash:** `adjvptkzyckkvewbfmzf` (Mumbai region
+  suggested). Akash ran the schema himself in the SQL editor and sent the **publishable
+  (anon) key**. Claude confirmed all 8 tables reachable, then:
+  - added the supabase-js client (E-019f32d2-19); an **auth overlay** (email/password)
+    (-27); `SUPABASE_URL`, client, auth and data loading (-33);
+  - rewired saves to Supabase with localStorage kept as an offline cache: journal/mood entries
+    via `saveEntryToSupabase()` with explicit past dates (-42, -49, -51); worksheets (-59;
+    upsert → insert because no unique constraint existed, -63); task create/toggle, subtask
+    toggle/delete/add with `temp_` IDs for unsynced rows (-71, -78, -86, -93, -101).
+  - **Bugs:** an inverted condition `!String(subId).indexOf('temp_') === 0` (-82); an edit had
+    **deleted the `var appState = {` line** (-118 failed, -126 fixed).
+  - Signup test: Supabase rejected the fake test domain; **"Confirm email" was on by
+    default** → Claude asked Akash to turn it off for the beta.
+- **15:18 — Akash:** turned it off; **"I want them to sign with their google id."** Claude
+  gave the Google Cloud → Supabase provider steps (redirect
+  `https://adjvptkzyckkvewbfmzf.supabase.co/auth/v1/callback`) and flagged that the APK will
+  need a **native deep link** for the redirect back into the app.
+- **19:33–19:39 — Akash couldn't install the APK** ("chatgpt said it has to do something with
+  signed release"). Claude added "Continue with Google" first, with a divider before email
+  (E-019f33c4-2, -12, -17: `signInWithOAuth`), generated a **release keystore** and signing
+  config in `android/app/build.gradle` (E-019f33c4-33 — **the keystore password was written in
+  plain text there**), and built a release-signed APK (`CN=HOBS Foundation`).
+- **19:42–20:00 — the install block:** the dialog was Android **Advanced Protection** ("only
+  allows apps from Google Play…"). Claude: it can't be bypassed from inside an APK. Options
+  given: Play **Internal Testing** ($25 — Akash: "I don't have any money right now"; and "I
+  want it in phone and not chrome", so no PWA). Akash's screenshot showed **both his Google
+  accounts enrolled in the Advanced Protection Program** (account-level, overrides the device
+  toggle); a second device with the same accounts showed the same block. Claude suggested a
+  separate Android user profile or a tester's phone; Akash: "we can't be like do you have other
+  phone to users!" Claude wrote `HOBS-Companion-Install-Guide.md` (E-019f33dd-2) with a PWA
+  fallback that **didn't exist yet** (no manifest/service worker).
+- **20:15–20:24 — Google sign-in:** one `signInWithOAuth` call covers both sign-up and sign-in.
+  Akash created the OAuth client (Google had renamed the menus: **"Clients"**, "Branding") and
+  pasted the ID and secret into Supabase. Claude's test reached a real Google sign-in page with
+  the correct client ID and redirect (no mismatch error); the **return trip needs a hosted URL**
+  (the redirect pointed at Claude's sandbox `file://` path).
+- **20:25 — Akash: "There's no option to logout!"** → Profile account section showing the
+  signed-in email + **Sign Out** (E-019f33f5-7, -14, -19); APK rebuilt.
+- **20:30 — Akash:** "Do I need to download an apk everytime?"
