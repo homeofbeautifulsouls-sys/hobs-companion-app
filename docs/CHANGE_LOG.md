@@ -4349,3 +4349,35 @@ commit 310c487
 -  {title:"Get clients on App", priority:"medium", subtasks:[{t:"<name>",done:true},{t:"<name>",done:true},{t:"<client>",done:true},{t:"<name>",done:true},{t:"<name>",done:true},{t:"<client>",done:true},{t:"<name>",done:false},{t:"<name>",done:false},{t:"<name>",done:false}]
 +  {title:"Get clients on App", priority:"medium", subtasks:[{t:"<client>",done:true},{t:"<client>",done:true},{t:"<client>",done:true},{t:"<client>",done:true},{t:"<client>",done:true},{t:"<client>",done:true},{t:"<client>",done:false},{t:"<client>",done:false},{t:"<client>",done:false}]
 ```
+
+### 21. Redaction fix: known credentials replaced longest-first; code history regenerated (commit 07efa53) -- Sept 29, 2026 -- BUG_LOG #117
+Code change (exact diff below). The regenerated `docs/history/code/*.md` changes (62/16/6 lines)
+only swap the leaked secret tail for redaction markers, so they are not pasted here: that would
+republish the value being removed.
+
+```
+commit 07efa53dfb65d9072c5c05740cbd0bc05a7346fc
+Author: Claude <claude@hobsfoundation.com>
+Date:   Tue Sep 29 12:38:20 2026 +0000
+
+    Fix partial-redaction leak: replace known credentials longest-first; regenerate code history
+    
+    Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+    Claude-Session: https://claude.ai/code/session_016cFWEqp9ZJMTeXsySY4VmS
+
+diff --git a/tools/history/redact.py b/tools/history/redact.py
+index 30d7c13..4123b9d 100644
+--- a/tools/history/redact.py
++++ b/tools/history/redact.py
+@@ -35,6 +35,10 @@ PATTERNS = [
+ ]
+ 
+ _known = [v.strip() for v in os.environ.get("HOBS_REDACT_VALUES", "").split("\n") if len(v.strip()) >= 12]
++# Longest first: if one known value is a prefix of another (e.g. a stored credential that is a
++# shortened form of the real secret), replacing the short one first would leave the rest of the
++# long one exposed. Found Sept 29, 2026 -- BUG_LOG #117.
++_known = sorted(set(_known), key=len, reverse=True)
+ # Real clients' names (not staff/team), passed at runtime only -- never listed in this repo.
+ _names = [n.strip() for n in os.environ.get("HOBS_REDACT_NAMES", "").split(",") if n.strip()]
+ _name_pats = [re.compile(r"\b" + re.escape(n) + r"\b", re.I) for n in _names]
+```

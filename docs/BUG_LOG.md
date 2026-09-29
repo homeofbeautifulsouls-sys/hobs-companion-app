@@ -2145,6 +2145,24 @@ pending list with the other leaked values (history rewrite needs Akash's go).
 - **Still open:** the names remain in **git history**. This is part of the pending
   history-rewrite decision, along with #115.
 
+### 117. History docs exposed most of the live scheduler shared secret (partial redaction)
+
+- **What:** the scheduler shared secret (`x-scheduler-secret`, used by the cron-triggered
+  functions `notification-scheduler` and `google-calendar-sync` `renew_watches`) appeared in
+  `docs/history/code/2026-07/08/09.md` as `<REDACTED:known_credential>` **followed by the
+  unredacted tail of the real secret**. The cause: `system_credentials` holds a shorter value
+  that is a prefix of the real secret. `redact.py` replaced that short value first, so the longer
+  exact-value pattern could no longer match, and the tail stayed visible. It was public from
+  commit `8a7a648`.
+- **Found:** Sept 29, 2026, while checking the Aug 7 `CREDENTIALS.md` entry in the code history.
+- **Fix:** `tools/history/redact.py` now replaces known values **longest first**. The code
+  history was regenerated (commit `07efa53`). Verified with 0 hits for the secret's prefix or
+  tail, and 0 `<REDACTED:…>` markers directly followed or preceded by 6+ secret-like characters
+  anywhere in `docs/`.
+- **Still open:** most of the secret was public for most of a day and remains in git history.
+  **It needs rotating** (a new value in the Supabase function secret, plus every cron job that
+  sends it). This is a live production change, so it waits for Akash's OK.
+
 ## Standing lessons (do not re-learn these)
 
 **Run `deployment/verify-before-deploy.sh` before every single deploy, web or Android, no
