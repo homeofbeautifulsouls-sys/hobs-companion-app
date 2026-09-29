@@ -3157,3 +3157,75 @@ pattern the app sessions followed.
   - **Handoff v22:** CREDENTIALS.md gained a staging section (E-019fdd38-25, -31; a section
     dropped by mistake was restored), the architecture doc updated (E-019fdd38-52).
 - **17:23 — Akash: "Now what?"**
+- **17:24 — staging 503 diagnosed:** Hostinger's edge accepted TLS (wildcard certificate) but its
+  internal hop to the new subdomain failed. Plain HTTP returned 200 with the correct staging app.
+  Hostinger had to finish provisioning.
+- **17:24 — Akash: "Scope monitoring/alerting."**
+  - `error_logs` already captured JS errors and unhandled rejections, but was **pull-only**.
+  - For uptime, only an external check could have caught the Pages outage. Options offered:
+    UptimeRobot, or a self-hosted cross-check.
+  - Claude's **Supabase PAT had expired**. Akash first pasted the staging service-role key (in
+    his answer to a question), then a new `sbp_` token (both redacted).
+- **The real top error:** **65 of 75 rows in production `error_logs` (86%)** were
+  "Cannot read properties of null (reading 'id')". This was the error **Claude had dismissed all
+  night as test flakiness**. Cause: `renderGcalConnectionCard` read `currentUser.id` when the
+  focus/visibility refresh fired before login. Fixed with a guard (E-019fdd47-32) and committed
+  as `649f72b`.
+  - **The GitHub token had also expired**, so the push failed. Akash asked (17:59) for an
+    explanation of both the staging 503 and the unshipped fix.
+- **Aug 12 20:39 — Akash asked how to make a GitHub token on mobile** and pasted a new `ghp_`
+  token (redacted): "note for some reason Supabase login is linked to GitHub."
+  - The fix was pushed and deployed to Hostinger through safe-deploy.
+  - **Staging now returned 200 over HTTPS.**
+- **20:44 — Akash pasted a ChatGPT review of v22.** Three items:
+  1. A stale "Hosting: GitHub Pages" line in the architecture doc → fixed (E-019ff7b8-7).
+  2. **Keystore possession.** Akash: "no, just been downloading master and zip files you give
+     me" → he saved `hobs-release.keystore` to Drive: **"Done."**
+  3. Monitoring. Built:
+     - **`error-alert-monitor`** (E-019ff7ba-12…-72; hourly pg_cron). It pushes to admins
+       through `send-push-notification`. The first version **reported `alerted:true` but sent
+       nothing**: `sent_by` is a UUID, and `serverCallerId` must be `null`. Fixed and verified
+       in `notification_log`. Side note: `app_config.latest_apk_version_code` still said 5.
+     - **`uptime-monitor`** (E-019ff7c0-2; **every 5 min**; alerts only on state change;
+       **Akash chose self-hosted**, over UptimeRobot).
+  - Handoff **v23** with 17 functions (E-019ff7c0-29, -42).
+- **21:08 — Akash pasted a 23-point ChatGPT security review of v23** ("I would NOT sign off on v23
+  as production-safe yet"): **"go through each one of them and devise a complete plan first in
+  detail."**
+  - Claude verified 4 claims in code, all confirmed:
+    - **offline-queue cross-account leak** — `hobs_pending_sync` was never cleared on logout,
+      and retry stamped the current user onto every item;
+    - **`google-calendar-sync` `register_watch`/`sync_session` unauthenticated** under the
+      service role;
+    - **unauthenticated Razorpay booking orders**;
+    - **public `task-images` bucket**.
+  - The plan in tiers: Tier 0 = #1, #3, #5, #14 XSS, #15 bucket, #9 account deletion; Tier 1 =
+    races and idempotency; Tier 2 = hygiene, incl. **#11 rotate exposed credentials and get the
+    Hostinger token out of `safe_deploy.js`**; Tier 3 = crisis-AI fail-open.
+- **21:12 — Akash: "Start fixing everything in the sequence."** Tier 0, all live in production:
+  - **#1 offline queue:** `lastKnownUserId`, queued items tagged with their owner, and retry
+    only for the matching user (E-019ff7d2-8, -11, -14). The queue is deliberately **not**
+    cleared on logout. The leak scenario and the legitimate case were both tested; deployed.
+  - **#3 calendar-sync:**
+    - `register_watch` is service-role only. Its caller `google-calendar-oauth` sent no auth
+      header, so that was fixed too (E-019ff7d2-53, -56, -64).
+    - `sync_session` now requires a JWT from the booking's client, its professional, an admin,
+      or the service role (E-019ff7d2-76).
+    - Tested: 401, 403 and admin OK. A disposable account was created for the test and removed.
+  - **#5 Razorpay:** booking/cancellation orders require a JWT whose user matches; donations
+    stay public. The client `fetch` now sends the session token (E-019ffa4e-9, -12, -16, -25).
+    Impersonation → 403.
+  - **#14 XSS:** a shared `escapeHtml()` (E-019ffa4e-93) is applied to chat text and **the
+    unescaped sender name/alias**, poll text and options, the alias card and the member list
+    (E-019ffa4e-96…-121). A payload test was neutralized.
+  - **#15 bucket:** `task-images` served 5 purposes, including **intentionally public campaign
+    images**, and stored full URLs.
+    - A new **private bucket `private-user-images`** + an RLS policy on the owner's folder.
+    - Profile photo and task/subtask photo uploads were moved to it, with **long-lived signed
+      URLs created at upload** (E-019ffa64-25, -33, -38).
+    - Campaign and room icons stay public; existing files were not migrated.
+  - **#9 account deletion:** a new SQL function **`delete_user_data_atomic`**
+    (`supabase/migrations/delete_user_data_atomic.sql`, E-019ffa64-69) replaced about 20
+    unchecked calls. `delete-user-account` now stops before deleting the auth user on any error
+    (E-019ffa64-76). A test account was deleted end to end.
+- **Aug 13 11:11 — Akash: "Continue"** (into Tier 1).
