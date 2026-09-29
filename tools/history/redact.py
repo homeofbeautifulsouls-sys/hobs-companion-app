@@ -13,21 +13,21 @@ was there without seeing it.
 import os, re
 
 PATTERNS = [
-    ("supabase_pat", re.compile(r"sbp_[A-Za-z0-9]{20,}")),
-    ("supabase_secret", re.compile(r"sb_secret_[A-Za-z0-9_\-]{10,}")),
-    ("github_token", re.compile(r"gh[pousr]_[A-Za-z0-9]{20,}")),
-    ("github_pat", re.compile(r"github_pat_[A-Za-z0-9_]{20,}")),
-    ("groq_key", re.compile(r"gsk_[A-Za-z0-9]{20,}")),
-    ("google_client_secret", re.compile(r"GOCSPX-[A-Za-z0-9_\-]{10,}")),
-    ("google_api_key", re.compile(r"AIza[0-9A-Za-z_\-]{30,}")),
-    ("razorpay_key", re.compile(r"rzp_(?:live|test)_[A-Za-z0-9]{8,}")),
+    ("supabase_pat", re.compile(r"\bsbp_[A-Za-z0-9]{20,}")),
+    ("supabase_secret", re.compile(r"\bsb_secret_[A-Za-z0-9_\-]{10,}")),
+    ("github_token", re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}")),
+    ("github_pat", re.compile(r"\bgithub_pat_[A-Za-z0-9_]{20,}")),
+    ("groq_key", re.compile(r"\bgsk_[A-Za-z0-9]{20,}")),
+    ("google_client_secret", re.compile(r"\bGOCSPX-[A-Za-z0-9_\-]{10,}")),
+    ("google_api_key", re.compile(r"\bAIza[0-9A-Za-z_\-]{30,}")),
+    ("razorpay_key", re.compile(r"\brzp_(?:live|test)_[A-Za-z0-9]{8,}")),
     ("jwt", re.compile(r"eyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}")),
     ("private_key", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----", re.S)),
     ("private_key_escaped", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----(?:\\\\?n|[A-Za-z0-9+/=\\ ])*?-----END [A-Z ]*PRIVATE KEY-----")),
-    ("whatsapp_token", re.compile(r"EAA[A-Za-z0-9]{50,}")),
-    ("openai_key", re.compile(r"sk-[A-Za-z0-9_\-]{20,}")),
-    ("anthropic_key", re.compile(r"sk-ant-[A-Za-z0-9_\-]{20,}")),
-    ("hubspot_token", re.compile(r"pat-[a-z]{2,4}\d*-[a-f0-9\-]{20,}")),
+    ("whatsapp_token", re.compile(r"\bEAA[A-Za-z0-9]{50,}")),
+    ("openai_key", re.compile(r"\bsk-[A-Za-z0-9_\-]{20,}")),
+    ("anthropic_key", re.compile(r"\bsk-ant-[A-Za-z0-9_\-]{20,}")),
+    ("hubspot_token", re.compile(r"\bpat-[a-z]{2,4}\d*-[a-f0-9\-]{20,}")),
     ("hobs_wp_rest_token", re.compile(r"HOBS-Claude-\d{4}-[A-Za-z0-9\-]{4,}")),
 ]
 

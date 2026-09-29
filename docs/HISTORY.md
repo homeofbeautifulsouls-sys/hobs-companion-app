@@ -268,3 +268,50 @@ pattern the app sessions followed.
   - **Standing rule from Akash (06:38): everything must be designed for all screen sizes.**
     Audit of every screen at 320 px and tablet: no overflow.
 - **07:07 Jul 4** — Akash: go ahead with the **task scheduler**.
+
+### July 4, 2026 — Phase 1 finished in the first chat, then that chat is lost mid-build
+
+- **07:11 UTC (C22)** — Task scheduler built: its own nav tab (Home / Tasks / Journal / You);
+  **one task at a time, never a list** (the ADHD premise from the scoping doc); "Not right now"
+  instead of skip/postpone; no streaks, counters or red overdue flags; Bob in the empty state.
+  The escaped-apostrophe bug was checked for *before* testing this time and found again
+  (E-019f2bf3-51).
+- **07:13** — Akash shares reference screenshots of a focus app: build it **exactly** like that,
+  in HOBS colours, with the "Deep work" button replaced by **Body Doubling**, which opens the
+  body-doubling Google Meet. First version was Claude's simplified interpretation; Akash (07:21):
+  "I want the exact same functionality and design." Rebuilt 1:1 (week strip, alarm/duration
+  rows on the real "Body Doubling" illustration from Drive, task count header, task rows with
+  checkboxes, sliding add-task bottom sheet). **Bug caught before testing:** reused element IDs
+  (`newTaskInput`, `saveTaskBtn`) from the Tasks tab — would have silently broken one form
+  (E-019f2c00-11, -13).
+- **07:34 — Akash's full task spec** (quoted because it drives months of later work):
+  "It cannot be this day-week or no rush… It has to be a proper calendar! … when clicking on the
+  date, the task list is shown! There they can mark it pending or done or break it down to
+  smaller tasks (this works well for ADHD), upon clicking done there will be a mindmap with
+  Cookie showing a mindmap of their progress… share… WhatsApp text/story/send it to their
+  therapist… body doubling support group… Instagram story. And the calendar also has to reflect
+  their mood as well!" Claude flagged that a web app can't post straight into Instagram/WhatsApp
+  stories — it can make an image and open the phone's share sheet. Real calendar pickers were
+  built into both add-task screens and tested.
+- **~07:40 — the first chat ("Converting website to app") was paused by a safety classifier
+  mid-build**, with no warning. This is the **first continuity break in the project.**
+- **07:43 (C23 "App part 2")** — recovery attempts: a share link (claude.ai blocks automated
+  fetching), a saved `.mht` of the page (contained chat text only — artifacts aren't captured),
+  a pasted HTML file (**cut off before its `<script>` tag — no JavaScript at all**).
+  Akash: "You have access to other chats so why can't you access it!" — Claude found the chat
+  via chat search, but search returns summaries, not artifact code.
+- **07:55–08:03 — the first "you rebuilt it instead of using the original" incident.** Working
+  from fragments, Claude built a separate calendar module and then a full 70 KB **reconstruction**
+  of the app (E-019f2c1d-4, E-019f2c21-5). Akash: "You absolutely completely fucked up… We had done
+  so much work." Claude: it never had the original code; the real version was still in the paused
+  chat's artifact panel.
+- **08:07–08:15** — Akash exports everything he can from the paused chat: `index.html` files,
+  ~40 preview screenshots, logo, Bob, body-doubling art, the scoping doc. (He had to tell Claude
+  twice to wait until all files were sent before analysing.) Claude found the `index.html` was an
+  **older snapshot** — no Tasks tab, Body Doubling, or WHO-5, although the screenshots showed them
+  — and that duplicate filenames overwrote each other on upload. Claude still had the missing
+  pieces' code from reading the other upload, so nothing was lost.
+- **Decisions (08:15):** tasks are **one shared pool** (calendar, Tasks tab and Body Doubling);
+  Body Doubling opens the real HOBS Meet room. **Plan: edit the real file in place, not rebuild.**
+- **Lesson that recurs for the rest of the project:** work lived only inside a chat. When the
+  chat died, the code could only be recovered by hand, partially, from exports.
