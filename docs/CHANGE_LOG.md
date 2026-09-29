@@ -4334,3 +4334,18 @@ index de43879..935d95f 100644
  ## WordPress (homeofbeautifulsouls.com)
 ```
 
+
+### 20. Redacted real clients' first names from the history code docs (commit 310c487) -- Sept 29, 2026 -- BUG_LOG #116
+Docs only. The removed names are shown as `<name>` here, so this log does not republish them.
+
+```
+commit 310c487
+    Redact client first names from verbatim code history (prototype task data)
+
+ docs/history/code/2026-07.md | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+(both changed lines are the same prototype data line, lines ~95591 and ~95812)
+-  {title:"Get clients on App", priority:"medium", subtasks:[{t:"<name>",done:true},{t:"<name>",done:true},{t:"<client>",done:true},{t:"<name>",done:true},{t:"<name>",done:true},{t:"<client>",done:true},{t:"<name>",done:false},{t:"<name>",done:false},{t:"<name>",done:false}]
++  {title:"Get clients on App", priority:"medium", subtasks:[{t:"<client>",done:true},{t:"<client>",done:true},{t:"<client>",done:true},{t:"<client>",done:true},{t:"<client>",done:true},{t:"<client>",done:true},{t:"<client>",done:false},{t:"<client>",done:false},{t:"<client>",done:false}]
+```

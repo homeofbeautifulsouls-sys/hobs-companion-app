@@ -2131,6 +2131,20 @@ pending list with the other leaked values (history rewrite needs Akash's go).
 
 ---
 
+### 116. History reconstruction docs published real clients' first names (Akash's task-list data)
+
+- **What:** `docs/history/code/2026-07.md` (public repo) contained the verbatim constellation
+  prototype, which Claude had built on Jul 31 from Akash's real task list. One task, "Get clients
+  on App", had nine subtasks that were **real clients' first names**. Seven were not in the
+  redaction name list, so they were published from commit `8a7a648` until now.
+- **Found:** Sept 29, 2026, while reading Aug 6 in the export. A client's full name appeared
+  there, and a grep of the repo showed the same first name in the code history.
+- **Fix:** the names were added to the runtime-only `HOBS_REDACT_NAMES` list (kept outside the
+  repo), and `docs/history/code/` was regenerated. Every name is now `<client>`. Commit `310c487`,
+  2 lines changed. A grep confirmed 0 remaining hits.
+- **Still open:** the names remain in **git history**. This is part of the pending
+  history-rewrite decision, along with #115.
+
 ## Standing lessons (do not re-learn these)
 
 **Run `deployment/verify-before-deploy.sh` before every single deploy, web or Android, no
