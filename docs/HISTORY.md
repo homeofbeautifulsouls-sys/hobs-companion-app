@@ -4895,3 +4895,63 @@ pattern the app sessions followed.
   screenshots missing, device catalog unchecked, lawyer review unknown.
   - **16:13 — "I have already uploaded the screenshots, you already gave them! Check it properly!
     What's device catalog?"**
+- **16:15–16:19 — Play Console cross-check:**
+  - Claude explained the **device catalog** (still Phones + Tablets + Chrome OS + XR; recommended
+    Phone only, since the CSS caps at 420 px). Step-by-step given.
+  - **16:16 — "I uploaded the ss on console! health declaration is also complete!"**; 16:18
+    screenshots of Play Console history → Claude accepted Health, Data Safety, Content Rating,
+    Privacy, Ads, Target audience and Category as done.
+    - The API still showed no phone screenshots; possibly pending review or not saved on "Main
+      store listing". Check added to `play-console-status` (E-01a0bf98-9, -14; E-01a0bf9d-12
+      PROJECT_STATUS).
+  - **16:22 — "Does this mean we can release our app on playstore??"** (the "Create production
+    release" screen) → go to "Review release" and see what Google flags. Lawyer review of ToS
+    still only Akash's call.
+- **16:24 — "update the production app! As in replicate the staging app to production app. MAKE
+  SURE NOT TO INTRODUCE ANY NEW BUGS! Then give me the bundle"** → production native files synced
+  (mic permission code), **v76 "3.56-todays-session" AAB + APK** built, verified with `aapt`,
+  smoke-tested; APK link requested (16:32).
+- **20:08 — "the app closes the moment I open it!"**
+  - Claude first removed the mic `WebChromeClient` code → **v77** without asking. **20:14 — "Did you
+    even ask my permission?… If it works in staging why is it not working in production, talk to
+    me without building."**
+  - **Real cause: `google-services.json` was missing from the production build directory**
+    (`build.gradle` silently skipped the Google Services plugin; push-notifications crashed at
+    launch). Staging has no push plugin, so it couldn't show this.
+  - **20:18 — "yes!"** → file restored from git, mic code re-added (E-01a0c06f-13, -29, -31;
+    E-01a0c078-7, -12, -16) → **v78**, Firebase processing confirmed in the build log.
+  - **20:23 — "why don't you duplicate the staging app exactly as it is! And fix all the plugins!"**
+    → **step 1: `build.gradle` now fails loudly if `google-services.json` is missing** (tested both
+    ways, E-01a0c07f-4).
+  - **20:31 — Akash sent a `google-services.json` including the staging app** → push-notifications
+    back in staging, same fail-loud check (E-01a0c084-10, -22). **Staging and production plugin sets
+    now match.** Staging v43.
+- **20:43 — "unable to transcribe bug is back in staging!… transcribed wrong!… we need perfect
+  transcription! The best and the fastest! The mood tracker is missing!"** (20:45: "YES I installed
+  the latest version!")
+  - Claude found the app has **no live server URL — "web-only" staging deploys (v40–v42) never
+    reached the phone** until a rebuild.
+  - Mood tracker now **waits on a load promise created at script start** (E-01a0c091-22…-97).
+    **Minimum 1.2 s recording** before stop. Staging v44.
+- **20:59 — "The first time I record, it says cannot transcribe! And it is inaccurate!… It's
+  someone's journal!"** → audio constraints (noise suppression, echo cancellation, gain control),
+  higher bitrate, 400 ms extra settle on the first recording after permission (E-01a0c09e-8, -43).
+  A scope bug in Claude's first attempt was caught in testing. Staging v45.
+- **21:09 — "Can you build a system that keeps identifying and logging bugs and their exact reasons
+  automatically for both apps even without your presence?… absolutely accurate! Talk to me
+  first."**
+  - Existing: `error_logs` + an `unhandledrejection` handler + an admin view.
+  - Missing: native crash reporting (**Crashlytics**), `window.onerror`, stack / screen / version
+    context.
+  - **21:15 — "it's not enough! You are finding bugs that even that system didn't register!…
+    research… complete safeguard… Talk to me without building!"** → research: five layers
+    (build-time validation incl. a staging-vs-prod diff, **a persistent automated test suite + CI
+    gate**, Crashlytics + JS monitoring, a DB-constraint audit, "every incident becomes a
+    regression test"). Claude proposed starting with the test suite. **No answer recorded here.**
+- **Sept 21 09:56 — "Is this the transcription correct????"** (Icelandic output) → no `language`
+  hint → forced English (E-01a0c364-6).
+  - **09:59 — "it needs to detect Hindi and English and Hinglish!"** → auto-detect with
+    `verbose_json`, validate the detected language, retry with a fallback if implausible
+    (E-01a0c367-12). English and Hindi test clips passed.
+- **11:27 — "Still inaccurate! Both Hindi and English! Plus no crisis detection! Don't build anything!
+  Talk to me!"**
