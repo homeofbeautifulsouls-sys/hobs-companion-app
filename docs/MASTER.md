@@ -315,6 +315,14 @@ cp -r ../hobs-repo/android-native-assets/icons/* android/app/src/main/res/
 cp ../hobs-repo/android-native-assets/signing/hobs-release.keystore android/app/hobs-release.keystore
 cp ../hobs-repo/android-native-assets/firebase/google-services.json android/app/google-services.json
 cp ../hobs-repo/android-native-assets/mainactivity/MainActivity.java android/app/src/main/java/com/hobsfoundation/companion/MainActivity.java
+cp ../hobs-repo/android-native-assets/razorpay-native/RazorpayNativeCheckoutPlugin.java android/app/src/main/java/com/hobsfoundation/companion/
+# ^ Real, confirmed missing step until Sept 28, 2026 (found building a staging APK): MainActivity.java
+# calls `registerPlugin(RazorpayNativeCheckoutPlugin.class)` directly (line ~99) and imports it --
+# this recipe compiled clean for months only because whoever built last always had a stale local
+# checkout that still had this file copied in from an earlier manual step, never because it wasn't
+# needed. Skipping this line is a genuine compile error on a truly fresh environment, in BOTH the
+# production and staging recipes. For a staging build, remember step 5 below also applies to this
+# file: copy it into the `.../companion/staging/` path instead and fix its own `package` line.
 cp ../hobs-repo/android-native-assets/alarm-feature/*.java android/app/src/main/java/com/hobsfoundation/companion/
 cp ../hobs-repo/android-native-assets/alarm-feature/res-layout/activity_alarm.xml android/app/src/main/res/layout/activity_alarm.xml
 cp ../hobs-repo/android-native-assets/build-config/app-build.gradle android/app/build.gradle

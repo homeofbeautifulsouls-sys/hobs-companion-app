@@ -41,34 +41,35 @@ Same as the production recipe in `docs/MASTER.md`, with these differences:
    `package` declaration to `com.hobsfoundation.companion.staging`**, since copying a file into a
    differently-named directory does not change what it declares itself to be; a mismatch here is
    a genuine compile error, not a silent bug.
-6. **Do not copy `google-services.json`** into this build -- it's registered against the
-   production package name only, and `app-build-staging.gradle`'s conditional guard skips the
-   Google Services plugin entirely when that file is absent (confirmed: this is the actual,
-   correct way to disable it, not a workaround). This means push notifications won't work in a
-   staging build until/unless a second Firebase Android app is registered for the staging
-   package -- not needed for testing anything that doesn't depend on push.
+6. **Copy `google-services.json` in, same as production.** This is stale as of Sept 27-28, 2026
+   and was wrong in a real build (`docs/BUG_LOG.md` -- staging build broke on a fresh environment
+   because this step was skipped per this file's old instruction): a second Firebase Android app
+   for `com.hobsfoundation.companion.staging` was registered in the tracked
+   `android-native-assets/firebase/google-services.json` on Sept 20, 2026 for genuine push-notification
+   parity with production, and `app-build-staging.gradle` no longer has any guard -- it now
+   unconditionally requires the file and throws a `GradleException` if it's missing (same real
+   crash-on-launch safety net production's gradle file has, added the same day). Confirm directly
+   in the gradle file before trusting this doc again: `grep -A5 "servicesJSON" app-build-staging.gradle`.
 7. Deploy with the same Hostinger MCP mechanism `deployment/deploy-to-hostinger.sh` uses, pointed
    at `staging-app.homeofbeautifulsouls.com` instead -- the script's own file list is
    production-filename-specific (`HOBS-Companion.apk`, `HOBS-Companion-v*.apk`), so either invoke
    the same underlying MCP call directly for a one-off staging deploy (as was done here), or
    extend the script with a `--staging` mode if this becomes routine enough to warrant it.
 
-## The one real, known limitation of this staging setup
+## Update, Sept 20-28 2026: both limitations below are resolved -- kept for history only
 
-**Push notifications never work on a staging build** -- `google-services.json` is registered
-against the production package name only, and including it for a mismatched staging package fails
-the build outright. Beyond that: leave `@capacitor/push-notifications` entirely out of the
-staging build's own `package.json` (do not just omit the config file and keep the plugin) --
-Firebase auto-initializes at app launch by default, and a staging build with the plugin's
-Firebase-dependent code compiled in but no valid config for it to read crashed the app
-immediately on open (real incident, confirmed via the compiled `.dex`, see BUG_LOG #70). Removing
-the plugin from the dependency list itself, not just skipping the config file, is what actually
-fixes this -- confirmed by checking the resulting `.dex` has zero Firebase-related classes at all.
+**Push notifications**: resolved Sept 20, 2026. A real second Firebase Android app was
+registered for `com.hobsfoundation.companion.staging` in the tracked `google-services.json`, and
+staging's gradle file was brought to parity with production's (unconditional require, loud
+failure if missing -- see step 6 above). The BUG_LOG #70 crash-on-launch this section used to warn
+about was real, but was about the plugin being compiled in with *no* config at all, not about
+staging having its own config -- that's fixed now, don't re-remove
+`@capacitor/push-notifications` from staging's `package.json` based on this old text.
 
-The Google Sign-In custom URL scheme (`hobscompanion://callback`) is currently identical between
-production and staging. With both apps installed on the same device, Android's handling of two
-apps claiming the same custom scheme is untested and could misroute. Not fixed yet since it
-wasn't relevant to the alarm feature test this was built for -- email/password login is
-unaffected either way. Worth a distinct scheme (e.g. `hobscompanionstaging://callback`) plus a
-matching Google Cloud Console redirect URI registration before Google Sign-In is something that
-needs testing on staging specifically.
+**Scheme collision**: resolved Sept 27, 2026 (`docs/BUG_LOG.md` #109). Staging now uses its own
+distinct scheme, `hobscompanionstaging://callback` (not `hobscompanion://callback`), registered
+in `AndroidManifest-staging.xml` and matched in this directory's `index.html` /
+`NATIVE_CALLBACK_URL`. Both apps can be installed side by side safely now; no Google Cloud
+Console changes were needed since the shared `redirect_uri` is still the production website
+either way (see `docs/BUG_LOG.md` #108-109 for the full mechanism -- an origin-prefixed `state`
+param tells the site which app/scheme to hop back to).
