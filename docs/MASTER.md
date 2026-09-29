@@ -52,6 +52,12 @@ and the exact command/response for every infrastructure, database, or deploy act
 the narrative version (what happened, why, real fix); `CHANGE_LOG.md` is the mechanical one (the
 literal thing that changed). Both get updated the same turn a real change is made — see §12.
 
+**For the full history from the very first chat (July 2026) onward** — every change, the exact
+code, when, where, why, every bug created/fixed/recurring, every decision — see
+`docs/HISTORY.md` (timeline) and `docs/history/code/` (2,830 code edits recovered word for word
+from the chats). Reconstruction started Sept 29, 2026 from Akash's full claude.ai export and is
+**in progress** — `docs/HISTORY_PROGRESS.md` says exactly how far it has got and how to resume.
+
 **HOBS Companion** — a mental health companion app for **Home of Beautiful Souls Foundation**
 (HOBS), an Ahmedabad-based mental health NGO founded by **Akash Ramchandani** (psychologist,
 neurodivergent, ADHD — communicate in short, direct messages, ask before consequential actions,
