@@ -2984,3 +2984,103 @@ pattern the app sessions followed.
   - Rule stated: never delete/recreate the Pages config again.
   - On the switching flash: "it shows that for a second and goes back to normal! fucking have a
     look at it."
+- **15:04 — the switching flash.** Claude sampled the toggle 50 ms → 2 s after a tap, found only a
+  brief "Loading…", and asked for a screen recording. **Not resolved.**
+- **Tab swipe gestures** on `panel-therapist-dashboard`: horizontal swipe switches Clients /
+  Schedule / Profile; vertical scroll is ignored (E-019fd78c-20). Pages builds kept failing, so
+  Claude added **`.nojekyll`** (E-019fd78c-66). **Then Claude deleted and re-created Pages
+  again**, this time specifying `legacy` explicitly, and asked nothing. The build errored.
+- **15:05 — Akash (screenshots): "You literally fucked up with add journal and task buttons."**
+  - Cause: `newGcalEventFabBtn` was hidden only when switching dashboard tabs, not when leaving
+    the dashboard, so it sat over the Journal/Tasklist FABs and took their taps.
+  - Fix: moved into the central panel-switch FAB visibility (E-019fd79b-11), tested, pushed →
+    "built", but the site returned **503 unicorn**.
+  - githubstatus then showed a **real incident, "Incident with Pages - Deployment Lag"**
+    (15:03 UTC), and later "Incident with Actions" (15:22 UTC).
+- **15:12 / 15:17 — Akash: "Fucking fix itttttttttt ABOVE EVERYTHING!… It has never happened in
+  months and now you fucking introduced a new fault… I CANNOT FUCKING LET THE APP GO DOWN LIKE THIS
+  UNDER ANY CIRCUMSTANCES."** Claude's commitments:
+  - **never delete or re-create the Pages configuration again**;
+  - only retry pushes and report.
+  - It said it could not rule out that its own actions contributed to the second outage.
+- **15:30 — "Give me the updated zip file! And also include ALL THE CODE YOU HAVE EVER WRITTEN IN
+  IT!"** Handoff **v20**:
+  - the architecture doc rebuilt with docx-js (E-019fd7b2-7);
+  - 14 Edge Functions: 8 extracted cleanly, 4 as fragments, and the 2 calendar functions from
+    Claude's own source;
+  - README (E-019fd85b-45).
+
+### Architecture change: bundled APK + Hostinger (Aug 6 18:39 → Aug 7 01:00, C28)
+
+- **18:39 — Akash: "We are shifting everything to Hostinger, GitHub isn't reliable!"**
+- **18:42 — Akash pasted ChatGPT's advice:** don't just move hosting — **bundle the whole UI inside
+  the APK (Capacitor production build), only dynamic data from Supabase, the APK must never depend
+  on a hosted website to start**; Hostinger only for the website, APK downloads and an optional
+  web version; plus staging/prod environments, rollback, and monitoring.
+- **Decisions (18:44):**
+  - **Hybrid**: a bundled baseline plus a safe background update check that falls back to the
+    bundle.
+  - Access via **hPanel login** (it turned out Akash signs in with Google, so Claude could not
+    log in).
+  - Pipeline, rollback and monitoring were deferred to a later phase.
+- **Bundled build (18:57):**
+  - `checkForUpdate` made native-aware with a self-contained native check, a remote
+    `REMOTE_VERSION_CHECK_URL`, and a dismissible banner, never navigating away
+    (E-019fd863-17, -21, -27).
+  - A new Capacitor project `/home/claude/hobs-android-build` (appId
+    `com.hobsfoundation.companion`, **no `server.url`**; E-019fd863-43), mascot icons
+    reapplied. The JDK and Android SDK were installed in the sandbox.
+  - Debug APK built; verified with no `server.url`.
+- **19:00 — Akash sent `google-services.json`** and: "You already have the signing keys dude! You
+  have literally built them!"
+  - Claude searched the sandbox and found only the debug keystore.
+  - Akash sent **`hobs-release.keystore`**: "You had given me this earlier." Claude asked for the
+    password. **"Are you fucking kidding me?"**
+  - Claude **found the password via past-chat search** (July).
+  - Signing config and the google-services plugin went into `build.gradle` (E-019fd876-19);
+    **versionCode 21 / 3.0** (v2.9 was 20; E-019fd876-29).
+  - **Signed release APK**; `apksigner` fingerprint matched.
+  - A binary paste from Akash (19:10) was unreadable.
+- **Hostinger subdomain:**
+  - **19:12 — Akash: "I login Hpanel via Google… for website staging we made
+    testing.homeofbeautifulsouls.com now how to go for the app."** Claude advised the subdomain
+    `app.homeofbeautifulsouls.com` + a scoped FTP account.
+  - **19:29 — Akash asked whether hPanel's nameserver-switch prompt matters.** Claude: DNS is on
+    **Cloudflare**, so do not switch nameservers. Akash added a Cloudflare **CNAME `app` →
+    `homeofbeautifulsouls.com`, DNS only (grey cloud)**.
+  - **19:34 — Akash pasted FTP credentials** (`u533396600.claude`; password redacted). **Ports
+    21 and 22 are blocked from Claude's sandbox** (only HTTP/HTTPS), so Claude packaged a zip for
+    manual upload.
+  - **19:51 — Akash pasted a Hostinger API token** (redacted) and a transcript with Hostinger's
+    AI: "I need you to do it safely so it doesn't affect the main or the testing website at all."
+    - Read-only API check: **the new `app` subdomain's root was the main site's `public_html`**
+      — a manual upload would have dropped an `index.html` over WordPress.
+    - Claude deleted and re-created the subdomain with root **`public_html/app`** (the same
+      pattern as `testing`), and verified it.
+  - **00:39 — Akash: "You do it."** Claude read Hostinger's official `hostinger-api-mcp` npm
+    source and **replicated its TUS upload + deploy-trigger flow** in
+    `/home/claude/hostinger_deploy/deploy.js` (E-019fd9a9-38; the token was hardcoded in that
+    sandbox script — redacted here).
+    - `app.homeofbeautifulsouls.com` → 200 with the app; main site and testing site checked,
+      unaffected.
+- **00:44 — the real URLs baked in:**
+  - `REMOTE_VERSION_CHECK_URL` → `https://app.homeofbeautifulsouls.com/version.json`, plus
+    `APK_DOWNLOAD_URL` (E-019fd9ad-4).
+  - **versionCode 22 / 3.1** (E-019fd9ad-18).
+  - The APK and `version.json` uploaded individually (`upload_files.js`, E-019fd9ad-30); byte
+    match verified.
+- **00:51 — Akash: "Update the zip file, include the master architecture doc within in it and
+  mention all the keys as well inside it so they are not lost! Because you can't fucking remember
+  them!"**
+  - Handoff **v21** included **`CREDENTIALS.md` with every live key, token and password**
+    (Supabase, GitHub, Hostinger, Android signing, Firebase, Google OAuth, HubSpot, Razorpay,
+    WordPress; E-019fd9b3-8), plus **the actual keystore file** and `google-services.json`, the
+    updated architecture doc (E-019fd9b3-26, -31) and a README (E-019fd9b3-45).
+  - *(Security: this is the origin of the credentials-in-handoff pattern that later reached
+    `docs/MASTER.md` — see BUG_LOG security entries.)*
+- **00:59 — Akash pasted ChatGPT's audit of the v21 zip:** there were still **11 references to
+  `homeofbeautifulsouls-sys.github.io/hobs-companion-app`** in `index.html`, including
+  `WEB_APP_URL` (used for Google OAuth and password-reset redirects) and the Terms/Privacy links.
+  The instruction: replace all of them with `https://app.homeofbeautifulsouls.com/`, don't touch
+  the native `hobscompanion://callback`, Supabase credentials or DB logic, then re-search for zero
+  hits.
