@@ -3645,13 +3645,30 @@ document.getElementById('obSaveBtn').onclick = function(){
 };
 
 // ================= EDIT PROFILE (post-onboarding self-service) =================
+// Real bug fix, Sept 29 2026: profiles.phone_number / emergency_contact_phone are stored in
+// full WhatsApp/E.164 format ("+91XXXXXXXXXX", enforced by a DB CHECK constraint,
+// is_valid_wa_phone()). This screen's inputs are bare 10-digit fields (maxlength="10") for a
+// clean local-number UX. Loading the full "+91..." value straight into a maxlength=10 field
+// got silently truncated by the browser to a 10-character fragment -- which then got saved
+// back as-is on the NEXT save (even one touching only, say, the address field), permanently
+// missing "+91", and the DB constraint rejected it every time. This surfaced to users as a
+// generic "Could not save -- check your connection" error on every single save, unrelated to
+// their actual connection. Fix: always strip "+91" for display here, and always add it back
+// before writing (see epSaveBtn below).
+function stripWaPrefix(p){
+  return (p || '').replace(/^\+91/, '');
+}
+function toWaPhone(p){
+  p = (p || '').trim();
+  return p ? '+91' + p : null;
+}
 function openEditProfile(){
   document.getElementById('epName').value = appState.displayName || '';
-  document.getElementById('epPhone').value = appState.phoneNumber || '';
+  document.getElementById('epPhone').value = stripWaPrefix(appState.phoneNumber);
   document.getElementById('epDob').value = appState.dateOfBirth || '';
   document.getElementById('epAddress').value = appState.address || '';
   document.getElementById('epEmergencyName').value = appState.emergencyContactName || '';
-  document.getElementById('epEmergencyPhone').value = appState.emergencyContactPhone || '';
+  document.getElementById('epEmergencyPhone').value = stripWaPrefix(appState.emergencyContactPhone);
   document.getElementById('epPronounCustom').style.display = 'none';
   document.getElementById('epPronounCustom').value = '';
 
@@ -3797,8 +3814,8 @@ document.getElementById('epSaveBtn').onclick = function(){
   btn.textContent = 'Saving...'; btn.disabled = true;
 
   var updatePayload = {
-    name: name, pronouns: pronouns, phone_number: phone, date_of_birth: dob,
-    address: address || null, emergency_contact_name: emergencyName || null, emergency_contact_phone: emergencyPhone || null
+    name: name, pronouns: pronouns, phone_number: toWaPhone(phone), date_of_birth: dob,
+    address: address || null, emergency_contact_name: emergencyName || null, emergency_contact_phone: toWaPhone(emergencyPhone)
   };
   if(pendingPhotoUrl) updatePayload.photo_url = pendingPhotoUrl;
 
@@ -4063,7 +4080,7 @@ document.getElementById('basicTosGateSubmitBtn').onclick = function(){
 
 function showConsentGate(resumeAction){
   consentGatePendingAction = resumeAction || null;
-  document.getElementById('consentPhone').value = appState.phoneNumber || '';
+  document.getElementById('consentPhone').value = stripWaPrefix(appState.phoneNumber);
   document.getElementById('consentGateError').style.display = 'none';
   document.getElementById('consentGateOverlay').style.display = 'flex';
 }
