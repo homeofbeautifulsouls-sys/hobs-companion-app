@@ -807,3 +807,67 @@ pattern the app sessions followed.
 - **12:57 / 15:36 — Akash:** "How do we resolve this! … update everything on drive and give me
   the complete updated project file!" then **"We have hit the limit! we need to transfer it to
   GitHub or somewhere we can host it unlimitedly."**
+- **15:37–16:11 — Move from Netlify to GitHub Pages.** Akash created a **GitHub classic token
+  (`repo` scope)** and sent it. Claude created the repo **`homeofbeautifulsouls-sys/hobs-companion-app`**,
+  pushed the app, enabled **GitHub Pages** at
+  `https://homeofbeautifulsouls-sys.github.io/hobs-companion-app/`, changed `WEB_APP_URL`
+  (E-019f4278-31) and Capacitor's `server.url`, rebuilt the APK (reinstall needed). Drive log
+  **v14** (text/plain). Handoff zip v2 (README E-019f4278-72) — **two packaging bugs caught:** an
+  old zip's stale entries and a missed `capacitor-cordova-android-plugins/build/` folder; final
+  2.4MB, 150 files, keystore included. **Deploys became a `git push` by Claude.**
+- **16:12–16:21** — Claude explained reinstall vs no-reinstall (reinstall only for native changes:
+  loaded URL, permissions, deep links, signing). Next-steps check found **`expert_bookings` did
+  not exist** — the Jul 8 migrations had never been run, so **Book Session would fail**. Claude
+  first said only the Supabase Site URL needed changing; **Akash's screenshots corrected him:**
+  Google Cloud's **"Authorized JavaScript origins"** still held the Netlify domain → add
+  `https://homeofbeautifulsouls-sys.github.io`.
+- **16:26–16:29 — Supabase Management API access.** Akash: "Can we not update your access
+  token?" Claude had conflated the publishable key with account tokens; Akash generated a
+  **Supabase personal access token (`sbp_…`)**. Claude ran both migrations through the
+  Management API and verified the table, columns and RLS policy live. **From here Claude ran
+  schema changes itself.**
+- **16:31** — Akash's own Google Calendar booking link added to his expert entry
+  (E-019f4291-8); everyone else still falls back to WhatsApp. Drive log **v15**; handoff README
+  v3 (E-019f4291-36, -38).
+- **16:48–20:46 — Admin dashboard.** Akash chose "Keep building features (payment gateway,
+  admin dashboard, etc.)". Claude added `is_admin` and admin RLS policies, set the flag on
+  `akashramchandani34@gmail.com` after Akash confirmed it over a near-identical misspelled
+  account (other people had already signed up to the app), admin read access to profiles,
+  `appState.isAdmin` (E-019f4376-15), an admin card in Profile (-23, -31), and
+  `openAdminDashboard()` with bookings, client names, stats and "Mark Collected" (-46, -51, -56).
+  **Bug found:** `cancelSession()` never set `cancellation_charge_owed` (-39).
+- **20:46–21:01 — Payments via a static Paytm UPI QR** (Akash had no gateway account; "General
+  session payment too"). Reusable payment modal after booking and for cancellation charges,
+  with "I've Paid — Notify Us" (E-019f4383-8, -13, -22, -30). **Bug:** the modal reset the
+  QR's visibility each time it opened, undoing the image's `onerror` fallback (-44). Akash sent
+  the QR image; wired as `paytm-qr.jpg` (E-019f4387-10). Confirmation stays **manual**.
+- **21:04–21:15 — Calendar screen:** Bob's image removed; a **Pending Tasks** list across all
+  dates (E-019f438c-8, -17). Then **Upcoming Sessions and support-group sessions**: a
+  `session_date` column and a `support_group_sessions` table, set by the admin
+  (E-019f4390-21, -27, -30, -40, -48, -52, -55; null-user guard -77).
+  - **Serious bug found:** the admin policies checked `is_admin` by querying `profiles` from
+    inside a policy **on `profiles`** → **infinite RLS recursion**, which had been **breaking the
+    whole booking system for every user** since the admin dashboard went in. Fixed with a
+    **`SECURITY DEFINER` function** for the admin check; verified all three tables query.
+- **21:23 — Akash:** can't open the dashboard; add a **Book a Session** button under the "however
+  today goes" quote without disturbing the image; how to close the gap between payment and
+  confirmation?
+  - **Cause:** **GitHub Pages caches for 10 minutes** (`max-age=600`, `x-cache: HIT`); Netlify
+    never cached — the "close and reopen" promise had silently broken with the migration. Fixed
+    natively: **WebView cache disabled in `MainActivity.java`** (E-019f439d-19) → new APK.
+  - Home "Book a Session" button inside the affirmation card, pixel-checked against the image
+    (-27, -32).
+  - **`payment_confirmed`** column: bookings show "⏳ Pending confirmation" until the admin taps
+    **Confirm Payment**; new "Unconfirmed" stat (-54, -62, -67, -76, -81, -89, -92).
+- **21:34 — Akash:** why a new APK?; can booking go straight to the payment QR, then confirm
+  in-app, **notify both therapist and client and add to both calendars without manual
+  approval?**; now that there's a dashboard, **remove every WhatsApp redirect** (change
+  requests etc.). Claude: automatic confirmation is impossible with a static QR (needs a gateway
+  webhook); auto calendar writes need per-therapist Google OAuth. Built: Request Change,
+  second cancellation and "I've paid" now **write to the database instead of opening
+  WhatsApp** (E-019f43a7-8, -24, -30); booking order **policy → payment → calendar link**
+  (-37, -41); **"Add to Calendar"** links on confirmed sessions (-50).
+- **21:41 — Akash:** use the **HDFC Bank API instead of Razorpay**?; an **in-app calendar for
+  session booking** instead of Google Calendar? Claude looked up **HDFC SmartGateway** (real
+  REST API, sandbox, webhooks; KYC required either way; would need a Supabase Edge Function to
+  hold keys). Akash: **"Yes, HOBS banks with HDFC."**
