@@ -1338,3 +1338,65 @@ pattern the app sessions followed.
 - **17:13 — Akash** attached **"Therapy & Peer Care Giver Consent Form.pdf"**: every old and new
   user (except professionals) must **sign it compulsorily at login**, fill in all information,
   and can't proceed otherwise; identify gaps.
+- **17:24 — Consent form, first version.** Claude's gap analysis of the PDF: booking/payment
+  and cancellation wording contradicted the app and Terms; a US-template **"county agency"**;
+  no DPDP Act or privacy-policy reference; **no 18+ statement**; a **30-minute emergency
+  response** promise with nothing built behind it; and a clinical No Suicide Agreement for every
+  user was flagged as Akash's call. Built as asked: `consent_agreements` table, `consent_signed`
+  flag, a full-screen mandatory gate for all non-therapists after onboarding (address, phone, 3
+  emergency contacts, session-type consent, two signatures) (E-019f5752-23, -29, -37, -45, -54);
+  **emergency contacts shown to admin** (-65, -68, -75). Exemption keyed on `is_therapist`, not
+  `is_admin`. Drive **Update Log v27**.
+- **18:01 — Akash's decisions:** the form follows **the app's policies**; fix all template
+  issues; **everyone ticks 18+**; **the clinical form appears when a client is assigned a
+  therapist** and blocks until filled; **everyone else gets the app T&Cs**; emergency → a future
+  **SOS button** sending live location ("like zomato") and a guided message to the therapist and
+  chosen contacts.
+  - Built: signup checkboxes (18+, Terms/Privacy) with validation (E-019f577d-15, -18, -26);
+    consent text updated with an 18+ tick and data-protection wording (-36, -39);
+    `age_18_confirmed` column; **the gate now triggers from `pickSessionTimeForBooking()` and
+    at login for connected clients who haven't signed**, resuming the interrupted action
+    afterwards (-50, -58, -66, -73, -81, -85).
+  - SOS analysis: live location, a public tracking page and therapist push are buildable;
+    **messaging the personal contacts automatically needs an SMS gateway (with Indian DLT
+    registration) or WhatsApp Business API** — a WhatsApp deep link still needs a tap.
+- **18:19 — Akash:** mention SOS in the policy under **"Upcoming features"**, notify already-
+  consented users of the update, and **every user, old or new, signs the basic T&C at next
+  login**; **email marketing automation** and SOS (to assigned professionals in all
+  categories) go to the pipeline.
+  - Terms: section 11 "Upcoming features" (E-019f578e-9, -11). **Basic T&C gate for everyone**
+    (`basic_tos_signed`), which also catches **Google sign-ups who never saw the signup
+    checkboxes**; new email sign-ups skip it via a flag written with onboarding (-22, -28, -35,
+    -43, -49, -59, -64, -72). Admin "Notify consented users of policy update" button (-84, -90).
+  - **Incident:** testing that button sent a **real, duplicated policy notification to a real
+    client** — flagged to Akash. Drive **Master Project State v9**.
+- **18:38 — Akash:** View/review/edit/delete together for experts, and **"Could not link"**;
+  **appointments for clients outside the app** (e.g. iPhone users) that therapists log; **tapping
+  notifications doesn't go to the right place**.
+  - Link bug: **`therapist_invites.email` is UNIQUE**, so re-linking failed → upsert
+    (E-019f579f-20); **View** button (-29).
+  - **External appointments:** `expert_bookings.user_id` made nullable plus external-client
+    columns; logged from the therapist day editor; shown as "Outside app" (-45, -56, -65, -74).
+  - **Notification routing — two bugs:** the push-tap handler had **no routing at all** (a
+    comment admitted it), and the **bell inbox had its own handler that never navigated**.
+    Routing by `type` added in the app and in the Edge Function payloads (-84, -94, -99, -106,
+    -113, -117, -124, -126, E-019f57a6-0).
+  - **Incident:** the first Link test **modified a real expert's invite row**; restored, then a
+    disposable test expert was used. Drive **Update Log v29**.
+- **22:17 — Akash:** "you have written this legal framework is built by claude and not read by a
+  lawyer — like WTF! And data as well! Only put what is necessary… frame it like other
+  companies do!" Claude found **an internal note to Akash published inside the Terms** ("please
+  read the note I gave you in chat") and a visible **"confirm with your accountant"** tag in the
+  Privacy Policy; both removed, AWS region wording simplified (E-019f5867-28, -31, -35). Akash
+  asked for the full text in chat; then **"Remove the address!"** → removed from both documents
+  (E-019f586d-9, -14, -18).
+  - "What don't we need at sign-up?" → **phone and date of birth removed from onboarding; name
+    and pronouns made optional** (E-019f586d-44, -52, -60). `getDisplayName()` no longer falls
+    back to the email prefix (-91).
+- **22:50 — Akash asked for an honest USP comparison.** Claude (after searching the market):
+  **no clear technical USP yet** versus Amaha, YourDOST, Wysa, iCALL, Psyra; possible
+  differentiators — bookable peer caregivers and GPs alongside therapists and psychiatrists,
+  credits toward therapy, SOS if built, survivor-led origin, local focus; and HOBS asks for more
+  identity than YourDOST's anonymity. **22:54 — Akash:** he has tried to include **sensory
+  comfort, free standardised screenings, executive-dysfunction support**, all features, SOS —
+  "you don't have to necessarily agree with me".
