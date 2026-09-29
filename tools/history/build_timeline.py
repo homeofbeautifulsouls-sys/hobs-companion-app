@@ -36,15 +36,19 @@ IN_SCOPE = {
     "406969ba": "C21-OfflineAgentSessionRenewal",
 }
 
-CHUNK_CHARS = 80_000
+CHUNK_CHARS = 100_000
 # Reading copy caps. Exact code is NOT lost by these caps: every str_replace /
 # create_file / Edit / Write is extracted verbatim (redacted) by extract_code_edits.py
 # into docs/history/code/, referenced here by its EDIT id.
-CAP_EDIT = 800        # str_replace old/new, per side, in the reading copy
-CAP_FILE = 800        # create_file body in the reading copy
-CAP_CMD = 1_200       # bash command
-CAP_OTHER = 1_000     # any other tool input
-CAP_RESULT = 300      # tool result text
+# Every word Akash and Claude wrote is kept in full. Tool inputs/outputs are shortened here
+# because reading them in full would exceed the whole session budget (measured Sept 29:
+# ~50k tokens per chunk x 268 chunks). Errors are always kept.
+CAP_EDIT = 300        # str_replace old/new, per side, in the reading copy
+CAP_FILE = 300        # create_file body in the reading copy
+CAP_CMD = 300         # bash command
+CAP_OTHER = 200       # any other tool input
+CAP_RESULT = 0        # successful tool result text (0 = omitted)
+CAP_RESULT_ERR = 300  # failed tool result text
 CAP_ATTACH = 300      # attachment extracted content preview
 
 CODE_TOOLS = ("str_replace", "create_file", "Edit", "Write", "MultiEdit")
@@ -88,8 +92,11 @@ def render_tool_result(b):
     for c in b.get("content") or []:
         if isinstance(c, dict) and c.get("type") == "text":
             parts.append(c.get("text", ""))
-    err = " ERROR" if b.get("is_error") else ""
-    return f"<<TOOL_RESULT{err} {b.get('name')}>>\n" + cap("\n".join(parts), CAP_RESULT)
+    if b.get("is_error"):
+        return f"<<TOOL_RESULT ERROR {b.get('name')}>>\n" + cap("\n".join(parts), CAP_RESULT_ERR)
+    if CAP_RESULT == 0:
+        return ""
+    return f"<<TOOL_RESULT {b.get('name')}>>\n" + cap("\n".join(parts), CAP_RESULT)
 
 
 def render_message(label, m):
@@ -110,7 +117,9 @@ def render_message(label, m):
         elif t == "tool_use":
             lines.append(render_tool_use(b, edit_id(m.get("uuid", ""), i)))
         elif t == "tool_result":
-            lines.append(render_tool_result(b))
+            r = render_tool_result(b)
+            if r:
+                lines.append(r)
         # 'thinking' blocks are intentionally skipped: internal reasoning, not record.
     return redact("\n".join(lines))
 

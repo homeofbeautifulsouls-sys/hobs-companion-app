@@ -91,3 +91,31 @@ pattern the app sessions followed.
   custom notification sounds need a native app, not web push.
 - **13:56** — Akash: "Yes (and you will be doing everything)." From here Claude is the sole
   builder.
+- **14:00–16:52 UTC — more scope, then the key architecture decision:**
+  - Added to scope: a curated **YouTube section** (hand-picked, themed, no autoplay), simple
+    **sensory games** (no scores, no timers, no losing), and suggested: Gujarati/Hindi toggle,
+    personal safety plan builder, anonymized institutional dashboard for SAMVEDNA, gentle
+    mood trends, resource search. Claude flagged the list had reached ~25 items and pushed
+    to lock scope and ship the mood tracker first.
+  - Cost table given: everything ₹0 at ~500 users; only SOS auto-send (WhatsApp Business
+    API) would cost money soon.
+  - **Akash's corrections (16:41):** use **Google Calendar Appointment Schedule + Meet**
+    instead of Cal.com; **SOS deferred** to a later phase; use better PWA options if any.
+  - Akash asks whether **Fable 5** would do better (it was free on Pro until Jul 7). Claude:
+    spend Fable on architecture and hard engineering, not on design iteration.
+  - **16:50–16:52 — the decisive clarification from Akash:** "It doesn't have to be a copy
+    paste of website", the website "doesn't follow a soothing sensory", "we don't have to
+    follow wordpress at all… when I said convert website into app, I didn't mean it
+    literally." → **Decision: a standalone app, not inside WordPress/Elementor.** Planned:
+    free hosting (Vercel/Netlify/Firebase), Firebase or Supabase as the only backend, own
+    PWA files, the website just links to it (later a subdomain — HOBS owns the domain).
+  - Akash's rule on assets: **"if you need me to create assets, you tell me, and not just
+    use any asset!"**
+- **16:58** — Claude reads the mascot folder on Drive (Bob, Cookie, Po, Kunnu + room scenes:
+  Screening Room, Community Center, Therapy Room, Body Doubling). Observations: storybook
+  illustration style; the full portraits aren't UI-ready (no small expression states); room
+  scenes could become the app's navigation ("visiting rooms in a home"). Asks whether
+  simplified expression icons exist.
+- **17:01** — Akash: the live screening-tests page on the website is the design reference;
+  these are all the assets for now; and **don't touch the website** — look at the reference
+  somewhere else.

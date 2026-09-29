@@ -28,11 +28,14 @@ new session loses at most one chunk of work.
    ```
    Client names redacted so far: two (the ones seen in the code edits). Their names are not
    written here on purpose. If unsure, ask Akash.
-3. Continue reading at the chunk after **Last chunk completed** below. Append findings to
+3. Reading copy: every word Akash and Claude wrote is kept in full; tool inputs are shortened
+   and successful tool outputs omitted (errors kept) -- reading them in full would have used
+   the whole session budget. Exact code is complete in docs/history/code/ regardless.
+4. Continue reading at the chunk after **Last chunk completed** below. Append findings to
    `docs/HISTORY.md` (and bugs to `docs/BUG_LOG.md`), then update this file and commit.
-4. Before every commit: run the credential scan (`from redact import scan` in `tools/history/`)
-   over every changed doc. Zero hits or no commit.
-5. Do not touch the app, database, live site, or builds during this work. Docs only.
+5. Commit with `tools/history/commit_progress.sh "<msg>"` -- it credential-scans every changed
+   doc and refuses to commit on any hit.
+6. Do not touch the app, database, live site, or builds during this work. Docs only.
 
 ## Scope (agreed with Akash, Sept 29, 2026)
 
@@ -64,6 +67,6 @@ the chunks and recorded in `HISTORY.md` in words, with the command where it matt
 
 ## Status
 
-- Total chunks: **268** (each ~80k characters)
-- **Last chunk completed: 0001** (C16, C17, C21 and the start of C22 — up to Jul 3 13:56 UTC)
+- Total chunks: **110** (each ~100k characters)
+- **Last chunk completed: 0001** (through Jul 3 17:01 UTC)
 - Last updated: 2026-09-29
