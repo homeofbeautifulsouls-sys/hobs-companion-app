@@ -4405,3 +4405,82 @@ pattern the app sessions followed.
   - **The "looking back at…" recall indicator is not built**: it needs streaming or two calls.
 - **16:09 — "Explain me the architecture in layman terms"** → drive-thru analogy: streaming vs two
   calls.
+
+### Sept 15 (evening) — Mindful pause, extraction, psychoeducation, Bob fixes (C31)
+
+- **16:14–16:41 — Mindful pause decisions (Akash):**
+  - "When someone's sharing or vulnerable it shouldn't wait, it should act like a human memory!";
+    "Mindful UI is needed… in therapy we also take mindful pauses… faster responses is the target."
+  - Claude's breathing circle, then breathing avatar → **16:30 — "No we are not doing meditation in
+    between of a conversation! I think just the texts should be fine"** (examples: "I am here with
+    you, just taking a moment to recall so I don't miss out anything").
+  - **16:41 — "B"** (rotating pause lines every time, not tied to real lookups) **+ "he has to say
+    that yes I recall you mentioning this or expressing this."**
+  - Built: explicit recall acknowledgment in the reply prompt (E-01a0a5f1-7; 2/3 in tests); pause-text
+    pool replaces "..." in both indicators (E-01a0a5f1-46, -55, -60). Spec updated (-84).
+- **16:46 — Step 6: weekly extraction.**
+  - Applied in production: `character_extractions` table, `character_messages.is_extracted`, and a
+    Postgres function `exec_extraction_eligibility` (`"character"` needed quoting).
+  - New Edge Function **`extract-character-memories`** (E-01a0a5f6-23), deployed with JWT
+    verification off (scheduler secret instead). **pg_cron job: Sundays 03:00.**
+  - Test: significant message untouched, 90 recent fillers untouched, verbatim quotes and names kept,
+    second run idempotent. Spec (-89).
+- **16:51 — Step 7: tiered psychoeducation.**
+  - New Edge Function **`check-journal-psychoeducation`** (E-01a0a5fb-30).
+    `maybeShowPsychoeducationTip` implements the comorbidity and GP / psychiatrist / therapist
+    routing via `renderMascotTip`, linking to `startTest` (E-01a0a5fb-63); hooked into journal save
+    next to the crisis check (-72).
+  - 7 classifier scenarios correct. Found the tip was hidden when the journal closed on save → tip
+    containers moved to the home panel (-124, -129). Click-through reached PHQ-9 Q1.
+  - Spec updated: all 7 steps "DONE" (E-01a0a603-2).
+- **18:02 — "we need new apk for this to be in effect?"** → yes for `index.html` (bundled); backend
+  already live.
+  - **20:50 — "Playstore is working, till then we will continue how we used to update the app"**;
+    **"Produce it staging app only first"** → staging 8 `bob-memory-psychoed-v4` (E-01a0a6d6-6).
+- **20:56 — "Every message literally takes time, why is Bob so repetitive! I had clearly
+  instructed no for that!"**
+  - Latency: significance check and save ran before the response → moved to
+    **`EdgeRuntime.waitUntil`** (E-01a0a6db-15), about 4 s. Running the crisis check in parallel was
+    left for Akash to approve.
+  - **21:00 — "do you speak my name repeatedly?… And upon new chat, the previous conversation just
+    disappeared!! It has to be like a WhatsApp chat!"** → address terms rare (E-01a0a6de-6);
+    greetings de-chiefed (-15); **chat history loaded from `character_messages` on open** (-26).
+    Staging 9 (-66).
+- **21:10 — Akash:** "the greeting includes Chief! The first greeting! For rest name logic will be
+  used except in deep emotional moments! There he will address them as chief or with name… 🌻 at
+  the end of the greeting… use these emojis appropriately 🥺🤗🌻🫶".
+  - Greetings: always "chief" + 🌻 (E-01a0a6e8-6). Address rule (-13). Emoji guidance in Bob's
+    prompt (-25). In tests, emojis appeared when warmth was clearly called for; chief 0/8 in
+    emotional moments.
+- **21:21 — "Yes you need more structural fix";** plus: "crisis detection isn't working properly
+  when I said just everything feels too much"; "Kunnu comes in between all of a sudden!… remove
+  other mascots completely"; WhatsApp-style send button instead of "Go"; an info button (photo,
+  intro, approach, role, likes); "Ask me the required questions and don't start building
+  blindly!"
+  - **21:26 answers:** (1) no separate crisis modal appeared, Bob just continued; (2) "Bob will do
+    everything for now… all other mascots will be completely removed"; (3) build chief
+    structurally; (4) draft the info content, Akash reviews first.
+  - Crisis: the backend returned `riskDetected: true`; Claude could not reproduce the missing modal
+    in two Playwright runs; logging added to `showCrisisResourceModal` (E-01a0a6f6-54). Supabase
+    had scheduled maintenance until 21:45 GMT.
+  - Kunnu's line was an old intentional handoff ("Talk to a professional"). **All
+    Kunnu / Po / Cookie references in `index.html` switched to Bob** (character tags, mascot tips,
+    `mascot:` fields in grounding / worksheets, hidden buttons).
+  - Chief: the recall-matcher call now also returns an address recommendation for deep emotional
+    moments (E-01a0a6f6-109, -116, -118, -125).
+    - Fixes: the literal word "name" appeared (E-01a0a707-25); then an address term became mandatory
+      in confirmed deep moments (-48). 4/5 in tests.
+  - **Circular send button** replaced "Go" (E-01a0a707-67).
+- **Info panel text (Akash's edits, 21:53–22:04):**
+  - "Write how I created him and why"; likes "Long Walks, Deep Conversations, Hugs, Hot Chocolate,
+    Brownie, Ramen"; "add a subtle 4th wall break joke because he cannot taste the food".
+  - **"he has to start with — Akash, the founder of HOBS created me with the hope that whatever it
+    is, you don't go through the pain alone… intro can't be this long. And don't mention Robin
+    Williams."**
+  - "He's here to empathize, be present with the person in that moment… And also to help navigate
+    the entire app."
+  - **Final (22:03):** header "Hey there, Chief 👋"; the intro above + "I'm here to truly empathize
+    and be present with you in the moment — and to help you find your way around everything HOBS
+    has to offer, whenever you need a hand."; Role paragraph kept; likes as bullets + the
+    "don't ask me how, since I've genuinely never tasted anything in my life…" paragraph.
+    **22:04 — "Perfect! Just use appropriate highlights like bold and italics."**

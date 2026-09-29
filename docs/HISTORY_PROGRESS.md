@@ -71,7 +71,7 @@ the chunks and recorded in `HISTORY.md` in words, with the command where it matt
 - Sept 29: found keystore / test-account passwords (no fixed prefix) in the pushed code docs; added them as exact values to the scratch regen grep and regenerated. Earlier commits in git history still contain them, and MASTER.md itself lists two of them -- flagged to Akash, not changed without his OK.
 - Sept 29 (later): the production and staging scheduler secrets were also in the pushed code docs (no fixed prefix) -- added as exact values to the scratch regen grep and regenerated. Also added redact.py patterns for Netlify tokens (`nf?_`) and private keys cut off before their END line. Same caveat: older git commits still hold them.
 - Sept 29 (later): redact.py now also replaces personal email addresses (clients/testers) with `<email>`, keeping project, placeholder and Akash's own addresses; one more client first name added to the runtime HOBS_REDACT_NAMES list (scratch regen script only).
-- **Resume point (timestamp of the last message fully recorded): 2026-09-15T16:09:14Z**
+- **Resume point (timestamp of the last message fully recorded): 2026-09-15T22:04:07Z**
   Chunk numbers can change if the reading copy is rebuilt, so always resume by timestamp:
   `grep -l '<timestamp>' <scratch>/timeline/chunk_*.txt` and continue after that message.
 - Last updated: 2026-09-29
