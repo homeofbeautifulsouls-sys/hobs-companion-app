@@ -40,6 +40,24 @@ _names = [n.strip() for n in os.environ.get("HOBS_REDACT_NAMES", "").split(",") 
 _name_pats = [re.compile(r"\b" + re.escape(n) + r"\b") for n in _names]
 
 
+# Personal email addresses (clients, testers) are replaced; project, staff-role and
+# placeholder addresses are kept so the history stays readable.
+_EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+_EMAIL_KEEP_DOMAINS = ("example.com", "hobsfoundation.com", "homeofbeautifulsouls.com",
+                       "anthropic.com", "test.com", "iam.gserviceaccount.com", "dnb.com",
+                       "acme.com", "github.com", "pages.plusgoogle.com")
+_EMAIL_KEEP = ("akashramchandani34@gmail.com", "akashramchadani34@gmail.com",
+               "homeofbeautifulsouls@gmail.com")
+
+
+def _email_sub(m):
+    e = m.group(0)
+    low = e.lower()
+    if low in _EMAIL_KEEP or low.split("@", 1)[1].endswith(_EMAIL_KEEP_DOMAINS):
+        return e
+    return "<email>"
+
+
 def redact(s):
     if not isinstance(s, str) or not s:
         return s
@@ -50,6 +68,7 @@ def redact(s):
         s = p.sub("<client>", s)
     for kind, pat in PATTERNS:
         s = pat.sub(f"<REDACTED:{kind}>", s)
+    s = _EMAIL.sub(_email_sub, s)
     return s
 
 
