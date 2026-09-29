@@ -1983,6 +1983,98 @@ shared identifier and was never actually verified distinct until this incident.
 
 ---
 
+## September 28–29, 2026 — Staging build, staging Google Sign-In, and a real production save bug
+
+### 110. Three real defects blocked a truly fresh staging Android build, all found by actually running it
+**What happened**: building staging v46 from a genuinely fresh environment (SDK installed from
+scratch) hit three separate, real failures in sequence, none previously caught because past
+staging builds always ran on an environment with leftover state from an earlier manual step:
+1. `AndroidManifest-staging.xml` had a literal `--` inside an XML comment (introduced by the
+   scheme-collision fix, commit `d8faf1e`) — invalid XML, broke manifest merging outright.
+2. `staging-config/README.md` said not to copy `google-services.json` for staging and that
+   `app-build-staging.gradle`'s guard would skip the Google plugin without it. Both claims were
+   stale: a real staging Firebase app entry was added Sept 20, 2026, and the gradle file no
+   longer has any guard — it unconditionally requires the file (`GradleException` if missing).
+3. `MASTER.md`'s Android build recipe never copied
+   `android-native-assets/razorpay-native/RazorpayNativeCheckoutPlugin.java`, even though
+   `MainActivity.java` directly imports and calls `registerPlugin(RazorpayNativeCheckoutPlugin.class)`
+   — a genuine compile error on a truly fresh checkout, affecting **both** the production and
+   staging recipes, not just staging.
+**Real fix**: manifest comment fixed (`0c0251b`); `README.md` and `MASTER.md` corrected to match
+the real, current state of both files (`1d515c9`). Staging v46 built clean afterward, verified
+(signature SHA-256 matches the real keystore fingerprint, package `com.hobsfoundation.companion.staging`,
+versionCode 46) and deployed to `staging-app.homeofbeautifulsouls.com` — confirmed live by
+downloading it back and matching its SHA-256 to the local build.
+**Also found and fixed while here**: the staging site's own `version.json`/`index.html` claimed
+a stale version ("v49") that didn't match what the real live APK actually was (v45, confirmed via
+`aapt dump badging` on the downloaded live file) — corrected by this same deploy.
+
+### 111. Staging's Google Sign-In was fully broken -- Auth provider disabled, and Google never had staging's callback URL registered
+**What happened**: Akash reported a real device hitting
+`{"code":400,"error_code":"validation_failed","msg":"Unsupported provider: provider is not enabled"}`
+on staging. Queried staging's live Supabase Auth config directly and confirmed
+`external_google_enabled: false`, `external_google_client_id: null` -- Google Sign-In had never
+actually been configured for the staging project, despite Akash's recollection that it worked
+before. No commit, doc, or BUG_LOG entry anywhere in this repo's history shows it ever being set
+up, and there's no audit-log API available on this project's Supabase plan to settle definitively
+what changed it or when -- the most likely candidate is the staging project's pause/restore cycle
+during #109's work two days earlier, since Supabase free-tier restores can drop Auth provider
+config, but this is a plausible explanation, not a proven one.
+**Real fix, partial**: enabled `external_google_enabled` on staging using production's same OAuth
+client ID/secret (`PATCH /v1/projects/ivqlqrpcamoshmgibjph/config/auth`). Testing the real
+authorize flow afterward surfaced a second, separate real problem: Google itself rejects it with
+`redirect_uri_mismatch` (confirmed directly by following the actual redirect chain) because
+staging's own callback (`https://ivqlqrpcamoshmgibjph.supabase.co/auth/v1/callback`) was never
+added to that OAuth client's allowed redirect URIs in Google Cloud Console -- only production's
+callback ever was. **This second half is not fixed as of this entry** -- it requires a Google
+Cloud Console change this session has no API access to make; Akash was given the exact manual
+steps.
+**Standing lesson, added below**: a Supabase project pause/restore is a real, silent risk to
+Auth provider config, not just to the database being reachable -- and a shared-nothing OAuth
+setup (two Supabase projects, one Google OAuth client) needs each project's own callback URL
+explicitly registered in Google Cloud Console; it is never automatic just because production's
+already works.
+
+### 112. Production: profile-edit save silently failed for every user who already had a saved phone number
+**What happened**: a real user's screenshot showed "Could not save — check your connection and
+try again" on the "You" profile screen, saving nothing but a DOB/address/emergency-contact edit.
+Root-caused end to end, not guessed: `profiles.phone_number` / `emergency_contact_phone` are
+stored E.164-style (`+91XXXXXXXXXX`), enforced by a real CHECK constraint
+(`is_valid_wa_phone()`, added in #102 on Sept 27). The "You" screen's phone inputs have
+`maxlength="10"` for a clean local-number UX, but `openEditProfile()` was loading the full
+`+91XXXXXXXXXX` value straight into them -- the browser silently truncates that assignment to
+fit the field, so it displayed a plausible-looking but wrong fragment. Clicking Save re-read that
+truncated value and wrote it back missing `+91`, which the DB constraint correctly rejected --
+on every single save by every user who already had a phone number saved, regardless of what they
+were actually trying to change. This was a real, live-breaking bug affecting all such users,
+confirmed by checking the schema, the constraint definition, the validation function's source,
+and both the read and write JS paths directly (not assumed).
+**Real fix**: strip the `+91` prefix for display (`stripWaPrefix`) when loading `epPhone` /
+`epEmergencyPhone` / `consentPhone`, and always re-add it (`toWaPhone`) before writing
+`phone_number` / `emergency_contact_phone` back to the DB (`6067e0b`). No data needed repairing
+-- the constraint had correctly rejected every bad write the whole time, so nothing bad ever
+persisted. Deployed to production and confirmed live (fetched the served page, found the new
+function names present).
+**Standing lesson, added below**: a DB CHECK constraint added in one session (#102) needs every
+existing client write path touching that column checked in the same session, not just the path
+that prompted adding it.
+
+### 113. Every save handler in the app showed an identical, false "check your connection" message for any database error, not just real network failures
+**What happened**: found while root-causing #112 -- every `sb.from(...).update()/insert()`
+error handler across the app showed the exact same generic connectivity message regardless of
+the real cause (a DB constraint violation, an RLS/permission denial, a genuine network failure
+all looked identical), which is exactly what made #112 undiagnosable from a user's own report of
+what they saw on screen.
+**Real fix**: added `describeSaveError()` -- always logs the real Supabase/Postgres error to the
+browser console, and maps known cases (phone-format constraint, RLS/permission denial, missing
+foreign-key reference, genuine network failure) to an honest, specific message; anything
+unrecognized now shows the real database error text instead of a fabricated connectivity claim.
+Wired into the two handlers involved here (profile edit, consent agreement) (`f69f4b5`); the
+rest of the app's save handlers still show the old generic message and are candidates for the
+same fix later, not yet done as of this entry.
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 **Run `deployment/verify-before-deploy.sh` before every single deploy, web or Android, no
@@ -2080,3 +2172,23 @@ Skipping this check is how the exact same class of bug happens again.
 - **Check whether a project on Supabase's Free tier is actually `ACTIVE_HEALTHY` before trusting
   any test result against it -- auto-pause after inactivity is real and silent, and staging
   specifically has no traffic keeping it awake between test sessions (#109).**
+- **A truly fresh build environment is the only real test of a build recipe.** All three defects
+  in #110 existed silently for weeks because every past build happened to run on an environment
+  with leftover manual state from an earlier session -- the recipe documents in `MASTER.md` and
+  the staging `README.md` can go stale exactly like any other doc, and only actually running them
+  from zero catches it.
+- **A shared OAuth client across two Supabase projects (production/staging) needs each project's
+  own callback URL separately, explicitly registered in Google Cloud Console (#111).** Production
+  working is not evidence staging is configured at all -- check both directly.
+- **A DB CHECK constraint added to enforce a real format (like #102's `is_valid_wa_phone`) needs
+  every existing client write path touching that column re-checked in the same session it's
+  added, not just the one that prompted it (#112).** The constraint did its job correctly the
+  entire time; the actual gap was a screen nobody re-checked against the new rule.
+- **A generic error message ("check your connection") shown for any database error, not just
+  real network failures, actively prevents diagnosing real bugs from a user's own report of what
+  they saw (#113).** Surface the real error, or a specific, accurate mapped one -- never a guess
+  dressed up as certainty.
+- **Log every real change to this file as it happens, in the same session, not batched for the
+  end.** Akash asked for this directly (Sept 29, 2026) after several real fixes in one session
+  went unrecorded until asked. A change that isn't written here the same session it happens is a
+  change a future session (or Akash) has no way to find later.

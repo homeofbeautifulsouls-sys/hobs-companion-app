@@ -26,6 +26,12 @@ zip over live state, has caused real, repeated problems in this project's histor
 - **Update `docs/MASTER.md`, `docs/PROJECT_STATUS.md`, and `docs/BUG_LOG.md` before a session
   describing real work on this app ends.** Not "next session." This file only helps if those
   three stay current.
+- **Log every real change to `docs/BUG_LOG.md` as it happens, in the same turn it's made — not
+  batched for the end of the session.** Akash asked for this explicitly (Sept 29, 2026, see
+  BUG_LOG #110-113 and the standing lesson under them) after several real fixes in one session
+  went unrecorded until he had to ask. For each real change: what changed, in which file/system,
+  and exactly what it did or fixed — the same format the existing numbered entries use. This
+  covers code changes, config/database changes, and deploys — not read-only investigation.
 - Communication: short, direct messages. No long paragraphs unless explicitly asked for detail.
   Akash (the founder) is neurodivergent (ADHD) and has said this explicitly, more than once.
 
