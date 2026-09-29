@@ -4150,3 +4150,63 @@ pattern the app sessions followed.
   the master file, remember to include EVERYTHING! All the credentials… bug logs, media, APIs, Keys,
   code and make a separate document… regarding training AI mascot, especially bob… so anyone can
   create the app from scratch… INCLUDE EVERYTHING IN THAT ZIP FILE IN DETAIL."
+- **22:33 — Claude built the first "master handoff" zip (181 files, ~14 MB)** outside the repo
+  (`/home/claude/master-handoff/`):
+  - full codebase copy without `.git`; live DB schema (40 tables); a **credentials document with
+    real retrieved values** from `system_credentials` (Edge Function secrets can't be read back);
+    BUG_LOG / MASTER copies; `04-mascot-character-bibles/` (Bob bible + all four mascots' live
+    prompts, psychoeducation and memory design, E-01a08320-53); media; Play Store status
+    (E-01a08320-59); `CURRENT_STATUS_SEPT_8_2026.md` (E-01a08320-63); README (E-01a08320-76).
+  - This is the "Sept CREDENTIALS doc" noted as a trace item. It was delivered as a download, not
+    committed.
+- **22:34 — "when i added your email, i gave you literally full admin access!"** → **22:37 — "I gave
+  you that intentionally!"**
+  - `play-console-status` got a read-only permissions check (E-01a08328-2), deployed.
+  - Android Publisher API **cannot manage email-list testers** (Google Groups only).
+  - Closed-test opt-in link: `https://play.google.com/apps/testing/com.hobsfoundation.companion`.
+    WhatsApp invite drafted; **22:39 — "include the fucking link in the message and make it an
+    invite! Rather than begging."**
+- **22:40 — "revisit the zip file and see if you missed anything!"** Claude found the
+  `play-console-status` change uncommitted and committed it; interrupted.
+- **22:42–22:45 — Opt-in link says "app not available" for every account, including the owner's.**
+  Claude: a new app's first release must pass Google review before any tester can see it; the
+  dashboard said "Not yet sent for review".
+
+### Sept 10–11 — Play Console forms and the rejection (C31)
+
+- **Data safety (Sept 10 22:04–23:15):**
+  - Encrypted in transit: Yes. Account creation: username/password + OAuth. Security review and
+    UPI-verified badges: **not claimed**.
+  - Delete-account URL `https://app.homeofbeautifulsouls.com/delete-account.html` (checked against
+    Google's three requirements).
+  - **22:14 — Akash:** "We are collecting address in therapy and no suicide contract and number as
+    well! And yes users upload their photos like therapists…" → Address, Phone, Photos added.
+    Journal has no image attachments; **no Crashlytics** (verified).
+  - **22:15 — "we are going to use precise location for SOS feature in the future right?"** →
+    Claude: declare only what the shipped version does; update when SOS ships. Location left out.
+  - **22:58 — "Can you fill this? Because this is too complicated for me"** → full answer key
+    (everything "collected only", not ephemeral). Then Akash sent the export CSV → Claude filled all
+    782 rows for **CSV import**; the re-exported file diffed **identical** (23:15).
+- **Privacy policy:** `https://app.homeofbeautifulsouls.com/privacy-policy.html`. Claude offered to
+  check it against the Data safety answers (not done in this chat).
+- **App access:** a permanent reviewer account `playstore-reviewer@homeofbeautifulsouls.com` was
+  created, populated with sample journal and tasks, login-tested (password not recorded here).
+- **Content rating (IARC):** category "All Other App Types"; user content sharing Yes; online
+  content Yes (AI mascots); digital goods No (real-world services and donations). Downloaded-content
+  question left to Akash (Claude leaned Yes).
+  - **Found: peer chat has no block, report or moderation** (checked `chat_schema.sql`,
+    `chat_helpers.sql`, `chat_rls.sql`). Claude flagged it as a pre-launch priority for that feature.
+- **Advertising ID:** No (no `AD_ID` permission, no ad SDKs).
+- **23:27 — "I submitted 15 changes to review."** App content showed "You're all caught up"; Claude's
+  health-declaration worry was wrong.
+- **23:36 — Internal testing link works; closed testing doesn't.** Claude's guess: the closed-track
+  tester list was never saved.
+- **23:39 — "revisit the zip file and see what we have missed!"** → the sandbox had reset, so the
+  zip was being rebuilt.
+- **Sept 11 11:04 — Google rejection:** "Violation of Play Console Requirements… Some types of apps
+  can only be distributed by organizations… Health apps…" (App status: Rejected; area: Developer
+  Account).
+  - Claude assumed a personal account and gave convert-to-organization steps (the D-U-N-S number
+    already exists).
+  - **11:07 — Akash: "But I registered it under organization and not personal and this email
+    doesn't actually give the proper reason! So go and see the actual reason."**
