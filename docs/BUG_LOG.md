@@ -2020,15 +2020,16 @@ up, and there's no audit-log API available on this project's Supabase plan to se
 what changed it or when -- the most likely candidate is the staging project's pause/restore cycle
 during #109's work two days earlier, since Supabase free-tier restores can drop Auth provider
 config, but this is a plausible explanation, not a proven one.
-**Real fix, partial**: enabled `external_google_enabled` on staging using production's same OAuth
-client ID/secret (`PATCH /v1/projects/ivqlqrpcamoshmgibjph/config/auth`). Testing the real
-authorize flow afterward surfaced a second, separate real problem: Google itself rejects it with
+**Real fix, now complete**: enabled `external_google_enabled` on staging using production's same
+OAuth client ID/secret (`PATCH /v1/projects/ivqlqrpcamoshmgibjph/config/auth`). Testing the real
+authorize flow afterward surfaced a second, separate real problem: Google itself rejected it with
 `redirect_uri_mismatch` (confirmed directly by following the actual redirect chain) because
 staging's own callback (`https://ivqlqrpcamoshmgibjph.supabase.co/auth/v1/callback`) was never
 added to that OAuth client's allowed redirect URIs in Google Cloud Console -- only production's
-callback ever was. **This second half is not fixed as of this entry** -- it requires a Google
-Cloud Console change this session has no API access to make; Akash was given the exact manual
-steps.
+callback ever was. Akash added it manually in Google Cloud Console (Sept 29, 2026). Re-tested the
+real authorize flow afterward: now lands cleanly on Google's actual sign-in page
+(`accounts.google.com/v3/signin/identifier`), no error -- confirmed via the same direct
+redirect-following method used to find the bug, not assumed.
 **Standing lesson, added below**: a Supabase project pause/restore is a real, silent risk to
 Auth provider config, not just to the database being reachable -- and a shared-nothing OAuth
 setup (two Supabase projects, one Google OAuth client) needs each project's own callback URL

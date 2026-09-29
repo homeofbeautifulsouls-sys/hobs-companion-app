@@ -4123,3 +4123,13 @@ sleep 15 && curl -sS "https://app.homeofbeautifulsouls.com/" | grep -c "describe
 - **July 22 – September 22, 2026 (pre-git)**: no diffs exist, as explained at the top of this
   file. `docs/BUG_LOG.md` entries #1 onward are the real record of that period; they are not
   word-for-word, because nothing word-for-word survived.
+
+---
+
+## Addendum — Sept 29, 2026, post-publish
+
+### 16. Re-verified the staging OAuth redirect chain after Akash added the missing URI in Google Cloud Console (read-only)
+```
+curl -sS -L "https://ivqlqrpcamoshmgibjph.supabase.co/auth/v1/authorize?provider=google&redirect_to=https://staging-app.homeofbeautifulsouls.com/" -o /tmp/final2.html -w "FINAL_URL:%{url_effective}\nHTTP_CODE:%{http_code}\n"
+```
+**Result**: `HTTP_CODE:200`, `FINAL_URL` now resolves to `https://accounts.google.com/v3/signin/identifier?...&redirect_uri=https%3A%2F%2Fivqlqrpcamoshmgibjph.supabase.co%2Fauth%2Fv1%2Fcallback&...` — Google's real sign-in page, no `redirect_uri_mismatch` error. #111 confirmed fully resolved, not just the Supabase-side half.
