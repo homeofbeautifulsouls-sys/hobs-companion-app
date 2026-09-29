@@ -4275,3 +4275,36 @@ index 0236cb2..ed0e7c9 100644
  
 ```
 **Status**: code fixed and pushed. NOT yet on any real device -- the native app bundles `index.html` at build time, so this needs a new staging build (v47) before it does anything for Akash. Once built and deployed, the very next sign-in attempt will show the real underlying error instead of nothing, which is what actually resolves #114.
+
+### 18. Full history reconstruction set up (commit 8a7a648) -- Sept 29, 2026
+Docs/tooling only; nothing in the app, database or live site changed. The 7 MB of recovered
+code under `docs/history/code/` is itself a verbatim record, so it is summarised here by
+`--stat` rather than pasted a second time.
+
+```
+commit 8a7a6489c894f4351fdff43dabda2f32b3338616
+Author: Claude <claude@hobsfoundation.com>
+Date:   Tue Sep 29 07:58:57 2026 +0000
+
+    Start full history reconstruction from Akash's chat export
+
+ .gitignore                          |     2 +
+ CLAUDE.md                           |     4 +
+ docs/HISTORY.md                     |    25 +
+ docs/HISTORY_PROGRESS.md            |    69 +
+ docs/MASTER.md                      |     6 +
+ docs/history/code/2026-06.md        |  4078 ++
+ docs/history/code/2026-07.md        | 96324 ++++++++++++++++++++++++++++++++++
+ docs/history/code/2026-08.md        | 27087 ++++++++++
+ docs/history/code/2026-09.md        | 25459 +++++++++
+ tools/history/build_timeline.py     |   156 +
+ tools/history/extract_code_edits.py |    99 +
+ tools/history/redact.py             |    61 +
+ 12 files changed, 153370 insertions(+)
+```
+
+Push note: the first attempt at this commit was **blocked by GitHub push protection** (a
+HubSpot `pat-na2-` token in the recovered code that the redaction patterns missed). Nothing
+was pushed. The unpushed commit was undone, the pattern fixed, an old Hostinger token and a
+test password (no recognisable prefix) added to exact-value redaction, and everything
+regenerated before this commit.
