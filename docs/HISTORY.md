@@ -677,3 +677,72 @@ pattern the app sessions followed.
 - **20:25 — Akash: "There's no option to logout!"** → Profile account section showing the
   signed-in email + **Sign Out** (E-019f33f5-7, -14, -19); APK rebuilt.
 - **20:30 — Akash:** "Do I need to download an apk everytime?"
+- **20:30–20:37 — Remote-URL mode (the "no reinstall" workflow).** Claude: code is baked into
+  the APK at build time, so every change meant a new APK. Fix: Capacitor **loads the app from a
+  hosted URL**. Akash deployed via Netlify Drop → `lovely-monstera-df97ae.netlify.app`; Claude
+  set Capacitor's `server.url` to it and rebuilt (same `CN=HOBS Foundation` signature). Akash
+  was testing in **BlueStacks on PC** because the phone wouldn't install.
+- **20:39–20:42** — Google's screen said "sign in to …supabase.co". Claude: Google shows the
+  real receiving domain (anti-phishing); a custom auth domain would change it later; "Testing"
+  publishing status may affect the consent screen.
+- **20:59 — Akash** installed it on his phone **via debugging mode ("thanks to chatgpt!… you
+  sucked at it!")**; after Google login the app went to **`localhost:3000`**. **Bug:**
+  `redirectTo` used `window.location.href`, which captured the debug server's address.
+- **Jul 6 07:49 — Akash pasted a problem summary** (written with ChatGPT): redirect changed to
+  the Netlify URL, login and session work, but the browser doesn't hand control back to the
+  app. **Fix (07:55):** `@capacitor/app` was **not installed** and there was **no intent
+  filter**; added `hobscompanion://callback` to `AndroidManifest.xml` (E-019f3667-12; -9 failed
+  on a wrong path), fixed `redirectTo` (native scheme in the app, Netlify URL on the web) and a
+  deep-link listener that sets the Supabase session from the tokens (E-019f3667-23). Akash had
+  to add `hobscompanion://callback` to Supabase's Redirect URLs (done 08:36) and reinstall.
+- **07:57–08:06** — Drive log **v13**. Claude flagged that the **release keystore existed only
+  in its sandbox**. Akash: "Include the key in the document and MD file" → Claude gave him the
+  `.keystore` file and wrote a **separate Drive "SIGNING CREDENTIALS" document with the
+  keystore password** (a Google Docs create failed — "Creating a first party item with content
+  requires an external mime type" — so it went up as `text/plain`). Akash saw "invalid prompt"
+  and "chat limit reached / continue" messages in the UI around this time.
+- **12:47 — Akash had worked with ChatGPT** on Google login and deployed a new `index.html`
+  (`index_14.html`) to a **new Netlify site `hobscompanion.netlify.app`**; he got "Site not
+  found". Claude reviewed ChatGPT's diff: it handled **both OAuth return formats** (hash tokens
+  and code) — **adopted as the master copy**. The installed APK still pointed at the old site →
+  config moved to `hobscompanion.netlify.app`, rebuilt; Supabase Site URL to be updated.
+- **12:54** — Netlify offered a custom domain. Claude: **never point the root domain** (the live
+  WordPress site would go down); a subdomain CNAME is safe; **decision: hold it**.
+- **12:56 — Akash: "give me the 'entire project file' because when you go, then I can work with
+  Chatgpt!"** → a 13MB handoff zip (`/web`, `/mobile` incl. keystore, `/backend` schema, `/docs`,
+  and a README with credentials, URLs, architecture, rebuild commands, and what is and isn't
+  wired to the backend) (E-019f3780-12).
+- **13:09 — Google authentication confirmed working by Akash.** He then saw the "prototype —
+  simulate therapist" checkbox: hidden for real users, kept behind **`?dev=1`**
+  (E-019f378b-8, -12).
+- **13:15–13:27 — Netlify drift:** the live site kept serving the old file. Claude's curl showed
+  a real origin miss; a `[BUILD-CHECK-001]` title marker was added (E-019f3796-4). Cause: the
+  upload had **silently created another Netlify project**. On the new site **only `index.html`
+  was uploaded**, so the logo showed as a broken image.
+- **13:35 — "Why is the screen enclosed in an interface"** — the app still had its **phone-mockup
+  frame** inside a real phone. Fixed: edge-to-edge on phone widths (E-019f37a4-13, -20, -28),
+  then on tablets too via early native/standalone detection (E-019f37a7-2, -7).
+- **13:39–13:50 — Akash: "can you not upload it yourself everytime?"** He created a **Netlify
+  personal access token** and sent it; the API showed one site, `hobscompanion` (ID
+  `ce08497f-…`). **Claude now deploys directly via the Netlify API.** First deploy was **a stale
+  intermediate copy** (caught by checking the live site); redeployed and verified.
+- **13:54 — Akash's Home brief:** replace the blue clouds and Bob's circle with his image
+  (`mixboard-image-8.jpg`) in the same shape; greet by time of day or "Welcome Home, [name]";
+  "Home of Beautiful Souls Foundation is here with you" — HOBS should feel like **a second home**
+  ("like maggie"); a different **non-invalidating, mindful** affirmation each time.
+  - **17:44 — built:** hero photo (E-019f3884-22; CSS replaced by line range after a failed
+    edit, -26); **"Welcome home, [Name]"** chosen, with time of day steering which affirmations
+    show; name from the account (Google first name, or the email prefix); greeting re-run after
+    sign-in (-47, -50). Deployed and verified live.
+- **17:47 — Akash: onboarding after sign-up** — Name, Pronouns, Phone Number, Date of Birth,
+  then Home. Built: onboarding overlay with inclusive pronoun chips incl. self-describe
+  (E-019f388a-14), profile loading (-23), `onAuthSuccess` branching (-26), chosen name preferred
+  (-34). **Schema change** (`pronouns`, `phone_number`, `date_of_birth`,
+  `onboarding_complete`) had to be **run by Akash in the SQL editor** (the publishable key
+  can't alter tables) — done 18:39 ("Success. No rows returned"). Akash: existing users must
+  also fill this in.
+- **Jul 8 10:31 — Akash:** a signed-in user reopening the app **sees the login page, then a tap
+  takes them Home**; replace the placeholder mascot SVGs with the real mascot images from the
+  Drive folder; a **first-time introduction** where the mascots present their features; **Bob
+  greets on every open**; mascots should feel like **companions** — "I want to focus on
+  Animations"; list what illustrations are needed; identify the gaps and bugs.
