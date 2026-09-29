@@ -1864,3 +1864,51 @@ pattern the app sessions followed.
   speech clip through the deployed function ("This is a test of the Hobs Journal transcription
   feature."). *(The key's value is redacted from all history files.)*
 - **21:52 — Akash (screenshot): "I haven't installed the latest apk though."**
+- **21:54 — Akash: build chatrooms** — support groups ("exactly like WhatsApp"), one-to-one
+  client ↔ professional, and a professionals' group for those sharing a client. Claude asked
+  scoping questions. **22:00, Akash's answers:** admin creates groups and appoints co-admins;
+  one-to-one only with an active connection; **coordination rooms are created automatically**
+  ("the client always knows we coordinate"), with a line added to the signup and therapy
+  consent; "exactly WhatsApp" applies to groups; **"Crisis safety has to be everywhere."**
+  **22:02:** admin can create groups, invite or add directly, and **chat one-to-one with anyone.**
+- **22:15 — Chat foundation (live DB changes):** `chat_rooms`, `chat_room_members` (role, status,
+  never hard-deleted), `chat_messages`; SECURITY DEFINER helpers and RLS; Realtime enabled; a
+  trigger that **creates a coordination room when a second professional books the same client**.
+  Tested with two temporary therapist accounts, which Claude created through the auth API after
+  **checking whether it could fetch the service-role key from the project API-keys endpoint**.
+  UI: chat list and room panels, a header chat icon, crisis check on every message
+  (E-019f6cf4-73, -111, -121, -134, -140). The same **mistyped edit parameter deleted the
+  `nav-footer` opening tag**; restored in the next edit. Real-time delivery tested with two
+  sessions; pushed.
+- **22:20 — Message buttons** on the Team page (connected professionals), the therapist's client
+  list, and admin All Users (E-019f6d04-10…-69).
+- **22:28 — Support groups:** create, pick members, invite or add directly, accept/decline,
+  co-admin promotion (E-019f6d0c-12…-61; the parameter typo deleted content once more and was
+  redone). **Bug:** invited members could not see the room, because `is_chat_room_member()` only
+  counted "joined" → a separate visibility check including "invited".
+- **22:40 — Akash:** members can set a **group-only alias** so their identity isn't shown; admins
+  still see real names. `display_alias` column; alias-aware names and sender labels (group
+  messages previously had no sender name) (E-019f6d16-14, -27, -33). The facilitator shows their
+  real name to peers (-56); a new **profiles RLS policy lets group members read their
+  facilitator's name**. Pushed Jul 17 10:11.
+- **Jul 17 10:34 — Akash:** WhatsApp parity: **description, pinned message, notification on each
+  message, a list to pick members from (not search), exit group.** Built: `description` and
+  `pinned_message_id` columns; push via `send-push-notification` (`{userId, title, body}`,
+  worked out by calling it because the deployed source could not be read); checklist picker;
+  pin banner; exit sets status `left` (E-019f6fa3-38…-141). While cleaning up test data Claude
+  changed the pinned-message foreign key to **`ON DELETE SET NULL`** (live DB change).
+- **11:31 — Akash:** an **invite link** for support groups; the **Tasklist is not rewarding and too
+  congested** — "Talk to me first before building anything." Claude asked about join approval
+  and revocable links (not answered here) and noted real deep links need a Play Store listing.
+- **13:23 — Akash: "The vintage paper was just for journal, do you see my vision with mood
+  bubbles and vintage journal?"** → each section gets its own metaphor. **"Plants make sense."**
+  Mockup 1: tap → bloom (E-019f7040-12). **13:31 — Akash: "subtask grow into a seed, the task into a
+  plant and a day into a tree and a week into a garden."** Mockup 2: seeds, blooms, today's tree,
+  week garden (E-019f7047-5). **13:39 — "It has to look a proper beautiful garden."** Akash sent a
+  Pinterest link (blocked) and a YouTube short (not viewable); Claude asked for screenshots.
+- **16:01 — Akash: "Add period tracker in pipeline."**
+- **Jul 19 09:14 — "Give me the latest apk."** **APK v2.3**; nothing native had changed since v2.2.
+- **09:43 — Akash:** can't find where to assign a GP or psychiatrist when a client already has a
+  therapist. Claude could not reproduce it (per-category assign dropdowns worked). **09:48:** a
+  newly added doctor was not in experts; she had been created as a **Therapist**. **09:50, Akash:
+  "No she's a doctor, not a therapist! A general physician."**
