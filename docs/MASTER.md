@@ -682,6 +682,17 @@ Ranking factors:
 - Optional, free: **Hindi / Gujarati listing text** for Indian search. Store page only — does not
   change the English-only crisis decision.
 
-Sources: Supabase backups and production checklist docs; Play Console Help (target API level,
+### 13.9 Code structure — single 17,353-line `index.html`
+- Problem: the whole client app is one file (14,541 lines on Jul 26 → 17,353 on Sept 29). A
+  developer sees a mess.
+- Agreed Jul 26 (still valid): strangler-fig migration to Vite + React + TypeScript, Vitest +
+  Playwright, React Router, Context + TanStack Query; pixel-for-pixel first; real automated tests;
+  backend untouched; new features paused during it; start small (Journal).
+- **Decision Sept 29: hand this to the developer later, with a complete, clear handover package**
+  (instructions, `APP-BLUEPRINT.md`, this file, test suite, build/deploy pipeline). Not started by
+  Claude. Safe order when it starts: tests (13.4) → split into per-feature files with zero visible
+  change → React screen by screen through staging → approval → production.
+
+ Play Console Help (target API level,
 Android vitals thresholds); Play Console release and pre-launch report guides; OWASP MASVS;
 Android Developers (16 KB page sizes); India Briefing (DPDP Rules 2025); AppTweak ASO checklist.
