@@ -1729,3 +1729,74 @@ pattern the app sessions followed.
   with an animation to the page, and **past entries should flip the book open to that entry.**
   "Before building tell me if I am making sense, if it's doable… And will it obstruct sensory
   experience?"
+- **13:22** — The expand button's contrast was already low before the texture; given a border and
+  larger size (E-019f65ec-24). Claude's recommendation on the book: yes, doable; cover animation
+  **short and skippable, once per session, reduced-motion respected, Quick Journal untouched**;
+  a short flip transition instead of flipping through every page. **13:31, Akash: "Yes… go
+  ahead."**
+- **13:43 — Book cover v1** on the mood-bubble → journal path (E-019f65f9-35…-105). A mistyped
+  parameter in one edit **deleted the `panel-journal` opening tag**; Claude restarted from a
+  clean copy. Pushed.
+- **13:48 — Akash: "Dude! In the journal section it has to be that way!"** The mood-bubble entry
+  stays normal; the **Journal tab** gets the cover, then **past entries as an index**; **Add flips
+  to a new page**; a past entry opens its page. "There's no vintage paper anywhere!" **"Share as
+  image" says saved but no image exists** — "you would need storage permission." Claude confirmed:
+  **no storage permission and no Filesystem/Share plugin**, so the web fallback had reported a
+  false success. **13:52, Akash:** the animation is "an uncomfortable blink".
+- **13:59–17:21 — Journal redesign v2:** slower keyframed cover (1.3 s) and page flip (0.6 s);
+  cover moved to `navJournal` → `enterJournalSection()`; `panel-history` restyled as a
+  vintage-paper **index** with compact rows; "Add a new page" used the normal mood picker
+  instead of Quick Journal (E-019f660c-14…-89). **Native fix:** `shareImageFromCanvas` writes to
+  the app cache and opens the native share sheet; **`@capacitor/filesystem` and
+  `@capacitor/share` installed and synced** (E-019f660c-103, E-019f66c6-4, -9). Pushed.
+- **17:28 — Akash: "You just introduced so many bugs!"** The cover shows only once per app open;
+  the index "doesn't look like a book index and it's static"; **"Add a new page" goes to Home**;
+  "The entire journal section has to feel like writing a diary"; **header logo has space on its
+  right**. Causes and fixes: **`panel-bubbles` is the Home panel itself** → an existing
+  `startingEntryBanner` was switched on (E-019f66d2-25, -33); the cover now shows every time
+  (-41); the logo had **height, a fixed width and `aspect-ratio` fighting each other** → `width:
+  auto` (-61); dotted-leader index rows, a divider and a staggered entrance (-70, -79, -85).
+- **17:41 — Akash (screenshot):** share still fails ("the app needs files access… correct me");
+  **"Again the journal bug! We have literally faced this issue before and you or previous had
+  fixed it!"**; **swipe to open instead of tap**. The Home hero (`.home-hero`) is now hidden in the
+  Add flow and restored on Home; swipe detection added with listener clean-up (E-019f66de-14…-40).
+  Claude explained that **new native plugins need a new APK**; web updates cannot add them.
+- **17:48 — Akash: "So build that apk!"** Built **v1.5 (versionCode 6)**, release-signed with the
+  existing keystore; permissions stayed Internet + Notifications. **Akash: "You have already built
+  apks multiple times right? So why did you have to search your environments again?"**
+- **17:57 — Akash (screenshot):** still "tap to open", and now neither works; the cover showed
+  **teal/green**. Causes: **no `color-scheme` declaration**, so the phone's **Force Dark
+  recoloured the page** → meta tag, CSS, and a native `MainActivity` override with
+  `androidx.webkit` (E-019f66ed-14, -22, -32, -44); swipe listeners were only on the small cover
+  panel → moved to the full stage, with a tap fallback (-54, -64 orphaned listener removed).
+  **APK v1.6 (7).**
+- **18:08 — Akash: "it's still tap to open! Even the text…"** The cover text had **never been
+  changed from "tap to open"** → "swipe to open" plus an arrow hint (E-019f66f7-8, -14, -22).
+  **APK v1.7.**
+- **18:16 — "the swipe left animation isn't working!"** → **`touch-action: none`** added (it is
+  used elsewhere in the app for gestures) (E-019f66fe-8, -15). Claude said it could not verify
+  this without a real touchscreen. **APK v1.8.**
+- **18:24 — Akash: still tap only; "the journal entry issue is still the fucking same!… It's been
+  so many fucking attempts!"** Cause found: a swipe arcing more than 60 px vertically failed
+  both the swipe check and the 10 px tap fallback. **Any touch-and-release now opens the cover**
+  (E-019f6705-10). **APK v1.9.**
+- **19:24 — Akash (screenshot): Google "Error 401: deleted_client".** Claude: the OAuth client no
+  longer exists; not from app code. **22:15 — Akash: "Did you ever gave any delete command to
+  google console project?"** Claude: no access to Google Cloud and no delete command.
+  **22:17 — Akash created a new Google Cloud project and updated the client ID and secret in
+  Supabase.** (This was the Google sign-in client; Claude could not check the Supabase auth
+  setting.)
+- **22:13 (C23)** — In the old C23 chat Akash asked how the "new journal entry leads to Home" bug
+  was fixed; Claude answered from C26 via past-chat search.
+- **22:17 — Akash: swipe works now;** the journal entry bug is still there; after updating, share
+  outside **captures a random screenshot, not the complete entry**. Cause: after the index
+  redesign, share captured the **compact index row (a ~40-character snippet)**. Now a full
+  off-screen card is built for the capture and removed afterwards (E-019f67db-11, -19).
+- **22:30 — Akash (screenshots):** a new journal entry still shows the Home page; **"The entire
+  screen literally has to be a vintage paper!"** The crew section, Add Task, "More ways…" and
+  social links were still visible → wrapped in **`#homeExtraContent`** and hidden with the hero;
+  the **whole `panel-journal` is now vintage paper** (buttons included) (E-019f67e6-25, -28, -45).
+  *(The test entry in Akash's screenshot contained crisis wording; Claude treated it as test
+  content and checked in once.)*
+- **22:39 — Akash: "The new entry page and the background button takes to the home page!! With
+  just start a new journal entry showing at the top! It's already been 5 attempts now!"**
