@@ -2112,6 +2112,25 @@ never having fired at all -- always handle the failure shape explicitly, not jus
 
 ---
 
+### 115. History reconstruction docs published a live Razorpay webhook secret to the public repo
+**What happened**: `docs/history/code/2026-08.md` (created by this session's history reconstruction,
+first pushed in `8a7a648`) contained the Razorpay webhook secret in plain text -- copied verbatim
+from an Aug 2026 handoff doc that Claude wrote. The redaction in `tools/history/redact.py` only
+catches values with a known prefix or values on the exact-value list, and this secret has no
+prefix, so the pre-commit scan passed. Found while reading the Jul 31 chat, where Akash pasted it.
+The repo is public (`api.github.com/repos/homeofbeautifulsouls-sys/hobs-companion-app` answers
+unauthenticated), so the value has been publicly readable since `8a7a648`.
+**Fix**: added the exact value to the scratch-only exact-value redaction list (never in this repo),
+regenerated `docs/history/code/`, confirmed zero matches, committed `597e579`. Also added the
+Razorpay key secret and the AssemblyAI key (both pasted in chat; neither was found in the repo or
+its history) to the same list.
+**Not fixed, needs Akash**: the secret is still in older commits, so it must be treated as exposed
+-- rotate it in the Razorpay dashboard (Settings → Webhooks → edit → new secret) and set the new
+value as the `RAZORPAY_WEBHOOK_SECRET` Edge Function secret. Purging it from git history is on the
+pending list with the other leaked values (history rewrite needs Akash's go).
+
+---
+
 ## Standing lessons (do not re-learn these)
 
 **Run `deployment/verify-before-deploy.sh` before every single deploy, web or Android, no
@@ -2233,3 +2252,6 @@ Skipping this check is how the exact same class of bug happens again.
   else is indistinguishable, from the user's side, from the callback never firing at all (#114).**
   Always handle the failure shape (`error`/`error_description`) explicitly, in every branch, not
   just the happy path -- otherwise a real, specific failure looks identical to "nothing happened."
+- **A prefix-based secret scan cannot see secrets without a prefix (#115).** Anything copied from
+  chat history or old handoff docs gets a line-by-line check for credential labels ("secret",
+  "password", "token", "key") before it is committed, not just the pattern scan.

@@ -4308,3 +4308,29 @@ HubSpot `pat-na2-` token in the recovered code that the redaction patterns misse
 was pushed. The unpushed commit was undone, the pattern fixed, an old Hostinger token and a
 test password (no recognisable prefix) added to exact-value redaction, and everything
 regenerated before this commit.
+
+### 19. Redacted a leaked Razorpay webhook secret from the history docs (commit 597e579) -- Sept 29, 2026 -- BUG_LOG #115
+Docs only. The removed value is shown redacted, per this file's redaction rule.
+
+```
+commit 597e5798b5612fd70bd37a0e42c63658ced491fe
+Author: Claude <claude@hobsfoundation.com>
+Date:   Tue Sep 29 08:32:24 2026 +0000
+
+    Redact leaked Razorpay webhook secret from docs/history/code/2026-08.md
+
+diff --git a/docs/history/code/2026-08.md b/docs/history/code/2026-08.md
+index de43879..935d95f 100644
+--- a/docs/history/code/2026-08.md
++++ b/docs/history/code/2026-08.md
+@@ -7370,7 +7370,7 @@ FULL FILE TEXT (exact):
+ 
+ ## Razorpay
+ - **Key ID:** `<REDACTED:razorpay_key>`
+-- **Webhook secret:** `<REDACTED -- the real value, now removed>`
++- **Webhook secret:** `<REDACTED:known_credential>`
+ - **Test campaign** (never toggle a real campaign's `is_active` for testing — always use this one): ID `0a0f501b-2359-430a-be0d-223f678a6451`, title `__CLAUDE_TEST_CAMPAIGN_DO_NOT_USE__`
+ 
+ ## WordPress (homeofbeautifulsouls.com)
+```
+
