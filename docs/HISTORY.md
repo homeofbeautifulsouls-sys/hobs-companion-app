@@ -2439,3 +2439,59 @@ pattern the app sessions followed.
   - A **Caveat-font header card and a progress strip** weighted by subtasks (-70, -77, -81).
   - **Bug:** the FAB (z 55) covered the add-task sheet (z 11) and blocked Save → hidden while the
     sheet is open (-126, -131). Pushed.
+- **06:41 — Akash (screenshot): "There's no plus button! The columns had colors depending upon their
+  urgency dude! Why did you remove them!! Why the hell did you add Calendar when we had eliminated
+  it!!!"** Claude had built on **`panel-day`**, not the real Tasklist landing screen
+  (`panel-calendar`). That screen **never had priority colours**, so they were added (E-019f8db5-18).
+  The FAB now also shows on `panel-calendar`; a **duplicate element ID was caught before shipping**
+  (-32…-50). Claude found the Calendar had only been renamed, never removed. **Akash: "Remove it
+  entirely — just show today's tasks + upcoming."**
+- **06:59** — The month grid was removed and the screen **narrowed to today only**, with a shared
+  render context (E-019f8dbd-22…-73). **07:03 — Akash: "When the fuck did I ask you to remove
+  tasklists! I just fucking asked you to remove calendar!… Why the fuck did you even change the
+  font!"** Reverted to the full all-dates list in plain font; the grid stays removed
+  (E-019f8dc9-10…-24).
+- **07:20 — Card payments for donations.** A gateway is needed (earlier chats had picked the static
+  Paytm QR). Compared Razorpay, Instamojo, Cashfree and PayU (UPI under ₹2,000 has no merchant
+  fee); Claude recommended **Razorpay**. **07:29 — Akash: "Razorpay is asking for Android link"**
+  → "Add later" (the app is not on Play yet). Akash was signing up.
+- **14:39 — Akash (screenshot): the screen sometimes turns blue before the welcome image.** On slow
+  connections the image started downloading only when shown. It now **preloads at sign-in**, in
+  parallel with the data load (E-019f8f6a-22). **14:46 — "The same issue is with other images as
+  well! Especially the journal page one!"** The three vintage backgrounds are preloaded too
+  (E-019f8f71-25).
+- **15:14 — Akash: add a Numb bubble to the Home mood tracker without congestion. "Talk to me
+  before building."** Claude asked two questions. Answers: **treat Numb as a distress mood**
+  (routes to grounding, counts as heavy); colour — "all colors are based on science! so find the
+  scientific color for numbness" → **neutral grey** (research-cited) (E-019f8f8c-16, -41, -54).
+- **15:29–16:16 — Bubble layout saga.**
+  - "Looks very congested as feared!… Talk to me first before building."
+  - **"Can you plan it absolutely properly without executing and then build."** Claude planned a
+    3×3 spread. **"Build it and no same type of emotions cannot be clubbed together."** Claude said
+    that's a design choice, not a scientific rule (Russell's circumplex would group them).
+    Shipped (E-019f8f9d-11). **"Shop as it is."**
+  - **15:49 — "Now they are way too far and symmetrical! And not acting like bubbles! Can you
+    fucking stop making assumptions and ask fucking direct questions!!!!"** Answers: irregular
+    positions, more spread, uniform size. Rebuilt (E-019f8fac-55).
+  - **16:10 — Akash (abusive, in Hindi and English): "All I asked you to do was add a fucking
+    bubble properly."**
+  - **Reverted to the original 8 positions plus Numb** (E-019f8fc0-4).
+- **Jul 26 22:05 — Akash:**
+  - An app developer said everything is in one file ("we will have to build a new app"). Can we
+    keep the existing app and componentise it for them? "Talk to me in detail, ask relevant
+    questions."
+  - Then fix these bugs: **notifications arrive twice; automated notifications (9 pm journal,
+    booking reminders) are not delivering; journal entries are duplicating.**
+
+  Claude measured **14,541 lines, 943 KB, 254 functions, 149 globals in `index.html`** and argued
+  for a refactor, not a rewrite. Akash's answers:
+  - the driver is "Both" (other developers, and long-term maintenance);
+  - **dedicate time first and pause new features**;
+  - the developer will use **React**;
+  - **TypeScript**;
+  - **pixel-for-pixel first**;
+  - **real automated tests**.
+
+  Plan: a strangler-fig migration; Vite + React + TS, Vitest + Playwright, React Router, Context +
+  TanStack Query; the backend untouched. **22:11 — Akash: "Remember this, we will pause it for now,
+  have asked the developer… Till then solve the bugs that I asked you."**
