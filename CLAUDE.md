@@ -11,10 +11,10 @@ zip over live state, has caused real, repeated problems in this project's histor
 2. Read `docs/PROJECT_STATUS.md` for what's currently open.
 3. Read `docs/BUG_LOG.md` in full, including the standing lessons at the end — several real bugs
    in this project's history happened because an earlier entry in this same file was skipped.
-4. **Work in progress since Sept 29, 2026**: the full project history is being reconstructed
-   from Akash's chat export. Read `docs/HISTORY_PROGRESS.md` before anything else — if that
-   work isn't marked complete, it says exactly where to resume. Do not restart it from scratch
-   and do not touch the app, database, live site or builds while doing it unless Akash says so.
+4. The full project history (July 2026 → Sept 29, 2026) was reconstructed from Akash's chat
+   export and is **complete**: `docs/HISTORY.md` (timeline, bugs, decisions) and
+   `docs/history/code/` (exact code edits). Check it before assuming something was never tried.
+   `docs/HISTORY_PROGRESS.md` says how to extend it with a newer export.
 
 ## Standing rules (restated from `docs/MASTER.md` §11-12 — read those for full context)
 

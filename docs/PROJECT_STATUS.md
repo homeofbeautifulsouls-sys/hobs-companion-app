@@ -21,6 +21,10 @@ per session, a real professional schedule view, a genuine, root-caused fix for t
 Calendar-reconnect-vs-auto-reload interaction, and a full, honest catch-up of `docs/BUG_LOG.md`
 covering two real sessions that had never been logged at all.*
 
+*Sept 29, 2026: full history reconstruction complete (`docs/HISTORY.md`). Open items it
+surfaced are listed in `MASTER.md` §8 — the key one: the profile-save fix is website-only, the
+installed app needs a new APK (v83, awaiting Akash's OK).*
+
 ## Play Store submission blockers
 
 - [x] **D-U-N-S Number** — resolved August 21, 2026. **854273779**, Home of Beautiful Souls

@@ -67,6 +67,9 @@ the chunks and recorded in `HISTORY.md` in words, with the command where it matt
 
 ## Status
 
+- **COMPLETE (Sept 29, 2026).** Every message of the export in scope was read and recorded in
+  `docs/HISTORY.md`. To extend with a newer export: rebuild chunks as above and continue after
+  the resume point below.
 - Total chunks: **65** (each ~100k characters)
 - Sept 29: found keystore / test-account passwords (no fixed prefix) in the pushed code docs; added them as exact values to the scratch regen grep and regenerated. Earlier commits in git history still contain them, and MASTER.md itself lists two of them -- flagged to Akash, not changed without his OK.
 - Sept 29 (later): the production and staging scheduler secrets were also in the pushed code docs (no fixed prefix) -- added as exact values to the scratch regen grep and regenerated. Also added redact.py patterns for Netlify tokens (`nf?_`) and private keys cut off before their END line. Same caveat: older git commits still hold them.

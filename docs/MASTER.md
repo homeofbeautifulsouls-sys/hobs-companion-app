@@ -1,5 +1,6 @@
 # HOBS Companion — Master Reference
-Last rebuilt: September 16, 2026. Last real update: September 27, 2026 (§10 WhatsApp Business
+Last rebuilt: September 16, 2026. Last update: September 29, 2026 (§1 full history
+reconstruction complete; §8 open items found in the history). Previous: September 27, 2026 (§10 WhatsApp Business
 API; §4 Edge Function audit -- 4 undocumented live functions added, 2 live unauthenticated
 "temporary" functions flagged for deletion, `transcribe-audio`'s real provider corrected; §12
 new standing safeguard against session-reset drift; CLAUDE.md added at repo root). **Read this
@@ -55,8 +56,18 @@ literal thing that changed). Both get updated the same turn a real change is mad
 **For the full history from the very first chat (July 2026) onward** — every change, the exact
 code, when, where, why, every bug created/fixed/recurring, every decision — see
 `docs/HISTORY.md` (timeline) and `docs/history/code/` (2,830 code edits recovered word for word
-from the chats). Reconstruction started Sept 29, 2026 from Akash's full claude.ai export and is
-**in progress** — `docs/HISTORY_PROGRESS.md` says exactly how far it has got and how to resume.
+from the chats). Reconstruction done Sept 29, 2026 from Akash's full claude.ai export —
+**complete** through the last message of the export (Sept 29, 07:08 UTC). How it was built and
+how to extend it: `docs/HISTORY_PROGRESS.md`.
+- `docs/HISTORY.md` sections, in order: June (memory problem) → July 3–4 scoping and Phase 1 →
+  July–Aug build-out (constellation tasklist, rich-text journal, task alarms, Google Calendar,
+  GitHub Pages outage, bundled APK + Hostinger, Character AI, offline/storage) → Aug 26 MASTER.md
+  and the credential leak → Aug 27–29 in-app Razorpay → Sept 8–15 Play Store → Sept 14–17 Bob
+  (prompt, memory, crisis, psychoeducation, architecture plan) → Sept 16–20 chat tabs, matching,
+  homework, session history, per-session payment, mic/transcription → Sept 21–27 WhatsApp Cloud
+  API → Sept 26–29 audits, CLAUDE.md, OAuth scheme fix, profile save bug.
+- `docs/history/code/2026-06.md` … `2026-09.md`: 2,797 edits, ids `E-<msg>-<n>`, 57 marked failed.
+  Shell-command changes (sed, curl SQL) are described in `HISTORY.md` instead.
 
 **HOBS Companion** — a mental health companion app for **Home of Beautiful Souls Foundation**
 (HOBS), an Ahmedabad-based mental health NGO founded by **Akash Ramchandani** (psychologist,
@@ -411,6 +422,21 @@ open items are:
 - Kunnu, Po, Cookie — hidden (not deleted), awaiting the same depth of character work Bob has
   now received before returning to the app. See §9 below — this is a real reversal from an
   earlier version of this document.
+
+Found in the Sept 29 history reconstruction (from the chats, **not yet re-checked against live
+state** — verify before acting):
+- **Profile-save fix is not in the installed app.** Sept 29 it was deployed to the website only,
+  on the claim the app loads `index.html` at runtime. That contradicts the Sept 20 finding that
+  the app is bundled. A new production APK (v83) is needed. Not built — awaiting Akash's OK.
+- **WhatsApp permanent token** was overwritten on Sept 22 (see `HISTORY.md`, Sept 21–22).
+  Check which token the live function uses.
+- Hindi crisis-detection patterns need review by a native speaker.
+- Secret hygiene, awaiting Akash's decision: rotate the Razorpay webhook secret and scheduler
+  secrets; make the repo private or rewrite git history (older commits hold a keystore password,
+  leaked secrets, client names); remove passwords listed in this file (§2) and the Hostinger
+  token (§5), revoke the old Hostinger token.
+- Session-reset credential loss keeps recurring; suggested fix (not done): GitHub Actions secrets.
+- No persistent test suite / CI yet (plan exists, not started).
 
 ---
 

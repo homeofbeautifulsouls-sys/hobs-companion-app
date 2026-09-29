@@ -11,6 +11,10 @@ in this log — July, August 5–6, and August 14) was found and fixed multiple 
 different months, in different files, because the fix wasn't generalized into a rule the first
 time. See "Standing lessons" at the bottom.
 
+**Older and fuller record**: `docs/HISTORY.md` (complete as of Sept 29, 2026) holds every bug
+found in the chat export — created, fixed and recurring — including ones never entered here.
+Check it too when a bug looks familiar.
+
 ---
 
 ## July 22–23, 2026 — Early development session
