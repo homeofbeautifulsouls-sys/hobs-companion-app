@@ -1468,3 +1468,70 @@ pattern the app sessions followed.
   - **External clients directory** table; Log Appointment rebuilt to pick an assigned client, a
     saved external client, or add a new one (-119, -128, -137). `subtasks.image_url` added;
     subtask photo UI started. Akash sent "Continue" six times while Claude worked.
+- **14:12–18:58 — Batch finished.** Subtask photos: upload per subtask row, carried through
+  create/edit, and **`image_url` wasn't loaded from the server for subtasks** — fixed
+  (E-019f5bc8-1, -7, -22, -30, -40, -52). A second row builder, **`clientSummaryRows`, also
+  lacked click-through** (E-019f5cce-5). **External bookings leaked into the real-clients
+  dropdown as "Unnamed client"** → filter `is_external = false` (-41). Donation reject verified.
+  Drive **Update Log v34**, **Master Project State v10**; zip regenerated.
+- **18:59 — Akash:** "Anthropic API key"; **"Notifications aren't releasing"**.
+  - GitHub Actions had been running the "every 15 minutes" schedule **hours apart** (GitHub
+    throttles frequent crons). Claude enabled `pg_cron`/`pg_net` (this time without a WAF
+    block), generated a **new scheduler secret**, created a pg_cron job, and moved the Actions
+    workflow into a `disabled` folder. A 15-minute wait **exceeded the tool time limit**.
+  - **Akash: "You are bugging a lot, whenever I change screen, you repeat conversations, not
+    making updates and eating my tokens!"** and **"I just minimized the window… The entire
+    conversation went missing and tokens were utilised!… It's happening every single time!"**
+    Claude: it doesn't run between messages; the window issue is the app's.
+  - **Real cause found (19:33):** the **secret had been rotated but the pg_cron job had the old
+    value hardcoded in its SQL**, so every run was rejected "Unauthorized". New secret set on
+    both sides; old secret verified to fail.
+  - Anthropic key: Claude can't create one. Akash: **"Can we do something that doesn't
+    cost!"** → Gemini free tier may train on prompts; **Groq free tier doesn't train on data**
+    (text still leaves the app; Privacy Policy would need to name Groq); Llama 3.3 70B weaker
+    than frontier models, prompt to lean toward over-flagging, must be tested. Akash: **"I want
+    users to be safe above everything! But I don't want to leak sensitive data"**, then "Yes",
+    then **"Keep this in pipeline."**
+- **20:35 — Akash's list:** **"active users" = everyone who has installed and signed up**;
+  **every calendar should show days**; past journal entries still can't be shared; the journal
+  helpline message must be **very empathetic with Bob's image**; **past-dated logged appointments
+  don't reflect on the dashboard** and must follow the same session logic (notes to confirm
+  payment) for all users.
+  - **"Total Users" tile** (E-019f5d31-50, -52, -55, -59); crisis modal rewritten with Bob
+    (-101). **Logged appointments were hard-coded `payment_confirmed: true`**, skipping admin
+    review → unconfirmed by default with a `payment_note` shown to admin (-140, -143, -147). Past
+    appointments and sharing couldn't be reproduced.
+- **20:54 — Akash's screenshots:** his own account shows "connect with a professional" (he is
+  the professional, with no client booking); the calendar he meant was the Android
+  **`datetime-local` wheel with no weekdays** → split into separate `date` + `time` inputs for
+  Add Slot and Add Group Session (E-019f5d42-18, -21, -28); three other such inputs deferred.
+- **21:01 — Akash:** unconnected users should **still see the Share button**, which leads them
+  into getting connected → done (E-019f5d49-13).
+- **21:08 — Akash:** tapping a client's name should let the therapist **edit their schedule** →
+  a schedule editor modal for app and external clients (E-019f5d4f-16, -20, -26).
+- **21:15 — Akash: "Whenever you make an update, I need to close the app and open it again. Fix
+  that."** Built an **auto-update check**: a build ID in the page and a **`version.json`**; on open
+  and on resume, a mismatch forces a fresh reload (E-019f5d55-18, -27). Testing reproduced an
+  **infinite reload loop** if the two ever mismatch → **at most one reload per session**
+  (sessionStorage guard, -47). **New deploy rule: bump both build markers together.** Drive
+  **Update Log v35**, **Master Project State v11**.
+- **21:27 — Chatbot request:** all four characters with voice, tone, functions and purpose, to
+  make the app accessible for users, professionals and admin — "Does it even make sense?
+  Because then users won't use the app exactly". Claude: a **navigation/action assistant** yes,
+  a replacement for journaling/mood/Calm Room no. Akash: **no budget** → Claude proposed a
+  **rule-based command router** (free, on-device, no data leaves).
+- **21:34 — Akash:** (1) "I still had to reopen the app to receive the update"; (2) build the
+  quickest version; character sources — **Po: neurodivergent and queer, modelled on Akash
+  himself ("It's literally me!")**; **Cookie: inspired by Naruto**; **Bob: Robin Williams (the
+  person, not just his films)**; **Kunnu: Kakeru Naruse (Orange), the male lead of All the
+  Bright Places, and Charlie (Perks of Being a Wallflower)**.
+  - (1) Cause: the resume listener used **`document.addEventListener('resume')` (old Cordova)**;
+    Capacitor needs `Capacitor.Plugins.App.addListener('resume')` (E-019f5d66-11). This fix
+    itself needed one more manual reopen.
+  - (2) **Assistant built:** floating button and chat modal (E-019f5d66-41), rule-based router
+    with character domains — Bob: mood/home/breathe; Kunnu: connection, booking, sharing,
+    support groups; Po: tasks, calendar, scheduling, "log appointment for [name] at [time]"
+    with fuzzy name match; Cookie: progress/stats (-54). Bugs: a wrong panel ID
+    (`panel-grounding`, -67) and **`display:none` then `display:flex` in one style string**,
+    making the modal visible from load (-93). Drive **Update Log v36**.
+- **21:48 — Akash:** update Drive and the project file.
