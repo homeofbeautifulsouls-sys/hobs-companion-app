@@ -5228,3 +5228,81 @@ pattern the app sessions followed.
     email marketing, invite emails, HDFC, constellation, React, calendar view, in-house calendar,
     uptime monitoring, deterministic builds, hidden mascots.
 - **22:59 — "Okay I connected github."**
+
+### Sept 26–29 — GitHub linked, audits, CLAUDE.md, blueprint, OAuth scheme fix, save bug (C31)
+
+- **23:00 — GitHub connected**, but the Claude GitHub App wasn't installed on
+  `homeofbeautifulsouls-sys`. **23:01 — "Connected github! But talk to me first, don't do anything
+  else."**
+- **23:03 — "there's so much that you are missing and giving outdated information… What do I do to
+  prevent that"** → Claude listed rules (one source of truth, read the docs first, verify before
+  "done", ask before consequential actions).
+  - **23:05 — Akash uploaded `hobs-master-handoff.zip` + the production APK: "I am not talking about
+    future precautions but rather presently how do I stop you from hallucinating given you are
+    missing so much memory."** → Claude pushed the Sept 26 doc commit (`1f27f1d`).
+- **23:09 — Akash uploaded the staging APK** → diff of the two APKs:
+  - production had the universal consent gate;
+  - staging (`staging-v42-transcription-save-race-fix`) had the older gate and lacked the disabled
+    Hindi regex block.
+- **23:13 — "We had decided to keep the crisis only in English, in fact had brought in new
+  transcription platform as well and kept whisper as secondary!… I think even github is missing
+  things!"** → confirmed: MASTER still said AssemblyAI; the code is Gladia + Groq fallback.
+- **23:15 — "Find the missing work we did first!"** → **Edge Function audit (live vs repo vs docs):**
+  - two live unauthenticated temp functions (`temp-create-templates-v2`, `temp-deactivate-alpha`);
+  - `send-whatsapp-template` live but not in git;
+  - four live functions undocumented (`crisis-classifier-health-check`, `play-console-status`,
+    `publish-production-release`, `razorpay-payment-callback`);
+  - `test-embedding` leftover.
+- **23:19 — "Update the Master doc completely — and also the github safeguard you were talking
+  about, build that please! I don't want the reset affecting our work."**
+  - MASTER §2 / §4 / §10–12 fixed. PROJECT_STATUS updated: contract gating **confirmed enforced on
+    production** (read from real code). BUG_LOG **#104–#107**.
+  - **`CLAUDE.md` created at the repo root** (auto-loads in any session with the repo attached).
+  - `send-whatsapp-template` source pulled from the live eszip into git. Pushed `262c7bf`.
+- **23:26 — "Delete and give me the updated master doc zip! Also, in the masterdoc, create an entire
+  blueprint of the app as well. Ask me relevant questions"**
+  - Both temp functions deleted (verified live). **`docs/APP-BLUEPRINT.md` (547 lines)** written by
+    a subagent (E-f18d5920-33, -35).
+  - `test-embedding` source pulled too. Zip sent; pushed `c446274`.
+- **23:52 — "Make the calendar sync permanent now!"** → **23:55 — "When I click on reconnecting…
+  it will get stuck to the browser and open the app in the browser itself… We have had this bug
+  multiple times."**
+  - Fix: the callback page hands off to `hobscompanion://callback` (E-01a0e027-9, -12, -15).
+  - Found **staging and production both register `hobscompanion://`**. **"2nd option"** → staging
+    gets **`hobscompanionstaging://`**; the state-token prefix routes the hop; the production
+    callback routes by prefix (E-01a0e02b-15…-94).
+  - **Staging Supabase project was paused (free tier) → restored.** Staging auth redirect
+    allow-list was missing the scheme → added. BUG_LOG #108–#109.
+  - Production website deployed with the callback change (verified live). The staging APK build was
+    blocked: no management key in the fresh session.
+- **Sept 28 17:23 — Key request.** **"Master Document had all the keys!… I gave you the token on
+  27th September."** → MASTER intentionally holds no raw keys. Akash re-sent it.
+  - **Staging v46 `staging-v46-oauth-scheme-fix`** built and deployed. The build hit three recipe
+    bugs:
+    - a broken XML comment in the staging manifest;
+    - `google-services.json` needs copying for staging too (README stale);
+    - `RazorpayNativeCheckoutPlugin` missing from MASTER's build recipe.
+  - The staging site had claimed v49 while the APK was v45.
+  - **Sept 29 02:02 — "Resolve these 3 first!"** → docs fixed, `1d515c9` (E-01a0eae6-24, -26, -29).
+- **02:29 — screenshot: staging Google Sign-In failing.** **"Google sign in was always there! This
+  issue is the first time!"**
+  - Live: staging's Google provider was off → enabled with production's OAuth client.
+  - Google's error: **`redirect_uri_mismatch`** — staging's callback isn't registered on the OAuth
+    client. **Akash must add it in Google Cloud Console** (pending).
+  - Claude couldn't prove the cause (no audit log on the plan); the Sept 27 restore is the likely
+    candidate.
+- **05:25 — "People aren't able to save their information!"** (a real user's screenshot) →
+  **production bug:** `+91…` numbers loaded into a `maxlength="10"` field were truncated and
+  re-saved, so the new CHECK constraint rejected every profile save.
+  - Fixed (E-01a0eba0-67, -69, -72) and deployed to the Hostinger site, 7 matches verified.
+  - **Note:** Claude said "the app doesn't need a new APK — it loads `index.html` at runtime". This
+    contradicts the Sept 20 finding that the app is bundled with no live server URL; **not
+    reconciled in this chat**.
+- **05:32 — "The user then needs to know the exact error! Why does it show check your
+  connection!!???"** → real save errors mapped to messages (E-01a0eba6-5, -7, -12), deployed.
+- **05:42 — "I need you to record every single time you make any change! Exactly what change you
+  made, where and what did it do!"** → BUG_LOG **#110–#113**. **CLAUDE.md rule: log every change to
+  BUG_LOG as it happens** (E-232bff4c-19, -24, -29).
+- **05:47 — "I want you to build a complete record! Not just bug, but literally every single change
+  you make! What when where, EXACTLY WORD TO WORD, NO CHANGE!"** (→ the `CHANGE_LOG.md` rule in
+  CLAUDE.md).
