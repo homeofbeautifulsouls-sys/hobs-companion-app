@@ -4088,3 +4088,65 @@ pattern the app sessions followed.
   Play needs an **`.aab`**, not an APK; not built yet. Claude asked whether to build it or fill the
   listing first.
 - **12:21 — Akash sent another Play Console screenshot.**
+
+### Sept 8 (cont.) — AAB, store listing, bubble bug, Play Developer API (C31)
+
+- **12:23 — First `.aab` built** (v3.53 / 73, signed with the release keystore) and sent to Akash for
+  internal testing.
+  - Upload warnings (no testers, no deobfuscation file, no native debug symbols) judged non-blocking;
+    `minifyEnabled false`. Claude advised **against enabling R8** for now (Capacitor reflection and
+    the Razorpay SDK need keep rules; untested).
+  - Internal test opt-in link generated; tester instructions drafted. Internal testing has no day
+    requirement; closed testing does (12 testers, 14 days).
+  - **12:36 — "we want the app live ASAP"** → Claude: start the closed-testing clock today, promote
+    the same release, select all countries.
+- **12:41 — Closed-testing upload rejected (versionCode 73 already used)** → **v3.54 (74)** AAB
+  (E-01a08109-2), committed.
+- **12:46 — Blockers:** full description, financial features, health declaration.
+  - Financial features: Claude first said "none"; **13:50 — "dude it's financial features!"** →
+    corrected to **"Crowdfunding and chit funds"** only.
+- **16:04 — Listing fields + tablet / Chromebook / XR screenshot requirements.** Claude recommended
+  restricting the device catalog to **phone only**.
+  - **16:08 — "Assets are required! So yes generate all of them!… THE GENUINE ONES!"**
+  - Phone screenshots captured with Playwright from the real app and a populated temporary test
+    account (deleted after). Fixed a device-pixel-ratio viewport mistake and journal timing.
+  - **The "You" tab screenshot was excluded**: it showed the live donation campaign with a client's
+    sensitive clinical details. Replaced with the journal composer and Bob chat.
+  - Tablet proof: `.phone { max-width: 420px }` renders a small box on tablets → phone-only
+    recommendation stands.
+  - App icon = Bob launcher icon at 512×512; feature graphic 1024×500 built from `hero-image.jpg` +
+    mascot (palette `#6690D6` / `#FFF8F0`).
+- **21:22–21:44 — Store copy corrections from Akash:**
+  - "Look at the primary scope — it's a mental health app of a non profit to connect with
+    professionals!" → then "It shouldn't emphasise non profit because we are charging! I don't want
+    it to be click bait!"
+  - "What's 'Real'… Learn about copy writing! See about Google's own policies" → "licensed" (industry
+    standard) + Google Health Content disclaimer ("not a medical device…").
+    **Short description: "Licensed therapists & psychiatrists, mood tracking, and daily journaling".**
+  - "we don't connect with real crisis support immediately!" → removed; then "If your journal
+    entries show signs of crisis… Why would a user want to read it on the description!" → crisis
+    wording removed from the listing entirely.
+  - **21:42 — asked to add the task-reward therapy-discount program** → Claude found it's **not
+    wired**: the app itself says "credits are shown but redemption isn't wired up yet". Left out.
+    **Peer support groups are a waitlist**, so the listing was reworded to say that.
+- **21:36 — "The Phone 01 Home image! Literally every bubble is on left end!"** → **live bug**:
+  `var fw = field.offsetWidth || 300` measured while `panel-bubbles` is `display:none`. Real users'
+  diagnostic logs all showed `initialFw: 300, finalFw: 300`.
+  - Fix: watch the panel's own visibility and re-measure (E-01a082f3-42). Tested 3/3 with Playwright;
+    screenshot replaced.
+  - Claude asked to ship it to production; **no answer in this chat** (Akash moved to the reward
+    question).
+- **21:55 — "Let's go for actual Play Developer API"** (over Claude in Chrome / screenshots).
+  - Google Cloud project "HOBS Foundation"; Android Publisher API enabled; service account
+    `claude@hobs-foundation.iam.gserviceaccount.com`. **22:04 — Akash pasted the JSON key into the
+    chat.** Claude stored it in `system_credentials` and as a function secret.
+  - Direct `api-access` links redirected to the app list; Akash found the invite path himself
+    (22:14).
+  - **New Edge Function `play-console-status`** deployed and tested. Tracks: internal 73 completed,
+    closed ("alpha") 74 completed, production empty, 0 reviews.
+- **22:20 — Status summary:** open items were the 12-tester closed test, health declaration, data
+  safety form, content rating, uploading the prepared copy/assets, and phone-only targeting.
+- **22:25 — Akash:** "how do we invite them? Give me the invite link… draft a message… Then updated
+  the master file, remember to include EVERYTHING! All the credentials… bug logs, media, APIs, Keys,
+  code and make a separate document… regarding training AI mascot, especially bob… so anyone can
+  create the app from scratch… INCLUDE EVERYTHING IN THAT ZIP FILE IN DETAIL."
