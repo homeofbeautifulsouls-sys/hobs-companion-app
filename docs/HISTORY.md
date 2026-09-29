@@ -1535,3 +1535,59 @@ pattern the app sessions followed.
     (`panel-grounding`, -67) and **`display:none` then `display:flex` in one style string**,
     making the modal visible from load (-93). Drive **Update Log v36**.
 - **21:48 — Akash:** update Drive and the project file.
+- **21:50** — Drive **Master Project State v12**; zip regenerated.
+- **21:55 — Akash (screenshot + video):** "a lot of broken logics" — **"I wanna talk to someone"**
+  should get a question about what, and the right mascot should respond with a conversation;
+  replace the blue chat circle with **his GIF**. Built: the video turned into a cropped,
+  palette-optimised GIF button (E-019f5d7a-49); **branching with quick-reply options** for
+  ambiguous requests and **the crisis check run on every assistant message** (-62).
+- **22:06 — Akash: "See! There are still gaps! Please do the research properly! Search the entire
+  internet, community forums, videos."** The GIF is too distracting; make the mascots buttons
+  with names and functions. Research (Lester & Leenaars; CDC signs; a 2024 JMIR study of 2.9M
+  Reddit posts: hopeless/desperation/resignation): **"hopeless" had never been a pattern**;
+  added it and others, fixed "such a burden" (E-019f5d84-18, -26). Static button and four
+  labelled character cards (-38, -47); crisis messages in the assistant get a caring
+  follow-up instead of "I didn't understand" (-55).
+- **22:15 — Akash:** **mascots should be separate tabs, not one chat**; the app **still doesn't
+  refresh automatically**. Update check rebuilt with several signals, **polling for a late
+  `window.Capacitor`**, and a 60-second timer (E-019f5d8c-12); **tabs with separate histories**
+  and cross-tab handoff (-21, -28 duplicate ID removed, -37, -46, -55, -64). Claude asked Akash
+  to confirm on a real device rather than claim it fixed.
+- **Jul 14 06:51 — "Wtf did you do to the footer!!"** and: mascot functions should vary by user
+  type. **Cause:** the tab rebuild left **one stray `</div>`**, closing `.phone` early and pushing
+  the footer out (found by tracing div depth) (E-019f5f64-70). Claude also found a **second,
+  older mascot "crew" section on Home with different functions** from the modal.
+- **07:03 — Akash:** tackle it; **client features are the floor, therapists (also users) add
+  theirs, admin gets all three.** Built: the crew cards open the tabbed modal; role tiers per
+  character; commands gated by role (E-019f5f70-19, -36, -44, -51, -57…-76). **Bug:** removing
+  the floating button left its `onclick`, which crashed all four mascot buttons (-101).
+- **07:17 — Akash: "This looks so messed up! And the chat button is gone which was perfect!"**
+  → Home labels kept short (role detail only inside the modal), floating button restored
+  (E-019f5f7c-10, -16, -24).
+- **07:25 — Akash: research distress, self-harm and suicide signs — all three.** (He asked
+  "Where are you task wise right now" four times while Claude worked.) Added a
+  **general-distress** category ("Help", "I need help" had hit the fallback) and self-harm
+  language distinct from suicide (numbness, "need to feel something", self-punishment)
+  (E-019f5f84-17, -25, -35).
+- **13:11 — Akash:** "you have to do a complete research, store phrases and words… at least a
+  thousand patterns!" Claude used the **Columbia Protocol (C-SSRS)**, a published phrase list and
+  a suicide-risk lexicon; added a new **method/preparation** category and "unbearable pain"
+  wording (E-019f60c0-23, -27); reported the honest count: **67 crisis patterns + 12
+  distress patterns** (grouped alternations), not an inflated 1,000.
+- **13:21 — Akash's list:** update Drive/zip; (1) remaining-task reminders; (2) notifications not
+  firing on time; (3) **therapists can't see shared journals/worksheets**; (4) **profile photos**;
+  (5) **admin and therapist see clients' emergency contacts and address**; (6) Log Appointment
+  for past sessions; (7) hide the old donation campaign, add a new one; (8) back-button issues.
+  - Drive **Master Project State v13**. (3): the shared-entries viewer **existed only in the
+    admin modal, not for therapists**. (4)/(5): `photo_url`, address and emergency contact
+    columns; Edit Profile fields and photo upload; photo on Profile; a **therapist client-detail
+    view** with safety info and shared entries; safety info in the admin view
+    (E-019f60ca-46, -55, -58, -64, -77, -79, -83, -90, -99, -112, -115).
+  - Notifications: `task_complete_reminder` had **never fired**; not finished in this pass.
+- **13:55 — Akash: "I still can't see the journals that my clients shared with me."** Cause:
+  **worksheets live in `worksheet_responses`**, which had **no sharing column and no therapist
+  policy**; the Share button only shared the entry's title. Added the column and RLS policy, a
+  `worksheet_key` link on entries (save and load), sharing both together, and the actual
+  answers in the therapist view (E-019f60e9-60, -88, -91, -100).
+- **14:11 — Akash:** "There's literally no section in Therapist profile to see notes or
+  worksheets shared by the client!"
