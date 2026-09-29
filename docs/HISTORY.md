@@ -4955,3 +4955,78 @@ pattern the app sessions followed.
     (E-01a0c367-12). English and Hindi test clips passed.
 - **11:27 — "Still inaccurate! Both Hindi and English! Plus no crisis detection! Don't build anything!
   Talk to me!"**
+- **11:30 — Claude's findings:**
+  - Journal crisis detection = keyword layer + AI layer on every save.
+  - The test text was second-person ("I want you to die"), so no flag. A hopeless first-person
+    phrase flagged.
+  - The AI classifier had logged **repeated "Invalid API Key" failures up to Sept 12** without
+    alerting anyone.
+- **11:33 — "I said I want to die. Muje marna hai yaar… it translated wrongly and didn't even
+  register actual Hindi!… you just said it has a repeated failure history since September 12! And
+  why didn't you tell me??"**
+  - **11:36 — "We need to make the classifier fail proof! NO MATTER WHAT!… what other options do we
+    have than Whisper? Most accurate and reliable for multilingual!"** → Claude: no provider is
+    100%, but it can "never fail silently".
+  - Proposed: redundancy, an offline keyword baseline, active alerting, synthetic canaries. **Sarvam
+    (Saaras v3, 22 Indian languages + English)** for transcription.
+  - **11:39 — "I said multilingual, not duo lingual!"** → confirmed 22 languages.
+- **11:40 — "First let's work on" redundancy, offline baseline, active alerting, canary testing;
+  "Then let's go for Sarvam."**
+  - Redundancy blocked: no second provider key.
+  - **Hindi/Hinglish keyword patterns** added (Claude's own translations, flagged for native-speaker
+    review).
+  - **New scheduled health check + canary** for the crisis classifier (new Edge Function, JWT off,
+    its own scheduler secret at first, then the standard one; **pg_cron every 15 minutes**): sends a
+    known crisis phrase, checks failure logs, pushes an alert to admins. A simulated failure produced
+    a real alert.
+  - Found why the existing `error-alert-monitor` missed September: it only alerts on spikes or new
+    messages. Staging v46 (web only).
+- **11:56 — "I don't have OpenAI or Anthropic API! I don't have money plus we are not gonna use any
+  API that uses its data to train or shares it… we need properly researched clinically validated
+  literature and standardized translated tests!… multilingual crisis detection."** → research:
+  Sarvam's no-training terms unclear on the free tier; C-SSRS has validated translations.
+- **15:25 — "let's just keep English! When we have money, we will get other languages! But at
+  least English I want it to be perfect and the crisis detection as accurate as possible!"**
+  - **15:26 — "Yes"** → transcription back to forced English (E-01a0c493-7). The **AI crisis
+    classifier prompt now covers the full C-SSRS progression** (method, plan, intent;
+    E-01a0c493-23, -36). 3 targeted tests passed.
+  - Hindi patterns **disabled, kept in code** (E-01a0c493-44; one line left active by mistake,
+    fixed). Staging v47.
+- **15:34 — "fix the production app which closes the moment I open it!… Don't build yet"** → Akash
+  was on **3.56 (v76)**, the broken build. **"Send it"** → v78 APK re-sent after re-verification.
+- **15:42 — "transcription is still wrong!!!!!! When we had done it at the earliest! It was still
+  working properly!… How do you transcribe it?"** (screenshot: "I want to die" → "I just want to do
+  that").
+  - The earliest version used **AssemblyAI**. Its free tier can't opt out of training; Deepgram
+    trains by default. **Gladia** (Solaria, ~94% English word accuracy in cited comparisons) has
+    no training on paid, about $0.61 per audio hour.
+  - **15:48 — "Look further! We cannot compromise on accuracy at all!!!!"**
+  - **15:57 — Akash sent a Gladia API key** (paid): "keep Groq/Whisper as a free fallback".
+- **Gladia is primary; Groq Whisper is the automatic fallback** in the transcription function
+  (backend only). "I want to die" came through correctly; fallback proven with a broken key. About 7
+  s vs 1.4 s.
+  - The key was stored in `system_credentials`. **It appears in plain text in the export; never
+    copy it** — see BUG_LOG #118.
+- **16:01 — "OKay it worked perfectly! Now let's work on this!"** (Play Console "Create production
+  release") → **v79 production AAB + APK** with all fixes that had reached only staging (mood
+  tracker, mic duration, English transcription). 16:08: deobfuscation and native-symbol warnings are
+  safe to ignore.
+- **16:09 — Play link:** `https://play.google.com/store/apps/details?id=com.hobsfoundation.companion`.
+  The API showed **production track v79 "completed"**; not yet searchable (review).
+- **20:43 — "you are missing out on a LOT OF THINGS! SOS Feature, bob… Make the proper list!"** →
+  full list from `PROJECT_STATUS.md` + memory:
+  - Bob intelligence phases 0–5 and streaming; SOS decision.
+  - **Professional-connection system staging-only** (never promoted to production).
+  - Coordination group; other-role testing; alarms on production; real-money Razorpay test; OAuth
+    verification; HDFC; invite emails; hidden mascots; crisis threshold; constellation; calendar
+    view; React; email marketing; Supabase tier.
+  - Plus Crashlytics, classifier redundancy, CI tests.
+- **20:45 — "urgent, can we link important messages to WhatsApp message and email?"**
+  - **21:22 — "WhatsApp doesn't need DLT registration!"** → Claude verified Akash was right (DLT is
+    SMS-only); old notes were wrong. This also unblocks SOS.
+  - **21:23 — "Can it be done for free?"** → email yes (Resend free tier: 3,000 a month, 100 a day).
+    WhatsApp business-initiated messages are paid (about ₹0.12 each); Meta pricing changes Oct 1.
+  - **21:27 — Akash pasted Gemini's WhatsApp Cloud API guide** → Claude corrected the endpoint to
+    `https://graph.facebook.com/v21.0/{PHONE_NUMBER_ID}/messages` and split the steps into Akash's
+    part vs Claude's part.
+  - **21:28 — "Okay give me proper step by step with links."**
