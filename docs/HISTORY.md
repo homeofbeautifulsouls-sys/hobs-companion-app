@@ -315,3 +315,66 @@ pattern the app sessions followed.
   Body Doubling opens the real HOBS Meet room. **Plan: edit the real file in place, not rebuild.**
 - **Lesson that recurs for the rest of the project:** work lived only inside a chat. When the
   chat died, the code could only be recovered by hand, partially, from exports.
+- **08:19–10:55 UTC (C23)** — Claude edits "the real file" in place: WHO-5 + Body Doubling added
+  back, the one-task-at-a-time Tasks tab replaced by a **month calendar** (mood dots from real
+  journal entries + a task-progress dot; tap a day → tasks, done, subtasks → Cookie's mindmap
+  celebration → share sheet with a real image via html2canvas + the phone's share sheet), one
+  shared task pool, nav Home / Calendar / Journal / You, real Meet link.
+- **10:58 — second "you messed it up" incident.** Akash: "The screen isn't even full! It's
+  literally half a screen… Why can you not build on this!!!! This was perfect!!!!" and uploads
+  the file again — **a 1,498-line version that already had Body Doubling and WHO-5**, different
+  from (and newer than) the 898-line file Claude had used. **Bug:** Claude had added
+  `min-height:100dvh` to the phone frame without making it a flex column, leaving a dead block
+  under the nav. **Rule stated by Claude: zero layout-CSS changes to what already works.**
+  Rebuilt the calendar onto the 1,498-line file (`index2.html`, E-019f2cc7-42 onward), with a
+  check that every `getElementById` target exists.
+- **11:37 — Akash's task-area spec (Clarify ADHD screenshot as reference):** Tasks opens the
+  calendar; tasks get **priority** and an **optional deadline countdown** ("optional… in case they
+  don't want to panic"); **Body Doubling is an activity, not a task type** — just one button that
+  opens the Meet; plus **Tips** (ADHD tips, e.g. breaking tasks down), a **Calm Room** (HOBS
+  background animation + calming music), **See Progress** (Bob with a timeline mindmap of done /
+  pending tasks, editable), **Achievements** (Cookie awards badges, **party popper for the
+  dopamine**). Assets: HOBS will generate the music and background themselves (no copyright
+  risk). Built in `index3.html` (E-019f2ced-6 onward), including priority dots, deadline pills,
+  confetti, and a Calm Room that loads `calmroom-bg.jpg` / `calmroom-music.mp3` by filename.
+- **11:49** — **Bug:** Calm Room close button did nothing — the room's content layer (same
+  `z-index:2`, later in the page) covered it and ate every click. Found by an automated browser
+  click test, not by guessing (E-019f2cf5-16). Emoji icons replaced with SVG icons; deadline pill
+  hidden on finished tasks. **Bug caught before shipping:** routing to a panel id that didn't
+  exist (`'home'` → `'bubbles'`).
+- **Clinical/safety decision (12:06–12:08):** Claude had added KIRAN (1800-599-0019, verified
+  against PIB) for WHO-5 ≤28. Akash: **only iCall, no other helpline, never next to "connect with
+  your therapist"**; HOBS is not an emergency service; the disclaimer goes in the sign-up policy.
+  Claude pushed back (hiding a crisis line in the ToS means it's invisible when needed) and
+  proposed a middle path Akash accepted: **a quiet, permanent line in the Profile tab only, never
+  triggered by a score** — "HOBS isn't an emergency service. If you need to talk to someone right
+  now: iCall, 9152987821, Mon–Sat 10am–8pm" (number verified on iCall's site that day). WHO-5
+  low scores show only a calm "talk to someone" option.
+- **Build log on Google Drive started (12:10):** "HOBS Companion App — Build Log" at Akash's
+  request ("record everything… keep updating it after each task"). Claude's Drive tool could
+  only *create* docs, not edit them, so **every update became a new doc** (v1, v2…) and Akash
+  had to delete old versions by hand. This is the start of the Drive-doc handoff pattern.
+- **Credits / rewards rules set by Akash (12:16–12:31):** credits for **task completion only**
+  (not logins); small wins by design ("people need to feel small wins… that dopamine rush").
+  Final rules: **₹1 per task, max ₹10/day (10 tasks), max ₹300/month**, turned into a **voucher
+  for next month** (not cash), **redeemable only if the person had 4 therapy sessions a week that
+  month**, otherwise credits **lapse**; payment via a **dynamic UPI QR** (HDFC had offered an API).
+  Akash earlier rejected Claude's first numbers as "a lot for us… it has to be sustainable."
+  **A session only counts when the therapist marks it and writes notes in their own version of
+  the app** — first mention of the **therapist app**. Claude's safety points: localStorage can
+  be edited by anyone, so credits worth real money must be kept on a server (the phone may only
+  read its balance); consider an org-wide monthly pool. A Rewards screen was built showing the
+  maths live, with session eligibility shown honestly as "coming soon".
+- **12:39–13:01 — Home page, round 1:** Akash (Headspace screenshots): calendar is cluttered;
+  footer should hold Home, Tasks calendar (tasks + mood), Journal, Appointment, Community without
+  clutter; Home and Profile should feel like Headspace — accessibility and affirmation. Claude
+  moved the five feature buttons off the calendar onto Home and suggested 5 nav items max with
+  Community later. Akash: "doesn't look like Headspace at all… mascot, soothing animations";
+  **the mood tracker stays on Home — locked**; no direct task list existed (fixed with a "Today's
+  tasks" card). Home v2: illustrated sky hero with Bob, greeting + rotating affirmation, then the
+  mood bubbles, then a swipeable carousel. **Recurring bug:** the WHO-5 "done this week" label
+  broke twice during these refactors (text overwritten, then a renamed class).
+- **13:01** — Akash: a search in Profile across the person's own data; header profile button
+  broken — does it need to exist twice?; remove the calendar dots under the numbers; and a first
+  idea for **Community** — Facebook-like support groups, people post on their profiles, and
+  members of the same group can chat one-to-one ("I am thinking out loud").
