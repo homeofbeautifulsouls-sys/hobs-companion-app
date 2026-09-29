@@ -3662,6 +3662,22 @@ function toWaPhone(p){
   p = (p || '').trim();
   return p ? '+91' + p : null;
 }
+// Real fix, Sept 29 2026, same incident as above: every save handler in this file showed the
+// identical "Could not save -- check your connection" message for ANY database error, whether
+// it was actually a network problem or not -- which is exactly what hid this phone-format bug
+// from being diagnosable from a user's own report. Real errors from Supabase/Postgres arrive in
+// result.error.message; this maps the ones we know about to an honest, specific message, and
+// always logs the raw error so it's checkable in the browser console too.
+function describeSaveError(error){
+  var msg = (error && error.message) || '';
+  console.error('Save failed:', error);
+  if(/profiles_phone_number_valid/.test(msg)) return "That phone number doesn't look valid — please enter a 10-digit number starting with 6-9.";
+  if(/profiles_emergency_phone_valid/.test(msg)) return "Your emergency contact's phone number doesn't look valid — please enter a 10-digit number starting with 6-9.";
+  if(/permission denied|row-level security|RLS/i.test(msg)) return "You don't have permission to save this. Please log out and back in, or message us if it keeps happening.";
+  if(/violates foreign key/i.test(msg)) return 'Something this refers to no longer exists — please refresh the page and try again.';
+  if(/fetch|network|Failed to fetch|NetworkError/i.test(msg)) return 'Could not reach the server — check your connection and try again.';
+  return msg ? ('Could not save: ' + msg) : 'Could not save — please try again.';
+}
 function openEditProfile(){
   document.getElementById('epName').value = appState.displayName || '';
   document.getElementById('epPhone').value = stripWaPrefix(appState.phoneNumber);
@@ -3822,7 +3838,7 @@ document.getElementById('epSaveBtn').onclick = function(){
   sb.from('profiles').update(updatePayload).eq('user_id', currentUser.id).then(function(result){
     btn.textContent = 'Save Changes'; btn.disabled = false;
     if(result.error){
-      errEl.textContent = 'Could not save — check your connection and try again.';
+      errEl.textContent = describeSaveError(result.error);
       errEl.style.display = 'block';
       return;
     }
@@ -4136,7 +4152,7 @@ document.getElementById('consentGateSubmitBtn').onclick = function(){
     if(result.error){
       btn.disabled = false;
       btn.textContent = 'I Agree & Continue';
-      showToast('Could not save — please check your connection and try again.');
+      showToast(describeSaveError(result.error));
       return;
     }
     sb.from('profiles').update({ consent_signed: true }).eq('user_id', currentUser.id).then(function(){});
