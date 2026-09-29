@@ -2090,3 +2090,66 @@ pattern the app sessions followed.
     export) **only lets admins and therapists notify others**. So ordinary group members'
     messages were probably not notifying anyone. Fix not started when the turn ended.
 - **22:21, 22:30 — Akash: "Continue."**
+- **22:30–22:45 — `send-push-notification` fixed** (two overlapping replies to the two
+  "Continue"s):
+  - Added a **service-role bypass** for server calls, and a **room-membership exception** so any
+    member can notify fellow members of a room they share (the recipients must be members too)
+    (E-019f819e-8, -12, -20; E-019f81a7-5, -12, -16).
+  - **Deploy problem:** the raw PATCH deploy **failed on the remote `@supabase/supabase-js`
+    import** (`--no-remote is specified` in `function_logs`). Claude first tried padding the file
+    for what looked like truncation, then used the multipart `/functions/deploy` endpoint. In the
+    second reply it **rewrote the whole function with raw `fetch` and no SDK import**
+    (E-019f81a7-102), matching the other functions.
+  - Tested positive and negative cases with temporary accounts and fake push tokens.
+  - **Side effect:** an early boundary test **sent a real test notification to Akash's phone**,
+    because he was in that group; the first live poll notification also reached real devices.
+  - Front-end fixes pushed.
+- **22:45 — APK update notifications** (live DB changes):
+  - A public **`app-releases` storage bucket**, `app_releases` and `app_update_reminders` tables,
+    and an update-notification Edge Function. The app's existing `app_update` tap handler was
+    reused.
+  - **APK v2.4 uploaded and registered.**
+  - **The first run sent real "update available" notifications to 11 real users**, clients and
+    professionals included, because they were genuinely behind. Claude told Akash afterwards.
+  - Daily cap tested; **pg_cron daily at 11:30am IST**.
+- **Jul 21 00:03–05:59 — HubSpot for test results.** The website saves the result as formatted
+  text on the contact. The app needs its own **HubSpot Private App token**; Claude asked for one
+  (scopes: contacts read and write). Akash: "You were working in background!"
+- **Screenshot blocking in chats:** a privacy-screen plugin installed, and `showOnly()` turns it
+  on only on chat panels (E-019f833a-66). Needs an APK.
+- **07:17 — Akash (image):** first-time sign-ups keep the onboarding slides; **returning users see
+  this one picture**. He chose "Tap anywhere to continue."
+  - Built `welcomeBackOverlay` (E-019f838a-24…-62; one edit deleted a comment and left a fragment,
+    both fixed).
+  - **Found: `profiles.has_seen_intro` had never existed**, so saving "seen the walkthrough" always
+    failed silently and returning users kept getting the slides. **Column added and backfilled**
+    for users who had clearly onboarded (live DB).
+- **07:33 — Akash: "Dude it's cropped out! Tell me the exact dimensions… And this should not load
+  for old users."** Claude gave **1080 × 2400 (20:9)**, switched to `contain` with a matching sky
+  colour, and removed the splash lines "Good to see you again" and "Welcome back. No rush."
+  (E-019f8397-19, -22).
+- **07:43 — Akash: "Now it's white screen and then this loading! Wtf!"** Cause: the static `<img
+  src>` made **every user download ~198 KB on every load**. The image now loads only when shown
+  (E-019f83a1-13, -21).
+- **07:50 — Akash: "Why is it taking so much time to load?"** **html2canvas (194 KB) and jsPDF
+  (356 KB) were render-blocking scripts in `<head>`**, used only for sharing an image and the PDF
+  report. Now loaded on demand (E-019f83a7-25, -38, -45, -60); about 1.6 MB was loading before first
+  paint. Tested and pushed.
+- **08:03–08:31 — Welcome image sizing.** Akash asked whether it's 9:16 (it's 9:20); a 941×1672
+  image was 9:16; an **841×1870** image matched and was pushed. **08:18, "It's cutting from sides
+  dude!"** (a 720×1600 device). Claude fixed the letterbox colour (E-019f83c1-17), then, on
+  **"Am talking about image not occupying sides like it's supposed to!"**, found **no
+  edge-to-edge setup in `MainActivity`**. A first attempt in the zip copy (`hobs_everything`) had
+  broken dependencies; it was redone in the real project, keeping the Force-Dark code
+  (E-019f83c6-52). **APK v2.6 (versionCode 17)**, deliberately **not registered** for automatic
+  update notices until Akash checked it on his phone.
+- **08:33 — Akash (screenshot):** a **stray back arrow above the footer** sometimes appears and
+  opens chat; **journal entries are duplicating**; **admins should change group name and icon.**
+  - Back arrow: **`panel-chat-room` had `display:none;…display:flex`** in one style, so it was
+    visible by default. `renderHomeGreeting()` never called `showOnly`, and the welcome-back path
+    exposed it. Fixed with `showOnly` now applying flex for that panel (E-019f83ce-52, -55, -63).
+  - Duplicates: **none created since the fix**; these were **old ones missed in the first
+    clean-up**, now deleted (live DB).
+  - Group name and icon: an `icon_url` column (live DB), edit controls for support-group admins,
+    and icons in the chat list (-131…-157). Not tested when the turn ended.
+- **08:48 — Akash: "Continue."**
