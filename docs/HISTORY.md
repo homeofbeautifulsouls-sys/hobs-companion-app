@@ -2832,3 +2832,93 @@ pattern the app sessions followed.
     `max-height:85vh; overflow-y:auto` + safe-area padding (E-019fc3dc-17).
   - Deployed, and the live file was checked.
 - **19:10 — Akash: "Perfect, now you were talking about subtasks?"**
+  - **Subtask alarms (19:14):** a 🔔 per subtask row with an inline date+time picker
+    (`addSheetSubtaskRow(…, prefillAlarmAt)`), wired through create, edit, prefill and load
+    (E-019fc3e2-7, -16, -24, -30, -35). Tested round-trip; deployed and checked live.
+- **19:54 — back to the constellation prototype** (file only, not the app). Fixed in
+  `constellation_full.html` (E-019fc40b-5…-58): tasks without subtasks toggle done on tap;
+  add-subtask restored; real text via `prompt()`; **long-press (>500 ms) → `confirm()` delete,
+  or rename**. Remaining gaps: due date, priority, images, calendar, reorder, history, plus the
+  untested items.
+
+### Google Calendar, round 2 — OAuth fixed, sync built out (Aug 5 04:03 → Aug 6 01:00, C28)
+
+- **04:03 — Akash: "Can we not ask direct access to Google Calendar in permissions?"** The sandbox
+  had reset (repo re-cloned; git identity lost). Claude: `calendar.events` is a **sensitive**
+  scope (verification needed, not the annual CASA audit) and offered to drop OAuth for
+  add-to-calendar links. Akash's answers:
+  - "exactly like" another ADHD app;
+  - "what we have currently isn't working appropriately anyways. So we can take off the Auth and
+    request direct access";
+  - then sent screenshots of another app's **Google consent screen** — **"Like this!"** →
+    decision: **keep OAuth and make it work reliably.**
+- Claude traced the flow (client ID and redirect match; `create_state_token` works; Google's auth
+  page loads with no error) and found nothing. Shipped an **"Add to Calendar" link on each upcoming
+  therapist appointment** as a fallback (E-019fd110-5).
+- **08:42 — Akash: "Upon clicking reconnect Google Calendar, it's just not working!… my login
+  e-mail… is akashramchandani34@gmail.com but my calendar id is homeofbeautifulsouls@gmail.com.
+  But it stays in the browser itself rather then coming to the app! Same issue that we had
+  encountered earlier!"**
+  - Claude: a different Google account is normal OAuth.
+  - Added a green **"Calendar connected! You can close this browser tab now"** banner, because
+    the native Browser plugin may not close the tab (E-019fd116-21).
+  - Found the app's own note: the Cloud project is in **Testing mode → refresh tokens expire
+    every 7 days**; only Google verification fixes that.
+- **08:47 (screenshots):** the banner worked but the app still said "Reconnection needed."
+  - Added a refresh on Capacitor `resume` (E-019fd11b-8).
+  - Claude then chased an apparent "DB says false, app says true" discrepancy for a long time. It
+    was **its own test mistake**: `$ACCESS_TOKEN` did not persist between separate shell calls.
+    Claude reported it as a false alarm.
+- **14:09 — "There's literally the same issue dammit!"** **Root cause:** the Edge Function
+  `google-calendar-oauth` `exchange_code` wrote with a POST using
+  `Prefer: resolution=merge-duplicates` but **no `?on_conflict=user_id`**, so every reconnect
+  failed silently against the unique `user_id` constraint. Akash's row still had
+  `connected_at` 2026-07-19.
+  - The function was **rebuilt from the compiled bundle's strings** (no source in any repo) with
+    the fix, and deployed (E-019fd241-35).
+  - Tested the upsert on a test account. Akash's real row was left for his own reconnect.
+- **14:15 — "Wtf dude!" (screenshots):** the browser tab showed ✓ Connected, but the app stayed
+  stale → the refresh was hooked into `visibilitychange`/`focus`/`pageshow` as well
+  (E-019fd247-6). **15:55 — Akash: "It finally shows connected but I don't see any appointments."**
+- **Design gap found:** `google-calendar-sync` only wrote invisible `professional_busy_blocks` for
+  availability, only for **future changes via a watch — no initial backfill** (0 rows for
+  Akash). **Akash: "Both — visible list AND blocking availability."**
+  - Live DB: `title` column added to `professional_busy_blocks`.
+  - `google-calendar-sync` was **rebuilt in full** with a backfill (next 90 days); the **same
+    missing-`on_conflict` bug** in the webhook busy-block upsert was fixed (E-019fd450-28, -53).
+  - The real blocker surfaced: **"Google Calendar API has not been used in project … or it is
+    disabled."** **Aug 6 00:10 — Akash: "Okay enabled."** Backfill pulled **79 real events**.
+  - **"Your Google Calendar" list** added under the connection card (E-019fd468-16, -26).
+- **00:16 — "I can see them but cannot edit them."**
+  - New `update_external_event` action, refusing to edit events linked to a HOBS session
+    (E-019fd46d-5).
+  - Edit sheet `gcalEventEdit…` at z-index 60 (E-019fd46d-20…-33). Guards tested; the real PATCH
+    was left to Akash.
+- **00:26 — "It shows upcoming and then list as if it's refreshing every second. There's no option
+  to cancel/delete. And I need a plus button (like… journal and task list) except it will open the
+  calendar to book/edit/delete (exact interface like Google Calendar)."**
+  - Claude could not reproduce the flicker.
+  - Added `delete_external_event` + a delete button (E-019fd476-21…-35).
+  - Made "+" a **deep link to Google Calendar's own create screen** (E-019fd476-43).
+- **00:42 — Akash: "I didn't ask you to add the plus button to take me to google calendar! It
+  should all do within the app!… I clearly mentioned the plus button to be like journal and
+  tasklist, so it's position and size!!!!! And no past Sessions are reflected! It literally has to
+  be completely in 'sync'… Plus I should be able to swipe left or right- … from client to schedule
+  to profile!"** **00:43 — "2nd image is the screenshot of flickering issue!!!! I fucking told you
+  that!"**
+  - Claude's diagnosis: "Loading…" stuck because leaving for Google and returning re-fired the
+    refresh mid-flight.
+  - Fixes: `gcalEventsListInFlight` guard (E-019fd486-6, -12); deep link removed; **FAB
+    `newGcalEventFabBtn` matching the Journal/Tasklist FAB**, shown only on the Schedule tab
+    (E-019fd486-16, -22, -30); `create_external_event` + a create mode in the sheet
+    (E-019fd486-34, -45).
+  - Listed as outstanding: **past-events backfill, swipe between tabs, an in-app day/month
+    calendar grid.**
+- **00:50 — "I should be able to select client! So automatically their email will come and it will
+  be synced to their google Calendar!!!!"**
+  - A client dropdown from `profiles.email` via `expert_bookings` (E-019fd48d-10…-28).
+  - Attendees added with **`sendUpdates=all`** on create and update (E-019fd48d-37, -41).
+  - Tested read-only; deployed.
+- **01:00 — Akash (screenshots): "It's literally not working! Even after adding client and it
+  shows saving, nothing happens in the calendar! To my or client's calendar! And upon saving, it
+  goes back to no client (just for me) and why does that option even exist?"**
