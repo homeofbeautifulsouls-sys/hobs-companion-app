@@ -1912,3 +1912,60 @@ pattern the app sessions followed.
   therapist. Claude could not reproduce it (per-category assign dropdowns worked). **09:48:** a
   newly added doctor was not in experts; she had been created as a **Therapist**. **09:50, Akash:
   "No she's a doctor, not a therapist! A general physician."**
+- **09:51** — The doctor's `experts.role_category` was "Therapist" (everything else said General
+  Physician); **fixed directly in the live DB**.
+- **09:54 — Akash: clients who haven't signed the therapy consent, and users who haven't signed
+  the general agreements, must not use the app until they do.** The gates already existed
+  (`basic_tos_signed`, `consent_signed`, full-screen overlays). Claude briefly **added and then
+  removed** a redundant column. **Gap:** the consent gate only fired for an **active Therapist**
+  booking; a client with only a psychiatrist, GP or peer caregiver was never gated. Added a
+  separate `userHasAnyClinicalConnection` flag for the gate (E-019f79cb-74, -87). Tested four
+  scenarios; pushed. Checked at app open only, not mid-session.
+- **10:06 — Akash: professionals connect their calendars to Meet today.** Claude: only a single
+  "add to calendar" link existed; Google OAuth was used for sign-in only. **Akash asked for exact
+  steps, and wanted the connection to reconnect by itself every 7 days.** Claude: Testing-mode
+  refresh tokens die after 7 days and need a person to consent again; offered silent refresh plus
+  a one-tap reconnect prompt. **10:13 — Akash:** his calendar account is the org Gmail but he logs
+  in with his personal email — which goes on the test-user list? (The calendar account.) **"And
+  regarding refresh token, you had figured a way out."** Claude searched and found no earlier
+  workaround. **10:15: "Just build the button for now."**
+- **10:24 — Built:** a `professional_calendar_connections` table; a **`google-calendar-oauth`
+  Edge Function** (server-side token exchange and refresh); a Calendar section in the therapist
+  Profile tab (E-019f79df-28, -40, -48, -55). **13:28 — Akash pasted the OAuth client ID and
+  secret in chat**; Claude **stored both as Supabase secrets** and put the client ID (not secret)
+  in the page (E-019f7adb-12). *(The secret is redacted in all history files.)* **14:56 — Akash had
+  added the test users.**
+- **15:02 — Akash (screenshots): Google blocked it — the org account has Advanced Protection**,
+  which has no bypass for unverified apps. Akash asked whether he could turn it off, connect, and
+  turn it back on; Claude could not confirm the token would survive and called it a gamble.
+- **15:10 — Akash: after "continue" on the unsafe screen it never returned to the app.** Cause: a
+  Web-application OAuth client only allows `https` redirects, so the external browser loaded the
+  site with no app session. Claude's first idea (watch the in-app browser for the redirect) was
+  **checked against the plugin's real API and dropped**. Real fix: a **single-use 10-minute state
+  token** (new table) so the landing page can finish the exchange without a session
+  (E-019f7aed-18…-76); `@capacitor/browser` added. **APK v2.4.**
+- **15:46 — Akash (screenshot): availability repeat only offered Monday** — should allow all days,
+  the same days weekly, or the same days monthly. Three modes: same weekday weekly, specific
+  weekdays, same weekday monthly (e.g. the 3rd Monday) (E-019f7b0e-15, -24). Pushed.
+- **15:56 — Akash: two-way sync with Google Calendar.** Decisions (15:59–16:06):
+  - Changes made in Google are **approved in the app by the person who made them**.
+  - **Two-way sync, instant.**
+  - Personal Google blocks make those slots unbookable.
+  - **Deleting an event auto-cancels the session and notifies the professional and client**, and
+    the **cancellation policy still applies**, so there is no loophole.
+  - Proactive reconnect notices with step-by-step instructions.
+  - A booking that clashes with a blocked slot asks the professional to accept or reject.
+  - No separate "change linked email" action ("leave it be").
+- **16:10 — Akash at 3% context:** profile pictures can't be uploaded, and a professional's
+  update should show on their public profile; link Dr Dhruv's account. Dr Dhruv was **already
+  linked**. The upload failed because the storage policy needs the **user ID as the first path
+  segment** but the code used `profile-photos/<id>/…` (E-019f7b24-36); saving also **never
+  updated `experts.photo_url`**, which clients see (E-019f7bf1-5). Tested with a real upload and
+  pushed. (Claude re-set the test admin's `is_therapist` flag, which had been reset during an
+  earlier clean-up.)
+- **20:08 — Calendar sync, stage 1:** schema (event ↔ session links, pending changes, busy
+  blocks); a **`google-calendar-sync` webhook Edge Function** that auto-cancels through **the
+  same 24-hour / 50% / full-charge policy**, turns time changes into pending approvals, records
+  other events as busy blocks, and handles reconnect; watch registration fired from the OAuth
+  exchange (E-019f7bfe-19, -37). Deployed; not tested against a real connected calendar.
+- **20:14 — Akash: "Keep going till you finish everything properly without bugs."**
