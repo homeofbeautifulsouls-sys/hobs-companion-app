@@ -3229,3 +3229,63 @@ pattern the app sessions followed.
     unchecked calls. `delete-user-account` now stops before deleting the auth user on any error
     (E-019ffa64-76). A test account was deleted end to end.
 - **Aug 13 11:11 — Akash: "Continue"** (into Tier 1).
+- **Tier 1 (Aug 13 11:20 → 11:30):**
+  - **#7 booking race:** a new SQL function **`reserve_availability_slot`**
+    (`supabase/migrations/reserve_availability_slot.sql`, E-019ffad1-15). It is security definer
+    and checks the caller (E-019ffad1-26). The client uses the RPC and handles "already taken"
+    (E-019ffad1-39). Test: 5 concurrent requests, 1 won.
+  - **#6 Razorpay idempotency:** an outstanding open order is reused (E-019ffad1-75, -78).
+    *(Later found not to be atomic — see 16:45.)*
+  - **#21 OAuth state token:** a new SQL function **`consume_gcal_state_token`**
+    (E-019ffad1-110, -116). A **`text` vs `uuid` parameter mismatch** was caught in testing
+    (E-019ffad1-131). 5 concurrent → 1 winner.
+  - **#4 webhook auth:** a new column `professional_calendar_connections.watch_channel_secret`
+    (live DB). A secret is sent as Google's channel `token` and checked against
+    `x-goog-channel-token` (E-019ffadc-1…-11). The rejection was confirmed in function logs.
+  - **#8 optimistic success:** client cancellation now waits for the server before changing
+    local state or running calendar sync; the same for the expert-change request
+    (E-019ffadc-59, -74). `therapistCancelBooking` was already correct.
+- **Tier 2 (11:30 → 15:31):**
+  - **#22:** stopped logging OAuth codes and session results in the native callback
+    (E-019ffae3-8, -14).
+  - **#23:** `send-push-notification` —
+    - `alertProfessionalSessionBooked` now requires a real booking with that expert;
+    - therapists can notify only their own clients, and never `all` (E-019ffae3-36, -43).
+    - Tested with disposable accounts, which were removed afterwards.
+  - **#18:** both monitors now **advance their state only after the push is confirmed delivered**
+    (E-019ffae3-87, -94).
+  - **#11:** `deploy-tools/safe_deploy.js` reads **`HOSTINGER_API_TOKEN` from the environment**
+    (E-019ffae3-117, README E-019ffae3-123). *(The token had been hardcoded in that file in the
+    repo — see BUG_LOG security entries.)*
+  - **#10:** backups went from **12 to 38 of 39 tables** (all except `gcal_connect_state_tokens`;
+    E-019ffae3-146). A run gave 4,664 rows and 38 files.
+  - **#12 offsite backup — "a real fight":**
+    - A new Hostinger subdomain for backups, created **with no DNS record**, so it is not
+      reachable over the web.
+    - First attempt, inside `database-backup` (E-019ffaf0-35…-69): `tus-js-client` needed a
+      Buffer, then hit **compute limits**. Reverted to the proven version and redeployed.
+    - A separate function, **`database-backup-offsite`** (E-019ffaf0-84): still over the
+      limit, even with a single bundle (E-019ffbb7-1).
+    - **Raw TUS with `fetch()`** (E-019ffbb7-11…-16) reported success but **created empty
+      directories**. The fix was the `Tus-Resumable` header (E-019ffbb7-48). Retries were added
+      for an HTTP/2 error (E-019ffbb7-67).
+    - Verified: a real 1.7 MB file. Cron runs daily at 02:30 UTC. A Supabase secret
+      `HOSTINGER_API_TOKEN` was set.
+  - **#19/#20 (15:31):** **12 of 13 app images had returned 404 on Hostinger since the
+    migration**, and were missing from every bundled APK. The source images had been in the repo
+    all along but were never deployed. Images uploaded; **APK 25 / 3.4** (E-019ffbc0-58), deployed
+    and byte-verified. Handoff **v24**:
+    - 18 functions, matching the deployed list;
+    - migrations, images, `build.gradle`;
+    - CREDENTIALS.md updated with the **rotated** PAT and GitHub token and an offsite-backup
+      section (E-019ffbc7-22…-37), plus README (E-019ffbc7-46) and the architecture doc
+      (E-019ffbc7-57).
+- **16:45 — Akash pasted ChatGPT's review of v24** ("README says fixed while…").
+  - **Razorpay idempotency was not atomic** — Claude's commit message had overstated it. A new
+    SQL function **`claim_razorpay_order_slot`** (a sentinel test-and-set,
+    E-019ffc03-6, -17, -20). Test: 5 concurrent requests → the same order_id.
+  - The doc's "Last updated" date was stale → fixed (E-019ffcd4-14).
+  - **Storage objects not backed up offsite** → `database-backup-offsite` now mirrors
+    `task-images` (E-019ffcd4-34, -39). Recursion only went one level deep, so it found 2 of 11
+    files → fixed (E-019ffcd4-53).
+- **20:44 — Akash: "Continue".**
