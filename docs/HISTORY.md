@@ -4281,3 +4281,74 @@ pattern the app sessions followed.
   fetched, crisis check skipped when there is no message (E-01a0a380-12, -19, -27, -35). Tested
   with and without tasks.
 - **05:23 — "Yes"** to the frontend (auto-open on launch + explicit close button).
+
+### Sept 15 — Check-in UI, instant greeting, memory design, build spec (C31)
+
+- **05:28 — Closing mode** added to `character-chat-reply` (`mode: "closing"` +
+  `recentConversation`, crisis check skipped; E-01a0a384-16, -21, -29).
+  - Frontend: dynamic greeting in `switchAssistantTab` (E-01a0a384-68); Bob's × close shows a real
+    closing first (E-01a0a384-71); auto-open hooked on the welcome-back dismiss (E-01a0a384-88).
+    Playwright end-to-end OK.
+  - **05:28 — "Staging first."** The **Hostinger token was rejected**; **05:36 — Akash sent a new
+    never-expiring token** ("Wtf dude! Why? I already gave it to you!"). Verified and stored; web
+    staging deployed.
+  - **05:40 — "Dude give it in-app and not web!"** → the Android toolchain (SDK, full JDK) was
+    reinstalled after the sandbox reset → staging APK versionCode 5 `bob-checkin-test`
+    (E-01a0a395-29).
+- **05:56 — Akash:** stuck dots, multiple greetings at once; "remove other companions for now
+  till we have built them properly!"; "He needs to ask if he can't understand something!";
+  "Chief is the base not the name! And it won't be full name but the first name only!"
+  - Race-condition guard + welcome-back double-fire guard (E-01a0a3a3-7, -17); **Kunnu, Po, Cookie
+    hidden** (home buttons + modal tabs, markup kept; -26, -31); **first name only** (-37);
+    "notice what's said, don't repeat, ask when unclear" (-43). Staging 6 (-82).
+- **06:07 — "It still says my name!… again the dots!… look how ugly it looks! Re design! Research
+  other apps."**
+  - "Welcome home, Akash" was the home header, not Bob. Added an 8-second timeout + `error_logs` on
+    greeting and closing (E-01a0a3ad-7, -14).
+  - **Compact chat header redesign** after researching Replika / Character.AI / Pi (E-01a0a3ad-28);
+    fixed a null `querySelector('p')` for hidden tabs (-38). Staging 7 (-61).
+- **06:19 — "There's still dots!… stop building and talk!… how do we get him to have a proper
+  conversation like you or Gemini."** Claude found **Bob had no memory even within a
+  conversation**.
+- **06:24 — "The greeting has to be instant!… hard wired to the app!… not even a milli second
+  delay!… And the ground rules cannot depend on probability!"**
+  - **Hard-wired rotating greetings** in `index.html` (E-01a0a3bc-11); open-task check dropped from
+    the greeting so it stays synchronous (-38); race guard removed as dead code (-50).
+  - 92 ms tap-to-greeting in Playwright; "chief" in 5 of 6 templates.
+- **06:29 — "Okay memory now."** Claude proposed in-conversation memory now and cross-session later.
+  - **06:30 — "Now we will fix both the problems now"** → Claude **created the
+    `character_messages` table in production (with RLS)** and wrote backend history code
+    (E-01a0a3c2-21, not yet deployed).
+  - **06:33 — "I was speaking about memory and you started building!"**; **06:36 — "stop jumping
+    guns and topics… One topic at a time"**; **"What is I am NOT Building! Who are you to
+    decide"**.
+  - **06:37 — "Explain it to me point by point… with pros and cons."**
+- **07:04 — Memory decisions (Akash):**
+  - "Build both memory and compression now!"; **significance judgment in real time**.
+  - Groq cost: free tier 1,000 requests/day for the model; then $0.075 / $0.30 per million
+    input / output tokens.
+  - **07:09 — "Compression often takes away the nuances! So nuances need to be preserved."** Sticky
+    flag = "Any emotional moment that carries a significant weight (research as much as you can)";
+    compressed form "not just a summary… cannot take away the nuances, the minute details, the
+    keywords, the instances!"
+  - Research-based flag criteria: first-time disclosure; anchored to a named person or event;
+    emotional charge; a realization or shift.
+  - **07:15 — "guaranteed recall has to be there every time!… it isn't compression but
+    extraction."**
+  - **07:17 — weekly extraction**; "Bob has to remember everything… Details matter… especially when
+    psychoeducating or helping identify patterns or connecting dots" → **semantic search over his
+    own full history**.
+  - **07:26 — "just the greeting has to be instant but the conversation can be mindful… Bob should
+    say 'I am recalling this detail'… study other apps"**; "incorporate everything we had decided
+    related to crisis intervention, referral, psychoeducation, memory, recall… I need Bob to be
+    ready after this."
+  - **07:29 — extraction eligibility one week; pattern-noticing separate; "build sequence by
+    sequence but before that build an absolute precise guide/manual for yourself".**
+- **`docs/BOB-MEMORY-SAFETY-BUILD-SPEC.md` written and committed** (E-01a0a3f8-5).
+  - **Step 1:** backend memory deployed; persistence and cross-call recall verified with a test
+    account.
+- **07:33 — Step 2 (crisis escalation to the assigned professional)** → client–professional
+  assignment is stored only as **name text** (`therapist_name`, `expert_name`). Professionals have
+  real accounts (`profiles.is_therapist`).
+  - Proposed `assigned_therapist_user_id` + a one-time name match before any escalation logic.
+    **07:35 — "Yes."**
