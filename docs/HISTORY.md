@@ -440,3 +440,72 @@ pattern the app sessions followed.
   HOBS identity!… You have been just adding to the slider, did you even think of accessibility
   or sensory comfort or user journey??? **Before developing anything, think about the design**,
   the mascots — images, SVGs, their variations!"
+- **18:21–21:44 (C23) — Claude's reply to the 18:11 correction, and the next batch.**
+  - **Declined:** ice / taste-shock "grounding" techniques (self-harm-substitute concern) — not
+    added.
+  - Real YouTube videos found and linked: 5-4-3-2-1 `30VMIEmA114`; Box breathing `G25IR0c-Hj8`
+    (CHI Health); PMR `utGa6rqzs3g` (American Lung Association); Butterfly Hug `W9exVaCMwvo`.
+  - **Bug fixed:** only one subtask could be added — a re-render destroyed the subtask form.
+  - Grounding grew to **9 techniques**; cards first dome-shaped, later full circles. Worksheets
+    now **save into Journal history** and use the same share-to-therapist logic as entries.
+  - **Decision:** exact therapist worksheets (Therapist Aid etc.) are copyrighted, so Claude used
+    the standard CBT/DBT/ACT structures **with its own wording** (flagged to Akash).
+- **18:37 — Akash's list:** delete sub-steps; rename to **"Productivity Tips"**; Calendar back
+  button; missing videos; **distress moods auto-redirect to Breathe**; one-line "helps with" per
+  exercise; more worksheets; **mascots under the bubbles as guides — Bob → anxiety/Breathe,
+  Kunnu → support group, Cookie → worksheets, Po → professional help** (with keywords);
+  semi-circles not working; slider too big; remove the calendar balls. All built 21:40–21:44.
+  **Bug:** the Tips back button went to Calendar (fixed).
+- **21:47** — responsive check at 6 screen sizes; Drive log **v8**.
+- **22:08 — Akash's list:** clicking outside closes the mascot bubble; center headings; a **free
+  screening button with a gauge**; a highlighted create-task button; **build the tests page
+  exactly like the live page** (https://homeofbeautifulsouls.com/free-mental-health-test-online/
+  — tests, scoring, interpretation, CTAs, results to HubSpot); subtask delete still missing; Calm
+  link on task creation; Home quick-access trimmed to **Mood Tracker, Productivity Tips,
+  Worksheets, See Progress** (4-item slider with shadows); **rewards shown in Profile**; Journal
+  page gets "add journal entry / worksheet"; YouTube thumbnails; "tell me first and then cover
+  whatever you missed."
+- **22:10** — Claude fetched the live tests page: **17 screenings claimed** (College 4: PSS-10,
+  SLSI, Social Connectedness, Academic Procrastination; Adults 10: BDI-II, BAI, DASS-42, PSQI,
+  PCL-5, Big Five, AFI, CFQ, DERS, UCLA; Employees 2: MBI, TAWS) plus a **"Professional
+  Assessment Required"** block (ADHD, Autism, Bipolar, OCD, BPD, Schizophrenia → WhatsApp). The
+  real team roster was taken from the site (10 people: Akash; 2 psychiatrists; 4 clinical
+  psychologists; 1 GP; 2 peer caregivers). Akash: **"Build all 17 now, however long it takes"**;
+  professional-assessment conditions use the "exact same approach".
+- **22:18–22:33 — Phase 1 (14 small items) shipped, then Phase 2.**
+  - Phase 1: click-outside close; centered titles; subtask delete + Calm Room link on the
+    add-task sheet; **`bob.png` deleted from the working folder again** (same over-broad
+    cleanup) and a defensive `onerror` guard added (`bobImgFallback` could throw before the
+    script loaded); Home restructure — **removing elements broke handlers that referenced their
+    IDs**, repointed (`openScreeningGaugeBtn`, `createTaskHighlightBtn`, `openCalmRoom` /
+    `openAchievements` / `openRewards`); Rewards + Achievements card in Profile with a shared
+    calculation helper (E-019f2f36-5, -13); Rewards back button now returns to Profile
+    (E-019f2f36-19); Journal "Add new → Journal entry or Worksheet" choice (E-019f2f36-34, -41);
+    YouTube thumbnails via `getYouTubeId()` (E-019f2f36-50, -54, -57; dead CSS removed -63).
+  - Phase 2 (E-019f2f36-87 test data, 32k chars; -96 results panel; -109 engine after a failed
+    -100): **Claude said BDI-II, BAI and MBI are copyrighted** and substituted **PHQ-9, GAD-7
+    and an original burnout scale**. Public instruments used: PSS-10, DASS-42 (all 42, 3
+    subscales), PCL-5, UCLA-20, IPIP Big Five. Multi-dimension scoring, a personality profile
+    view, and **PHQ-9 item 9 self-harm detection** (any answer above "Not at all" shows an
+    iCall + 112 crisis note regardless of total). **Bug:** an unescaped apostrophe ("I've") in
+    a single-quoted string broke the script — fixed (E-019f2f36-119). Only **16** tests could
+    be counted, not 17; Claude flagged it instead of inventing one.
+  - Team page populated with the 10 real names and roles (E-019f2f43-3); **112 added** next to
+    iCall in Profile (E-019f2f43-9). HubSpot "email me my report" left **simulated** (needs a
+    backend). Still owed: the Next Steps CTAs.
+- **22:34** — Akash: "Record it in drive immediately" → Drive log **v9**
+  (doc `1JeY_sZVKzMpRROANDAWtdpz0Ht8-dUwcHEqZ6kDxVkQ`).
+- **22:51 — Akash's correction (clinical rule):** "**We cannot create any test of our own! We
+  can only use gold standard tests!**" and **no test names displayed anywhere** (as on the
+  website). Also: where is data stored; a logged-in user just downloads the report (he attached
+  `HOBS_Report_Generator_Guide.md`); Home fully center-aligned (keep bubbles and the screening
+  button as they are); after results, an on-screen **active-listening, therapist-like message**
+  based on their answers that encourages booking; Grounding and Worksheets pages must say what
+  they're for; **bug: Journal → Add new → Journal entry did nothing and went Home**; the 3D icons
+  "look weird" and misaligned → make cards; Meet our Team becomes a **slider with real photos**.
+- **22:54 — Claude admitted the mistake:** besides the flagged burnout scale, it had built
+  **SLSI, SCS, APS, PSQI, AFI, CFQ, DERS, TAWS and Burnout from items it wrote itself**, not the
+  verbatim instruments, without flagging them as clearly. First fix chosen: replace the burnout
+  scale with the **Copenhagen Burnout Inventory** (public domain). Started testing the Journal
+  bug.
+- **Jul 5 02:42** — Akash: "Please continue."
