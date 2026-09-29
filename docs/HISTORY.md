@@ -4484,3 +4484,78 @@ pattern the app sessions followed.
     has to offer, whenever you need a hand."; Role paragraph kept; likes as bullets + the
     "don't ask me how, since I've genuinely never tasted anything in my life…" paragraph.
     **22:04 — "Perfect! Just use appropriate highlights like bold and italics."**
+- **22:05 — Claude built the info panel** (info button E-01a0a719-7, modal -13, handlers -18) before
+  Akash confirmed. **22:05 — "You don't go through the pain alone! That has to be in bold… I am not
+  a therapist… in italics… I said don't build before I confirm!"**
+- **22:06 — "No now go for complete production and update"** → emphasis fixed (E-01a0a71b-4, -6);
+  production build **versionCode 75 / "3.55-memory-psychoed"** (E-01a0a71b-49) deployed to
+  `app.homeofbeautifulsouls.com`.
+  - Near-miss: Claude almost dropped push-notifications from production by copying the staging
+    recipe.
+  - **22:16 — "You were supposed to do it staging we are following that right!!!"** → **22:17 — "Just
+    give me updated staging app (what you just did in actual production and keep this one aside!
+    And if the instructions are ambiguous ask!"** → production left as-is (v75 stays live), staging
+    10 (E-01a0a725-4). Staging never has push, so escalation push can't be tested there.
+- **22:25 — "why there's delay! History went absent! And he has nothing to recall!"** →
+  `currentUser` null crash in `switchAssistantTab` (from `error_logs`) guarded (E-01a0a72c-10, -15);
+  neutral pause lines added (-27). Staging 11 (-40).
+- **22:31 — "Crisis detection is still not working in Bob… He literally is stuck! Repeating the
+  same phrase!… I want him to be the Bob!… TALK TO ME."**
+  - Bob's reflect-then-ask template was repeating while the person escalated.
+  - Anti-template + escalation-awareness rules (E-01a0a732-7, -31); main reply
+    `reasoning_effort` low → **medium** (-23); **Bob's last reply quoted back** just before the new
+    message (-41, -48). Test: 3 different structures.
+- **Sept 16 06:31 — staging 12** (E-01a0a8e6-4).
+- **06:34 — Akash:** "1) Do it [parallelize]… even upon clicking the close button Bob takes time…
+  2) There are layers to depression and suicide and self harm! Everything is too much, it's what
+  someone says when they can be passive suicidal! So do proper research… Then tell me properly how
+  you have built Bob technically and otherwise — everything! So I can cross check with other AIs."
+  - Closing payload capped to the last 10 messages (E-01a0a8ec-22).
+  - **Crisis check now runs in parallel** with history + recall; escalation moved after them
+    (-37, -52, -66). Crisis and escalation re-verified.
+  - Research: passive ideation phrases; **LLM detection degrades on isolated messages**, so the
+    crisis classifier now sees recent conversation with its own parallel history fetch (-104,
+    -112). A true passive-ideation phrase flags; "shitty day → lonely → everything is too much"
+    still did not.
+  - Claude asked Akash whether the threshold should be lower than the clinical definition. **No
+    answer recorded here.**
+  - **`docs/BOB-COMPLETE-TECHNICAL-AND-CHARACTER-DOC.md`** written from the live code
+    (E-01a0a8ec-145).
+- **06:52 — "Did you cover this point?" (close delay)** → not fully: 2.2 s network + a 2.2 s read
+  delay; read delay cut to 1.2 s (E-01a0a8fd-22). Staging 13 (-31). Open: instant generic closings
+  vs content-aware.
+- **07:01 — Akash pasted ChatGPT's Bob roadmap** ("just evaluate it carefully, don't make any
+  changes especially in the Bible"). Claude's evaluation:
+  - Adopt "who Bob is vs what Bob knows", validation-without-agreement, **response safety review
+    (outgoing replies are never checked)**, typed memory with staleness, dependency detection.
+  - Caution on a clinical knowledge base; the plan ignores latency.
+  - No changes made.
+- **07:09 — "The moment I click on the send button, the chat closes!… the journal… just closed on
+  its own!"**
+  - Old keyword command system: `/\bmood\b/i` matched "Mood doesn't shift…", replied with a script
+    and navigated home → **command matching only for short messages** (E-01a0a9f9-4, -10).
+  - Journal: the 60-second update check could force a reload → **no forced reload while a journal
+    draft or Bob chat is open** (-43). Tested. Staging 14 (-63).
+- **11:38 — "My entire history with Bob is gone! Every time you update the app"** → the 29 messages
+  were intact in the DB; the null guard had turned the crash into a silent skip → **retry until
+  `currentUser` is ready** (E-01a0aa03-17). Race tested. Staging 15 (-36).
+- **11:46 — "He's hallucinating!… even the messages that don't need time are taking time! I need
+  him to have immediate responses like you or ChatGPT!"**
+  - That case was a real callback. An anti-fabrication rule was still added to the shared safety
+    rules (E-01a0aa0a-14).
+  - Claude proposed **streaming** as the real speed fix and waited for a yes.
+- **11:52 — "I said him hello and he spoke about a note… This is the hallucination"** (confirmed: no
+  note existed). Plus: "instead of sentences use ... (in a wave animation)… when there's emotional
+  state then holding space for you and when someone's recalling a last event then he will speak
+  about recollecting."
+  - **Three pause states:** animated wave dots by default; "holding space" line for emotional
+    messages; "recollecting" line for callbacks (E-01a0aa0f-7, CSS -17, call sites -27, -32).
+  - Anti-fabrication verified on a fresh account. User-side deletes on `character_messages` are
+    blocked by RLS (this confounded a test). Staging 16 (-71).
+- **12:53 — "We need to build absolute safeguard against hallucination!"** → Claude: no LLM can
+  guarantee zero; offered a blocking verifier or a background one.
+  - **12:59 — Akash pasted ChatGPT's layered-grounding plan** ("makes much more sense to me").
+  - Claude adopted FACT / INFERENCE / GENERAL-KNOWLEDGE / CREATIVE, "Bob can interpret, but cannot
+    fabricate", a risk router, and no unmeasured percentages. It proposed a scoped first version: a
+    post-generation grounding check only on personal-fact-shaped replies → one regeneration → an
+    honest Bob fallback. The clinical knowledge base, identity gate and benchmark suite deferred.
