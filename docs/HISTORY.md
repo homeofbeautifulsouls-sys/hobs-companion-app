@@ -4210,3 +4210,74 @@ pattern the app sessions followed.
     already exists).
   - **11:07 — Akash: "But I registered it under organization and not personal and this email
     doesn't actually give the proper reason! So go and see the actual reason."**
+  - **Sept 11 11:07 — Claude retracted the diagnosis** and asked for Policy status / About you
+    screenshots.
+
+### Sept 14 — Organization account contact email (C31)
+
+- **09:02 — "go through the entire console… tell me EXACTLY where we are wrong"** → Claude: it can't
+  browse Play Console; the API only shows tracks.
+- **20:56 — Organization contact email** must differ from the login and match the domain.
+  - Claude's first answer was a Workspace Group, then a Hostinger forwarder when Akash mentioned
+    Hostinger. **MX records point to `smtp.google.com`: Google Workspace handles mail**, so the
+    Hostinger forwarder would not work.
+  - The Group needed "Who can post" set to external; **21:16 — "Is there a simpler way?"** → a
+    **Workspace alias `support@homeofbeautifulsouls.com`** on Akash's user. Akash deleted the Group
+    and added the alias (21:18). Also used as the public developer email.
+  - **21:32 — "verification is in progress to change account type."**
+- **21:32 — "Dude I am talking about working in app"** → Claude's in-app list: peer chat has no
+  safety tooling; groups are a waitlist; rewards not wired; Razorpay back arrow never retested;
+  Bob open items; SOS decision; constellation; React migration; calendar view; ToS lawyer review;
+  real-money Razorpay test; Calendar OAuth verification; R8.
+
+### Sept 14–15 — Bob's live prompt, dead Groq key, greeting mode (C31)
+
+- **21:34 — "Let's work on Bob, I don't want you to miss anything."** Claude compared the bible
+  with the live prompt: **"chief", closings, the boundary template, "never shares about himself",
+  silence handling were all decided but not in the live prompt.** Bob still had no memory.
+  - **21:58 — "I had presented closing variations"** → Akash's own words: "He ends with how you are
+    feeling now… Am genuinely glad to hear that chief… Or I understand this can take time (name)
+    or you need your space but I will be right here with you at HOBS with our professionals (if
+    they have been assigned, their names) or let's end with a hifi chief (depends on user's mood)".
+  - **22:23 — "But we can't make the change before completing these right?"** → Claude: the open
+    items don't block the decided voice pieces; the "welcome back" part of chief waits for memory.
+  - **22:35 — "Yes and Bob's chat should appear with a genuine gentle check in every time someone
+    opens the app (with their name) and the closing option should be accessible."**
+- **Sept 15 04:21 — Four voice pieces added to `character-chat-reply`** (E-01a0a34a-4).
+  - Testing found **the Groq API key was invalid** (flagged for rotation in August, never done). It
+    broke both `character-chat-reply` and **`check-journal-risk`** (the AI crisis layer); the 97
+    keyword patterns kept working.
+  - **04:25 — Akash sent a new Groq key** ("Expiration is set to none"). Tested, then stored in
+    `system_credentials` and the Edge Function secret. Both functions verified. Git identity had
+    been lost in the sandbox reset.
+- **04:31 — Check-in decisions:** "Name personalized!… every time the user opens the app his chat
+  should pop up with a gentle reminder (can't be the same monotonous every time)… Auto opens Bob's
+  chat… closing should be explicitly visible."
+  - **04:34 — Closing:** real closing based on whatever was said; if nothing, a quick line like "I
+    will be right here Chief, see ya when you need me".
+  - **04:38 — "Yes chief appears there too and then reserved for real moments… but it shouldn't
+    come out of box! You have to properly study for this"** → research (Sean Maguire's word-matches-
+    moment pattern; "templatic" AI endearments) → tightened instruction (E-01a0a35e-6).
+  - **04:41 — "Wait we are gonna use sport or son or romeo are we?"** → no, reference only. "Good!
+    Thank God!"
+- **Greeting wording, corrected by Akash several times:**
+  - 04:47 — "No rush, I am not going anywhere… whenever you are ready… No pressure… There you are,
+    I have got time — **This isn't BOB! This is AI!**" (preemptive reassurance with nothing said).
+  - 04:49 — Akash's examples: **"Howdy, chief! Good to see you. Just wanna check in on you"** and
+    **"Hey there chief, need a hand with any task?"**
+  - 04:53 — "I'm around if you need anything… You are literally forgetting his entire
+    personality!" (passive).
+  - **04:56 — "Primarily it will be chief and not name! We just decided!"** → prompt changed to
+    chief-primary (E-01a0a36c-4).
+  - **05:01 — "Revise the Bible… This is the baseline!"** Claude read the bible's "paired with the
+    real name" as "always together" (E-01a0a371-8), then separated (E-01a0a37b-6). **05:15 — "We
+    just discussed chief would be primary and name would be an alternative in other scenarios!…
+    Operate with the complete and updated memory!"** → reverted to chief-primary (E-01a0a37d-4).
+    **Settled: chief is the default; the name is an alternative for other moments; not combined.**
+- **Found: `character-chat-reply` never received the user's name.** Now fetches `profiles.name`
+  and injects it (E-01a0a371-26, -29).
+- **05:18 — "Genuine and data checked but also standing line"** (for "need a hand with any
+  task?") → **greeting mode** added to `character-chat-reply`: `mode: "greeting"`, open tasks
+  fetched, crisis check skipped when there is no message (E-01a0a380-12, -19, -27, -35). Tested
+  with and without tasks.
+- **05:23 — "Yes"** to the frontend (auto-open on launch + explicit close button).
