@@ -35,6 +35,10 @@ PATTERNS = [
 ]
 
 _known = [v.strip() for v in os.environ.get("HOBS_REDACT_VALUES", "").split("\n") if len(v.strip()) >= 12]
+# Longest first: if one known value is a prefix of another (e.g. a stored credential that is a
+# shortened form of the real secret), replacing the short one first would leave the rest of the
+# long one exposed. Found Sept 29, 2026 -- BUG_LOG #117.
+_known = sorted(set(_known), key=len, reverse=True)
 # Real clients' names (not staff/team), passed at runtime only -- never listed in this repo.
 _names = [n.strip() for n in os.environ.get("HOBS_REDACT_NAMES", "").split(",") if n.strip()]
 _name_pats = [re.compile(r"\b" + re.escape(n) + r"\b", re.I) for n in _names]
