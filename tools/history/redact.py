@@ -28,6 +28,7 @@ PATTERNS = [
     ("openai_key", re.compile(r"sk-[A-Za-z0-9_\-]{20,}")),
     ("anthropic_key", re.compile(r"sk-ant-[A-Za-z0-9_\-]{20,}")),
     ("hubspot_token", re.compile(r"pat-[a-z]{2,4}\d*-[a-f0-9\-]{20,}")),
+    ("hobs_wp_rest_token", re.compile(r"HOBS-Claude-\d{4}-[A-Za-z0-9\-]{4,}")),
 ]
 
 _known = [v.strip() for v in os.environ.get("HOBS_REDACT_VALUES", "").split("\n") if len(v.strip()) >= 12]

@@ -40,7 +40,6 @@ Full read, merged into one time-sorted stream across chats (several chats overla
 
 | Label | Chat title | Dates | Messages |
 |---|---|---|---|
-| C11 | Learning from previous mistakes | Jun 14 – Jun 25 | 243 |
 | C16 | Installing Claude on multiple devices | Jun 18 | 4 |
 | C17 | Using Obsidian to reduce token usage | Jun 21 – Jun 26 | 28 |
 | C21 | Offline agent with automatic session renewal | Jun 27 | 2 |
@@ -50,20 +49,21 @@ Full read, merged into one time-sorted stream across chats (several chats overla
 | C28 | HOBS Companion App 3 | Jul 21 – Aug 27 | 976 |
 | C31 | HOBS Companion app part 4 (this long-running session) | Aug 26 – Sep 29 | 1,172 |
 
-Excluded: website chats (the app and the website are separate projects — Akash, Sept 29) and
+Excluded: C11 "Learning from previous mistakes" (checked: entirely website work, zero app
+content), website chats (the app and the website are separate projects — Akash, Sept 29) and
 other HOBS work (marketing, proposals, Instagram, brochure, screening drive).
 
 ## Exact code — already done, separately
 
-All 2,830 code edits made through file-editing tools in these chats were extracted verbatim by
+All 2,797 code edits made through file-editing tools in these chats were extracted verbatim by
 `tools/history/extract_code_edits.py` into `docs/history/code/<YYYY-MM>.md` (credentials and
-client names redacted only). 58 of them are marked as failed (did not apply). Each has an id
+client names redacted only). 57 of them are marked as failed (did not apply). Each has an id
 like `E-1a2b3c4d-5` that the reading chunks and `HISTORY.md` refer to.
 Not captured there: changes made by shell commands (sed, python, curl SQL) — those are read in
 the chunks and recorded in `HISTORY.md` in words, with the command where it matters.
 
 ## Status
 
-- Total chunks: **282** (each ~80k characters)
-- **Last chunk completed: 0000** (not started)
+- Total chunks: **268** (each ~80k characters)
+- **Last chunk completed: 0001** (C16, C17, C21 and the start of C22 — up to Jul 3 13:56 UTC)
 - Last updated: 2026-09-29

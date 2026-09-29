@@ -20,15 +20,17 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from redact import redact
 
 # In-scope chats (uuid prefix -> short label). Chosen with Akash, Sept 29 2026:
-# the 5 core app chats + 4 continuity/memory chats. Website chats are excluded
-# (the app and the website are separate projects, per Akash).
+# the 5 core app chats + 3 continuity/memory chats. Website chats are excluded
+# (the app and the website are separate projects, per Akash). C11 "Learning from
+# previous mistakes" was first included by title, then removed the same day once
+# reading showed it is entirely website work (session 11 of the website rebuild,
+# zero app content -- checked by scanning all 120 of Akash's messages in it).
 IN_SCOPE = {
     "d2814e1d": "C22-ConvertingWebsiteToApp",
     "8448f38e": "C23-AppPart2",
     "973ab5c7": "C26-AppContinuation",
     "db91e073": "C28-App3",
     "61f14fdc": "C31-AppPart4",
-    "28d2ebbe": "C11-LearningFromMistakes",
     "da60cba8": "C16-ClaudeMultipleDevices",
     "13600f5c": "C17-ObsidianTokenUsage",
     "406969ba": "C21-OfflineAgentSessionRenewal",
