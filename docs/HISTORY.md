@@ -3855,3 +3855,74 @@ pattern the app sessions followed.
   - **16:07 — "Give me the production app link too but with everything absolutely fucking fixed!"**
     Claude refused to put the alarm in production before a staging test.
 - **16:10 — Akash: "You removed the mood tracker flow as well in the stable app!"**
+- **16:21 — the mood-tracker flow:**
+  - Tested live against production with a temp account.
+  - Cause: the **Aug 26 06:08 fix covered only the Back button**. The "Save entry" button
+    (`saveNoteBtn` / `handleJournalSave`) still went to "Saved" → fixed, capturing the selection
+    before reset (E-01a03ed6-77, -88).
+  - The distress-mood grounding path was checked unchanged → **59 / 3.39**. BUG_LOG #59
+    (E-01a03ee1-14).
+- **16:28 — Akash: "upon clicking mobile app button after mood-journal-mobile back button, it's
+  literally exiting the app! You had fucking resolved the bug, why don't you fucking refer the bug
+  log… And everything's automatically saved."**
+  - Using bug #38's method (invoke the real back listener): `showOnly()` always pushed onto the
+    stack, which the new flow exposed (E-01a03ee7-29) → **60 / 3.40**, BUG_LOG #60.
+  - **16:39 — "Either the mobile's back button takes to task list or journal or exits out of the
+    app! Fucking diagnose and solve and don't fucking assume!"** Root cause: bottom-nav tab
+    switches pushed onto one linear stack. Tabs now collapse to `[panel-bubbles, tab]`
+    (E-01a03ef1-18). Tested three scenarios → **61 / 3.41**, BUG_LOG #61.
+  - **16:50 — "Mood - Journal - Mood Tracker is how it should be… Mood- Journal - Exit App!!"** A
+    **data-loss bug**: hardware back while writing a mood-linked entry skipped saving and exited,
+    because `panel-journal` from the mood flow is not on the stack. Hardware back now checks the
+    visible panel and reuses the on-screen Back logic (E-01a03efa-33). Three scenarios verified in
+    the DB → **62 / 3.42**, BUG_LOG #62. `panel-quick-journal` found to be dead code.
+- **23:55 — Akash: "Okay it's working fine now. Have the entire situation… recorded… The helpline in
+  journal entry comes after a second or two… It was immediate before! Investigate thoroughly (look
+  at the patterns- how you are solving things)… Then… Can we build games like chess, carrom, snakes
+  and ladders… Both AI based and Online Player based."**
+  - Claude measured the modal at 5.8 ms and asked for the exact wording.
+  - **Aug 27 00:07 — Akash: "It takes atleast a second!… I wrote wish there was no tomorrow!
+    Twice!… STOP ASSUMING THINGS!… ALWAYS LOOK AT THE ENTIRE PITCURE!"** The phrase matched **none
+    of the ~50 instant keyword patterns**; only the Groq layer caught it (0.868 s, verified live).
+    A new **"no future"** category was added (Beck Hopelessness), with false-positive testing
+    (E-01a0408a-20) → **63 / 3.43**, BUG_LOG #63.
+  - **00:23 — "train the first layer… more right?! So do it!"** Four more categories: sleep-as-death
+    euphemisms, "life isn't worth living", PHQ-9 worthlessness with a mandatory qualifier, giving up
+    on life (E-01a04099-11); 81 patterns → **64 / 3.44**, BUG_LOG #64.
+  - **00:30 — "Dude we can't be lazy!… YOU NEED TO INCLUDE EVERYTHING YOU FIND!"**
+    - All 16 candidates were kept and tightened; self-hatred is now paired with despair wording
+      (E-01a040a0-21).
+    - Found **pre-existing false positives** in bare `hurt(ing)/harm(ing) myself` (financial or
+      professional venting) → excluded (E-01a040a0-35, -39).
+    - 97 patterns → **65 / 3.45**, BUG_LOG #65.
+- **00:43 — Akash: "there are stages to crisis… sighs of exhaustion, self hatred… loss of pleasure…
+  we don't wanna just bombard the user!… no meaning for journal privacy! But… We cannot ignore the
+  flags! There's active vs passive suicidal ideation… connect with the right professional… Doctor…
+  Psychiatrist or a therapist… when they enter the app next time… Bob reminds them… We need to study
+  this carefully, discuss before deploying!… I said it before thinking logically find gaps, talk, ask
+  questions!"** → **design discussion only, nothing built.** Decisions:
+  - The person can **see** what they "may" be experiencing and take the existing tests; results
+    already reach HubSpot.
+  - **Any death-related content → the immediate helpline modal**, passive or active. Bob checks in
+    later for passive, depressive or anxiety features.
+  - **Comorbidity:** depression + anxiety → both PHQ-9 and GAD-7. Other pairings (burnout, exam
+    stress) → a professional plus the best single test.
+  - **Every qualifying entry flags immediately — not "3 times in 2 weeks"**; Bob speaks once per
+    fresh flag until acknowledged (option A). Delivery through the existing `renderMascotTip`.
+  - Found already built: PHQ-9, GAD-7 and 14 other instruments; elevated results show a "Find
+    someone to talk to" button and Po's nudge; HubSpot sync.
+  - **01:00 — Akash: "Don't focus on resolved! Focus on true companionship and support!…
+    Physical Health Concerns… general physician's position… psychosomatic… Vitamin D and B12…
+    Iron/Magnesium… (Refer to DSM V and ICD 11 properly)."** Research covered DSM-5 F54, ICD-11
+    6C20, vitamin D, B12, iron, magnesium and thyroid.
+  - **Routing:** **GP** for physical plus mood (bloodwork); **psychiatrist for sleep** ("GPs cannot
+    prescribe sleep meds" — Claude found this is practice guidance in India, not a legal bar);
+    therapist for the rest.
+  - **Bob** delivers it, as "psychoeducation and check up". Claude re-read Bob's live prompt
+    ("never diagnose… never prescribe… technique") and questioned psychoeducation. **01:18 —
+    Akash: "Bob will psychoeducate! Not diagnosis but psychoeducation will be there!… few keywords
+    like Captain/Chief… he will remember small details… So look at ALL OF IT!"**
+  - **C31 could not find "Chief" in the code or past chats.** It exists only in C28's Aug 15 Bob
+    scoping (the `HOBS-Character-AI-Master-Scope.md` output, never committed). Bob also has no
+    memory: `character-chat-reply` takes one message, with no history.
+- **01:19 — Akash (in C28): "Give me EVERYTHING WE BUILT AROUND BOB."**
