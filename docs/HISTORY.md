@@ -2613,3 +2613,114 @@ pattern the app sessions followed.
 - **10:47 — Akash: "UPI payments are not showing on Razorpay and upon clicking donate or payment
   button it just does nothing and all of a sudden opens the page! We need it instant and if not
   atleast add a loader!"**
+  - **Claude's answer (10:49 → 15:02):** UPI is an **account-level Razorpay setting**, not code
+    (Dashboard → Account & Settings → Payment Methods, or Razorpay Support). Built a full-screen
+    **`#paymentLoadingOverlay`** ("Preparing payment…" + spinner) shown by `openRazorpayPayment`
+    for all three flows, hidden with a short buffer after `rzp.open()` (E-019fb7c8-22, -25, -29).
+    Tested on the dedicated test campaign; deployed.
+- **15:05 — Akash: "Whenever rejecting a test donation, the entire campaign goes missing, it even
+  goes missing at profile at times!… the razorpay got even slower and there's no fucking loader
+  like a circle."** DB was fine. Cause: `renderProfileDonationWidget()` did
+  `widget.innerHTML = ''` **before** its fetch, with a bare `return` on error — and Claude's own
+  re-render after every payment close triggered it. Fixed to replace content only when new data
+  arrives (E-019fb8b5-12). Overlay re-verified with a real navigation + hit-test screenshot;
+  keep-warm cron confirmed firing every 4 min. Deployed.
+- **15:14 — "the campaign should be up there like it was and shouldn't have to 'load'!!!"** Added
+  `donationWidgetCache` + `prefetchDonationWidgetData()` fired **in the background at sign-in**
+  (first attempt put it inside the sign-in `Promise.all`, which would have blocked sign-in —
+  caught and changed to fire-and-forget), `paintDonationWidget()` paints from cache and refreshes
+  silently (E-019fb8be-9, -13, -19, -25). Deployed.
+- **15:21 — Journal: "Whenever I am typing longer… it keeps on returning to the end of the page!"**
+  Cause: the **global `autoGrowTextarea`** set `height:auto` then `scrollHeight` on **every
+  keystroke**, collapsing the scroll container. Attempts: save/restore scroll of the scrollable
+  ancestor (E-019fb8c4-27) — not enough; `overflow-anchor:none` on `.content` (E-019fb8c4-91) —
+  not enough; restore on `requestAnimationFrame` (E-019fb8c4-103) — still drifted. **Final: grow
+  directly without collapsing; collapse-and-remeasure only when the text got shorter**
+  (E-019fb8c4-110). Measured: height never decreased across 504 keystrokes; backspace still
+  shrinks. Affects every auto-grow textarea app-wide. Deployed.
+  - Caveat Claude gave: scrolling up while still typing will follow the cursor (normal editor
+    behaviour).
+
+### Tasklist redesign — the "constellation" prototype (Jul 31 21:36 → Aug 1 10:25, C28)
+
+- **21:36 — Akash: "creating an obsidian like interface for the app in task would make sense?"**
+  Claude was sceptical (tasks aren't a knowledge graph; audience needs low friction).
+- **21:39 — "do a proper research and then make the suggestion."** Claude researched (ADHD/overwhelm
+  UX, Forest/Flora/Habit Forest) and, via past-chat search, recommended building the **Jul 19
+  garden concept** (subtask → seed → plant → tree → garden). **Rejected by Akash (21:45): "I am
+  not building the garden."**
+- Claude then proposed making Tasklist look like Journal (paper, handwriting, page flips).
+  **Rejected (21:49): "I don't want it to be like journal! It was just a fucking reference! Be
+  fucking creative… The way I said obsidian was because how it interacted with the user! Like a
+  proper mind map!… define the user convience by the feeling of acomplishment and accessibility at
+  the same time."**
+- Claude proposed **"Today's Web"**: Today as an anchor, tasks as nodes on threads, tap to expand
+  subtasks as satellites, completion light travelling back to Today, and a one-tap plain-list
+  toggle for accessibility. **Akash (21:53): "not bubbles, but yes constillation sounds good…
+  build it in chat once for me to see first, then app."**
+- **Iterations in the chat widget tool (21:54 → 23:01)**, each driven by Akash's feedback:
+  1. 2D constellation + list toggle.
+  2. "make it like a 3D moving interactive constellation", show task details, add-task/subtask
+     → 3D rig, drag to rotate, detail panel, "+" nodes.
+  3. "they should have task names… constellation and not solar system… height and width of all
+     the devices… upon clicking it just loses all the interaction" → cause: every button was
+     rebuilt 60×/s during auto-spin; fixed by rotating only a CSS transform. Irregular links
+     between tasks, always-on labels, container-relative sizing. Auto-spin turned off.
+  4. "It's not fucking moving at all!" → idle drift restored; drag moved to pointer capture on the
+     scene.
+  5. "2D circles… isn't looking good… different shapes… appropriate background… swipes… Subtasks
+     are not opening!… no way to re-start" → tap detection captured at pointerdown (pointer
+     capture broke `e.target`), star shapes for done tasks, night-sky starfield, momentum, Restart
+     button.
+  6. "3D glowing stars but not too bright! Remember… the sensory experiences!" → soft, steady,
+     no pulsing.
+  7. "3D but not like bubbles (and remove the star emojis)… light up… doesn't become clutered" →
+     faceted diamonds, light-up flash, fan layout with "+N more".
+  8. "I said keep the star 3D circles… where are subtasks names?… drag the space… take my task list
+     (all of them and subtasks)… build this feature with them!" → Claude **pulled Akash's real
+     pending tasks from the live DB** (7 tasks; "App changes" had 35 subtasks), shaded spheres,
+     Fibonacci spacing, a cap past 5 subtasks.
+  9. "COVER ALL THE TASKS AND SUBTASKS!" → cap removed, 3D shell; labels hidden past 8 — **Claude
+     hid them on its own judgment**; "Where's name of subtasks?" → all labels shown.
+  10. "Where the fuck are steps written in my task list… Use actual names/sentences!… when
+      clicking on a task… zooms in to the task" → Claude had used **placeholder "Step 1, Step 2"**
+      text; real sentences restored; **focus mode** added (tap a task → only it and its subtasks).
+  11. "the entire screen went fucking blank" → a double-escaped apostrophe broke the script.
+  12. **23:02 — "There's literally just 1 dot!… If you have questions ask me."** Claude admitted it
+      had been **shipping widget versions it never tested**, moved to a real file
+      `/home/claude/widget_test/constellation_full.html` (E-019fba6a-19/-23) tested in headless
+      Chromium, and found the real bug: `Today` had no `subtasks`, so `star.subtasks.length`
+      threw on the first star and stopped the loop (E-019fba6a-30). Verified 8 stars, 33 real
+      subtasks in focus mode, light-up, back, restart. Shared as a file.
+- **23:09 — Akash's screenshot: labels overlapping, mirrored text; "the user should be able to
+  drag screen!… mirror image of words shouldn't exist!"** Fixes (E-019fba70-2…-64): labels
+  **billboard** (counter-rotate to face the camera), **fade by facing angle**
+  (`facingFactor`, steepened), defensive `setPointerCapture`. Two self-inflicted breaks during
+  editing (removed `applyRotation`; dropped a `forEach` line) were caught and fixed. Measured:
+  ~16 prominent labels at a time, 2 overlapping pairs (from 5 of 20).
+- **Aug 1 10:25:** Claude shared the file and asked whether "a couple of labels still touch" is
+  acceptable and whether Akash meant rotation or a **2D pan**. **Not answered — Akash moved on.**
+  Status: **prototype only, never built into the app.**
+
+### Journal rich text (Aug 2 01:39 →, C28)
+
+- **01:39 — Akash: "Save what we have worked on the task list till now, and for journaling, give
+  the option for Heading (font size will change), bold, italic, strike, underline like how it is
+  in Google doc."**
+  - Tasklist direction saved to **claude.ai memory** (not the repo).
+  - Journal `#journalText` changed from a `<textarea>` to a **contenteditable div** with an
+    H/B/I/S/U toolbar (E-019fc020-49, -109); saved as **HTML in `entries.text`**
+    (E-019fc020-65). New helpers next to `showToast`: `stripHtmlTags`, `looksLikeHtml`,
+    plain→HTML conversion (E-019fc020-43).
+  - Every reader updated: **crisis detection (keyword + AI) runs on stripped plain text**; index
+    snippet and search strip tags (E-019fc020-91, -94); editing loads HTML or converts old
+    plain text (E-019fc020-76); voice transcription appends to the div (E-019fc020-86); expand
+    button heights adjusted (E-019fc020-59). The separate **Quick Journal** textarea left plain.
+  - Tested: headings, bold, a self-harm phrase split across tags still detected, old plain text
+    with `<`/`>` displays correctly, real HTML saved in the DB, clean snippet, placeholder.
+    Deployed.
+- **01:52 — Akash: "Add Alignment Options as well and H1, H2 and H3 dude! And then cross check
+  again and test everything live… Then update the zip file and Google Doc. In that Google doc,
+  build the complete architecture- everything we have done till now, all bugs, how you solved,
+  all features, pipelines, what's remaining… everything!"**
+- **02:16 — Akash: "Continue".**
