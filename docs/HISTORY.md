@@ -1800,3 +1800,67 @@ pattern the app sessions followed.
   content and checked in once.)*
 - **22:39 — Akash: "The new entry page and the background button takes to the home page!! With
   just start a new journal entry showing at the top! It's already been 5 attempts now!"**
+- **22:44** — Claude's test on the live code showed the Add flow working. It then found that the
+  app **loads the live site remotely** (so web fixes need no APK), and that **the update check
+  ran only once per app process**. Android keeps the process alive, so later fixes never loaded.
+  Changed to recheck with a 30-second cooldown, keeping the no-loop guard (E-019f67ee-21). Akash
+  was asked to force-close and reopen.
+- **22:49 — Akash:** "Why are bubbles showing up upon clicking new entry? It literally has to
+  directly take the user to the entry!"; **mic doesn't work**; **archive, not delete**, with a
+  button at the bottom to show archived entries.
+  - Add now goes straight to the writing page (E-019f67f8-17).
+  - **`entries.archived` column added** (live DB change); archive and unarchive plus a "Show
+    archived entries (N)" toggle (-29, -38, -44, -50, -55).
+  - Mic: **the Web Speech API does not exist in the Android WebView** →
+    `@capacitor-community/speech-recognition` and `RECORD_AUDIO` (-68, -72). **APK v2.0 (11).**
+- **23:05 — Akash:** the cover should **open by itself** (no swipe); **Journal second in the
+  footer, Calendar in the middle, renamed "Tasklist"**; the Calm Room music needs to change —
+  "Would we need to rebuild the apk?" (No.) Cover auto-opens after ~0.9 s (E-019f6807-12…-29);
+  nav order **Home, Journal, Tasklist, Breathe, You** (-39). Claude found the Calm Room sound is a
+  **Web Audio synthesised drone, not a file**, and asked what "change" meant (not answered here).
+- **Jul 16 09:19 — Akash:** the whole background must be like **his attached reference image**
+  (several vintage page designs, to be cropped per page); the entry section **always maximised**;
+  mic still not working. Claude cropped 8 cards, made text-free crops, used **different photos for
+  the cover, index and writing page** (`vintage-bg-*.jpg`), made the textarea fill the screen, and
+  recoloured the cover to dark ink on paper (E-019f6a39-47…-83). To keep contrast high it raised
+  the white overlay to **92%**.
+- **14:40 — Akash:** the recorder **stops after 5 seconds** and gives no sign it is recording;
+  the "What's on your mind" page and index must be the vintage pages — "The entire journal is a
+  diary and everything inside it are pages." Auto-restart on Android's silence cut-off plus a
+  "Listening…" indicator (E-019f6b5f-23…-49). **APK v2.1.**
+- **14:53 — Akash: "Why the new apk and can we not build an in app recorder."** Claude explained
+  native code needs an APK; recording is easy (`MediaRecorder`) but transcription needs a service.
+  **15:57 — Akash: "No I need proper recording and transcription so you need to build that."**
+  - Claude built `MediaRecorder` recording and a **`transcribe-audio` Edge Function** (OpenAI
+    Whisper) and **deployed it** (E-019f6ba5-37). **Bug:** the `esm.sh` supabase-js import stopped
+    the function booting; rewritten with a direct auth API call.
+  - **16:08 — Akash: "I don't have money to spend, already told ya."** Claude accepted it had
+    recommended a paid API. Options: Google Speech-to-Text's free tier (**needs a billing card**)
+    or **AssemblyAI (free hours, no card)**. **Akash: "Google"**, then **"Assembly but is it
+    qualitative?"** Claude compared benchmarks and **redeployed `transcribe-audio` on AssemblyAI**.
+- **16:31 — Akash (screenshots): "These are the sections that should have the vintage page!…
+  Talk to me first."** Claude: the 92% overlay had smothered the photo. **16:33 — Akash:** "Can you
+  literally put vintage papers? So the Index papers look handwritten… entries have handwritten
+  font. So all the buttons don't look like buttons." Built: overlay **25%**, near-black ink,
+  **Caveat and Kalam** fonts, and buttons restyled as ink on the page (Back and Save became
+  `div`s) (E-019f6bc6-10…-69). Contrast measured 8.06:1.
+- **16:51 — Akash: "There's a lot of clarity issues and the intuitiveness has gone… Talk to me
+  first."** Causes found: **"TREASURES OF" letter edges left at the top of the index crop**, and
+  a dark vignette band from stretching the photo. Re-cropped and switched to tiling
+  (E-019f6c95-15). *(Four "Please continue" messages at 19:15–20:19 got empty replies.)*
+- **20:57 — Akash: "You didn't need to change this — The treasures of — The previous was much
+  better! You need to crop images properly! There's too much bleeding!"** Tiling repeated a
+  **branch illustration running down the card's left edge**. Claude grid-scanned for plain paper,
+  cropped clean swatches, went back to `cover`, and **restored the previous cover image from
+  git** (byte-identical) (E-019f6cb7-34).
+- **21:13 — Akash: "Almost perfect"** — but the page now scrolls; keep it on one page (pages 1, 2…
+  only if needed); a screenshot bug (a **green teardrop**); and the mic. Fixes: **`dvh` instead of
+  `vh`** (vh does not shrink when the keyboard opens) (E-019f6cc6-14, -20); **`MODIFY_AUDIO_
+  SETTINGS`** added next to `RECORD_AUDIO`, which Capacitor's own WebChromeClient requests for
+  `getUserMedia` (-39); `caret-color` for the green handle, probably the native text cursor,
+  which Claude said it might not control (-47). **APK v2.2 (13).**
+- **21:25 — Akash: "Don't you need API for mic fix?"** Yes, for transcription. **21:48 — Akash
+  pasted the AssemblyAI API key in chat**; Claude **added it as a Supabase secret** and ran a real
+  speech clip through the deployed function ("This is a test of the Hobs Journal transcription
+  feature."). *(The key's value is redacted from all history files.)*
+- **21:52 — Akash (screenshot): "I haven't installed the latest apk though."**
