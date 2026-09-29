@@ -378,3 +378,65 @@ pattern the app sessions followed.
   broken — does it need to exist twice?; remove the calendar dots under the numbers; and a first
   idea for **Community** — Facebook-like support groups, people post on their profiles, and
   members of the same group can chat one-to-one ("I am thinking out loud").
+- **13:04–13:28 UTC** — the header "profile" and bell icons turned out to be **decorative since
+  day one — no click handler had ever existed.** The header button became Search (journal +
+  tasks), also reachable from Profile. Calendar task dots removed; then Akash: remove the mood
+  dots too, and explain the calendar's purpose without stuffing text.
+  - **Bug:** the carousel's first card touched the screen edge. Two guesses failed; measuring
+  showed the real cause — `scroll-snap` auto-scrolled the row on load past the spacer — plus the
+  flex `gap` had to be subtracted from the spacer width (E-019f2d41-37, -50). Pixel-exact after.
+  - **Community, round 2 (Akash):** anonymous; **every post reviewed by the HOBS team first**;
+  users **must not be able to exchange phone numbers or Instagram handles**; both group and
+  one-to-one chat; "we have to cover all the ethical and legal protocols and safety assessments."
+  Claude: needs a lawyer (DPDP Act 2023 — mental-health data is sensitive personal data; IT Act
+  intermediary liability; POCSO if minors), a moderation SLA, crisis escalation, report/block,
+  and contact-info detection that will need iteration. **Deferred as its own phase.**
+  - Akash: the online screening tests (like on the website) were forgotten — keep on record.
+  - Drive build log **v3** created ("I really don't wanna lose my work in case something like
+    before happens").
+- **13:28–13:49** — **Bug: the whole app changed size when switching screens** (the phone frame
+  had no fixed height). Rebuilt as a fixed-height shell with header/nav pinned and only the
+  middle scrolling; measured identical across screens (E-019f2d50-6, -8, -22).
+  - "Done for this week" became a real **Mood Tracker** (animated chart of the last 14 days of
+    moods, "checked in X of the last 14 days", Bob's affirmation chosen by whether lighter or
+    heavier moods dominated). **WHO-5 moved underneath as a "Bi-weekly follow-up"** — cadence
+    changed from 7 to **14 days**, matching the instrument's own two-week window; the button
+    lightens once done.
+  - Journal entries not yet shared get a **"Share with [therapist]"** button when connected.
+  - Calendar: the wordless animation "isn't enough" — replaced with one plain sentence ("Every
+    day you check in gets a place here — tap any day to see your mood and your tasks
+    together.").
+  - Mascot row on Home with intros (Bob real art; **Kunnu, Cookie and Po were hand-drawn SVGs by
+    Claude with placeholder personalities** — flagged for Akash to correct). "Meet Our Team"
+    first linked to the website's `/our-family/` page.
+  - **13:48 — "Record everything in the drive, so I will meet you later"** → Drive log **v5**;
+    then **v6** with the next-session plan (in-app Team page instead of the website link; Bob's
+    image not showing; mascots opaque on transparent background with **comic speech bubbles**;
+    social media icons; the tests page) and **v7** (YouTube slider of relatable videos on Home —
+    Akash will send links).
+- **16:34 — "We have begun the next session"** (same chat). Added to scope: **grounding and
+  relaxation exercises** and **therapy worksheets**.
+  - **Bug:** Bob's image "not showing" — Claude had **deleted `bob.png` from its own working
+    folder with an over-broad cleanup command**, and the image's fallback hid the error silently.
+  - Built: comic-bubble mascot intros; an in-app Team page marked "coming soon" (real names,
+    photos and bios must come from Akash — not invented); social icons (placeholder links); a
+    YouTube slider placeholder; **three screening tests (Loneliness, Trauma & Stress Response,
+    Dissociative Experiences) built as shortened "representative" versions because the live
+    website page couldn't be fetched** — Claude flagged they must be checked against the site's
+    real wording; grounding (5-4-3-2-1, box breathing, PMR); three worksheets.
+    **Bug:** results screen never appeared — not registered in the panel list (E-019f2dfc-115).
+- **17:46** — Akash: mascots should **zoom from the small SVG into the real image** with the
+  intro bubble; line them up properly; **an exercise button in the footer**; remove Facebook;
+  **break a task into steps right when adding it**; worksheets need a **whole page — rumination,
+  relationships, acceptance — using actual CBT, DBT and ACT worksheets, with simple names**; and a
+  footer button (Claude named it **"Breathe"**) leading to grounding, muscle relaxation, breathing
+  and other calming techniques. Built (E-019f2e46-15 onward). Claude flagged that it wrote the
+  worksheet wording itself from the standard frameworks.
+- **18:11 — Akash's correction, and a design principle:** only one subtask could be added (must
+  be unlimited); Breathe needs **the right YouTube videos first, then detailed text**, and
+  properly researched techniques; **worksheets are saved into the journal and follow the same
+  therapist/support-group sharing flow as journal entries**; worksheets must be **"the exact
+  worksheets therapists use and not something you make!"**, many of them; and — "Mascots are
+  HOBS identity!… You have been just adding to the slider, did you even think of accessibility
+  or sensory comfort or user journey??? **Before developing anything, think about the design**,
+  the mascots — images, SVGs, their variations!"
