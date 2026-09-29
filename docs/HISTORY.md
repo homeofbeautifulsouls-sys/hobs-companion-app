@@ -2724,3 +2724,111 @@ pattern the app sessions followed.
   build the complete architecture- everything we have done till now, all bugs, how you solved,
   all features, pipelines, what's remaining… everything!"**
 - **02:16 — Akash: "Continue".**
+- **Claude's work on that request (02:16 → 02:20):**
+  - Toolbar expanded to **H1/H2/H3 + left/centre/right/justify** (E-019fc02b-7, -15).
+    `execCommand('justify…')` **reported success but did nothing** in the app (worked in isolated
+    tests) → replaced with direct `text-align` on the editor (E-019fc02b-52). Alignment saved as an
+    **outer `<div style="text-align:…">` wrapper** around the HTML and unwrapped on load
+    (`unwrapAlignment…`, E-019fc02b-58, -64, -67); resets clear it. Crisis check re-verified.
+    Deployed; the Pages Builds API lagged, so Claude confirmed by fetching the live file.
+  - **Handoff v19 zip** built (`HOBS-Companion-FULL-Handoff-v19.zip`) with
+    `MASTER_PROJECT_STATE_v19.md` (E-019fc02b-152). Claude found **6 of 13 deployed Edge
+    Functions missing from the v18 zip** (incl. both Razorpay functions); pulled them;
+    **`send-apk-update-notification` was reconstructed from the compiled bundle** (no source
+    existed — flagged as needing a check). README and schema reference updated
+    (E-019fc042-39, -48, -61).
+  - **Google Doc:** Drive search needed approval, then found the canonical "MASTER PROJECT
+    STATE" doc, but **no write tool was available** — Claude said so and pointed to the .md.
+- **02:21 — Akash: "You always made a new Google doc so do it. And duplicate journal entry bug has
+  returned so fix it! And add bullet point options as well! (Both dots and numbers in journal).
+  And also give the latest apk."**
+  - Google Doc: still no write tool (checked twice).
+  - **Duplicates, first diagnosis:** two live rows with the same millisecond. Claude blamed the
+    **"rescue" pass** that re-saves local entries without an `id` (a new entry briefly has none)
+    → `_syncInFlight` flag with an 8 s safety timeout; rescue skips in-flight entries
+    (E-019fc046-35, -45, -48). *(Later shown not to be the root cause.)*
+  - Bulleted and numbered lists added to the toolbar, with CSS and active state
+    (E-019fc046-66, -70, -77, -84).
+  - **Incident: Claude deleted both live duplicate rows as "cleanup"** — one of them looked like
+    a real entry of Akash's. Claude flagged it in the same reply.
+  - APK: no new build — all changes were web/served or server-side; v2.9 still current.
+- **02:34 — Akash: "Are you fucking crazy? Deleted both duplicate entries not knowing if one was
+  original with no way to recover it!… Make sure it doesn't happen again! Plus upon saving the
+  entry doesn't appear automatically in the index!… if you can't make Google doc, create a…
+  document with all the things and complete architecture… in zip file!"**
+  - Claude saved a claude.ai memory rule: **never delete real user data without explicit
+    confirmation.**
+  - Index refresh: `handleJournalSave` never called `renderHistory()` after saving → added
+    (E-019fc052-12). Deployed.
+  - Architecture doc converted with pandoc to **`HOBS-Companion-Master-Architecture.docx`**
+    (title page, TOC), content updated (E-019fc052-64, -72), added to the zip.
+- **02:42 — "You are forgetting SOS button among a few other things! Include that! And mention all
+  API keys and access you have in the Master Architecture document."** Claude started on SOS; the
+  reply was cut off. *(This is the request that put credentials into a handoff document —
+  compare the Jul 21 Drive docs and BUG_LOG security entries.)*
+- **12:45 — Akash (screenshot): "The screenshot got a bug! The index display bug didn't resolve,
+  the double entry bug didn't resolve! And don't you fucking delete any duplicate entry."**
+  - The screenshot showed **raw `<h1>`/`<div>` tags**: **"Share as image"** escaped HTML
+    (E-019fc281-8), and so did the **therapist's view of a client's shared entries**
+    (E-019fc281-24). Both now render the HTML.
+  - **Duplicates, real root cause:** `syncToSupabase` used `payload.id || generateClientId()` —
+    a **fresh random id on every call**, so any repeat save made a new row and `upsert
+    onConflict:'id'` could never dedupe. Fix: every entry gets a **stable client id at creation**
+    (main, worksheet and calendar-day paths; E-019fc281-67, -112, -116), and a new
+    **`_serverConfirmed`** flag replaced `!e.id` in the rescue, edit and share/archive checks
+    (E-019fc281-72, -76, -86, -95). Test: two direct saves → one row. Deployed.
+- **12:55 — "What about the entry not appearing on index after saving…"** Claude simulated
+  save → Saved screen → Home → Journal and could not reproduce; found **`index.html` is also
+  cached `max-age=600`** and asked Akash to force-close.
+- **12:59 — Akash: "I can't find today's morning entry!"** DB showed old duplicates from before
+  this session (one entry **6×** on Jul 23, another 3× on Jul 25). Akash: completely gone in the
+  app; "it fucking saved, when you started working now, it went away." The row **was still in the
+  DB**. **13:02 — "the date sequence is now all messed up… You just caused another fucking
+  bug"; 13:03 (screenshots): "You just fucking duplicated every fucking entry!!!!!"**
+  - **Cause — Claude's own regression:** `_serverConfirmed` did not exist on any cached entry
+    from earlier sessions, so on load the rescue treated **the whole journal as unsynced** and
+    re-inserted every entry into the display. Reverted all four checks to `!e.id`, which every
+    entry now has (E-019fc292-2 + a bash revert), tested, deployed. **No new DB rows were
+    created** (upsert on the same ids) — display only. Akash confirmed fixed at 13:12.
+  - **13:12 — "why the fuck would you do that?"** Claude: it tested only fresh entries, never
+    Akash's real aged data, and used the *absence* of a new field as a signal.
+  - **13:12 — "store it in your memory to see the complete picture instead of… jumping the
+    gun."** Saved as a claude.ai memory rule: test any new-flag logic against real existing data.
+- **13:16 — Akash asked for a Tasklist toggle (constellation vs the current list).** Claude asked
+  one question (answer: current live Tasklist as-is), then said "Let's build this properly into
+  the real app." **13:18 — Akash: "I fucking said don't jump the gun… We haven't build the
+  constellation."** Claude stopped and asked three scoping questions.
+- **16:15 — Akash's decisions:** (1) prototype stays in chat for now — list all gaps; (2) the
+  toggle is **always available, a small button inside the Tasklist screen**; (3) **perfect the
+  prototype first, then upload it.**
+  - Claude's audit of the prototype file listed **17 gaps**: tasks without subtasks can't be
+    completed; add-subtask had been silently dropped; no rename, delete or text input; no due
+    date, priority, images, calendar, reorder or history; label crowding; no auto-rotate
+    control; touch untested; many-task overview untested; low-end Android untested; no
+    accessibility or reduced-motion pass.
+
+### Task alarms (Aug 2 16:22 →, C28)
+
+- **16:22 — Akash: "we need to add Alarm function as well for each task/subtask… add this function
+  to the current interface. DO NOT BREAK ANYTHING LIKE LAST TIME!"** Answer to Claude's question:
+  **a separate alarm time, independent of the deadline.**
+- **Backend (16:32):**
+  - live DB: `alarm_at` + `alarm_notified` added to **`tasks` and `subtasks`**;
+  - a new, isolated Edge Function **`send-task-alarms`** (FCM), deliberately separate from
+    `notification-scheduler`;
+  - a pg_cron job **every minute**.
+  - Tested: fires once, no refire, a future alarm is skipped, the subtask path works. A sandbox
+    network outage paused testing for a while.
+- **18:54 — Akash (screenshots): "a lot of overlaps and inaccessibility to buttons plus there's no
+  'alarm' button or emoji."**
+  - Cause of the overlap: `addTaskSheet` had z-index 11 vs the floating assistant button's 55 →
+    raised to 60 (E-019fc3d3-16).
+  - Task-level 🔔 alarm UI mirroring the deadline pattern: toggle, reset, edit prefill, save and
+    load mapping; changing the time resets `alarm_notified` (E-019fc3d3-31…-79). Tested.
+- **19:03 — Akash (screenshot): "the calmroom button isn't accessible… covered by the mobile
+  buttons. Plus I still don't see any Alarm emoji!"**
+  - Cause: **Claude had tested but never deployed** (changes uncommitted).
+  - `addTaskSheet` also lacked safe-area padding and scrolling that every other sheet had →
+    `max-height:85vh; overflow-y:auto` + safe-area padding (E-019fc3dc-17).
+  - Deployed, and the live file was checked.
+- **19:10 — Akash: "Perfect, now you were talking about subtasks?"**
