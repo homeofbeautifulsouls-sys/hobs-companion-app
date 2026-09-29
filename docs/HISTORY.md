@@ -3374,3 +3374,84 @@ pattern the app sessions followed.
   `on_conflict`).
 - **17:59 — Akash: "Not just this, every session we had from the time we started building this app,
   include everything!"**
+- **18:04 — Claude rebuilt `docs/BUG_LOG.md` as a whole-project log** (E-01a0016e-26), working
+  from the 9 prior session transcripts available in its environment. It confirmed **the
+  `on_conflict` bug had been fixed three times** (July, Aug 5, Aug 14) and added a standing rule.
+- **18:18 — Akash: "Okay, it's working, what next? Also journal entry bug still persists!… only
+  upon moving to another page and coming back it reflects! And even the back button on top left
+  takes to home page when it should take back to index page!"**
+  - `backBtn` always went to Home and never called `renderHistory()`.
+  - A new `journalWritingOrigin` is set at each entry point (Home, index FAB, edit, assistant
+    paths), and back to the index re-renders it (E-01a0017e-26…-49).
+  - An edit **accidentally deleted the `newTaskFabBtn` handler**; restored (E-01a0017e-42).
+  - **APK 29 / 3.8** (E-01a0017e-86). BUG_LOG #29 (E-01a0017e-94).
+- **18:24 — Akash: "Why the fuck are you re building a new apk everytime? Is it even fucking
+  necessary?"** Claude: yes, since the UI is bundled, but it agreed to **batch fixes into fewer
+  APKs**. **Akash: "Yes."**
+- **18:30 — "the swipe left and right function in my client schedule is sometimes working and
+  sometimes not."** Swipes starting on `.gcal-event-row` (most of the tab) were excluded. The
+  exclusion was removed (E-01a00568-2). BUG_LOG #30, which also restored a "Standing lessons"
+  header that earlier edits had dropped (E-01a00568-40). Web only.
+- **Aug 15 12:37 — Akash (screenshot of the spinner): "Why does the app take time to load?"**
+  - The experts/team load was taken off the blocking boot path (E-01a0056d-24).
+  - **12:40 — "I already sent you 1 screenshot! Fix that!"** The screen was `authLoadingState`,
+    with **`MIN_SPLASH_MS = 1200`** → 400 (E-01a0056f-20).
+- **12:45 — Akash: "Why don't other apps act the same way then!!!!! How come they operate
+  instantly!… Even when I asked you to make audits you fucking sucked! ChatGPT did all that
+  work!"**
+  - **Optimistic boot:** if a cached Supabase session and cached onboarding/consent flags exist,
+    go straight to Home and confirm in the background (E-01a00574-20, -35, -43).
+  - The first version **read `appState` about 200 lines before it was declared**, and a try/catch
+    hid the error. Moved to right after `loadState()` (E-01a00574-71, -74). Four scenarios
+    tested. BUG_LOG #31 (E-01a00574-97).
+  - **13:02 — "It's still there! Just takes shorter! I need it completely removed"** — Akash's
+    phone was on an older build. **APK 30 / 3.9** (E-01a00584-9).
+- **13:11 — "What's remaining now."** Claude listed items, then **13:14 — Akash: "Wait didn't we
+  decide with Grok? Because it wouldn't charge nor share user data! Plus sos function, Email
+  marketing. Dude a lot of things are left! List down everything's that left! EVERYTHING!"**
+  - Past-chat search showed the decision was **Groq** (free, no training on data). The crisis
+    function had been using **`ANTHROPIC_API_KEY`**, and Claude's Aug 14 fix never questioned
+    that. Claude called it a regression it had missed.
+  - SOS had been scoped earlier: live location to connected professionals plus emergency
+    contacts. **Open decision:** how to reach non-app emergency contacts (paid SMS/WhatsApp
+    Business with DLT, or a WhatsApp link).
+  - Email marketing had never been scoped.
+  - The full list also included Google verification, D-U-N-S, lawyer ToS review, a real-money
+    Razorpay test, HDFC SmartGateway, invite emails, the Supabase tier, the constellation, React
+    and the calendar grid.
+- **13:18 — Akash pasted a Groq API key** (redacted).
+  - Set as the `GROQ_API_KEY` secret. `check-journal-risk` was rewritten for Groq
+    (E-01a00593-13…-24).
+  - `openai/gpt-oss-120b` failed every call: it is a reasoning model and `max_tokens:50` was too
+    low. Switched to **`llama-3.3-70b-versatile`** (still live despite a deprecation notice;
+    E-01a00593-42, -45).
+  - 4 tests passed, including the indirect/metaphorical case.
+  - **Privacy policy updated to disclose Groq** (E-01a00593-66, -68, -71). Claude checked that
+    `showCrisisResourceModal` notifies no one.
+  - BUG_LOG #34, via a Python insert after repeated str_replace failures.
+- **13:26 — "can we use this AI for our characters and chats as well?"** (answer: the Bob/Kunnu/Po
+  assistant). Claude found the assistant was **16 hardcoded pattern rules** with a flat "I'm not
+  sure I caught that" fallback.
+- **13:29 — Akash: "First make sure crisis AI runs 'everywhere'. Then I don't want us to cost
+  anything even after characters have actual personality… train them… absolutely accurate and
+  devoid of any hallucination."**
+  - Crisis checks: chat messages were keyword-only → switched to the full
+    `maybeShowCrisisResources` (E-01a0059d-28). Added to **worksheet reflections**
+    (E-01a0059d-45) and the **intake note** (E-01a0059d-53). All tested with indirect language
+    against Groq.
+  - Claude explained grounding in a knowledge base versus training.
+- **13:39 — Akash: "I am speaking about actual companions!… Bob will be trained with therapy
+  materials! Literally entire therapy manuals of 1000s of pages."**
+  - Claude pushed back on scope of practice, liability and copyright.
+  - **13:41 — Akash: "Look chatgpt speaks, you speak, gemini speak right? Except bob will be in a
+    much better position to do that!"** → reframed: a skilled conversational companion grounded
+    in therapeutic *communication* style, never diagnosing or prescribing.
+- **13:43 — "we already had built personalities… retrieve them and then set up a guideline and
+  plan of action."**
+  - Claude retrieved the character bible from past chats: Bob (listener, "Tell me more"), Kunnu
+    (connector, "Come sit with us"), Po (practical; masks, "I'm good!"), Cookie (hope keeper).
+    **Akash: "You are correct!"**
+  - Delivered `HOBS-Character-AI-Voice-Guidelines-and-Plan.md` (E-01a005ab-4). It asked whether
+    the AI layer should ever suggest navigation.
+- **13:47 — Akash: "Let's build characters first completely! Train them, shall we? Rather than
+  incomplete build and set the tone."**
