@@ -1400,3 +1400,71 @@ pattern the app sessions followed.
   identity than YourDOST's anonymity. **22:54 — Akash:** he has tried to include **sensory
   comfort, free standardised screenings, executive-dysfunction support**, all features, SOS —
   "you don't have to necessarily agree with me".
+- **22:55–23:04 — Positioning discussion (no code).** Claude's view: sensory comfort is a design
+  philosophy without dedicated settings (no reduced-motion, contrast or stimulation controls);
+  "comprehensive" isn't defensible against Amaha/Wysa; validated screenings are a quality
+  signal but table stakes; asked whether "Body Doubling" is live co-presence or a solo list
+  (Claude recalled building a solo list). Akash: HOBS is built as **a companion through the
+  mascots** — Claude: Wysa, Woebot, Finch and Amaha's Allie already do companions, all
+  *conversational*; HOBS's four characters are deeper but don't converse. Akash: **no funding
+  at all; self-help resources just begun**; **"We are serving pan India dude!"** (Claude had
+  assumed Ahmedabad-only) and "not focusing on size". Claude suggested framing the free self-help
+  layer as pan-India and therapy as a curated, growing team. Akash asked for features and
+  differentiators for LinkedIn; **"Mention all features! And you literally forget sensory
+  experience every single time!"** → a full list with a sensory-design section.
+- **Jul 13 00:01 — Akash's screenshot list** (fixes + update Drive/zip).
+  - After three reports, the **tick box was dropped as the target: tapping the whole row
+    completes a task**; title, priority dot and "+" keep their own actions (E-019f58c6-21).
+  - **Third single-line subtask input** (the Add/Edit Task sheet) → textarea; **regression caught:**
+    the save logic queried `input` elements and would have dropped these subtasks
+    (-64, -74, -82, -86); the day-view add-subtask input too (-101, -105, -110). A
+    `toggleSubtaskForm` found to be dead code.
+  - Admin "view profile" for a professional now shows their professional profile
+    (-122, -125).
+  - **Journal sharing only after saving:** the pre-publish share toggle and its therapist-select
+    sub-flow removed (-139, -150, -159, E-019f58d1-6, E-019f5a95-6, -9).
+  - **Completed tasks in their own "✓ Completed" section** (E-019f5a95-21). "Task list doesn't
+    scroll" could not be reproduced.
+  - Drive **Update Log v31**; zip regenerated.
+- **09:10 — Akash:** done tasks aren't moving to completed; a task with some subtasks done should
+  appear in Completed with the done subtasks and stay in Remaining with the rest; reversible;
+  "complete the logic if I am missing anything". Claude found this **split view already
+  existed** (built earlier) and passed tests; suggested cache or tapping the subtask title
+  instead of its box. Akash sent "Now what?" twice while Claude worked, then asked what to do
+  next; Claude listed open items (D-U-N-S, SOS contacts decision, email marketing scope,
+  lawyer, `ANTHROPIC_API_KEY`, duplicate expert rows, campaign check, Supabase Free tier,
+  untested scheduler).
+- **09:39 — Akash (screenshots):** a task shows under Completed with a subtask still open; a
+  **"completely messed up"** edit screen. Causes: **row-tap flipped `task.done` ignoring
+  subtasks** → cascades to subtasks (E-019f5ad8-15); rendering and **credits** no longer trust
+  `task.done` for tasks with subtasks (`isTaskGenuinelyDone()`) (-19, -29); **textareas were
+  auto-sized while the sheet was hidden** (`scrollHeight` 0) → re-measured after showing (-45).
+  Drive **Update Log v32**.
+- **11:55 — Akash:** no **share button after saving** a journal entry or worksheet; **"I said
+  completely remove tick button from task panel!"**; rename "Pending Tasks" → "Tasks" with
+  pending and completed; admin View still doesn't show the actual profile; **no active users on
+  the dashboard** and no full profile on tapping a name.
+  - Share only checked for a **Therapist** connection → any active professional connection
+    (E-019f5b54-14). **Checkbox removed from the DOM** (-31). Calendar section renamed and split
+    (-46, -49). **Admin View opens the real client-facing expert page**, with Back returning to
+    the dashboard (-61, -67, -72). **`last_active_at`** tracking, an "Active" badge and filter,
+    and task stats plus shared entries in the user profile (-93, -97, -100, -108, -113, -122,
+    -128, -131, -136). Drive **Update Log v33**.
+- **12:16 — "Why the fuck does this tick button still exist!!!!"** — a decorative check icon in
+  the **Add Task sheet** and one in the Body Doubling list; removed, plus a dangling
+  `appendChild(icon)` (E-019f5b67-10, -21, -30). **Not pushed before the session paused.**
+- **13:49 — Akash (7 screenshots):** finish that; **"I didn't receive any crisis resources"**; still
+  no share button after recording; ✓ still in the task button; no active users / no profile on
+  tap; why is Notification History on the dashboard?; **no reject for donation pledges**; **Log
+  Appointment not working** — therapists must pick an assigned client, or add a non-registered
+  one (name, email, contact, emergency contact) once and reuse; **photos in subtasks**.
+  - Confirmed the checkbox fix had **never been pushed**. **Crisis-detection gap: contractions
+    and colloquial spellings** (e.g. "wanna") in the real journal text weren't matched →
+    patterns rebuilt, tested against the screenshot entries, **pushed immediately**
+    (E-019f5bbc-21).
+  - Share area now explains when no professional is connected (-48). **Active Bookings rows
+    weren't clickable** → open the real profile (-71, -73). Notification History collapsed by
+    default (-82, -87). **Reject** for donation pledges (-96).
+  - **External clients directory** table; Log Appointment rebuilt to pick an assigned client, a
+    saved external client, or add a new one (-119, -128, -137). `subtasks.image_url` added;
+    subtask photo UI started. Akash sent "Continue" six times while Claude worked.
