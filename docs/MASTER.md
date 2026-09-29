@@ -590,7 +590,7 @@ lost**:
 
 Agreed direction from Akash, Sept 29, 2026. **Nothing here is built yet. Every item needs
 Akash's explicit OK before it starts** (standing rule: talk first, no builds/deploys without OK).
-Suggested order: 13.1 → 13.3 → 13.2 → 13.4 → 13.6 / 13.8 → 13.5 → 13.7.
+Order changed by Akash Sept 29, 2026: **13.4 first** (he has no laptop, so no work on his side for now), then 13.1 → 13.3 → 13.2. Original suggested order: 13.1 → 13.3 → 13.2 → 13.4 → 13.6 / 13.8 → 13.5 → 13.7.
 
 Core idea: today almost every safeguard is a rule a Claude session has to remember. Move them
 into the system itself, so they hold even when a session forgets or resets.
@@ -611,7 +611,7 @@ into the system itself, so they hold even when a session forgets or resets.
   file) as a **weekly scheduled check that alerts on any difference**.
 - **Monthly restore test** of the backups (`database-backup`, `database-backup-offsite`) — an
   untested backup is not a backup.
-- Decision for Akash: **Supabase Pro ($25/month)** — automatic daily backups (7 days) and no
+- **Decided Sept 29, 2026: no Supabase Pro (no budget).** So our own backups are the only backups — the restore test matters even more, and staging needs a keep-alive to avoid free-tier pausing. Original option: **Supabase Pro ($25/month)** — automatic daily backups (7 days) and no
   inactivity pausing (the Sept 27 staging pause broke Google Sign-In). Free plan has no automatic
   backups at all. PITR is a paid add-on on top of Pro.
 
