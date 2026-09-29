@@ -4713,3 +4713,59 @@ pattern the app sessions followed.
     `allPanels` (E-01a0adf4-2).
   - Claude briefly started a test account impersonating a real therapist's identity, then removed
     it and used an isolated one. Staging 24 (-23).
+
+### Sept 17 — Calendar reload, session log entry points, bug-log catch-up, real chain test, change flow (C31)
+
+- **06:08 — "Reconnect Google Calendar the bug has returned!!!! It only opens in browser and doesn't
+  land back on app!… And I still don't see session logs button anywhere as a client!"**
+  - The connection had succeeded server-side. The "return to app" banner was likely wiped by the
+    60-second update check's forced reload → banner given an id and protected from reload, plus a
+    flag set at callback start (E-01a0adfb-73, -76, -80, -83).
+  - A direct **Session Log button on the profile page** (-92, -96). Staging 25 (-114).
+- **06:20 — "Still no session log button on this page!"** (Our Experts) → added on connected cards
+  in `renderTeamList` and in `openExpertDetail` (E-01a0ae06-12, -19, -27, -37, -44). Staging 26
+  (-69).
+- **06:28 — "update the bug log!… every bug that's found and resolved should be covered"** →
+  BUG_LOG **#73–#95** + five standing lessons (E-01a0ae0d-17, -23).
+  - **06:35 — "It's not just today's session, what about previous sessions!!"** → Claude searched its
+    own earlier transcripts (Sept 8–16): Sept 8 covered by #61/#62; Sept 16 gaps added; #75 and #76
+    corrected (E-01a0ae13-32, E-01a0ae1d-14, -21). Handoff copy re-synced.
+- **06:54 — "Now what's remaining"** → `PROJECT_STATUS.md` rewritten (E-01a0ae25-6, -18, -28). Listed:
+  Coordination tab, the full-chain test, the mystery filter, other-role re-verification, and the
+  existing backlog (Play testers, alarms, real Razorpay test, OAuth verification, streaming, crisis
+  threshold, in-house calendar…).
+- **06:58 — "Let's focus on the real chain test first."** Run through the real UIs with test
+  accounts:
+  - admin assigns via "Pending Session Requests"; professional adds availability in the existing
+    Schedule tab (Claude's earlier "gap" was wrong); client picks the slot; therapist accepts in
+    "Session Time Requests"; `session_history` recorded; payment simulated.
+  - **Bugs found:** "Save Notes & Lock Payment" (`therapistLockPayment`) only wrote to
+    `expert_bookings` → now also updates the matching `session_history` row (E-01a0af06-9, -13);
+    **`session_history` had no UPDATE policy** (added); `delete_user_data_atomic` didn't handle
+    `expert_availability_slots.booked_by` or the three new role columns (fixed).
+  - Red/green verified. BUG_LOG (-119); PROJECT_STATUS (-122, -128). Staging 27 (-101).
+    **Meet link generation still needs Akash's real OAuth-connected account.**
+- **11:13 — "Upon clicking on change Therapist, the request has to be sent to admin! Dude the
+  protocol was already built! Why would you change that! And these people don't even exist!!"**
+  - The profile "Change therapist" button still opened an **old demo panel with three hardcoded
+    fake therapist names** → wired to `requestExpertChange` (E-01a0af12-23).
+  - **`panel-therapist-select` and the fake `therapists` array deleted** (-59, -79, -82, -86); a
+    hidden dev prototype bar left. Staging 28 (-98).
+- **11:25 / 11:38 — "I requested change Therapist… I approved it, didn't work at all! Same I can't
+  see request for approving [another professional]… make sure that I properly get every approval
+  needed and it works perfectly for all clients and professionals!… then suddenly it said retry!"**
+  - Admin "Approve Change" only cancelled the relationship → the change-request card now lets admin
+    **reassign directly** with the same mechanism as session requests (E-01a0af1d-60, -63, -72).
+    Staging 29 (-138).
+  - Akash's pending request for another professional was completed by Claude via the admin UI (a
+    General Physician connection — real account data).
+- **11:43 — "Even after clicking approved, I was being shown your request is being processed!"** →
+  **root cause: `appState.expertBookings` was loaded once at login and never refreshed** → new
+  `refreshExpertBookings` wrapping `renderTeamList`, `renderProfile` and `openExpertDetail`
+  (E-01a0af2d-23, -28, -34). Reproduced and fixed. Staging 30 (-64).
+- **11:51 — "I requested myself as the therapist! But I didn't even get the request! Just a
+  notification on app"** → the `new_booking_request` notification now opens the admin
+  "Requests & Bookings" tab (E-01a0af35-20). Staging 31 (-42).
+  - **11:54 — "Wait! I sent you the screenshot!… Even in the requests and bookings there was actually
+    no request that I could see to approve! That's the main [issue] and notification not landing
+    properly is the secondary issue!"**
