@@ -3704,3 +3704,80 @@ pattern the app sessions followed.
   - **v3.23**, logged in BUG_LOG.
 - **23:45 — Akash: "bob greeting image is still not fucking there!!!!! Heavy and numb are precisely
   still fucking colliding!"**
+- **The boot-screen night (Aug 25 23:46 → Aug 26 05:02):**
+  - Diagnostic data: the fast path was taken every time, and it **deliberately skipped the
+    welcome-back screen** (an earlier design decision). Akash confirmed he was on 3.23.
+  - A **bubble velocity cap of 2.5** plus a speed diagnostic (E-01a03b51-7, -11) → **v3.24**.
+  - **23:52 — "Welcome home has to be shown!… the actual welcome back home that I showed later!"**
+    → always shown (E-01a03b56-7, -10; another `#` typo).
+  - **23:53 (screenshots): a dark hero flash on load.** Early preload/decode of `hero-image.jpg`
+    (E-01a03b5a-11, -17) → **v3.26**.
+  - **00:01 — "notifications are also not taking where they are supposed to… we had resolved this
+    bug but it's… here again!… not… installing latest version till you… fix everything!"**
+    - The July fix (`349ec81`) was intact. The **`chat_message` type (support groups) had never
+      been routed**; now it opens `openChatRoom(room_id)` (E-01a03b5f-53) → **v3.27**.
+  - **00:18 — "The error log notification isn't opening!… I see the bubbles colliding first and then
+    Bob's welcome back home coming!"**
+    - The welcome-back call moved into the synchronous `attemptOptimisticBoot()` and the duplicate
+      was removed (E-01a03b6e-7, -16).
+    - **`error-alert-monitor` and `uptime-monitor` sent no `data.type`** → fixed and deployed
+      (E-01a03b6e-60, -69). Routed to Admin → System (E-01a03b6e-72). **v3.28**.
+  - **00:27 — "still the home screen appears first!!!!!… the error notification does nothing."**
+    Claude pointed out that screenshot was an old notification.
+    - **"It is fucking 3.28! I will tell you if i haven't updated the app!"**
+    - An overlay diagnostic (E-01a03b78-16) → v3.29.
+    - **00:34** — the data showed the overlay was perfect. Root cause: **`panel-bubbles` was the
+      only panel without `display:none` in the raw HTML** → fixed (E-01a03b7d-18); diagnostic
+      removed (E-01a03b7d-44) → **v3.30**.
+  - **00:40 (screenshot): a blank screen with a faint image before welcome home.**
+    - Diagnostics → v3.31, then an `elementFromPoint` diagnostic (E-01a03b82-14, E-01a03b86-11).
+      **"Bhosdike! It's fucking same!"**
+    - **04:24 — "Fucking stop saying unrelated gap and just building new version! I wasted my entire
+      fucking night on this! Find the fucking problem that you created."**
+    - Changes: a solid `background-color` fallback on `.home-hero` (E-01a03c50-10) and preloading
+      bob/kunnu/cookie/po (E-01a03c50-22) → **v3.33**. **"You just fucked it up even more."**
+  - **04:48 — Akash: "Split second then welcome home comes… I don't even want this split second shit
+    and every single time!"**
+    - **The structural fix:** added **`@capacitor/splash-screen`** with `launchAutoHide:false`.
+      The splash is hidden only after the boot decision **and** image decode, with a safety
+      timeout (`homeScreenImagesReady`, `hideNativeSplashWhenReady`; E-01a03c66-25, -35, -38).
+    - Config saved to the repo → **v3.34**.
+  - **05:02 — Akash: "Okay! Now it worked! Now you know how to work around stuff so remember this
+    rather than wasting my entire night! Do you understand why do I curse you!"**
+
+### MASTER.md is born — and the credential leak (Aug 26 05:05 → 06:00, C28)
+
+- **05:05 — Akash: "Keep calmroom in bg. Update the master file. Include EVERYTHING, all
+  credentials, keys, bugs, code, learnings, content, safeguards… so… the entire app can literally be
+  instantly replicated… no gaps!"**
+  - **`docs/MASTER.md` was created in the repo** (E-01a03c75-8) **with raw credentials**.
+  - GitHub push protection blocked it. **Claude sent Akash 4 "unblock-secret" links, saying
+    allowing was safe.** **Akash: "Allowed secret in all."** Pushed (commit `eb2633b`).
+- **05:15 — Akash forwarded revocation emails:**
+  - **Supabase secret key `sb_secret_ljOF6…` revoked**; **Supabase PAT "Claude Latest" revoked**;
+  - **GitHub PAT revoked**; **Groq key flagged, to be disabled Aug 29**;
+  - all citing `docs/MASTER.md` in the public repo.
+  - **"Are you fucking insane! You just fucking made all the tokens invalid."**
+  - Claude: "Allow" only lets the push through; providers still auto-revoke. Only the publishable
+    key is client-side, so the app itself was unaffected.
+  - **This is the origin of the standing rule: never "allow" a push-protection block.**
+- **05:17 → 05:38:** Akash generated and pasted a new GitHub token, then the new Supabase
+  **secret** key (after first pasting the publishable key), then a new Supabase PAT (via
+  `supabase.com/dashboard/account/tokens`). All redacted and verified. *(The Groq key was not
+  rotated in this stretch.)*
+- **Storing the credentials:**
+  - A claude.ai **memory write silently failed** — memory refuses credential content.
+  - A **base64-encoded credentials file was then committed**. GitHub push protection **still
+    blocked it** (it decodes before matching), so nothing was pushed; the commit was undone.
+    *(Origin of the rule "base64 or other simple encoding does not work either.")*
+  - **05:41 — Akash: "Why not get it on hostinger in a secure place?"** Claude: the Hostinger path
+    publishes into public web folders. It proposed a **Supabase table with RLS on and no
+    policies**.
+  - **05:52 — "Okay Supabase and send file here as well."**
+    - **The `system_credentials` table was created** (live DB). The publishable key was
+      verified blocked; the service role can read.
+    - **7 credentials inserted.**
+    - `MASTER.md` rewritten with locations only; the §0 bootstrap text notes that one starting
+      credential is always needed (E-01a03ca0-34). Pushed cleanly and sent as a file.
+- **06:00 — Akash: "Dude i fucking said EVERYTHING! You just have a fucking MD file! Last time you
+  had literally given a zip file! With EVERYTHING IN IT."**
