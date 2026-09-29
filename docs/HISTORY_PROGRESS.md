@@ -68,7 +68,7 @@ the chunks and recorded in `HISTORY.md` in words, with the command where it matt
 ## Status
 
 - Total chunks: **65** (each ~100k characters)
-- **Resume point (timestamp of the last message fully recorded): 2026-07-05T02:42:31Z**
+- **Resume point (timestamp of the last message fully recorded): 2026-07-05T10:49:00Z**
   Chunk numbers can change if the reading copy is rebuilt, so always resume by timestamp:
   `grep -l '<timestamp>' <scratch>/timeline/chunk_*.txt` and continue after that message.
 - Last updated: 2026-09-29

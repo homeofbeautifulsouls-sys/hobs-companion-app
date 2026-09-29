@@ -509,3 +509,95 @@ pattern the app sessions followed.
   scale with the **Copenhagen Burnout Inventory** (public domain). Started testing the Journal
   bug.
 - **Jul 5 02:42** — Akash: "Please continue."
+- **Jul 5 02:51 (C23) — response to the gold-standard correction.**
+  - Journal "Add new → Journal entry" **judged not a bug** (it routes to Home, where a mood is
+    picked first) → a short toast added (E-019f3027-106). Claude's own tests had used a wrong
+    class name (`.mood-bubble`) and briefly reported "bubbles don't render" — a false alarm.
+  - Burnout replaced with the **Copenhagen Burnout Inventory** (E-019f3027-23, -27); engine
+    extended for averaged 0–100 scoring (-34).
+  - **Tests cut from 16 to 8** (PSS-10, PHQ-9, GAD-7, DASS-42, PCL-5, Big Five, UCLA-20, CBI) —
+    the ones Claude couldn't vouch for were pulled (E-019f3027-42; PSS-10 wrongly dropped, then
+    restored -46). **Test names/acronyms removed from display** (-52, -54, -60, -62).
+  - Home centered (-68); the "weird 3D icons" replaced with a flat **2×2 card grid** (-77, -80;
+    `color-mix()` swapped for explicit colors for WebView support, -84, -86); Grounding and
+    Worksheets pages got "what this page is for" text (-94, -98); Team page → **photo slider**
+    (-117, -121, -124). Drive log **v10**.
+  - Claude's answers: all data lives **only in the phone's localStorage** — no account, server
+    or backup. The branded report in Akash's guide is made **server-side in Python
+    (ReportLab)**, so the client-only file can't produce it. **Not done this round:** the
+    active-listening post-test message.
+- **03:02 — Akash:** journal entry still only shows "pick how you are feeling"; Add a Task needs
+  better alignment; **Progress → Achievements → Rewards as a slider** showing the flow; **Book an
+  Appointment replaces See Progress**; "I want all the tests that are present on the website!…
+  **We cannot make any changes in clinically validated tests**"; show the real count instead of
+  17; **from now on also save an MD file in Drive**; Calendar day view also gets "add mood for
+  the day"; saved worksheets not showing on the Journal page; Bob's intro text off-tone.
+- **03:12 — Claude's batch:** toast replaced with a **persistent banner** (E-019f3039-11, -14,
+  -21); worksheet-in-Journal re-tested as working (Claude suspected a stale cached copy); Bob's
+  line rewritten around "tell me more" (-37); **mood-for-a-day picker** on the Calendar day view
+  (-52, -57); Add a Task redesigned as a vertical stack (-73); Book an Appointment card + the
+  Progress/Achievements/Rewards slider (-81, -87).
+  - **Bugs caught:** Achievements and Rewards had **lost their click handlers** in the earlier
+    refactor (standalone functions never re-attached to the new IDs) (-113); the Achievements
+    and Progress **back buttons still went to Calendar** from the old layout (-126, -133).
+  - Drive log **v11** as a Doc plus an "MD" copy — the Drive connector **converted the
+    `text/markdown` upload into a Google Doc**; a real `.md` needs Docs' export.
+  - Tests: Claude said it can't read "another Claude session" and asked for the source; the live
+    page loads questions dynamically.
+- **03:14–03:22** — Akash asked whether the page's HTML would work (yes). Then: team photos
+  missing; **header "messed up… got auto corrected after a while"**; journal still broken.
+  - **Header bug fixed:** `.logo-img` had `width:auto`, so the layout shifted when the PNG
+    loaded; locked to the real 1024×495 aspect ratio (E-019f3048-11).
+  - Akash said he tests **inside Claude's preview**. Claude's theory: localStorage doesn't work
+    reliably there, which could explain the "works for me, fails for you" reports; advised
+    testing the downloaded file in a real browser.
+- **03:23–09:26 — Team photos.** Akash gave the About Us page, then 9 image URLs, then mapped
+  the 3 unnamed ones and sent Dr Dhruv's. All **10 real photos plus credentials** wired
+  (E-019f3195-7, E-019f3198-2). A sandbox load delay was briefly mistaken for broken URLs.
+- **09:28 — Akash pasted the live tests page's full code** (~165k chars): "cross check
+  everything perfectly though! It had a lot of bugs, which I don't want for the app."
+  - Claude: **BDI-II, BAI and MBI are verbatim in the website's code** (licensed instruments —
+    flagged for the website separately); kept PHQ-9 / GAD-7 / CBI in the app.
+  - **Bug found in the live website:** the **Social Connectedness Scale's reverse scoring was
+    inverted** (a well-connected person scored as lonely) — hand-traced and fixed in the app
+    (a simulated well-connected respondent now gets 40/40).
+  - Engine extended for PSQI's time/number inputs and a custom-scoring hook
+    (E-019f319b-18, -26, -31). The full TESTS_DATA rebuild was **too large for one edit**
+    (102,704 bytes > 100,000 limit) → written to `new_tests_data.js` (E-019f319b-42) and
+    spliced in by line range. TEST_GROUPS updated (-56). Real Instagram and LinkedIn links from
+    the site's schema markup (-64, -67).
+  - Final count: **16 tests** (13 ported exactly + 3 substitutes) — "it was 16 all along."
+- **10:08** — Drive log **v12** (Doc + "MD" Doc).
+- **10:10 — Akash:** "Why can't I download my report if I am connected to the therapist? And I
+  had given you an MD file to make reports automatically." Claude: **no download feature had
+  ever been built** (only a simulated email capture). Added **jsPDF** from cdnjs
+  (E-019f31c1-9) and an ungated **"Download My Report (PDF)"** button (-17, -27).
+- **10:22 — Akash** sent a Chrome screenshot of the journal problem and **a real client's
+  report PDF (name withheld here)**: "THIS IS EXACTLY HOW THE REPORT HAS TO BE!… Especially the
+  content." Also: remove the side scroll arrow; back on the report page goes Home instead of
+  the score page; "17" on Home → **16**; Bob not visible and mascots misaligned; why do laptop
+  and mobile Chrome look different?
+  - Fixed: "16 scientific screenings" (E-019f31cc-11); native scrollbar hidden (-16).
+  - Bob/mascot alignment and the back-button bug **could not be reproduced** — asked for
+    screenshots.
+  - **PDF rebuilt to the sample:** `REPORT_CONTENT` (therapy models and activities per test,
+    chief complaints taken from the person's highest-scoring answers) written to
+    `report_content.js` and spliced in (E-019f31cc-47, -50); name field (-67); letterhead,
+    section pills, scores table, theme callout, disclaimer (-79); `id="headerLogo"` added and
+    the logo drawn via canvas (-86, -90).
+  - **Bugs caught from the PDF text:** `≡`/`▶` glyphs corrupted in jsPDF's Helvetica (replaced
+    with drawn shapes, -129, -131); scores lacked their maximum; **AFI scored as an average
+    instead of the report's raw sum out of 160** (-116, -125, -134); duplicate "Concerns"
+    text (-138); double periods in complaints (-152).
+  - Laptop vs mobile: **intentional** — the app is a 420px phone-frame mockup. Limit named:
+    Helvetica, not Plus Jakarta Sans.
+- **10:38–10:43 — Journal, 4th report.** Claude first told Akash the screenshot showed the app
+  working as designed and that he was on a cached file. Akash: "No, I am running the latest…
+  The journal entry page doesn't open!" Claude then found the **real bug: the new banner pushed
+  the mood bubbles below the visible area and nothing scrolled to them** → auto-scroll added
+  (E-019f31de-6), tested in a short window.
+- **10:49 — Akash:** the mood tracker doesn't open after a mood is recorded through it;
+  **completing a subtask also completes the main task** — needs a Save button under the task;
+  the journal issue continues. "Should I change the model… I need to **publish the app by
+  tomorrow**… in previous chat, when I changed model, it literally forgot the conversation and
+  couldn't even read the same chat!"
