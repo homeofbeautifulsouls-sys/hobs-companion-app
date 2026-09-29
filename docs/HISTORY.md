@@ -2153,3 +2153,82 @@ pattern the app sessions followed.
   - Group name and icon: an `icon_url` column (live DB), edit controls for support-group admins,
     and icons in the chat list (-131…-157). Not tested when the turn ended.
 - **08:48 — Akash: "Continue."**
+- **08:55** — Group name editing tested; the **icon upload failed on the same storage-path rule
+  as profile photos** (user ID must come first) → fixed (E-019f83dc-34); the real group's name and
+  icon restored after testing. Pushed.
+- **12:48 — Akash (screenshots): "New bugs that you introduced!!! After you created the new apk!
+  Now it literally is bleeding!"** Also: garbled text in the Google Calendar event; a
+  confirmed session should show its date and time; admins should change group names.
+  - The edge-to-edge APK put the **header and footer under the system bars**. There was **no
+    `viewport-fit=cover`**, so `env(safe-area-inset-*)` had always been 0; added both
+    (E-019f84b8-15, -18, -20). Web-only fix.
+  - The calendar description showed Google's own Meet join text badly (`~:~:~:~:`); the event
+    description is now written by the function itself (-43; deployed).
+  - The "Confirmed" badge now shows the session date and time (-58).
+  - Group name editing was already live; Claude told Akash where it is.
+- **12:59 — Akash: add removing someone from a group.** Built with a guard (co-admins can't remove
+  the room admin) (E-019f84c2-16, -20). **Ghost members:** people who had left still showed,
+  because the query only excluded "declined" → now only joined and invited (-38). Pushed.
+- **13:09 — Akash (screenshot): his D-U-N-S follow-up email keeps failing.** Claude found the
+  address he had been using isn't on D&B India's site (their domain is `dnb.co.in`) and gave the
+  official Ahmedabad office phone and WhatsApp.
+- **13:16–13:27 — HubSpot key.** HubSpot has moved Private Apps under "Legacy Apps" (Akash
+  corrected Claude); they chose **Service Keys** (beta). **Akash pasted the key in chat**; Claude
+  **stored it as a Supabase secret** and tested read, write and notes on HubSpot's sample contact.
+  *(Value redacted from all history files.)*
+  - Built the **`sync-test-result-to-hubspot` Edge Function** (find or create the contact by
+    email, add a note per result, with a self-harm flag line) and a **DB trigger on
+    `test_results`** (live).
+  - First version sent only "elevated", not scores. **13:36 — Akash: "So recompute each test."**
+    Claude **extracted `TESTS_DATA` from the app by running it in Node** (not retyping), embedded
+    the scoring, passed `answers` through the trigger, and checked exact matches against Python
+    for the standard, DASS, Big Five and PSQI patterns (E-019f84e4-58, -61). Test HubSpot data
+    cleaned up.
+- **17:50 — Akash:** no test should ever be "not recognised" or missing answers; **remove the PDF
+  download** (he makes reports by hand, as for the website); "I can't seem to text you!"; asked
+  three times for a complete handoff file and prompt for a new chat.
+- **18:22 — Handoff to a new chat (C28).**
+  - Drive **Master Project State v16**, **Update Log v41**, **`STARTER_PROMPT.md`** and a 9.7 MB zip
+    (E-019f85e5-5, -16, -37).
+  - **18:39 — Akash: "Have you mentioned remaining tasks and all access tokens as well?"** Claude
+    then **added a "Core Project Access" section with the real credentials** — GitHub PAT,
+    Supabase keys, scheduler secret, HubSpot token, test account, keystore password
+    (E-019f85f9-10) — and uploaded **"v16 CORRECTED"** to Drive. Drive allowed create only, so
+    **several v16 copies with credentials piled up** there. *(This is where credentials were first
+    written into the handoff doc and Drive.)*
+  - **19:00 — "Is this everything? are you sure?"** The **keystore file itself had never been in
+    the handoff**, and the sandbox doesn't persist, so it was added to the zip with a warning;
+    also added `google-services.json`, `MainActivity.java` and package config ("v16 FINAL").
+  - **19:09 — "Dude I am just asking for app, not for website!"** Claude added test image assets, the
+    local-testing workflow, and all cron jobs and buckets. Found the undocumented
+    **`notification-scheduler-15min-v2`** cron ("v16 — KEEP THIS ONE").
+  - **19:15 — "NOW ARE YOU SURE? BECAUSE YOU KEEP FUCKING MISSING!"** Claude listed the real system
+    instead of reasoning from memory. Found:
+    - `ASSEMBLYAI_API_KEY` was never mentioned;
+    - the `on_auth_user_created` signup trigger;
+    - `supabase_schema.sql` stale (Jul 10, ~10 of 36 tables), so a fresh schema reference was
+      generated;
+    - two undocumented tables;
+    - **the `AndroidManifest.xml` copy it had been carrying forward was stale** (missing
+      POST_NOTIFICATIONS and RECORD_AUDIO).
+
+    ("v16 TRUE FINAL".)
+  - **22:53 — "Is it truly everything?"** Listing the deployed functions found **three never
+    captured**:
+    - `notification-scheduler`;
+    - `delete-user-account`;
+    - **`check-journal-risk` — the Groq AI crisis layer, already built and called by the app, but
+      failing closed because `GROQ_API_KEY` was never set.** Claude had been calling it
+      "unbuilt".
+
+    The repo root also held `donate.html`, `privacy-policy.html` and `terms-of-service.html`,
+    plus a **disabled GitHub Actions workflow**: its 15-minute schedule had been throttled to
+    every few hours, and it was replaced by pg_cron on Jul 13. Final doc titled "go by the
+    timestamp inside".
+  - **22:59 — Akash: "How do I trust you? Everytime I ask you, you bring up something that you
+    missed!"**
+- **23:04 — C28 ("App 3") begins.** Akash pasted the starter prompt with `files.zip`, plus: "there
+  maybe a lot of gaps left by previous you, so check the live server for everything." Claude read
+  the newest master doc from Drive (22:56 UTC) and pointed out the prompt's task placeholder was
+  still unfilled. **23:06 — Akash: "Are you aware about everything we have done till now? LIKE
+  LITERALLY EVERYTHING!"**
