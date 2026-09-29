@@ -2026,3 +2026,67 @@ pattern the app sessions followed.
   WhatsApp polls — goals for the day, how the day went (answers recorded in the chat), funny,
   productivity, politics, science and mental-health themes; "Research on it properly"; always
   end with an "add another option" choice.
+- **01:59 — Group polls built.**
+  - Claude researched WhatsApp polls and group-therapy check-ins, and **kept "politics" to light
+    hypotheticals** (non-partisan), a choice it named rather than making silently.
+  - Live DB changes: poll tables (`chat_polls`, options, votes, history); a **"Bob" system
+    account** to post as (`is_mascot` flag); `message_type`/`poll_id` on `chat_messages`.
+  - A **`send-group-poll` Edge Function** with a prompt library, and **three pg_cron jobs**:
+    9am IST goals, 7pm IST reflection, Mon/Wed/Fri 2:30pm IST variety.
+  - **Bug found:** its `dbWrite` called `.json()` on empty `return=minimal` responses. **The same
+    bug was already in the deployed `google-calendar-sync`**, not yet triggered; fixed and
+    redeployed both (E-019f7d37-55, -61, -74).
+  - Duplicate-send guard (-104…-116).
+  - Front end: poll cards with votes and "add another option" (-150…-157). One edit **deleted
+    the `subscribeToChatRoom` declaration**; restored (E-019f7d40-5).
+  - Tested voting, switching and custom options against the DB; Bob excluded from All Users
+    (E-019f7d42-53); pushed.
+- **02:13 — Akash: "Update the drive and zip file."** Drive **Master Project State v15** and
+  **Update Log v40** (E-019f7d4c-19, -29 cron migration file). Uploading the zip to Drive failed
+  (the connector needs the file as text). **17:12 — Akash: "No I don't want just code based, I
+  want you to include everything! If you need, make multiple zip files."** Claude built one
+  **9.3 MB zip** for download (code, Edge Functions, migrations, docs, screenshots, mockups,
+  **APK v2.4**).
+- **17:30 — Akash (screenshots):** (1) profile changes don't save; (2) therapists can't see
+  clients' signed contracts or emergency contacts; (3) shared entries should be grouped under
+  one user, not repeated; (4) tapping a past appointment should show full details and session
+  notes, with a way to add notes; (5) the journal add button only on the journal page.
+  - (2) **No RLS policy let non-admin therapists read `consent_agreements`** → added (live DB),
+    tested with fresh non-admin accounts. The emergency contact was simply not filled in.
+  - (3) **Real duplicate rows**: the same text and timestamp to the millisecond.
+    `syncToSupabase` blindly inserted and its retry queue re-sent after a network blip; this
+    affected five tables (entries, WHO-5, tasks, subtasks, test results). Now a **client-made ID
+    plus upsert** (E-019f8094-152). **23 duplicate journal rows deleted** (live DB), keeping the
+    shared copy.
+  - (4) A past-appointment detail modal with session notes (add, then locked) (E-019f80a9-56,
+    -60).
+  - (5) The button now shows only on `panel-history` (the real index; the first attempt used the
+    wrong panel) (-83, -87, -116). Pushed Jul 20 18:07.
+  - (1) Claude could not reproduce it at first.
+- **18:08 — Akash: Dr Anisha's profile changes never saved, and the same happened to other
+  professionals.** Cause: her profile said **"Dr Anisha Chaubey"**, the experts row
+  **"Dr. Anisha Chaubey"**. The save matches by exact name, so it **updated zero rows while
+  reporting success**. Fixes:
+  - Her profile, one booking and one invite record aligned to the experts name (live DB).
+  - The save now **checks that a row was actually updated** and shows an error otherwise; the
+    same for the photo sync (E-019f80b6-59, -68).
+  - All other professionals matched exactly. A third name lookup (external-client logging) has
+    a safe fallback.
+- **22:01 — Akash: "She has been paid for all the sessions so mark them as paid."** Claude found
+  one booking with no date and asked for the payout amount instead of inventing one. **"Okay let's
+  skip it for now."**
+- **22:11 — Akash (screenshots):** no poll notifications; notifications late; "couldn't add
+  members"; **APK update notifications with a download button, repeated daily until installed**,
+  no longer sent; coordination rooms need an info button; link test results to HubSpot like the
+  website; **two chats with a user he never messaged**; **block screenshots in chats**.
+  - The two empty chats came from a **race in `startOrOpenDirectChat`**: a double tap created two
+    rooms 0.65 s apart. An in-flight guard was added and the rooms were deleted (E-019f8195-24).
+  - Add members: the picker **did not exclude existing members**, and the unique constraint
+    failed the whole batch. Fixed with exclusion plus upsert (-66, -70).
+  - The info button was shown only for support groups; now coordination rooms too, without "Add
+    member" (-84, -86).
+  - Polls **never called the push service**; added (-108). But **`send-push-notification`
+    rejected service-role calls** ("Invalid or expired session"), and its source (found in an old
+    export) **only lets admins and therapists notify others**. So ordinary group members'
+    messages were probably not notifying anyone. Fix not started when the turn ended.
+- **22:21, 22:30 — Akash: "Continue."**
