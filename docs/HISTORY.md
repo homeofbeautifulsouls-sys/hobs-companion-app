@@ -5030,3 +5030,77 @@ pattern the app sessions followed.
     `https://graph.facebook.com/v21.0/{PHONE_NUMBER_ID}/messages` and split the steps into Akash's
     part vs Claude's part.
   - **21:28 — "Okay give me proper step by step with links."**
+
+### Sept 21–22 — WhatsApp Cloud API setup, 8 templates, SOS drafts, address gate (C31)
+
+- **21:29–22:28 — Meta setup walk-through:**
+  - developer app (Business) → WhatsApp product → Business Portfolio (business verification done);
+    payment method still "Not added".
+  - Meta email-verification errors, which turned out to be a Facebook glitch. Basic settings:
+    Privacy Policy URL, Category needed; Namespace and App Domains not needed.
+  - **22:20 — Akash pasted an access token** (stored in `system_credentials`; never copy from the
+    export).
+- **22:24 — "First give me Callback URL and Verify Token"** → new Edge Function **`whatsapp-webhook`**
+  (JWT off, verify-token challenge; token stored as a credential).
+  - The first verify failed because the URL was pasted into the token field (seen in the logs).
+- **22:32 — Meta test number's Phone Number ID** stored. A temporary test function found the
+  template name in Meta's example didn't exist.
+  - **22:40 — Akash received Meta's demo template on his own number**; Claude repeated the send from
+    its own temporary function (200). Claude also re-saved the token Akash pasted then — **this
+    later overwrote the permanent token with a 24-hour one** (see 01:41).
+- **22:43 — Akash's WhatsApp events:** "SOS Button (with live location) (to user, professional,
+  emergency contacts and I)… Professional Assigned/Re-assigned… Appointment
+  Booking/Change/Cancellation… Am I missing anything?"
+  - Claude added: missed appointment, payment confirmed/failed, disconnect requests, No-Suicide
+    Agreement signed, crisis-classifier system health.
+  - **22:46 — "Crisis Detection in Journal entry is a bit stretch… people would mean that their
+    entries are somehow being read which would break the confidentiality!"** → **no per-person
+    crisis content on WhatsApp; system-health alerts only.**
+  - **22:48 — "No, we generate all of these now!"** → **8 Utility templates created via the Graph
+    API** from a temporary function (`hobs_sos_alert`, `hobs_professional_assigned`,
+    `hobs_appointment_update`, `hobs_missed_appointment`, `hobs_payment_update`,
+    `hobs_disconnect_request`, `hobs_agreement_signed`, `hobs_system_alert`). Two resubmitted
+    because Meta rejects templates that end on a variable.
+- **22:53–23:01 — App Review / Live mode checklist.**
+  - Claude said direct developers may not need it (the test number caps at 5 recipients).
+  - **22:55 — "if we are working/building something, we COMPLETE IT, so we don't have to revisit it
+    again and again"** → Facebook Login settings: off, except HTTPS and strict mode; Data Deletion
+    URL = `delete-account.html`.
+  - **23:01 — "Okay the app is published."** 2 of 8 templates approved at that point. Embedded
+    Signup screen: not needed.
+- **23:07 — SOS spec (Akash):** "There has to be proper psychoeducation and not panic! The person
+  will have the option to click — if they are having a panic attack/breakdown/self harm
+  thoughts/suicidal thoughts. So the connected professionals and their selected people (their
+  selected people may not even know if they have been selected) and the admin will get proper
+  message on how to help them (short, bullet points) with dos and don'ts and tips along with their
+  live location!"
+  - Professional-assigned: "encouraging with the sunflower emoji, encouraging them to book their
+    first session". Disconnect: "present the reason". Agreement: "the appropriate content like all
+    the forms the client filled".
+  - **23:09 — "First build proper templates… do proper research… show me the draft."** → drafts
+    grounded in MHFA ALGEE, Mind.org.uk and QPR.
+  - **23:14 — Akash's corrections:** "We don't say it will pass because they may have already gone
+    through it multiple times! Do not give them solutions, especially if they are thinking of
+    harming themselves or suicidal! Do not invalidate with statements like others have got it worse
+    or you are strong or this too shall pass or all of this is in your head! Instructions need to be
+    very specific!… in context of India literature!"
+  - Revised drafts: India resources — 112, **Tele-MANAS 14416**, **Vandrevala 9999 666 555**
+    (call/WhatsApp), AASRA, KIRAN. Awaiting sign-off.
+- **23:16 — "there's supposed to be complete address! UPDATE IT IMMEDIATELY! And ask clients to
+  update it… till then they shouldn't be able to use the app!"**
+  - The agreement collects no address. **13 of 21 real clients had no address.**
+  - **Mandatory address gate for clients** added to the login gating sequence (therapists/admins
+    exempt; a line Claude accidentally deleted was restored). Tested blocked / saved / rejected /
+    exempt. Staging v48 (web).
+- **01:34 — Moving to a real number:** a number not on WhatsApp; add it in API Setup; display name
+  approval takes days; **payment method required**. **01:36 — "can we rename the test number and put
+  icon"** → Claude advised against. **01:39 — "Okay I will buy the number! Till then upload the
+  templates… can the app not categorise and upload [recipient numbers]?"** (no allow-list on a real
+  number).
+- **Revised templates (3 SOS, sunflower assigned, disconnect with reason, agreement with content):**
+  the create call failed — **token expired**.
+  - **01:40 — "it said it was permanent one!"** → Claude: it had **overwritten the permanent
+    System User token** with the 24-hour one Akash pasted at 22:40. It can't be recovered (secrets
+    are write-only).
+  - **01:46 — "I want you to pay attention to every single word!"**
+  - **01:49 — "It's giving me the error!"** (regenerating shows the email-verification error again).
