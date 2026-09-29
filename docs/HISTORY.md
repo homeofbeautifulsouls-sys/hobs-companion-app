@@ -2288,3 +2288,53 @@ pattern the app sessions followed.
     200-character description cut mid-sentence (-145).
   - Image upload field started (-151); the rest not done when the turn ended.
 - **17:28 — Akash: "Continue."**
+- **17:36 — Campaign images.**
+  - Admin: image upload (the storage path again needed the **user ID first**) (E-019f8adf-58),
+    `image_url` on save, a meta sync after save, and a **Past Campaigns list with Reactivate**
+    (E-019f8adf-4…-24). `donate.html` shows the photo (-33, -35).
+  - **More self-made bugs:** the meta function's regex only covered part of the block, so **each run
+    duplicated the og/twitter tags** → fixed regex, manual clean-up (E-019f8adf-83). Then
+    **`git checkout -- donate.html` threw away the uncommitted image edit** (redone, -125, -131),
+    and **the manual clean-up regex deleted the whole `<style>` block**. Claude restored it from a
+    pre-bug copy and checked computed styles live.
+  - Added `.gitignore` for `supabase/.temp`. Pushed at 17:45.
+- **17:46 — Akash: "Previous donation campaigns will only be visible to the admin and no-one
+  else!"** **Claude misread this as "make them public too"** and added a public **"What we've
+  already funded"** section to `donate.html` (E-019f8aef-13, -16, -24).
+- **17:52–18:13 — Campaign copy.** Akash asked to optimise the active campaign around the current
+  student protests "without making it political. Talk to me first." Claude described the protest
+  movement and advised against tying the ask to it. Over many rounds Akash pushed back:
+  - "keep it real… from a trauma informed lens"
+  - the donors are wealthy and "hardly care"
+  - "I didn't ask you to shorten the message!"
+  - "Seriously! Is this simple?"
+  - "Dude, I am speaking about protests!"
+  - "KEEP THIS AS BASE. Add a sense of urgency"
+  - no lecture, and say why HOBS needs funds: more students reaching out, needing hope and a safe
+    space
+
+  Final title: **"More Students Are Reaching Out Than Ever. They Have Nowhere Else to Go."** The
+  protests are named without parties, ministers or blame. **18:13: "Yes PERFECT!"**
+  - Written straight to the DB. `donate.html` got an escape-first `**bold**` renderer
+    (E-019f8b08-9, -12); share meta strips the markers (-18).
+- **18:20–18:24 — Akash sent a protest/vigil photo for the campaign** (a memorial poster naming
+  people who died, and an identifiable child). **Claude declined to use it**, citing consent (the
+  families, and a minor) and copyright. Akash: "No, use this. It's up there on social media in
+  public domain"; **"No just this image. PERIOD."** Claude kept declining and offered licensed or
+  illustrated options.
+- **18:26 — Akash: the full description isn't visible; the image shows just blue.**
+  - The in-app profile widget and donate modal showed **raw asterisks and no paragraphs** → a shared
+    renderer (E-019f8b14-16, -18, -28).
+  - **Save race:** Akash's admin tab still held the old text, so saving his upload **overwrote the
+    approved copy**; Claude reapplied the copy.
+  - The uploaded image was that same photo; **Claude declined to fix its display.**
+- **18:33 — Akash: "Okay remove the image, give me also delete option to delete the image and fix
+  the bug."** Image removed (DB); a **"Remove photo" button** that saves right away (E-019f8b1a-13…
+  -35); the rendering path worked with a test image. Pushed.
+- **18:40 — Akash (screenshot): long text must be expandable wherever it appears.** Claude made
+  **textareas auto-grow app-wide** (E-019f8b20-10…-35). **Regression:** hidden admin tabs measured
+  0 and locked the height at `0px` → visibility guard and re-grow on tab switch (-51, -58). **A test
+  script overwrote the real campaign description with placeholder text**; Claude restored it.
+- **18:52 — Akash (screenshot): "Why the fuck have you put previous campaign here! And give me the
+  option to alter QR Code."** Claude quoted his 17:46 message back to him as if it had asked for
+  public visibility. **Answer: "Remove it from the donate page entirely."**
