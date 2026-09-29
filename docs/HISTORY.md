@@ -2495,3 +2495,67 @@ pattern the app sessions followed.
   Plan: a strangler-fig migration; Vite + React + TS, Vitest + Playwright, React Router, Context +
   TanStack Query; the backend untouched. **22:11 — Akash: "Remember this, we will pause it for now,
   have asked the developer… Till then solve the bugs that I asked you."**
+- **22:26 — The three bugs.** Claude **saved the React plan to claude.ai memory** first
+  (`memory_user_edits`).
+  - (1) **Duplicate notifications:** the **15-minute `notification-scheduler` had its own
+    `app_update` sender (9am local)** as well as the daily `send-apk-update-notification` cron
+    (6am UTC), and neither knew about the other. Claude **pulled the scheduler's source out of the
+    deployed bundle**, removed its `app_update` path, **redeployed**, and checked the live source
+    (E-019fa07b-117…-139; one edit briefly broke the `mood_check` block and was fixed).
+  - (3) **Duplicate entries:** one of **Akash's entries existed 6 times with the same timestamp**.
+    `saveNoteBtn` **had no double-fire guard** (touchend and click both firing); task save had one.
+    Added the guard and dual listeners (E-019fa07b-63, -74). Tested; pushed.
+  - (2) Missed reminders: FCM reported **100% success**; **Akash's device was on versionCode 15**
+    (latest 18). Claude suggested battery optimisation.
+- **22:38 — Akash: "But we used to get proper scheduled notifications in one of app's previous
+  versions!"** Opens existed every week; his opened notifications were one-off sends, while no
+  scheduled reminder was ever opened. **22:45 — "There's no issue with the battery usage!… check the
+  apk or code properly!… then add device info tracking but first solve it!"**
+  - Found: **the native Android files had never been under version control.**
+  - **No notification channel was ever created.** Android auto-creates one on the first
+    background push and **locks its importance** for that install.
+  - Now **`MainActivity` creates a high-importance channel** and the manifest sets
+    `default_notification_channel_id` (E-019fa09a-48). **APK v2.8 (versionCode 19)**, checked in
+    bytecode, uploaded and registered.
+  - Existing installs need the channel raised manually, or a reinstall.
+- **22:56 — "Already add the device info tracking dammit."** `device_model`, `os_version`, and the
+  user agent are parsed from the WebView UA on sign-in (live DB columns; E-019fa0a4-13); no APK
+  needed.
+- **23:11 — Akash (image): "You changed the icon to old icon when we had already set a new icon
+  dammit!"** Cause: **each fresh native scaffold dropped the custom icon**, which was never on the
+  list of files to copy back. New adaptive icons were generated from his image (sky-blue
+  background). **APK v2.9 (versionCode 20)**, checked in the packaged resources, uploaded and
+  registered. The **icons were saved into the repo** (`android-native-assets/icons/` with a README,
+  E-019fa0b2-113), and a build note was added to claude.ai memory.
+- **23:54 — "Give me all the remaining things in the pipelines across all the chats."** Claude
+  searched past chats and listed: D-U-N-S (ref submitted Jul 11); v2.9 unconfirmed; HubSpot
+  privacy disclosure; the header progress idea; a campaign photo; peer-caregiver consent; the
+  garden; the doctor's payout; ToS lawyer; Groq key; invite links; the day-detail garden; an
+  end-to-end donation test; the paused React track; and **website** items (speed plan, AdSense on
+  crisis pages).
+- **Jul 27 00:00 — Akash:** (1) tests have **no back/forward or way to change an answer**; (2)
+  remove the PDF button and make the flow **exactly like the website's free mental health test
+  page**; (3) **no HubSpot submission** when someone takes a test. "Take the result calculations as
+  they are in the app… Ask me your doubts first."
+  - Claude read the site's inline quiz engine (all questions on one page; lead form; HubSpot Forms
+    submission).
+  - It said HubSpot was **"never called from anywhere"** because no client code called it. This
+    **missed the DB trigger C26 had created on Jul 21.**
+  - **Answers:** keep one question at a time but add real Back/Next and answer changes; **skip the
+    lead form and submit silently using the profile**; all tests at once.
+  - Built: the function now also accepts an authenticated user (checked that users cannot submit
+    for others) and was redeployed (E-019fa0e6-34); a DB trigger was created, which **duplicated
+    the existing `trg_sync_test_result_to_hubspot`**, so the duplicate was dropped (live DB).
+  - Back/Next with the selected answer highlighted; PDF and jsPDF removed; a **fake "request a
+    follow-up" email box** that only saved locally was also removed (E-019fa0e6-90…-97;
+    E-019fa0f2-73…-96).
+  - Tested through the UI and HubSpot; pushed. Test notes were left on Akash's own HubSpot
+    contact.
+- **01:02 — "The See Results button isn't working!"** All 16 tests passed in automation. Akash:
+  DASS-type test, no response. Next/Back got the **dual touchend + click listeners with a guard**
+  (E-019fa11c-24, -30); pushed.
+- **01:12 — Akash (screenshot): "Just filled a test, got nothing at hubspot!"** The trigger's call
+  had succeeded and created a **Note on the Contact**. A temporary diagnostic Edge Function
+  confirmed 3 notes (deleted afterwards). **01:14 — "Checked all of it, it's not where!"**
+  **01:15 — Akash: "Why didn't I get mail for it? And it should be in the form section and not
+  contact!"**
