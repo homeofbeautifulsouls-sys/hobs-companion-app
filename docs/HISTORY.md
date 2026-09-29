@@ -1279,3 +1279,62 @@ pattern the app sessions followed.
   therapists and clients (E-019f5536-35, -44, -55, -58, -80).
 - **07:33 — Akash (screenshot):** on completion the whole task row must **turn and stay green**
   (not crossed out), with font colours adjusted.
+- **07:38** — The earlier green fix only covered top-level tasks; **subtasks, the Body Doubling
+  list and the Progress timeline** still used strikethrough → all three turned green
+  (E-019f553f-10, -20, -35, -49, -51).
+- **07:56 — Akash:** update Drive/zip; a **donation campaign "like Milaap"** on every profile, set
+  up from his dashboard, paid via the existing QR, with public progress and outside sharing; a
+  **LinkedIn post inviting 50 testers** (NDs for sensory experience, therapists for expertise,
+  others); what's remaining; **find all missed bugs, especially user-flow logic**.
+  - Donations: campaign/pledge tables with RLS; admin campaign section with pledge
+    confirmation (E-019f5554-26, -32, -39); widget and donate modal (-51, -57, -65, -68); **bug:**
+    Claude's insert **deleted the `function openExpertDetail(idx){` line** (-94 fixed); public
+    no-login **`donate.html`** (-105). **Placed on professionals' profiles** (wrong — see 11:57).
+  - **Bug audit find:** **`worksheet_responses` were written but never read back** (same class as
+    the journal bug), and every save **inserted a new row** → load added (E-019f5560-16), unique
+    constraint and `upsertWorksheetResponse()` (-41, -48).
+  - LinkedIn post drafted (-76). Drive **Master Project State v6** ("What's Actually Remaining").
+    Flagged but not fixed: `cancelSession()` didn't match the published policy.
+- **11:57 — Akash:** (1) "It should be visible in **every user's profile** dude and not under
+  professional's profile! Use some common sense!"; (2) worksheets; (3) **fix cancellation per
+  policy**; (4) **delete user and professional profiles** from the dashboard; (5) **client
+  requests a time; therapist accepts, changes or rejects**; (6) tap a subtask to edit, show long
+  text fully, and a bug where the subtask panel stays open and the screen jumps; (7) **always use
+  the user's name and pronouns, never "you"**; (8) **₹1 per completed task immediately**, no
+  waiting for ₹10/day — change the policy; (9) the tick button still doesn't work — remove it.
+  - Donation widget moved to the user's Profile (E-019f5630-10, -13, -21, -26, -30, -37, -42, -47).
+  - Tick box **enlarged from 20×20 to 30×30** instead of removed (-66).
+  - Subtasks: text wraps, tap-to-edit (-80, -83); **cause of the jump: the breakdown input got
+    `.focus()` on every re-render** → only when freshly opened (-93, -96, -103).
+  - Credits: **daily cap removed** in app and Terms (-125, -128).
+  - **Cancellation rebuilt** — the old version had **no 24h check, never cancelled the booking,
+    and counted per lifetime** (E-019f563a-2); testing then showed each session is a new booking
+    row, so repeat detection must look **across all the client's bookings this month**
+    (E-019f5641-109). 0% / 50% / 100% tiers verified in the DB.
+  - **Account deletion:** admin "Manage Experts" list (E-019f563a-29, -35, -42) and a
+    **`delete-user-account` Edge Function** (service role; removes data and the login)
+    (-46); Delete Account in the user profile modal (-59, -64, -69, -76).
+  - **Session-time negotiation:** client requests a slot (reserved), therapist **Accepts /
+    Proposes new / Declines** in a "Session Time Requests" section (-92, -102, -106, -118, -127,
+    -140, -145, E-019f5641-8, -12, -20); payment moved to a **"Pay Now"** after acceptance
+    (-34, -41).
+  - Affirmations personalised with the user's name (-55).
+- **12:39 — Akash (screenshots):** (1) Drive/zip updated?; (2) subtasks still not fully visible
+  when editing — every text field must show fully while and after editing; (3) "I still see
+  'you' in my profile"; (4) Edit, Remove and **Link** buttons together for experts (link an
+  email to an existing profile, no duplicates); (5) task notifications at **10am and 1pm** (add
+  tasks, earn therapy credits) and **5pm and 8pm** (mark done), with the 3-hour rule adjusting
+  times.
+  - Cause of (2): **single-line `<input>`s** → auto-growing **textareas** for subtask edit and
+    the task title (E-019f5657-14, -21, -29, -43). Cause of (3): the Profile page title was the
+    **static word "You"** (-62, -69). Experts list with **Edit / Link / Remove**
+    (-86; quote bugs -96, -99); two duplicate rows for one expert remained for Akash to clean.
+  - Scheduler split into `task_add_reminder` (10/13h) and `task_complete_reminder` (17/20h)
+    (-110, -113, -116, -120, -128). **Not tested live: the scheduler secret wasn't available in
+    this session.**
+  - Around 12:50–12:57 Akash sent "Please continue" several times and **"I can't see what you are
+    doing"** three times while Claude worked silently. Drive: **Master Project State v8**,
+    **Update Log v26**.
+- **17:13 — Akash** attached **"Therapy & Peer Care Giver Consent Form.pdf"**: every old and new
+  user (except professionals) must **sign it compulsorily at login**, fill in all information,
+  and can't proceed otherwise; identify gaps.
