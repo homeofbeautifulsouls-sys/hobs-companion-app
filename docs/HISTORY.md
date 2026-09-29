@@ -3926,3 +3926,67 @@ pattern the app sessions followed.
     scoping (the `HOBS-Character-AI-Master-Scope.md` output, never committed). Bob also has no
     memory: `character-chat-reply` takes one message, with no history.
 - **01:19 — Akash (in C28): "Give me EVERYTHING WE BUILT AROUND BOB."**
+  - **01:21–05:13 (C28):** Claude wrote `BOB-REFERENCE.md`, then a full Bob character bible
+    (personality, quirks, dialogue, inspiration), committed to the hobs-repo.
+    - **01:27–01:34 — Akash:** "Cover all the questions… there were around 50"; "captain (that was
+      just another work around) but yes we had locked in chief!"
+    - Claude had first doubted "chief", then confirmed it from its own transcript. Still open:
+      Hinglish, pushback style, vocabulary.
+
+### Aug 27 — Bob memory design, donate page, in-app payment (C31)
+
+- **07:42 — Akash pasted the Bob bible into C31.** Flag-to-professional feature confirmed not built.
+- **07:45 — "Every conversation will have real memory!… we can't let that happen to Bob or any
+  other mascot!"** → memory **phase 1** design, nothing built.
+  - "Every single message forever!"; "New conversation new response but full memory!"
+  - "First phase and we will take it one step at a time… even though you have got the 'tone' we
+    need to work a lot on it!"
+  - Groq's 128k context forced **two tiers**: significant messages kept verbatim forever,
+    ordinary ones compressed later.
+  - Q: what decides verbatim vs compress? **A: "Both together"** (pattern system + Bob's own
+    judgment). Claude suggested deciding at compression time; Akash asked for the suggestion
+    (08:04).
+- **14:48 — Donate page link preview (OG meta) stale after a campaign update.**
+  - Cause: `update-donate-page-meta` only committed to GitHub, never pushed to Hostinger, and was
+    never invoked.
+  - Manual meta fix deployed. Deploy script `set -e` + missing APK `cp` bug fixed (E-01a043b1-59).
+  - **14:56 — "It should automatically reach the live site the moment a campaign is saved!"** →
+    function rewritten to push to Hostinger via TUS upload (E-01a043b8-8); stale GitHub PAT secret
+    updated. A test upload/delete was followed by app-domain 503s that recovered on their own.
+- **15:21 — In-app Donate not opening Razorpay.** Akash had changed the bank account in Razorpay
+  and sent a new QR code. "It's working directly via link but not in the app."
+  - Claude's diagnosis: Capacitor blocking Razorpay → added `allowNavigation: ['*.razorpay.com']`
+    (E-01a043d3-10). Staging test APK (versionCode 2) built; a partial deploy wiped the staging
+    site, then restored.
+  - **15:36 — "No deploy it to production app. I don't have staging app installed rn"** →
+    **v3.46 (versionCode 66)** live (E-01a043dd-7); BUG_LOG #66.
+  - A merge conflict on `donate.html` with the function's own auto-commits (a real campaign photo)
+    — resolved to the newer remote version. Claude's payment deploy had reverted the image to the
+    fallback logo; redeployed.
+- **15:44 — Live APK link returned 404 (Akash's screenshot).** Claude caused it: deleted the local
+  APK after the payment deploy, then a web-only deploy (full directory replace) wiped the live APK.
+  - Restored the exact cached build (hash `a74f5666…`, byte-verified).
+  - Deploy script made self-healing: with no local APK, it fetches the live one and re-includes it
+    (E-01a043e5-24). BUG_LOG #67.
+- **15:49 — Akash: "Can you please not do ANYTHING TILL CONFIRMING! THERE ARE OTHER PEOPLE FUCKING
+  WAITING TO DOWNLOAD THE APP! And it applies to all other scenarios too!"** → MASTER.md rule
+  "Confirm before every production action — no exceptions, urgency included" drafted
+  (E-01a043e9-4; the edit deleted the next heading, fixed E-01a043e9-11). Claude asked before
+  committing it.
+- **18:56 — "It was perfectly working before you fucking broke it!"** On v3.46, Razorpay still
+  doesn't open. "It used to open before we migrated everything to Hostinger and relied on app UI."
+  - `capacitor.config.ts` was never in the repo before Aug 26 — earlier builds used an untracked
+    local config.
+  - Claude checked Capacitor's docs: by default external URLs open in the external browser;
+    `allowNavigation` keeps them inside the WebView. So the first fix was judged backwards.
+  - **19:51 — "Production like I said"** → `allowNavigation` removed (E-01a044c7-4),
+    **v3.47 (versionCode 67)** (E-01a044c7-9). First deploy failed with a Hostinger 503, retry OK,
+    byte-verified.
+  - **19:59 — "The link isn't working!"** — the whole site was 503 (Hostinger instability, not the
+    deploy); partly recovered.
+  - **20:03 — "Updated the app, still the same error"** on v3.47. Checked CSP, `loadScriptOnce()`,
+    Android network security config: nothing. New theory: Razorpay validates the page origin
+    against registered domains, and the bundled app runs on Capacitor's local scheme.
+  - Proposed: open `donate.html` in the real browser via the Browser plugin (already used for
+    Google Calendar OAuth). **20:08 — "Go ahead"**, then **20:08:51 — "Wait it has to operate
+    inside the app like it did before!"**
