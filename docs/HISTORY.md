@@ -3289,3 +3289,88 @@ pattern the app sessions followed.
     `task-images` (E-019ffcd4-34, -39). Recursion only went one level deep, so it found 2 of 11
     files → fixed (E-019ffcd4-53).
 - **20:44 — Akash: "Continue".**
+- **Aug 13 21:02 → Aug 14 05:39 — the remaining P0s from ChatGPT's v24 review:**
+  - The storage mirror was verified 11 of 11.
+  - **Backup manifest:** `database-backup` writes `_manifest.json` (expected vs succeeded tables),
+    and the offsite job **refuses to mirror an incomplete snapshot** (E-019ffcde-31, -37, -42).
+    Tested both ways.
+  - **Restore drill into staging:**
+    - It found **`auth.users` was never backed up**, while nearly every table foreign-keys to
+      it. Added through the Auth Admin API; manifest count +1 (E-019ffcde-82, -85).
+    - It hit a circular FK (`chat_polls.message_id` ↔ `chat_messages.poll_id`), resolved by
+      null-then-patch.
+    - Staging schema drift (missing `watch_channel_secret`) was fixed.
+    - Result: 36 of 38 tables with exact counts; the 2 others were explained. Staging was then
+      truncated back to empty.
+  - **`task-images`:** now only chat room icons and campaign images (public by design);
+    commented at both upload sites (E-019ffcf1-24, -26). No rename.
+  - **Crisis AI fail-open:** Claude first listed it as done, then corrected itself.
+    - `check-journal-risk` now returns an honest **`classifierAvailable`**, and logs a stable
+      "classifier unavailable" message to `error_logs`, so `error-alert-monitor` groups and
+      alerts on it (E-019ffcf1-48, -59, -69).
+    - A live test showed **`classifierAvailable:false` — the AI classifier was not configured**
+      (needs Akash's Anthropic API key).
+    - Client UX was left unchanged; only a comment was updated (E-019ffec7-5). Deployed.
+- **Aug 14 12:30 — Akash: "walk through github pages migration."**
+  - Claude traced the Calendar OAuth return: a Custom Tab lands on the GitHub Pages copy of the
+    full app.
+  - It gave Google Cloud Console steps: **add `https://app.homeofbeautifulsouls.com/` as a
+    redirect URI and keep the old one until verified**.
+- **12:35 — Akash: two OAuth client secrets exist (`****zAGQ`, `****3w71`) — can one be deleted?**
+  - Claude suggested disabling `zAGQ` (reversible) and testing. **Akash disabled it.**
+  - Akash: "Connects in Chrome but not in app" → re-enabled. **"Give me latest app version."**
+  - Claude started rebuilding to 3.5: **"Why the fuck are you rebuilding?"** It stopped and
+    gave the v3.4 link.
+- **12:49 — Akash (screenshot, stuck on Google account picker in the new APK): "Created a new
+  fucking bug in a good old working system."**
+  - Claude first blamed the disabled secret. **"I enabled it fucking long time back!"**; still
+    stuck with both enabled.
+  - **Root cause 1:** app login uses `redirectTo: 'hobscompanion://callback'`, but **the scheme
+    was never registered in `AndroidManifest.xml`** — and **the manifest had never been saved in
+    the repo**, so every rebuild regenerated the default. An intent-filter was added
+    (E-01a00054-16); an XML comment containing `--` broke the build (E-01a00054-43). The manifest
+    was saved to the repo. **APK 26 / 3.5** deployed.
+- **12:58 — Akash: "immediately check, what more have you missed and regressed in all our recent
+  developments."** Claude audited:
+  - native files vs persisted copies (only the manifest had drifted);
+  - web == APK bundle, byte-identical;
+  - 18 function timestamps; the 4 atomic SQL functions; **12 cron jobs** (including a pre-existing
+    `keep-warm-razorpay-order` with a deliberate unauthenticated ping, verified);
+  - watch renewal; staging clean.
+  - No second regression found.
+- **13:03 — "Now it only logins to the browser after a very long time but doesn't do anything to
+  app! IT was a fucking bug… that you had before and resolved it!"**
+  - Removed `android:host="callback"` to match Capacitor docs (E-01a0005e-13, -45 — Claude
+    briefly overwrote this fix with a stale copy while rebuilding, and caught it).
+  - **Root cause 2:** **Google blocks OAuth in embedded WebViews (`disallowed_useragent`)**. The
+    login now uses `skipBrowserRedirect` + **Capacitor `Browser.open()`** like the calendar flow,
+    plus `Browser.close()` in the token branch (E-01a0005e-23, -30).
+  - **APK 27 / 3.6.**
+- **13:12 — "it is stuck."** Auth logs showed **a successful Google login 47 s earlier**. **Akash's
+  phone was still on 3.4**: Chrome reopened the old download with the same filename. Claude
+  started publishing **uniquely named APK URLs** (`HOBS-Companion-v3.6.apk`).
+- **13:22 — Akash: "okay logged in but same fucking issue with Google Calendar- IT WAS A FUCKING BUG
+  YOU HAD RESOLVED! FUCKING KEEP BUG AND RESOLUTION RECORDS… FROM WHEN WE STARTED TILL NOW
+  LITERALLY! BUT FIRST RESOLVE THIS!… It OPENS THE BROWSER, CONNECTS VERY SLOWLY BUT DOESN'T…
+  OPEN THE APP."**
+  - Claude found that **`Browser.close()` is a no-op on Android** (Capacitor docs), and
+    `window.Capacitor` never exists inside a Custom Tab.
+  - An attempted rewrite (E-01a00070-20) was reverted (E-01a00070-29). The existing banner now
+    says to tap ← to return (E-01a00070-33).
+- **13:30 — Akash (screenshots): "Fucking look at this! And why the fuck are we working with GitHub
+  when we are doing everything on hostinger!"**
+  - The DB row still had `connected_at` = **Aug 5**. **Root cause 3 — a regression of the Aug 5
+    fix:** `google-calendar-oauth` `exchange_code` wrote **without `?on_conflict=user_id`** and
+    never checked the result, so every reconnect failed silently while reporting success.
+    - The Aug 5 fix had been deployed from a bundle-reconstructed file. The copy later recovered
+      into the repo did not contain it.
+  - Fixed with an on_conflict upsert, and success is now checked; the same check was added to
+    `refresh_token` (E-01a00162-33, -44). Upsert tested.
+  - **GitHub Pages removed from Calendar OAuth:** `REDIRECT_URI` and
+    `GOOGLE_CALENDAR_REDIRECT_URI` → `https://app.homeofbeautifulsouls.com/` (E-01a00162-65,
+    -67). **APK 28 / 3.7** (E-01a00162-82) at `HOBS-Companion-v3.7.apk`.
+- **17:57 — the first `docs/BUG_LOG.md`** was created in the app repo (E-01a00162-93), covering
+  that session's bugs plus standing lessons (the `window.Capacitor` scope, missing
+  `on_conflict`).
+- **17:59 — Akash: "Not just this, every session we had from the time we started building this app,
+  include everything!"**
