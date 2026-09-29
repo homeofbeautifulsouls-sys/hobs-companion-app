@@ -3618,3 +3618,89 @@ pattern the app sessions followed.
   moving to Capacitor Filesystem storage. **17:40 — Akash: "It's not just journal entry! Mood
   tracking, period tracking and literally every other feature! And yes migrate it but still make
   sure we are following all Google's required policies!"**
+
+### Offline resilience, storage upgrade, Hostinger deploy restored (Aug 23 17:46 → Aug 25 23:45, C28)
+
+- **17:46 — Claude's save-path audit:**
+  - **`period_logs` used raw inserts**. Tasks, subtasks, worksheets, journal edits, and the
+    share/archive toggles all bypassed the resilient queue.
+  - `syncToSupabase` gained an `onConflictCol` parameter; retry respects it
+    (E-01a02fb6-18, -21).
+  - All paths routed through it (E-01a02fb6-24…-96); subtasks now get client IDs up front.
+  - A dangling `});` from the edit was fixed (E-01a02fb6-45).
+  - Therapist-assigned homework was deliberately **left raw** (its `user_id` is the client's).
+  - The offline → reconnect cycle was tested.
+  - Google Play findings: app-private storage needs no permission, and the app counts as a
+    **health app → a Health apps declaration form is needed**.
+- **17:48 — Akash: "I am not a technical person, simple language."**
+  - **17:49 — "Upgrade but make sure to plan it first absolutely, test it in staging app once it's
+    absolutely successful with absolutely 0 bugs, then do it for actual app!"** Scope:
+    **"Everything."**
+  - Plan: `HOBS-Storage-Upgrade-Plan.md` (E-01a02fbe-9). **17:53 — "Go ahead and for point 2, the
+    safe way"** (in-memory state, written behind to disk).
+- **The Filesystem storage layer (18:04):**
+  - Capacitor Filesystem `Directory.Data` on native, `localStorage` on web
+    (`hobsStorageGet/Set`, E-01a02fc1-19).
+  - Boot made async and ordered so `getSession()` runs after state loads (E-01a02fc1-32).
+  - The queue and drafts were migrated (E-01a02fc1-41, -50). Three small keys stay on
+    `localStorage` (E-01a02fc1-58).
+  - Mocked tests passed.
+  - A **staging APK** (`com.hobsfoundation.companion.staging`, label "HOBS STAGING", no Firebase
+    config, staging Supabase) was served from Supabase Storage.
+- **18:06 — Akash (screenshot of an error alert).** It came from **Claude's own localhost test run
+  against the production database**: its tests used the real `index.html` credentials. **43
+  test-created rows were deleted from production `error_logs`.** Claude committed to testing
+  against staging credentials.
+- **Aug 25 17:23 → 17:33:**
+  - Akash asked for both links, then: **"Wait! You were giving links at app.homeofbeautifulsouls.com
+    and now Supabse!?"** and **"No I want Hostinger properly! And why are we using GitHub still?"**
+  - Claude explained the GitHub repo is only source control and called it "private".
+    **Correction: the repository is public** (see the BUG_LOG security entries).
+  - **"I am not a tech person! You literally did all of this stuff before!"**
+- **The Hostinger deploy was restored:** Claude ran Hostinger's official **`hostinger-api-mcp`**
+  locally and called its `hosting_deployStaticWebsite` tool.
+  - The server has to be started, initialised and called **within one shell command**, since
+    background processes don't survive between calls.
+  - Staging was verified first, then saved as **`deployment/deploy-to-hostinger.sh`**.
+  - **Akash: "Go ahead but make sure no bugs follow!"** Production: backup, deploy, verified.
+  - **The deploy is a full replace**, not a merge.
+- **22:48 — "build the offline protection and then upload it on hostinger website the apk."**
+  - Built from commit `fe5a45f`: offline protection, without the storage migration.
+  - Production config restored (package, label, Firebase).
+  - **`HOBS-Companion-v3.17.apk` on app.homeofbeautifulsouls.com.**
+  - Staging APK rebuilt: one Razorpay URL had still pointed at production; now served at
+    `staging-app…/HOBS-Companion-STAGING.apk`.
+- **23:04 — Akash (screenshots): "the images have gone! Literally every image has vanished!… And for a
+  split second this comes whenever I open the app!"**
+  - Since the reset, **no images had been copied** into any deploy or APK — both websites were
+    broken for everyone.
+  - Claude redeployed the site; the full-replace deploy **then wiped the APK**, so it was
+    redeployed again.
+  - Images were saved as a list, and the deploy script now includes them (E-01a03b2a-47).
+  - **v3.19** and the staging APK were rebuilt with images bundled.
+  - Open item: `calmroom-bg.jpg` never existed.
+- **23:18 — Akash: "Look i don't care if your sandbox changes or anything, i cannot afford to have
+  all this shit again!"**
+  - Added **`deployment/verify-before-deploy.sh`**: checks every referenced image and critical
+    native file, and fails if one is missing (E-01a03b37-5; a syntax bug was fixed,
+    E-01a03b37-22).
+  - A hard rule was committed: run it before every deploy.
+- **23:20 — Akash (screenshot of the "Hi, I'm Bob" signing-in screen): "I told you to 'completely'
+  remove it!"** It happens **"Everytime I open the app."**
+  - A **temporary diagnostic** writing to `error_logs` (E-01a03b3a-18, -29) → **v3.21**. The data
+    showed `hasCachedSession:true` and `looksFullyOnboarded:true`, so the decision logic was
+    correct.
+  - **23:28 — "The app was supposed to have the greeting bob upon opening! Now it has gone
+    missing!… You see why I curse now!"** `bob-welcome-back.jpg` is set in JS, so the verify
+    script missed it; the file itself was present.
+  - `showWelcomeBackScreen()` sits behind the same `optimisticBootTaken` flag. A second diagnostic
+    on the "optimistic but no session" branch (E-01a03b42-32) → **v3.22**. It did not fire.
+- **23:34 — Akash (screenshot): "The heavy and numb bubbles are colliding at insane speed when
+  opening the app!… fucking log everything into the bug records!"**
+  - Cause: bubble positions were computed from a **fallback field size before layout**, so Heavy
+    and Numb started 43.6 px apart (87 px needed) and repulsion slammed them apart.
+  - Fix: wait for real dimensions (E-01a03b46-32; a `#` comment typo fixed, E-01a03b46-35).
+  - Smaller residual overlaps in the original design were judged negligible.
+  - **v3.23**, logged in BUG_LOG.
+- **23:45 — Akash: "bob greeting image is still not fucking there!!!!! Heavy and numb are precisely
+  still fucking colliding!"**
