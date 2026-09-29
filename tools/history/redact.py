@@ -24,10 +24,13 @@ PATTERNS = [
     ("jwt", re.compile(r"eyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}")),
     ("private_key", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----", re.S)),
     ("private_key_escaped", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----(?:\\\\?n|[A-Za-z0-9+/=\\ ])*?-----END [A-Z ]*PRIVATE KEY-----")),
+    # A key cut off before its END line (e.g. truncated in a reading copy):
+    ("private_key_partial", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----(?:\\\\n|\\n|[A-Za-z0-9+/=\s])+")),
     ("whatsapp_token", re.compile(r"\bEAA[A-Za-z0-9]{50,}")),
     ("openai_key", re.compile(r"\bsk-[A-Za-z0-9_\-]{20,}")),
     ("anthropic_key", re.compile(r"\bsk-ant-[A-Za-z0-9_\-]{20,}")),
     ("hubspot_token", re.compile(r"\bpat-[a-z]{2,4}\d*-[a-f0-9\-]{20,}")),
+    ("netlify_token", re.compile(r"\bnf[a-z]_[A-Za-z0-9]{20,}")),
     ("hobs_wp_rest_token", re.compile(r"HOBS-Claude-\d{4}-[A-Za-z0-9\-]{4,}")),
 ]
 
