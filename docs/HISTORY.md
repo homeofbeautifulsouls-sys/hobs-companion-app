@@ -871,3 +871,83 @@ pattern the app sessions followed.
   session booking** instead of Google Calendar? Claude looked up **HDFC SmartGateway** (real
   REST API, sandbox, webhooks; KYC required either way; would need a Supabase Edge Function to
   hold keys). Akash: **"Yes, HOBS banks with HDFC."**
+- **21:47 — Decisions:** go with **HDFC SmartGateway** (Akash to start merchant onboarding with
+  his relationship manager; Claude to build it once API keys exist). **In-app booking calendar
+  instead of Google Calendar:** `expert_availability_slots` table (using the RLS-safe admin
+  function); admin "Expert Availability" section (E-019f43ae-15, -21, -28); client **slot
+  picker** in `bookExpert()` that sets `session_date` from the chosen slot, with the old flow
+  as fallback when an expert has no slots (-36, -45).
+- **21:49 — Akash:** do I need the new APK?; update Drive; **therapist dashboards inside the
+  same app** — Akash is both therapist and master admin; therapists get their features in
+  Profile once the admin enters their email; "This way we won't have to create different
+  apps." Built: `is_therapist` / therapist link fields and a therapist-invite table with a
+  SECURITY DEFINER helper; **bug:** a policy queried `auth.users`, which the client role can't
+  read → switched to `auth.email()`. Akash given both roles. Invite claimed on sign-in; admin
+  "Grant Therapist Access"; Therapist entry card; therapist dashboard showing only their own
+  clients (E-019f43b5-37, -45, -53, -59, -64, -72, -78, -88, -91, -96). Drive log **v16**.
+- **21:59 — Akash:** he had **not installed** the cache-fix APK; wants **empathetic push
+  notifications** for tasks and appointments (pausable) plus **manual notifications from
+  admin**; "Anything else we are missing?" Claude: real push needs **Firebase Cloud Messaging**,
+  a native change and a scheduler; added preference columns only, no visible toggle until push
+  exists; drafted reminder copy. Audit: **no Forgot Password flow**, **no Privacy Policy /
+  Terms**, therapists can't cancel booked sessions, no data export/deletion, tests/WHO-5 still
+  not synced, no expert bios, HDFC pending.
+- **22:06 — Akash's list:** (1) the admin should **add complete expert profiles from the
+  dashboard and send an email invite**; on accepting, the expert edits their own profile —
+  "This will solve the therapist profile/bio problem as well"; (2) forgot password; (3)
+  therapists can cancel/reschedule **once a month**; (4) **"Screening tests, journals, literally
+  every data user sends has to be recorded!"**; (5) push notification setup; (6) policies —
+  **keep as a reminder for now**.
+  - **Password reset** built: "Forgot password?", reset modal, recovery-link detection and
+    new-password update (E-019f43c4-7, -13, -27).
+  - **Test results and WHO-5 now saved to Supabase** (E-019f43c4-51, -58, -86; two missing
+    `test_results` columns added). Credits judged already covered (computed from synced tasks).
+  - Therapist cancellation with a monthly limit: tracking table, therapist UPDATE policy on
+    their bookings (-125).
+  - **Experts moved from a hardcoded array to an `experts` table** (10 rows inserted; first
+    insert failed on escaping, redone via JSON) (E-019f43cd-10, -18); detail view shows real
+    bio/approach when present (-37); admin **"Add New Expert & Invite"** with a copyable invite
+    message (-45, -54); therapist **"My Profile"** self-edit (-62, -70). A 401 in testing was
+    correct RLS (no real session). Drive log **v17**. Automatic invite emails need the
+    **service_role key** or an email service.
+- **22:31 — Akash:** update the project file; "For email invite, **take whatever access you need
+  for now**"; therapist dashboard spec: sessions and monthly income → per client: date, client
+  name, **therapist's payout (different from what the client paid, set by Akash when assigning
+  the client)**, session dates, session notes, and **journals / test scores the client
+  shares**; therapists **must upload session notes (psychiatrists: prescriptions) to lock the
+  payment**, otherwise greyed out; images/docs/PDF uploads; **everything uploaded visible in
+  the admin dashboard**.
+  - Claude asked for the **`service_role` key** (Supabase CLI was available for an Edge
+    Function); Akash needed help finding it.
+  - Built: payout / notes / payment-lock columns; a **private Storage bucket** for session
+    attachments with RLS; **test-result sharing** (didn't exist) and therapist-visibility RLS
+    for shared entries and results (E-019f43dd-43, -49, -57); admin payout amount at payment
+    confirmation (-66, -69); therapist **summary tile** ("X sessions this month · ₹Y confirmed
+    income", counting only locked payments), expandable per-client detail, notes-required lock
+    and upload (-77, -86, -94); admin view of uploaded files (-102, -108).
+- **Jul 9 11:10 — Akash:** therapists need **multiple slots — a proper calendar**; the group photo
+  doesn't fit the circle → **use it as the hero background**. Built: background photo with a
+  dark overlay, circle removed (E-019f4691-7, -13); **month-view slot calendar** with dots and
+  several slots per day (-31, -43). **GitHub Pages build got stuck** (duration 0 for 5+ min);
+  fixed by pushing a fresh build.
+- **11:27 — Akash (8 reference screenshots):** (1) **"request change" never reaches him for
+  approval**; clients must give a **reason**, and he must see the client's name, email, contact
+  number and reason; (2) booking and profile pages must look like the references; the
+  **language filter only shows languages actually available**; both dashboards must let
+  him/therapists enter these details.
+  - Part 1: reason and approval columns; **emails backfilled into `profiles`** and captured at
+    onboarding (E-019f46a2-20); `change_requested` **keeps the category blocked until approval**
+    (-28); reason modal (-42; -39 failed as not unique) and `requestExpertChange()` (-45);
+    "pending approval" state (-54); admin **Change Requests** section with name, email, phone,
+    reason and Approve (-60, -69).
+  - Part 2: new profile fields; therapist editor with a language checkbox list
+    (`LANGUAGE_OPTIONS`: Hindi, English, Bengali, Telugu, Marathi, Tamil, Odia, Kannada, Urdu,
+    Gujarati) (-132, -141, -149); admin form too (-155, E-019f46ad-6, -13); detail page tags,
+    "Superpowers", accordion Q&A (-25, -29, -37); team **language filter derived from real
+    data** (-43, -51). GitHub Pages builds stuck **three times** that day; each fixed by a fresh
+    trigger.
+- **11:53 — Akash:** the hero card doesn't work over the photo ("reduce transparency"). Cause:
+  **`backdrop-filter: blur()` is unreliable in Android WebView** → an opaque white card, dark
+  text, outlined blue button (E-019f46b9-11, -14).
+- **12:26 — Akash:** update Drive and the project file, then add **therapy homework**: the
+  therapist sends it and the client automatically gets it as a task.
