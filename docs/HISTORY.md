@@ -5104,3 +5104,58 @@ pattern the app sessions followed.
     are write-only).
   - **01:46 — "I want you to pay attention to every single word!"**
   - **01:49 — "It's giving me the error!"** (regenerating shows the email-verification error again).
+- **01:50 — Meta email-verification error:** no documented fix; suggested full logout or Meta support.
+- **01:50 — "before SOS, what urgent matters do we need to cater"** → **01:52 — "expand! Tell me
+  properly."** Claude's list: (1) the address gate is only on staging; (2) Crashlytics; (3)
+  classifier redundancy; (4) professional-connection system staging-only; (5) ToS lawyer review.
+- **01:54 — "Address gate. And, it should be for every person who becomes a client! They cannot move
+  forward without filling the therapy and no suicide contract! Build this first!"**
+  - The separate address gate was removed; **the full consent + No-Suicide Agreement gate now
+    applies to every client** regardless of connection; admin exempt (E-01a0c6d2-7…-65). Tested.
+    Staging v49 and a production **v80** AAB/APK built.
+- **02:03 — "Can you directly upload it on console every time?"**
+  - **02:05 — "you have permission for everything as admin!"** → a test edit plus bundle upload via
+    the Android Publisher API worked (edit deleted; upload needs `/upload` + `uploadType=media`).
+  - **02:10 — "I said that you have to upload it automatically! Also, the app cannot function
+    without being updated for all users!"** → **new Edge Function `publish-production-release`**
+    (upload → production track → commit), protected by its own secret (E-01a0c6dc-8, -19;
+    E-01a0c6e1-2, -10). **Claude used it to publish v80 to production.**
+  - **02:15 — "Obviously I am gonna review what's changed! What I mean is you will upload after
+    approval!"** → agreed workflow: Claude explains, Akash approves, Claude publishes.
+- **02:15–02:25 — "I can't see the update option on playstore!"** Explanations offered: first review
+  still pending; a License Testing link; sideloaded installs can't be updated by Play; the testers
+  API only accepts Google Groups.
+- **02:30 — Akash (screenshot): a blank card at the top of the home screen.** Not reproduced with a
+  fresh account.
+  - **07:07 — "diagnose and immediately roll back the version to 79!!!!"** → v79 content rebuilt as
+    **v81** and published via the pipeline (secret regenerated).
+  - **07:18 — the card was still there.** Claude found `ai_disclaimer_signed: false` on Akash's
+    profile and **set it to true in production** to unblock him.
+  - **Akash's profile `app_version` was 74 (3.54); his phone confirmed 3.54 even after a Play Store
+    reinstall.**
+  - **07:32 — "See if it's taking app from open or closed testing or production version!!!!…
+    everyone is getting the wrong version"** → testers enrolled in the closed track get the alpha
+    (v74).
+    - **"I can't ask every user to do it!"** → Claude tried to clear the alpha track via a temporary
+      API function; the API returned success but alpha still showed 74. Console "Remove testers"
+      needed.
+    - **07:36 — "they can't install without their emails being entered."**
+  - **07:39 — screenshots: production "Started rollout 100%" since Sept 9 but actually in review;
+    v81 "In review".** Research: a first production review takes **7–14 days**, and
+    **resubmitting restarts the clock** (v79 → v80 → v81 likely reset it).
+  - **07:43 — "So that means you didn't have to roll back the latest version right?"** → Claude:
+    yes; the blank card predates v80; the rollback was unnecessary and likely cost review time.
+  - **07:44 — "Get the v80 back up and please check it!"** → **v82** (v80 content) built, fully
+    verified, published — "no more production submissions after this one".
+- **07:54 — "It says app not installed… Been happening ever since I downloaded app from playstore
+  and been trying to update directly"** → **Play App Signing re-signs Play installs**, so a
+  sideloaded APK (upload key) can't update them; uninstall first. **07:56 — "I said update! Not
+  reinstall"** → Claude: an update across a signature mismatch is impossible on Android.
+- **Sept 26 19:21 (C31, new message-id format) — "I deleted my WhatsApp account on one of my numbers.
+  How do we make it the number for WhatsApp API"**
+  - The number was registered under a **different WABA** than the one with the 8 templates.
+  - **19:36 — Akash gave its Phone Number ID.**
+  - Claude then confused Akash's own recipient number with the sending number and told him to
+    request "Advanced Access".
+  - **19:39 — "There's no thing as advanced access in permissions and features! Stop using outdated
+    information! Just use the number and Phone ID I gave you!"**
