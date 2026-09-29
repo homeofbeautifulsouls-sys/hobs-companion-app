@@ -951,3 +951,76 @@ pattern the app sessions followed.
   text, outlined blue button (E-019f46b9-11, -14).
 - **12:26 — Akash:** update Drive and the project file, then add **therapy homework**: the
   therapist sends it and the client automatically gets it as a task.
+- **12:33 / Jul 10 07:51 — Therapy homework** built: tasks get an `assigned_by_therapist` marker
+  and a therapist INSERT policy; therapist dashboard "Send Homework" with a de-duplicated client
+  picker and optional due date (E-019f46d8-20, -32); client tasks load the marker (-40) and show
+  **"Homework from [Therapist]"** (-48). Drive log **v18**; project zip updated.
+- **Jul 10 07:57 — Akash's list:** (1) tasks not autosaving — **"everything should be
+  autosaved"**; (2) task save button not working; (3) music bug; (4) **"claim profile"** emails
+  for existing expert profiles; (5) **no option to reject** a change request; (6) switching apps
+  and back → **white screen** for a while; (7) the phone's **back button** doesn't go back; (8)
+  push setup instructions; (9) pipeline: **Chatbot, Donation (fundraiser), Letters to Self,
+  Mental Health Stories** ("You are not alone" profiles).
+  - **Bug (silent data loss):** if `currentUser` was null at save time, the task saved locally,
+    the sheet closed, and **the database write crashed silently**. Fix: a **`pendingSyncQueue`
+    in localStorage** with `syncToSupabase()` and retry after sign-in (E-019f4b07-61, -69),
+    applied to tasks (-77), entries (-86), worksheets (-95), WHO-5 (-103), test results (-109).
+  - Music: `calmroom-music.mp3` **never existed (404)**; the play icon flipped before playback
+    started and a developer message showed to users (-132).
+  - Back button: a **panel history stack** in `showOnly()` and a Capacitor `backButton` listener
+    (close modal first, then step back, exit only from Home) (-143, -152).
+  - White screen: Claude's own **`LOAD_NO_CACHE` had made reloads slower** → switched to
+    **`LOAD_DEFAULT`** in `MainActivity.java` (E-019f4b10-4) → new APK.
+  - **Reject** next to Approve (E-019f4b10-13). Claim-profile emails still blocked on the
+    service_role key. Firebase steps given (project, Android app `com.hobsfoundation.companion`,
+    `google-services.json`, server key).
+- **08:26 — Akash:** autosave in mood too — "it has to be in everything"; center the Welcome
+  section; why a new APK? Mood already used the fixed path; **`addSubtask()` had the same
+  silent-failure bug** (E-019f4b22-20); hero centered (-27, -33). APK needed for the native
+  cache change only.
+- **08:29 — Akash:** drag to reorder subtasks and to change task priority, **priority by colour
+  but not red/yellow/green** ("it will be extreme"), everywhere. Built touch-based drag
+  (`makeListDraggable`, softer amber) and priority zones with `sort_order` columns
+  (E-019f4b24-18, -27, -35). **Bug:** on drop, the code read the dragged item's **own stale
+  priority** instead of its new neighbours' (-115). Debug logging added and removed
+  (-93, -104, -156, E-019f4b31-3); one "failure" was a test-distance artifact.
+- **08:46–08:52** — Claude listed the therapist dashboard spec as built. Drive log **v19**. Gap
+  audit (verified in code): no booking-status notice for clients; music file missing; sparse
+  expert profiles; **no client Edit Profile**; **no account deletion**; no admin analytics; no
+  monitoring; no backup plan; no client view of cancellation status; untested
+  client→therapist upgrade edge case; pipeline unscoped.
+- **08:54 — Akash: fix 1, 2, 3, 4, 6, 7, 8, 9, 10** (not 5, deletion) — "for music, you said,
+  you would build the music by yourself!" Built:
+  - **Generated ambient soundscape via the Web Audio API** replacing the missing MP3
+    (E-019f4b3c-6, -16).
+  - Home **"session confirmed" banner** (-35, -42).
+  - **Client Edit Profile** and **"My Sessions & Cancellations"** (-51, -68, -74, -94; -91 failed
+    as not unique).
+  - Admin **Overview analytics** (revenue this month, new clients, active clients) (-108, -115).
+  - **Error monitoring:** global handler logging JS errors to an `error_logs` table readable by
+    admin (E-019f4bfb-19, -27, -35, -41).
+  - **Backup:** Claude found the project on Supabase's **Free tier — no automatic backups, and
+    auto-pause after 7 days idle**; exported every table as a manual snapshot with a README
+    (-68); **recommended Supabase Pro ($25/month)**.
+  - Client→therapist upgrade tested: existing data intact.
+- **12:39** — Akash: therapists should see **all their slots listed below the calendar** → "All
+  Upcoming Slots" list; booked slots can't be removed (E-019f4c0a-7, -16).
+- **12:45 — End of C23.** Akash: "It's asking me to start new chat because of image files… I
+  don't want any gaps… Lot of times, the new chat just starts creating new bugs!" Claude wrote a
+  **Drive "MASTER PROJECT STATE"** doc with hard-won lessons, then
+  `HOBS-New-Chat-Starter-Kit.md` (E-019f4c12-5) — **which contained the GitHub and Supabase
+  tokens** ("since you asked for 'everything'"). The new chat couldn't open the Drive doc
+  (401, not shared), so Claude wrote `HOBS-Master-Project-State.md` (E-019f4c24-4). Akash: "give
+  me all the files in one zip… and the prompt" → `HOBS-Everything.zip` with
+  `0_START_HERE_paste_this_exact_message.txt` (E-019f4c28-5).
+  - The new chat's check noted the **GitHub repo was public**; Supabase `ACTIVE_HEALTHY`,
+    Postgres 17.6, 15 tables.
+- **13:17 — C26 ("App Continuation") starts** with the zip and the prompt. Claude verified live
+  state: `main` at `90355ef`; Pages built; live HTML **byte-identical** to the zip; 15 tables;
+  both SECURITY DEFINER helpers (`is_admin_user`, `get_my_therapist_expert_name`) present.
+- **13:21 — Akash: "Auto saving feature still isn't working! Task save button is still not
+  working!"** Claude's end-to-end test with a throwaway account saved fine (201, temp ID → real
+  UUID); the fix commit `802eddee` had shipped at 08:07. Suspected cached JS. Akash's Android
+  screenshot: the save button is the **unlabelled "+" square next to Repeat**. Claude suggested
+  clearing app cache and offered a permanent stale-cache fix. **17:26 — Akash: "It fails even
+  after clearing cache!"**
