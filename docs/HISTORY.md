@@ -2338,3 +2338,57 @@ pattern the app sessions followed.
 - **18:52 — Akash (screenshot): "Why the fuck have you put previous campaign here! And give me the
   option to alter QR Code."** Claude quoted his 17:46 message back to him as if it had asked for
   public visibility. **Answer: "Remove it from the donate page entirely."**
+- **18:59** — The public past-campaigns section was removed from `donate.html` (a leftover brace was
+  caught) (E-019f8b2c-6…-30). **QR and UPI made editable:** a new **`app_settings` table** (public
+  read, admin write; live DB) seeded with the current values; an admin "Payment QR Code" section;
+  `donate.html` and the in-app payment modal read it at runtime (E-019f8b2c-57…-117). The real
+  values were restored after testing. Pushed at 19:03.
+- **19:06 — Akash:** add "CSR Certified Section 8 Company" under the foundation name, and the
+  WhatsApp line for the **80G receipt**. Added to `donate.html` and, for donations only, to the
+  in-app modal (E-019f8b38-6…-31). **19:11 — Akash (screenshots): "I was fucking talking about the
+  page! Ask for clarity then just jumping into action!!!"** The raw served file had the lines;
+  Claude called it caching. **19:13:** a **"WhatsApp Us" button** under "I've Paid" in both places
+  (E-019f8b3f-7…-26).
+- **19:18 — WhatsApp share text.** Claude advised against reusing the page copy (the link preview
+  already shows it) and wrote two short messages.
+- **22:01 — "Okay what next."** **22:03 — Akash: update the master doc and zip; "look at it again,
+  a lot of updates are pending other than what you have mentioned here (those I mentioned in
+  previous chats)."**
+  - Claude re-read the handoff zip. The Jul 14 audit's 3 bugs were **already fixed**.
+  - The **Google-Calendar privacy-policy section had never been published** → added to the live
+    `privacy-policy.html` (E-019f8bda-39).
+  - **Drive `create_file` failed with "Internal error"** on every try, even for one-word files.
+  - Claude's 19-item remaining list included the HubSpot disclosure, self-service deletion,
+    **keystore backup unconfirmed**, the Groq key, a LinkedIn tester post, and the D-U-N-S.
+- **22:16 — "Build period tracker then Screenshots prevention."**
+  - **Period tracker:** a `period_logs` table with **owner-only RLS (no admin or therapist
+    access)**, a Home card and panel, and cycle prediction from 2+ cycles (E-019f8be7-13…-33).
+  - **Screenshots:** `@capacitor/privacy-screen` was a dependency but **never called**; now
+    enabled only on chat panels through `showOnly()` (E-019f8be7-75). Web-only, not checkable in
+    a browser. Both pushed.
+- **22:38 — Akash (screenshots): "I was able to take the screenshot very clearly!"** Also: ask all
+  the relevant medical questions first (research other apps and the science), and allow editing
+  and deleting logs. Claude explained the native plugin needs a new APK, and added flow
+  intensity, physical symptoms and mood symptoms (ACOG, Flo, Clue; PMDD relevance, no fertility
+  fields) plus edit and delete (live DB columns; E-019f8bfb-13, -22). A **missed `git add
+  version.json`** was found and fixed.
+- **22:48 — Akash (screenshot): rebuild the APK with screenshot blocking; "the last apk had this
+  bug… you had messed up, so make sure it doesn't happen again"** — a native title bar showing
+  "HOBS_Co…". Cause: **`MainActivity.onCreate()` never called
+  `setTheme(R.style.AppTheme_NoActionBar)`**, so after the splash it fell back to the app theme
+  with an action bar (E-019f8c03-53).
+  - C28 **rebuilt the whole native environment from the handoff zip**: Android SDK, a full JDK
+    (only a JRE was present), Capacitor Android scaffold, the customised files overlaid, and
+    detached `setsid` builds to survive the tool timeout.
+  - **APK v2.7 (versionCode 18)**; the signature matched the HOBS certificate. Uploaded to
+    `app-releases` and registered in `app_releases`. **`app_releases` only had v2.4, so v2.6 had
+    never been registered.**
+  - **23:10 — "I can't install the apk right now so you check it then release."** No KVM, so no
+    emulator; Claude checked the compiled bytecode instead (`setTheme` first in `onCreate`;
+    `Window.addFlags` in the privacy-screen plugin).
+- **23:14 — "Now update the drive and zip folder."** Drive creation still failed. A **v18 handoff
+  zip** (8.2 MB: code, website pages, functions, keystore, **APK v2.7**, schema reference, a
+  rebuild recipe) and **`MASTER_PROJECT_STATE_v18.md`** (E-019f8c1c-29, -32). **Akash: "Why can't
+  you update the drive?… You ask for permission here I will give it"** — Claude said there was no
+  permission prompt; the tool itself was failing.
+- **23:21 — Next: "Self-service account deletion (Play Store needs this)."**
