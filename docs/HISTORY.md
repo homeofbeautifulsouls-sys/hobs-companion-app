@@ -4559,3 +4559,81 @@ pattern the app sessions followed.
     fabricate", a risk router, and no unmeasured percentages. It proposed a scoped first version: a
     post-generation grounding check only on personal-fact-shaped replies → one regeneration → an
     honest Bob fallback. The clinical knowledge base, identity gate and benchmark suite deferred.
+
+### Sept 16 — Bob architecture plan, master zip, chat tabs, therapist matching (C31)
+
+- **13:03 — Akash pasted a second ChatGPT reply: "Bob or app it's a long term thing so instead of
+  quick immediate response, we want to build bob properly!"**
+  - Claude agreed on naming the first piece as a module (`response-integrity/personal-grounding`)
+    and on versioned Bob identity. It pushed back on building the whole engine speculatively.
+  - **13:06 — "let's create a proper breakdown of steps! A detailed plan of action"** →
+    **`docs/BOB-INTELLIGENCE-ARCHITECTURE-PLAN.md`** (E-01a0aa53-4). Six phases: foundation →
+    personal grounding → measurement → safety review of Bob's own replies → memory confidence →
+    "Bobness" regression. Knowledge grounding, dependency detection and the eval lab deferred.
+- **13:11 — "update the master zip… EVERYTHING in absolute detail… Especially this bob
+  architecture plan."**
+  - `/home/claude/master-handoff/` refreshed: codebase, credentials doc with real values (sandbox
+    only, not in git; E-01a0aa57-37), Play Store doc (-53), README (-104). 8.0 MB zip delivered.
+  - In the repo: **`PROJECT_STATUS.md` rewritten** (-63); **MASTER.md** §4 Edge Functions updated
+    (`character-chat-reply` now live; -74), header date (-81), §8 open items (-83), and §1 mascot
+    line (-91). MASTER had said the character feature was paused.
+- **13:19 — Three requests:** (1) donation edit should update the web link and share it; (2) "Bob
+  Therapist support group chat side by side exactly like how other mascot tabs were there"; (3)
+  remove "Our crew is always here" from home.
+  - (3) removed along with its 4 click handlers (E-01a0aa5f-35, -43). Another Bob entry point (the
+    header icon) remains.
+  - (1) **13:35 — "The donation edit is working good. No change needed for now."**
+  - (2) **13:24 — screenshot of the old mascot tab bar: "instead of Kunnu Po and Cookie, it will be
+    chatting with therapist and messaging in support group… Talk to me first."**
+    - **13:28:** the Therapist tab shows "connect to a therapist" if none. Tabs scroll left to right,
+      most recent first: **Bob, Therapist, Psychiatrist, Support Group, Doctor, Caregiver, Client
+      Coordination Group** (the client's name shown instead of "client").
+    - **13:30 — "See there are caregivers!"** → the `experts` table has Therapist (6), Psychiatrist
+      (2), General Physician (2), Peer Caregiver (2).
+    - **16:39 — "Therapist and Support Group first."**
+- **Therapist connection mechanism:** none existed. `assigned_therapist_user_id` was never set;
+  four overlapping fields exist. **16:45 — "1) Yes [build auto-assignment] 2) I will test using my
+  account."**
+  - First version (**wrong**): set on paid booking confirmation in `razorpay-webhook`
+    (E-01a0ab1b-17) + backfill of 7 clients.
+  - Tabs: **Therapist and Support Group** replace the hidden mascot tabs; horizontally scrollable
+    bar; `openAssistantModal` fills them (E-01a0ab1b-68, -71, -81).
+  - **Found: direct chat creation never worked for non-admin users** (RLS: the `.select()` after
+    insert fails, and members can only be added by room admins) → new **`SECURITY DEFINER`
+    function `get_or_create_direct_chat_room`** (production), connection check included.
+    `startOrOpenDirectChat` uses it (E-01a0ab25-21, -30, -42). Title overlap fixed (-10); the
+    support waitlist image changed from Kunnu to Bob (-85).
+  - **Account deletion (`delete_user_data_atomic`) had 3 bugs** hit by chat senders:
+    `text = null` on NOT NULL (E-01a0ab25-106), `chat_rooms.created_by` not handled (-121),
+    `chat_messages.sender_id` made nullable and nulled (-151). Full deletion then worked.
+  - Staging 17 (E-01a0ab2b-28).
+- **17:13 — "when I open the therapist tab it takes me to profiles… Also Bob literally takes a
+  second to close!… Immediate!"**
+  - **× now closes instantly** — goodbye flow removed (E-01a0ab35-21; 61 ms). A clear self-chat
+    message replaces "Couldn't start chat" (-28). Staging 18 (-45).
+  - Two-way client ↔ therapist chat verified with two fresh accounts.
+- **17:28 — "a paid booking doesn't mean matched, matched refers to a client being assigned to the
+  therapist! You have been using the wrong logic."**
+  - The real match is `assignPendingBooking` → `expert_bookings.status = 'active'` (payment
+    independent) → **database trigger on status → active** sets `assigned_therapist_user_id`.
+    Backfill re-run (3 more connections, including Akash's self-match); trigger tested; webhook
+    comment corrected (E-01a0ac29-47).
+- **21:53 — "change my therapist to [a colleague therapist] so I can check. Also there should be
+  option to request for unmatch. View Sessions Log (Date, time and homework for the session)…
+  Talk to me first."**
+  - **22:00 — Akash:** "homework it's already there! And obviously session notes won't be
+    disclosed to the client!"
+    - Unmatch: "Request that needs admin approval (this was already worked upon…). New chat
+      history for new Therapist. Bob's memory stays intact. And yes reason is required."
+    - Sessions history = date, time and homework per session. Show the upcoming session. No
+      cancellation count or charge.
+    - **"we would need to build our own calendar since Google Auth isn't exactly working as planned…
+      in-house calendar linked to e-mail and WhatsApp will be much better!"** (to discuss later)
+  - Claude set Akash's assigned therapist to that colleague (production data change, for testing).
+  - Findings: homework exists (a `tasks` row with `assigned_by_therapist`) but has **no session
+    link**. The existing "Disconnect" is **instant self-service** (status → cancelled, no approval,
+    no reason). **Bug:** Disconnect doesn't clear `assigned_therapist_user_id`.
+- **22:05 — Akash:** "Homework will be per session, the therapist will assign them and the client
+  will receive it and upon accepting it will be added in their tasklist. Upon completion, the
+  therapist will be notified… Fix the bug and disconnect/cancellation I had kept it for approval,
+  don't know what went wrong but fix that as well! Let's work on this first then on calendar."
