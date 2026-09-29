@@ -5159,3 +5159,72 @@ pattern the app sessions followed.
     request "Advanced Access".
   - **19:39 — "There's no thing as advanced access in permissions and features! Stop using outdated
     information! Just use the number and Phone ID I gave you!"**
+
+### Sept 26 — New cloud session, real WhatsApp number, delivery mystery, docs (C31, new session)
+
+- **19:40 — The chat continued in a fresh cloud session** (no repo, no Supabase login).
+  - **19:41 — "How did you lose direct access to Supabase project?"** / **19:42 — "how could you
+    start a new cloud session in the middle of what we are working"** → Claude: session restarts
+    aren't in its control.
+  - Akash sent keys; **19:51 access restored** (project `adjvptkzyckkvewbfmzf`).
+  - `WHATSAPP_PHONE_NUMBER_ID` set to the new real number's ID (**under a different WABA than the
+    8 templates**).
+- **19:52 — "do you remember the templates I had approved?"** → the stored access token was dead (the
+  24-hour one). **19:59 — Akash sent a new token** → the 8 templates were read back from the
+  original WABA and **recreated under the new WABA** via temporary functions (deleted after).
+  - At 20:03 `hobs_professional_assigned` and `hobs_system_alert` were approved (these two landed in
+    the Marketing category).
+- **20:02–21:56 — Delivery mystery:** the API returned "accepted" but Akash's phone got nothing.
+  - Claude's wrong turns:
+    - claimed Akash's recipient number was the sending number;
+    - said the app was in development mode ("the app is live and not in development mode!");
+    - suggested he may have blocked the number;
+    - suggested he re-register his number ("I regularly get promotional and business messages on
+      [it]!").
+  - **21:05 — another token from Akash** → business profile set via the API.
+    **21:08 — "email will be homeofbeautifulsouls@gmail.com and I said we will not add the address!
+    And what is crisis alert! And remove crisis intervention! Take the content that's there on
+    website!"**
+    - Profile fixed: about "India's only survivor-led mental health NGO", website description, the
+      website and a `wa.me` link for Akash's number, logo.
+  - **21:10 — "I got the message from test number! So why are you not able to send me message from
+    the registered number!"** → more tokens (21:11, 21:15).
+  - New table **`whatsapp_webhook_events`**; `whatsapp-webhook` now stores events (it had only
+    logged to console).
+  - **21:42 — diagnostic function → Meta analytics: new number sent 0 / delivered 0; old test
+    number 1 / 1.** New-number warm-up / "UNKNOWN" quality suspected. Akash's own number is
+    registered in Meta as a disconnected On-Premise API number under a third WABA.
+  - **21:51 — "the registered number has been updated!… Try once again!"** → **21:56 — "Yes I
+    received it now!"**
+- **21:56 — "integrate our app, the numbers of therapists associated with their clients!"** →
+  - new Edge Function **`send-whatsapp-template`** (generic sender);
+  - **Postgres trigger `notify_professional_assigned`**: when any `assigned_*_user_id` is set, it
+    sends `hobs_professional_assigned` to the client. Live-tested, test assignment reverted.
+- **22:16 — "build a safeguard against fake numbers! And everyone's numbers have to begin with their
+  country code!… no user can proceed without filling app contract and no client can proceed without
+  filling therapy contract, what about that?"**
+  - 8 numbers normalized to `+91…`, 2 fake test numbers nulled.
+  - **CHECK constraints on `profiles.phone_number` and `emergency_contact_phone`** (+91 mobile
+    pattern, no dummies).
+  - Claude couldn't see the app code (no repo) to check the contract gates.
+- **22:23 — "I too have to get the WhatsApp message for everything! Whenever a client books or
+  cancels the appointment or the therapist does or the crisis is flagged!… We had not even updated
+  the master doc!… Do not build anything till then!"**
+  - Claude wrote **`claude/whatsapp-integration-master.md` to the claude.ai Project** (WABA / phone
+    IDs, templates, what's built).
+  - Six leftover diagnostic functions (with token access) deleted.
+- **22:28 — Akash uploaded `hobs-master-handoff.zip`: "The Masterdoc contains EVERYTHING! This is
+  the outdated master doc! Read this chat and cover the gap."**
+  - Claude cloned the repo and wrote **MASTER.md §10 "WhatsApp Business API"**, PROJECT_STATUS
+    updates, and **BUG_LOG #98–#103**: session reset, WABA mismatch, delivery warm-up, exposed
+    diagnostic functions, phone safeguard, and writing state to the wrong place first.
+  - The **push failed: GitHub not linked to the session.** A patch file was sent.
+- **22:35 — "we are using Hostinger! And I asked you to READ THIS CHAT!"**; **22:38 — "Connect Github
+  so you do it! But why are we using github? For what?"**; **22:44 — "When I say the entire chat,
+  THE ENTIRE CHAT! Not just this session!… REFER THE MASTERDOC AS WELL"**.
+  - GitHub Contents API also blocked at session level.
+  - Claude read earlier chats through conversation search and gave a wider remaining list. **22:56 —
+    "You missed BOB, email marketing and what not"** → list extended: Bob intelligence phases,
+    email marketing, invite emails, HDFC, constellation, React, calendar view, in-house calendar,
+    uptime monitoring, deterministic builds, hidden mascots.
+- **22:59 — "Okay I connected github."**
