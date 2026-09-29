@@ -1024,3 +1024,68 @@ pattern the app sessions followed.
   screenshot: the save button is the **unlabelled "+" square next to Repeat**. Claude suggested
   clearing app cache and offered a permanent stale-cache fix. **17:26 — Akash: "It fails even
   after clearing cache!"**
+- **17:34 — Save button, real cause.** Akash's account had **zero task rows and zero error
+  logs** — the tap never reached the handler. Diagnosis: **no `windowSoftInputMode`** on the
+  Android activity, so a tap near the open keyboard on the fixed bottom sheet was swallowed.
+  Fixes: `android:windowSoftInputMode="adjustResize"` (E-019f4d11-31) and web hardening — bigger
+  target, `touch-action:manipulation`, `touchend` + `click` with an in-flight guard, blur
+  before save (-36, -42, -44); pushed as `b21b7e3`. Claude first handed Akash the manifest to
+  build himself; **Akash: "The previous you always used to build apks!"** → Claude installed
+  the Android SDK and JDK in the new sandbox and built the APK with the keystore from the zip
+  (manifest flag verified in the compiled APK).
+- **17:48 — Akash: "autosaving hasn't worked even once for anything!… the task should be saved
+  when going back right?"** Claude confirmed in source: **there had never been any
+  save-on-exit** — every screen saved only on an explicit Save tap; X, backdrop and the back
+  button discarded input. Built commit-if-dirty on close for the **Add Task sheet, Quick
+  Journal, Main Journal and Worksheets**, and routed the hardware back button through them
+  (E-019f4d25-52, -54, -57, -60, -64, -68, -77); verified rows in `tasks`, `entries`,
+  `worksheet_responses`; pushed `b074e01`; APK rebuilt.
+- **18:02–18:14 — Logo mix-up.** Akash sent a Bob & Po hug image: "change the app's logo to this
+  (remove its background)". Claude removed the background (rembg) and **changed the in-app
+  header logo and its CSS** (E-019f4d31-38) and pushed it. **Akash: "I didn't speak about the
+  header!… I was speaking about launcher ico! Dude, ask if you have doubts rather than just
+  starting to build…"** Header reverted and verified; **launcher icon** built at all 5
+  densities (legacy + adaptive foreground, cropped to the two faces), verified inside the APK.
+- **18:28 — Akash: tap a task to edit it, plus delete.** The Add Task sheet now opens pre-filled
+  (title, duration, priority, repeat, deadline, subtasks) and updates in place; "Delete this
+  task" with subtasks cascading (E-019f4d4a-38, -41, -44, -48, -54, -57). Web only.
+- **18:36–18:54 — Firebase.** Akash's Firebase screenshot showed apps registered as
+  **`com.mycompany.hobsapp`** (placeholder) — FCM would never reach the real app. Akash created
+  a **fresh Firebase project `hobs-companion`** and added the Android app
+  `com.hobsfoundation.companion`; sent `google-services.json`. Claude added
+  `POST_NOTIFICATIONS` (E-019f4d58-17), `@capacitor/push-notifications` 8.1.1 (-20, -26), and
+  sign-in permission + FCM token saved to `profiles.push_token`, respecting
+  `notifications_enabled` (-45, -47). **Bug caught before push:** Claude was working from a
+  **stale local copy that predated the edit/delete feature** — the diff showed it; changes
+  re-applied on the current base (-80, -84).
+- **18:59–19:08 — Sending side.** Akash sent the **Firebase service-account key**. Claude
+  installed the Supabase CLI, linked the project, stored the Firebase credentials as **Edge
+  Function secrets**, deleted local copies, deployed **`send-push-notification`**
+  (E-019f4d66-9), verified the credential independently (real OAuth token from Google). **Bug:**
+  no CORS headers, so browser/WebView calls failed (-85). Added a **"Send me a test
+  notification"** button in Profile (-67).
+- **19:13 — Akash's notification spec:** (1) admin **manual send** with history per
+  notification and per user, including **who opened it and what they did after**; (2) "book a
+  session" on **Sunday and Thursday** if not booked, **task reminders twice a day**, **mood
+  check once a day**, **journaling 9pm nightly**, not "clubbed together"; (3) Google Analytics
+  working. Claude found `pg_cron` and `pg_net` available and asked detailed questions (target
+  audience, times, "only if not done", tone, channels, quiet hours, timezone, test on Akash's
+  account first).
+- **22:28 — Akash's answers:** (1) track everyone who received it, who opened, and what they did
+  after tapping; (2) "haven't booked **this week**" — admin week Sun–Sat, users' week **Mon–Sat**;
+  journaling **regardless**; **"clubbed together" = no two notifications within 3 hours**; tone
+  encouraging and **sent as if from the mascots**; (3) **a full behaviour funnel**, and use
+  **each user's timezone, not IST**; (4) **remove the test button for other users**; (5) an
+  **app-update notification with the APK attached**, sent daily until they install, updated
+  every time an APK is built. Then update Drive and the project file.
+  - Built: notification and app-config schema; `pg_cron`/`pg_net` enabled; **versionCode had been
+    1 all along** → 2 / "1.1" (E-019f4e25-22); **`notification-scheduler`** Edge Function
+    evaluating each user's local time every 15 minutes (E-019f4e25-28), protected by a shared
+    **scheduler secret** with platform JWT verification turned off; **bug:** `entries` uses
+    `created_at`, not `date` (-48); a debug time override for testing (-76, -79, -90).
+  - **Incident:** the first scheduler test **sent a real journal-reminder push to 3 real users,
+    including Akash** (the override wasn't isolated from real accounts). Claude flagged it,
+    **backed up and cleared real push tokens** during testing, and restored them afterwards.
+    Verified Sunday/Thursday booking logic, task reminders, mood dedup (an apparent failure was
+    wall-clock vs simulated time) and the 3-hour spacing rule.
+- **22:41** — Akash: "Continue".
