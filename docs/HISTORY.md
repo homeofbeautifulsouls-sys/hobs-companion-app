@@ -3455,3 +3455,85 @@ pattern the app sessions followed.
     the AI layer should ever suggest navigation.
 - **13:47 — Akash: "Let's build characters first completely! Train them, shall we? Rather than
   incomplete build and set the tone."**
+
+### Character AI — built early, then scoping only (Aug 15 13:53 → 15:18, C28)
+
+- **13:53:**
+  - Claude built **`character-chat-reply`** (E-01a005ad-2): Groq system prompts for Bob, Kunnu,
+    Po and Cookie, with a built-in crisis check.
+  - Testing caught **Kunnu inventing an offer** ("I've got a friend who's been through something
+    similar") → hard rule against inventing capabilities (E-01a005ad-13).
+  - It then **wired this into the live assistant** as the no-match fallback, fixed the assistant's
+    keyword-only crisis check (E-01a005ad-42, -54), and **deployed to production**.
+- **13:54 — Akash: "Dude i fucking said let's fucking build the characters first!"** Claude began
+  reverting. **"Bhosdike just stop jumping! Fucking wasting tokens! Keep it what it is, build on that
+  when it comes to characters."** Left as deployed.
+- **Bob scoping (13:55 → 15:18) — "We don't build anything till we have everything in place":**
+  - **13:58 — Akash: "When building and working on characters, I want you to remember the
+    complexity of humans, their vocabulary!"** He also asked for **Robin Williams transcripts** to
+    shape Bob's voice. Claude declined: copyright, and a real deceased person.
+  - **14:05 — Akash: "Bob is a therapist! He needs to speak like a therapist!… like woebot, Wysa,
+    Youper-style… Correct me if am missing out something!"** Routing: Bob = listening, Cookie =
+    accountability, Kunnu = Gen-Z register, Po = queer/ND understanding. Plus do's and don'ts,
+    referral to SOS/helplines, and referral to the right professional.
+    - Claude revised its earlier "no" (a Wysa-style product is legitimate) but kept: no
+      transcripts, and **therapeutic technique content comes from or is reviewed by Akash**.
+      **Akash agreed.**
+  - `Bob-Grounded-Communication-Proposal.md` (E-01a005c0-6).
+  - **14:18 — Akash:** "I am here with you, HOBS is here with you", then nudge toward
+    professionals. Basis: empathy, psychoeducation, validation **and accountability**; **no
+    diagnosis**. Bob may suggest techniques conversationally (CBT/DBT/ACT), offer to send a note to
+    the therapist, and check in later by name through push.
+    - Claude flagged that "send a note" and "check in later" must be **real features before Bob
+      may say them**.
+  - **14:20 — Akash: "let's do this together so bob asks those actual questions."** Claude found
+    the **7 existing worksheets** (CBT rumination ×2, DBT relationships ×2, ACT ×3).
+  - **14:31–14:57 — voice specs from Akash:**
+    - "Howdy chief! Good to see you back (name)"; "Am listening, am here with you, am processing
+      what you just said…" instead of silence; **never shares about himself**.
+    - Asserts boundaries with empathy; **no humor for now**.
+    - Closings check current feeling ("genuinely glad to hear that chief", names the assigned
+      professional from real data, or a hi-five).
+    - **"chief"** only at emotionally rich moments and greetings; names only from real data.
+    - **No "stepping back"** — always small nudges toward resources, without looping.
+    - **Flags go to the assigned professional, or admin if none, with the raw conversation**, for
+      distress, self-harm or suicide.
+    - Disclosure goes into **sign-up consent**.
+    - New pipeline item: **a live chat room with peer caregivers**.
+  - `HOBS-Character-AI-Master-Scope.md` (E-01a005ed-2, updated E-01a005f0-2, -4).
+  - `Bob-Voice-Examples.md` with 51 examples (E-01a005f0-7). **"Give it to me here and not in a
+    document"**, then **"Dude give me 5 per time! You don't want to overwhelm me!"**
+  - **15:17 — Akash: "'Nothing's wrong, starting there' .... that's literally invalidating!… people
+    are not coming to Bob for time pass… deep search, study how people actually talk, especially the
+    Indian audience!"**
+    - Research: "Beta, it's nothing" dismissal, Hinglish code-switching (350–600M), fear of
+      judgment.
+    - 5 rebuilt examples. Open question: **should Bob code-switch into Hinglish?**
+
+### Back to bugs (Aug 16 18:41 → Aug 18 22:11, C28)
+
+- **Aug 16 18:41 — Akash (screenshot): "Unable to share the image and the bug still persists where
+  upon clicking back the entry is not fucking reflecting!!!!"**
+  - Share-as-image required the Capacitor **Filesystem and Share plugins, which were never
+    installed** → installed and synced.
+  - **`package.json` had never been saved to the repo** (the same class as the manifest) → saved.
+  - **APK 31 / 3.10** (E-01a00be0-41); plugin classes confirmed in the bytecode.
+- **Aug 17 23:59 — Akash: "Give me the hostinger API key I gave you."** Claude **printed the full
+  Hostinger API token in chat** (redacted here).
+- **Aug 18 16:42 — "The share image got resolved but still… the journal entry is not visible in
+  index… fucking study and fix the probllem."** Root cause: the **hardware/gesture back button**
+  uses a separate `panelHistoryStack` path that never called `renderHistory()`. Fixed
+  (E-01a015c0-10); tested with a mocked Capacitor. **APK 32 / 3.11** (E-01a015c0-39).
+- **16:57 — "for a second, before logging in and after logging in when opening the app, the
+  loading screen comes! Like I said, I need it removed completely!"**
+  - Android's native cold-start splash showed the Bob image → every `splash.png` replaced with
+    solid `#FFF8F0`, saved as build assets.
+  - Claude built once without bumping the version, then **APK 33 / 3.12** (E-01a015cd-45).
+    Pixels verified in the compiled resources.
+- **17:17 — "It still shows for a split second! But it shows both the times dude!"**
+  - **`authOverlay` was `display:flex` in the raw HTML**, painted before any JS ran → default
+    `none`, shown only on the non-optimistic path (E-01a015de-6, -14).
+  - A MutationObserver test seemed to show a 333 ms flash; direct logging proved the logic
+    correct.
+  - **APK 34 / 3.13** (E-01a016e6-47).
+- **Aug 21 09:26 — Akash sent a screenshot with no text.**
