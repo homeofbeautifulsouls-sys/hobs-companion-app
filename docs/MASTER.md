@@ -1,6 +1,6 @@
 # HOBS Companion — Master Reference
 Last rebuilt: September 16, 2026. Last update: September 29, 2026 (§1 full history
-reconstruction complete; §8 open items found in the history). Previous: September 27, 2026 (§10 WhatsApp Business
+reconstruction complete; §8 open items found in the history; §13 future plan). Previous: September 27, 2026 (§10 WhatsApp Business
 API; §4 Edge Function audit -- 4 undocumented live functions added, 2 live unauthenticated
 "temporary" functions flagged for deletion, `transcribe-audio`'s real provider corrected; §12
 new standing safeguard against session-reset drift; CLAUDE.md added at repo root). **Read this
@@ -430,7 +430,8 @@ state** — verify before acting):
   the app is bundled. A new production APK (v83) is needed. Not built — awaiting Akash's OK.
 - **WhatsApp permanent token** was overwritten on Sept 22 (see `HISTORY.md`, Sept 21–22).
   Check which token the live function uses.
-- Hindi crisis-detection patterns need review by a native speaker.
+- (Correction: Hindi crisis detection is **not** open. Akash decided Sept 20, 15:25, "let's just
+  keep English" until there is money for other languages; Hindi patterns are disabled in code.)
 - Secret hygiene, awaiting Akash's decision: rotate the Razorpay webhook secret and scheduler
   secrets; make the repo private or rewrite git history (older commits hold a keystore password,
   leaked secrets, client names); remove passwords listed in this file (§2) and the Hostinger
@@ -582,3 +583,105 @@ lost**:
   until tested against real, live data or a real device.
 - When something is fixed, say plainly what was actually wrong and what changed — no vague
   reassurance, no claiming something is resolved without having verified it.
+
+---
+
+## 13. Future plan — safeguards, security, Play Store, development (Sept 29, 2026)
+
+Agreed direction from Akash, Sept 29, 2026. **Nothing here is built yet. Every item needs
+Akash's explicit OK before it starts** (standing rule: talk first, no builds/deploys without OK).
+Suggested order: 13.1 → 13.3 → 13.2 → 13.4 → 13.6 / 13.8 → 13.5 → 13.7.
+
+Core idea: today almost every safeguard is a rule a Claude session has to remember. Move them
+into the system itself, so they hold even when a session forgets or resets.
+
+### 13.1 Never lose credentials again
+- Every key lives in **GitHub Actions encrypted secrets** (build/deploy) and **Supabase secrets**
+  (Edge Functions). Builds and deploys run in GitHub Actions, so no session needs a pasted PAT.
+- Akash keeps the master copy in a **password manager** (e.g. Bitwarden, free) — independent of
+  GitHub and Supabase.
+- **Rotate every key that has leaked** (Razorpay webhook secret, scheduler secrets, old Hostinger
+  token, anything in git history) and **make the repo private** (or rewrite history).
+- Remove the passwords in §2 and the Hostinger token in §5 of this file.
+- Upload keystore: **two backup copies** outside the repo. Play App Signing allows an upload-key
+  reset if it is ever lost.
+
+### 13.2 Never lose work
+- Everything live must also be in git. Automate the §4 Edge Function audit (live vs repo vs this
+  file) as a **weekly scheduled check that alerts on any difference**.
+- **Monthly restore test** of the backups (`database-backup`, `database-backup-offsite`) — an
+  untested backup is not a backup.
+- Decision for Akash: **Supabase Pro ($25/month)** — automatic daily backups (7 days) and no
+  inactivity pausing (the Sept 27 staging pause broke Google Sign-In). Free plan has no automatic
+  backups at all. PITR is a paid add-on on top of Pro.
+
+### 13.3 Nothing ships without Akash's OK — enforced, not remembered
+- Production deploy workflows use a **GitHub protected environment with required approval**: even
+  if a session starts one, it cannot go live until Akash clicks approve.
+- Every change: written spec → Akash OK → staging → automated tests → Akash approve → production.
+- BUG_LOG and CHANGE_LOG rules (CLAUDE.md) stay.
+
+### 13.4 Catch bugs before users do (the Sept 20 "five layers" request)
+- **Persistent automated test suite + CI gate** on every change. First: crisis detection,
+  sign-in, profile save, payments.
+- **Every incident becomes a regression test** so it cannot come back.
+- Build-time validation incl. a **staging-vs-production diff** (the Sept 26 APK diff found real
+  drift).
+- **Crashlytics** (native crashes) + `window.onerror` / JS error logging with stack, screen, version.
+- Extend the crisis-classifier health check/canary pattern to **WhatsApp, payments, backups**.
+- DB-constraint audit (the Sept 29 phone CHECK constraint broke every profile save).
+- Play: **staged rollouts** (10% → 50% → 100%, halt on problems) and the **pre-launch report**
+  (real-device tests of every build).
+
+### 13.5 Security and privacy (mental-health data)
+- Audit against **OWASP MASVS** (mobile security standard). Re-audit RLS on every table.
+- Supabase production checklist: RLS everywhere, SSL enforcement, network restrictions, account
+  MFA, custom SMTP, CAPTCHA on auth.
+- **India DPDP Rules 2025** — core obligations apply ~18 months after notification (Nov 2025),
+  i.e. **around May 2027**: consent notices; breach notice to users immediately and to the Data
+  Protection Board within **72 hours**; erase after **1 year of inactivity** with **48 hours'**
+  notice; keep access logs **1 year**; encryption, access control, verified backups.
+- **Lawyer review of the Terms of Service** — still open.
+
+### 13.6 Play Store release path
+- **Target API 36 (Android 16)** is required for all updates since Aug 31, 2026 (extension to
+  Nov 1 possible). History says targetSdk 36 was set in August — **verify** in the build config.
+- Verify in Play Console whether the 12-testers / 14-days rule still applies to the organization
+  account (§8 may be stale).
+- **v83** with the profile-save fix (installed app still has the bug — §8).
+- A written **release checklist** used for every release.
+
+### 13.7 Developing new features
+- One feature at a time, same pipeline as 13.3.
+- Next from the backlog: **Bob Phase 1 (Personal Grounding — anti-hallucination)**, then
+  **streaming replies**. Then Kunnu/Po/Cookie character work (§9).
+
+### 13.8 Play Store optimisation (Console keeps flagging "not optimised")
+**Need from Akash: a screenshot of the exact Console warnings** (the Play API does not expose
+them). Likely causes, from the history and the repo:
+1. **R8 off** (`minifyEnabled false` in both build configs). Play recommends R8 (smaller, faster
+   app). Sept 8: Claude advised waiting because Capacitor and the Razorpay SDK need keep rules.
+   Plan: enable in staging, test every screen, then ship.
+2. **No deobfuscation file / native debug symbols** uploaded with the bundle (readable crash
+   reports). Small build change.
+3. **Large screens**: the UI is capped at `.phone { max-width: 420px }`, so tablets show a small box.
+   Either make it adaptive on tablets, or restrict the device catalog to phones. (No
+   `screenOrientation` lock in the repo, so the Android 16 orientation warning shouldn't apply.)
+4. To check: **16 KB memory page-size** support (risk: Razorpay SDK native libraries) and
+   edge-to-edge deprecation warnings.
+
+Ranking factors:
+- **Android vitals** — the biggest one. Over **1.09%** daily users with a crash or **0.47%** with an
+  ANR (freeze) → Play reduces visibility and may put a warning on the listing. Crashlytics +
+  staged rollouts protect this.
+- **Listing (ASO)**: title (30 chars) and short description (80) with the words people actually
+  search (therapist, mood tracker, journal) — no clickbait (Akash, Sept 8); full description
+  keywords; screenshots and feature graphic A/B-tested with **store listing experiments**.
+- **Ratings**: ask via Google's **in-app review prompt** at a good moment (e.g. after a completed
+  session).
+- Optional, free: **Hindi / Gujarati listing text** for Indian search. Store page only — does not
+  change the English-only crisis decision.
+
+Sources: Supabase backups and production checklist docs; Play Console Help (target API level,
+Android vitals thresholds); Play Console release and pre-launch report guides; OWASP MASVS;
+Android Developers (16 KB page sizes); India Briefing (DPDP Rules 2025); AppTweak ASO checklist.
