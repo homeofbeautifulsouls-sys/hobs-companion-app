@@ -4637,3 +4637,79 @@ pattern the app sessions followed.
   will receive it and upon accepting it will be added in their tasklist. Upon completion, the
   therapist will be notified… Fix the bug and disconnect/cancellation I had kept it for approval,
   don't know what went wrong but fix that as well! Let's work on this first then on calendar."
+
+### Sept 16–17 — Disconnect approval, profile buttons, homework, session history (C31)
+
+- **22:11 — The proper change flow already existed:** `requestExpertChange` (required reason,
+  `change_requested` status, admin panel). "Disconnect" bypassed it.
+  - Disconnect now uses `requestExpertChange` (E-01a0ac40-27); the old instant-cancel code removed
+    (-34).
+  - The matching trigger now also **clears the link on cancellation**; tested. Staging 19 (-59).
+- **22:18 — "I don't see any other buttons like disconnect… And the chat, like Bob has info
+  button, similar the therapist will have it too… their bio. Talk to me first."**
+  - Claude's test setup had changed only the profile field, not `expert_bookings` → the real
+    booking was updated so the trigger cascades.
+  - **Direct-chat info button** → new `openDirectChatPartnerInfo` modal from `experts` data
+    (E-01a0ac4f-23, -26, -42, -48). Staging 20 (-86).
+- **22:34 — "Again I don't see any other buttons!… Plus it needs a complete profile like Bob… That's
+  why therapists have to fill details… it's already been twice!"**
+  - Therapists fill their bio on their own `profiles` row (the modal should read that). The
+    colleague's fields were empty.
+  - Buttons only showed after a session time was picked. **22:37 — "All the buttons should be
+    visible even before the first session!… after the therapist has been matched. If there's no
+    data… they will be encouraged to book a Therapy session."**
+  - Buttons extracted into a helper shown in both matched states (E-01a0ac5d-12, -18). Staging 21
+    (-42).
+- **22:48 — "Dude seriously, there are no buttons!… this logic and flow will apply to all the
+  buttons… once connected the connected professional's profiles should be on top."** Claude had
+  fixed the "You" page; the screenshot was the **Our Experts** directory (`renderTeamList`).
+- **Sept 17 05:10 — Akash:** "previously when I was connected to myself I could only see
+  professionals connected to me! Then when you assigned [another therapist], I could see all of
+  them!"
+  - Claude found no connection filter in RLS, the fetch or the client ("I hadn't clicked any
+    filter").
+  - **05:12 — "Remember this in your memory."** → saved to Claude memory
+    (`/projects/…/areas/hobs-companion-app.md`) as an unresolved mystery.
+  - Built: "Request Change" on the Experts card before a time is picked (E-01a0adc8-30); **the
+    connected professional sorts to the top** (-38). Staging 22 (-73).
+- **05:22 — "What about other buttons like view session logs?"** (not built yet) → **"Yes please"**
+  to homework + session logs.
+  - Found: `expert_bookings` is **one row per relationship and `session_date` is overwritten** —
+    no past-session record. New **`session_history` table + trigger** on session_date changes
+    (production).
+  - Tasks got `session_booking_id` and `homework_accept_status` (existing homework backfilled as
+    accepted).
+  - Send Homework has a session picker; homework starts `pending` (E-01a0add1-49, -52, -61).
+  - Found **"My Sessions & Cancellations" (`openMyBookings`) fully built but unreachable** → a "View
+    Session Log" button in the therapist info modal (-106, -108).
+  - Empty state encourages booking (-112). Accept button for pending homework (-115, -120, -125);
+    pending homework filtered out of the task list (-132).
+  - **Completion notifies the therapist** (-136). `send-push-notification` got a narrow
+    `homework_completed` exception checked against the task (E-01a0add6-69, -72).
+  - Therapist read policy on `session_history` added. `delete_user_data_atomic` handles
+    `session_history` and clears clients' assignments when a therapist is deleted (-96, -108).
+  - Tested end to end with test accounts. Staging 23 (-124).
+- **05:42 — Akash's flow:**
+  - "Even if the professional (any) is disconnected their session logs will not disappear! And the
+    same logic we have used for therapists, it has to be for every professional!"
+  - Client: requests → admin assigns → connected → books → pays → confirmation → session logs
+    updated.
+  - Professional: assigned a client → updates calendar and availability → confirms the appointment
+    → **both get the Gmeet link** → after the session uploads notes to confirm payment for their
+    salary → in their logs, **red = notes not uploaded, green = uploaded**.
+  - **05:48 — "session logs button will take the person to complete history!… the same logic
+    applies to all the professionals… In schedule window of the professional, it has to be a
+    complete clean display of their past and future sessions."**
+- **Built (05:51–06:04):**
+  - `session_history` extended with per-session notes, file URL, `payment_locked` and meet link.
+  - `profiles.assigned_psychiatrist_user_id / assigned_doctor_user_id / assigned_caregiver_user_id`
+    added; the trigger maps all four role categories (tested with a Psychiatrist).
+  - Homework FK repointed to `session_history` (E-01a0ade8-49, -62).
+  - **Session Log shows full history** with red/green and Meet link (E-01a0aded-10). Profile page
+    renders all four professional types (-26, -34, -38).
+  - **`google-calendar-sync` now saves the Meet link** to `session_history` (-50, deployed; not
+    tested live).
+  - **Professional's schedule panel** past + future (-61, -68, -74); panel registered in
+    `allPanels` (E-01a0adf4-2).
+  - Claude briefly started a test account impersonating a real therapist's identity, then removed
+    it and used an isolated one. Staging 24 (-23).
