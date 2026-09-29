@@ -161,3 +161,57 @@ pattern the app sessions followed.
     we're supposed to use the image" → brighter teal/green with the real image more visible
     (E-019f2928-2) → 18:08 Akash: it should feel **warm and bright** so people want to use
     it. Claude: warmth from luminous golden light, not hot saturated hues (E-019f292b-2).
+- **18:11–20:18 UTC — the visual design gets locked** (dozens of rounds; the settled
+  outcomes and the rules Akash set, not every iteration):
+  - **Blue as primary.** Akash suggested it; the research supports blue as calming.
+    Checked specifically: can a blue background bias mood self-report? The evidence is mixed
+    (a 2024 PANAS room-colour study found no main effect; an older study linked all-blue rooms
+    with more depressive reports). **Rule: the WHO-5 screen keeps a neutral background**, out
+    of caution for measurement integrity. Colour tints on mood selection were removed for the
+    same reason.
+  - **Honesty and no-judgment copy, app-wide** (Akash, 19:04): prompts must never imply a right
+    answer, never react to what's chosen, and normalise hard answers — so people don't shy
+    away, feel guilty or try to please (demand-characteristic / social-desirability bias).
+  - **Mood picker = floating mood bubbles** (Akash's idea), 8 moods: Anxious, Restless,
+    Excited, Hopeful, Heavy, Tired, Calm, Content, spread across a valence/arousal
+    (circumplex) layout so they cover the emotional spectrum rather than a cherry-picked list.
+    Real repulsion physics so bubbles and labels **never overlap**; motion stops for "reduce
+    motion". Bubble colours from colour-emotion research (Jonauskaite et al.); corrections
+    made on review: **Anxious = grey-purple** (fear/anxiety maps to grey/black, not red),
+    **Hopeful = pale near-white** (hope maps to white; gold is joy). Claude flagged that
+    Restless and Heavy colours are inferred, not directly cited.
+  - Bubble rendering went through transparent soap-bubble → rim-glow → swirl → glossy 3D
+    (from Akash's reference images) → "hurts the eye, like a paint job" → too dull → Akash:
+    "show me what *you* think is best" → **soft matte 3D, mid saturation, gentle bob** —
+    Akash: "YES! This is exactly what I wanted." (19:38) → **"LOCK THIS"** (19:41).
+  - **Two standing rules Akash set at 20:14, "no matter what change we do":** bubble colours
+    stay scientifically grounded, and bubbles stay **evenly sized/spaced (56–62 px) — variation
+    must not read as a ranking**. He noted Claude had already broken the spacing once.
+  - **App chrome** (Akash reminded Claude a logo, notifications and profile must fit): header =
+    real HOBS logo + notification bell + profile; navigation = its own footer strip (a floating
+    nav bubble was tried and rejected — it got mixed up with the mood bubbles); nav icons
+    flat, not 3D; no hard divider lines (screen should feel like one warm space).
+  - **Palette fight, settled:** cream "doesn't feel warm"; Headspace's documented rules found
+    (no pure white — warmest neutral `#FFF8F0`; coloured shadows, never grey); a gold/orange
+    header → "Gold! It's not calming at all!"; navy → "heavy"; pastel → "too light";
+    **mid cornflower blue `#6690D6`→`#7FA3E0` for header/footer, `#FFF8F0` content** — Akash:
+    better "for now", balance with yellow later. Icons: emoji → thin line icons ("too thin")
+    → **solid filled icons** in palette colours (from Akash's reference). **20:18: "PERFECT!
+    LOCK EVERYTHING!"** Inspiration named by Akash: **Headspace and Calm**, with HOBS colours.
+  - Locked prototype file: `hobs-final/index.html` (E-019f2987-11 and the edits after it).
+- **20:18–20:35 — mood → journal flow:** tapping a bubble opens a journal screen with that
+  bubble's colour dot, text box, mic button (visual only; real voice-to-text planned via the
+  free browser Speech API — Claude flagged it's unreliable on iOS and with Indian accents),
+  **Save entry**, and **"Share this with my therapist"** (to go into the therapist's notes).
+  - **Copy rule from Akash: Bob does not talk and will not reply.** "Tell me more" (framed as
+    Bob asking) and "I'm here to listen" were rejected; Bob appears only as a gentle nudge.
+    Disclaimers like "this isn't a conversation" also rejected ("isn't a warning sign"). "Just
+    yours to keep" rejected because it contradicts the share option. Claude used Pennebaker's
+    expressive-writing research (permission to write imperfectly is what gets people past the
+    first line): "Write it messy, half-finished, whatever comes — there's no right way to say it."
+  - **Akash's first question about an in-app AI** ("train it for people to speak to Bob",
+    20:23). Claude: feasible via an existing model + Bob persona, not training from scratch;
+    it would be the first recurring cost; needs hard crisis protocols and Akash's clinical
+    sign-off. Deferred.
+  - **20:35** — Akash: there must be a way back; **multiple bubbles must be selectable** (people
+    feel several emotions at once); the heading should be more direct and empathetic.
