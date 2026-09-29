@@ -1154,3 +1154,58 @@ pattern the app sessions followed.
     privacy policy is now blocking** (it had been deferred); **Health apps declaration**; Data
     Safety form; closed-testing rules for organisations unclear.
 - **15:06 — Akash: "Let's prepare everything for Playstore first."**
+- **15:13 — Play Store preparation.** Crisis resources already present (iCall + 112 on
+  self-harm flags, disclaimer footer). **DOB collected but no age gate** → drafted as **18+
+  only**, flagged as a decision. **Privacy Policy and Terms of Service** written from the real
+  data model (E-019f51b7-14, -17), published on GitHub Pages
+  (`…/privacy-policy.html`, `…/terms-of-service.html`), linked on the sign-in screen and in
+  Profile (-31, -39). A Drive **"Google Play Submission Reference"** (Data Safety answers,
+  Health apps declaration, listing copy). Five store screenshots from a throwaway account
+  (a script fix, -60).
+- **15:14–15:19 — "You prepare everything we need."** Claude explained that **Play needs an AAB,
+  not an APK**, then built the **AAB** and validated it with Google's `bundletool` (universal APK
+  generated, signature and version 5/1.4 confirmed). **Feature graphic** 1024×500 in brand
+  colours with Plus Jakarta Sans; first version **cropped the mascot's head** (caught by
+  checking pixel maths).
+- **15:21–15:29 — D-U-N-S.** Step-by-step with official links (D&B warns against paid
+  third-party sites). Akash had no D-U-N-S number and **submitted the free request** (purpose
+  type "Google Developer"; the form rejected curly quotes). Reference number logged in Drive.
+  Email advice: named address for D&B and private contact; a generic support address publicly.
+- **15:32–15:49 — Policy details from Akash:** CIN, registered address,
+  `support@homeofbeautifulsouls.com`, **30-day data retention**, **18+** confirmed; refunds not
+  included. Cancellation: **cancel with less than 24 hours' notice → 50% charge (once a month),
+  the rest carries forward; earlier cancellation → full carry-forward; a second late
+  cancellation and after → 100% charge.** Credits: Claude found the **credits policy locked in
+  C23** (₹1 per task, capped ₹10/day and ₹300/month, redeemable only with 4 booked sessions a
+  week that month, else lapsing) and wrote it in (E-019f51d8-4, E-019f51dc-12). Billing records
+  retention set to **8 years pending an accountant's check**. **"I don't have a lawyer, so it's
+  you who will have to work"** → Claude drafted the liability section with a visible
+  not-legal-advice note (-18) and pointed to free options (i-Probono, NALSA / Gujarat State
+  Legal Services Authority, GNLU's clinic). Policies can be changed later without an app
+  update.
+- **15:52–15:58** — Search Console already verified; **no GST**; the Play account will be
+  **`homeofbeautifulsouls@gmail.com`**. Play signup might go as far as paying before the
+  D-U-N-S wall; **Akash: hold until the D-U-N-S arrives — "we have a lot of things to fix!"**
+- **15:59 — Akash's fix list (screenshot).** Drive: **Master Project State v3** and **Update
+  Log v21**; project zip regenerated.
+  - **Notification bell was a plain `<div>` with no handler** → a real inbox from
+    `notification_recipients`, with **new RLS so users can read their own notifications**,
+    unread dot, tap marks opened (E-019f52c6-20, -26, -31, -46, -53, -56).
+- **20:12 — Akash:** a client of his booked and **he can't see her in the admin or therapist
+  dashboards**; the therapist board doesn't list his clients; the **YouTube logo is wrong**.
+  - Her booking **never reached the DB**; she was on **app version 1.0**. Structural gap:
+    **admin showed only bookings, no user list; therapists had no client list** (only a
+    homework dropdown). Built **Admin → All Users** with search, roles, join dates and booking
+    counts, and **Therapist → My Clients**. **Bug in Claude's own draft:** self-bookings were
+    excluded by comparing with the logged-in user rather than the owner of the therapist
+    identity (E-019f52cf-103).
+  - YouTube icon: a dead `href="#"` and a duplicated SVG path → HOBS's real channel.
+  - **Stale base again:** the working file predated the bell fix; an automated `patch`
+    **corrupted an array literal**; everything was re-applied by hand on the live base
+    (E-019f52cf-147, -150, -153, E-019f52d8-4, -8, -16, -24). Leftover test accounts cleaned
+    out of the real user list. A typo'd duplicate of Akash's account surfaced.
+- **20:32 — Akash:** remove the typo'd account; **new assignment flow**: the client taps Book a
+  Session → the MHPs page → Book a Session sends **a request to the admin**, who **assigns an
+  MHP per category**; clients who already have a therapist get the booking calendar; applies to
+  old and new users; latest APK; "it's not just for [that client]… It's for every other user
+  too."
