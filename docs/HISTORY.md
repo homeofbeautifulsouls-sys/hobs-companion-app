@@ -1209,3 +1209,73 @@ pattern the app sessions followed.
   MHP per category**; clients who already have a therapist get the booking calendar; applies to
   old and new users; latest APK; "it's not just for [that client]… It's for every other user
   too."
+- **20:35–20:47 — Request-and-assign booking flow.** Typo'd duplicate account deleted after
+  checking it was unused. Claude traced `bookExpert()`: **every booking had always gone straight
+  to active with the chosen person — no request or admin step existed.** Asked whether clients
+  should still pick a named person; Akash: yes, browse the professionals page, then Book
+  Session triggers the flow. Built: `bookExpert()` creates a **pending** request
+  (E-019f52e6-24); pending counts as in-progress for the category (-27); detail and list states
+  for pending / assigned → **"Pick a Time"** (-36, -45, -55, -58); admin **"Pending Session
+  Requests"** with a dropdown defaulting to the client's choice, reassignable within the
+  category, and client notification on assign (-67, -76, -81). Tested with separate client and
+  admin accounts.
+- **20:59 — Akash:** a connected client should see their therapist and "Pick a time", not
+  "connect with a therapist"; admin should see **users with no therapist** and **assign directly**;
+  tap a user → **full profile**; **delete bookings** (trials); **notifications everywhere** —
+  admin on every request (push and in-app), professionals when connected and when a session is
+  booked, "and all other flows".
+  - Root cause of the Profile card: it read a **legacy `userHasTherapist` flag** — and a third,
+    older system (`demoHasTherapist` checkbox + `panel-intake`) also gated booking. Fix:
+    **derive therapist status from `expert_bookings` at load** (E-019f52fa-27); Profile card
+    states and a Disconnect that touches the real booking (-46).
+  - Admin: "show only unassigned" filter, user profile modal with per-category direct assign
+    (-59, -64, -70, -126); delete booking with confirm (E-019f54f6-7, -10, -17).
+  - `send-push-notification` got **two narrow exceptions**: a client may alert admins about
+    their own new request, and may notify their assigned professional when booking a time
+    (E-019f52fa-77, -80, -105, -108); wired into `bookExpert()`, assignment and time picking
+    (-92, -101, -117).
+  - **RLS gaps found by testing:** `expert_bookings` had **no admin INSERT or DELETE policy** —
+    direct assign and delete silently did nothing; both added.
+  - Testing sent a real "Test Client Six has requested therapist support" push to Akash
+    (flagged). Drive: **Master Project State v4**, **Update Log v22**; project zip regenerated.
+- **Jul 12 06:29 — Akash:** the UI had warned about conversation length in the previous session;
+  "tell me before I need to" start a new chat, with a full backup and prompt. Claude gave the
+  Drive links and a ready prompt.
+- **06:31 — Akash:** fix the rest of the screenshot list; **journal entries aren't saved and past
+  entries don't show for any user — and add editing**; any journal text touching self-harm or
+  suicide "in any manner" must show helpline numbers.
+  - **Serious bug:** the main journal **"Save entry" button had its own old copy of the save
+    logic that never called Supabase** — entries only ever lived on the device; the
+    earlier logout fix (full local wipe) made such entries disappear on logout. Fixed to use
+    `commitMainJournalIfDirty()` (E-019f5506-20). **"Share with therapist" also only changed
+    local state** — fixed. **Journal editing** added (-28, -38, -44).
+  - **Rescue step:** before server data overwrites local entries on load, unsynced local-only
+    entries are uploaded first (E-019f550e-3); tested with an injected entry. Entries already
+    lost to a logout can't be recovered.
+  - Crisis modal with iCall / 112 on every journal save path (-61, -67, -72, -80, -89); the first
+    regex missed "wanting to die" (-130).
+- **06:47 — Akash:** "Users are not directly gonna write — I wanna die… It can be poetry… abstract…
+  about death… wishful thinking. **This is really urgent.**" Claude's research: keyword lists
+  are known to miss implicit ideation. Two layers: **much broader themed patterns**
+  (hopelessness, burden, farewell, void) tested on 14 examples, with two of Claude's own regex
+  bugs caught (E-019f5514-14, -47, -56); and an **LLM-based Edge Function `check-journal-risk`**
+  (E-019f5514-18), wired in the client (-30), **inactive until an `ANTHROPIC_API_KEY` secret is
+  added** (fails safely). Drive: **Master Project State v5** (with an "URGENT" API-key note),
+  **Update Log v23**; zip regenerated.
+- **07:06 — Screenshot list.** Tick button worked in touch tests (cache suspected). **The "Find a
+  Therapist" intake form was fake** — it showed "someone will reach out soon" and saved nothing
+  → now creates a real pending request with contact and note (new columns) shown in the admin
+  queue (E-019f5525-54, -62, -64). **The add-task day chip had no handler** → a real date picker
+  (-75, -85). **Priority-coloured task backgrounds and green when done instead of strikethrough**
+  (-95, -97, -103). Some celebration copy personalised with the user's name (-124).
+- **07:18 — Akash:** a "Priya Sharma requested therapist support" notification — was that you?
+  Yes (a test account), and Claude hadn't flagged it. **Akash: "Please use Claude and no human
+  name."** Then: **"Set up a dedicated test admin account with Claude name"** →
+  `claude-test-admin@hobsfoundation.com` (name "Claude", admin, notifications off), credentials
+  saved to a Drive doc (they later appeared in MASTER.md — see the Sept 29 security note).
+- **07:24 — Google Calendar-style availability:** professionals choose a time and **repeat it to
+  other dates they select**. Built: a `duration` column (15–90 min), a "also add this same time
+  to other days" picker of the next 10 same weekdays, batch insert, and time ranges shown to
+  therapists and clients (E-019f5536-35, -44, -55, -58, -80).
+- **07:33 — Akash (screenshot):** on completion the whole task row must **turn and stay green**
+  (not crossed out), with font colours adjusted.
