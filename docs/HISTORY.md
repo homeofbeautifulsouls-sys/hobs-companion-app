@@ -2392,3 +2392,50 @@ pattern the app sessions followed.
   you update the drive?… You ask for permission here I will give it"** — Claude said there was no
   permission prompt; the tool itself was failing.
 - **23:21 — Next: "Self-service account deletion (Play Store needs this)."**
+- **23:33 — Self-service account deletion.**
+  - The deployed `delete-user-account` **explicitly blocked deleting your own account**, and its
+    table list was out of date.
+  - Rewrote it from a live schema check (E-019f8c22-31): a self-delete mode; **hard delete** of
+    personal tables; **soft handling** for shared data (chat messages flagged `deleted`,
+    donations anonymised but kept); **staff (admin/therapist) blocked from self-deleting**.
+  - Tested with several disposable accounts, checking each table and the auth user.
+  - In-app: Edit Profile → Delete My Account, type DELETE (E-019f8c22-79, -96).
+  - **Public `delete-account.html`** (sign in, confirm, deleted) (E-019f8c2d-5), linked from the
+    privacy policy (-30). Pushed. Both Play Store deletion paths now exist.
+- **23:37 — Akash: "No account was deleted before. And why is the latest apk's size smaller?"**
+  Diffing the APKs showed **v2.7's `assets/public` lacked the bundled images**: only `index.html`
+  had been copied into `www/` in the fresh project. Rebuilt with the images (8.1 MB), both native
+  fixes re-checked in bytecode, and the **file in `app-releases` replaced** under the same v2.7
+  entry.
+- **23:43 — "Are you sure you fixed all the previous bugs and didn't miss any data? You make a lot
+  of mistakes there."** A wider column search found `chat_rooms.client_id` (now nulled, room kept)
+  and the professional scheduling tables were not handled (E-019f8c35-14). **23:48 — Akash: "I don't
+  want to keep wasting tokens dammit! GO THROUGH EVERYTHING AND MAKE SURE IT'S INTACT AND DOESN'T
+  HAVE ANY BUGS THAT WERE THERE BEFORE."** **Storage files were never deleted**; the first fix only
+  listed one level (`.list()` isn't recursive), so a **recursive walk** was added (E-019f8c3a-16,
+  -37). Tested with nested files; the live features were re-checked. "Do you need to build a new
+  apk?" — No (web and Edge Function changes only).
+- **23:56 → Jul 23 00:44 — Welcome-back page-turn saga.** Akash asked for the welcome image to open
+  like turning a book page, not a cover. **The edits kept failing:**
+  - A two-half "book opening" (E-019f8c41-21…-32; one edit broke the image lazy-load and was
+    fixed). **"No dude!! It's a page turning animation!!!!!"**
+  - 14 vertical slices (E-019f8c47-5…-12). **"It's just one single fucking page!"**
+  - A single element, left hinge (E-019f8c4c-5…-17).
+  - **"It has to move from right to left and upon tap! slow and smooth!… talk to me."** Claude
+    described the plan **and then built it anyway** (right hinge, tap-gated, `clip-path` curve,
+    1.5 s) (E-019f8c54-5, -9). **"Wtf is this! And I asked you to speak to me but you again
+    fucking started to build."** The screen was **blank blue**: flipping the angle to `+85deg`
+    with `backface-visibility: hidden` hid the image.
+  - Akash, again "talk to me first"; the curve should come from pressing the corner so the middle
+    bulges. The sign was fixed, checked by pixel count (E-019f8c5f-16…-29). **"Wtf!"** (a
+    near-invisible sliver before tapping). Resting angle −32° (E-019f8c66-4, -10).
+  - **00:39 — "You are just making it fucking worse! Make it how it was originally just a tap to
+    open, no animation."** Fully reverted (E-019f8c69-8…-25); a `version.json` / `CURRENT_BUILD`
+    mismatch was caught and fixed.
+- **06:26 — Akash (screenshots):** replicate the journal "+" button on the task page (creating a
+  task); build a clean UI for the task page, as discussed in an earlier chat, before the garden.
+  Claude used past-chat search to find the C26 garden mockup CSS.
+  - A **"+ New Task" FAB** on `panel-day` (E-019f8da7-29, -34, -45).
+  - A **Caveat-font header card and a progress strip** weighted by subtasks (-70, -77, -81).
+  - **Bug:** the FAB (z 55) covered the add-task sheet (z 11) and blocked Save → hidden while the
+    sheet is open (-126, -131). Pushed.
