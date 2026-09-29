@@ -1089,3 +1089,68 @@ pattern the app sessions followed.
     Verified Sunday/Thursday booking logic, task reminders, mood dedup (an apparent failure was
     wall-clock vs simulated time) and the 3-hour spacing rule.
 - **22:41** — Akash: "Continue".
+- **22:47 – Jul 10 23:08 — Notification system finished.**
+  - `send-push-notification` now logs every send to **`notification_log` /
+    `notification_recipients`** (E-019f4e31-5, -8).
+  - **pg_cron scheduling blocked:** `cron.schedule` via the Management API hit a **Cloudflare WAF
+    block (error 1010)**. Claude chose not to reset the DB password, and moved scheduling to a
+    **GitHub Actions workflow every 15 minutes** (`.github/workflows/notification-scheduler.yml`,
+    E-019f4e31-55), with the scheduler secret stored as an encrypted Actions secret. (A first
+    secret file had been deleted too early and was regenerated.)
+  - Client: timezone and app-version capture on sign-in, **`trackNotificationAction()`** for what
+    users do after tapping (journal, task completed, booking) (E-019f4e31-73, -81, -85, -95,
+    -102, -104); **test button limited to admins** (-112); admin **compose form, history and
+    per-notification detail modal** (-129, -140, E-019f4e37-4, -7, -15).
+  - Scheduler: **`app_update`** type with the APK URL in the payload; tapping opens the download
+    (E-019f4e37-22, -25, -28, -31, -36, -43).
+  - **Firebase Analytics** plugin; screen views in `showOnly()` and events (task created, mood,
+    journal, booking, screening completed) (E-019f4e37-53, -63, -87, -91).
+  - **versionCode 3 / "1.2"** (E-019f4e37-131). **GitHub Releases** now host every APK, with a
+    stable "latest" download URL; `app_config` updated to match.
+  - Drive: **Master Project State** rewritten and **Update Log v20**; a Drive upload of the 4MB
+    project zip via base64 was abandoned — the zip went out as a direct download.
+- **23:22 — Akash's list:** (1) a **list of ready-made notifications** in the admin dashboard,
+  plus writing his own, with **character names and icons in a dropdown**; (2) remove the test
+  button from other users; (3) Calm music must be very gentle, a sensory experience, and
+  **autoplay**; (4) white screen; (5) **upload an image in a task**; (6) spacing on the Calendar
+  header; (7) back-button bugs; (8) **long-press a task to delete** (icon on the left, row
+  highlighted).
+  - (2) was already gated in live code (cache suspected). Built: softer ambient layers plus a
+    chime layer, autoplay on entering the Calm Room (E-019f4e56-18, -30); Calendar header
+    spacing — `.month-nav` had a **2px** margin (-56, -59).
+  - **Back-button bugs:** the history stack was **popped twice per press**, and
+    `dayMoodSheetBackdrop` was missing from the modal list (-77).
+  - **White screen:** there was **no `resume` listener at all** → a JS resume handler (repaint +
+    session re-check) and a native one in `MainActivity.java` (-98).
+  - **Task photos:** a `task-images` Storage bucket with RLS, `tasks.image_url`, upload UI and
+    thumbnails (E-019f4e56-134, -142, -144, -152, E-019f5090-1, -3, -5, -10).
+  - **Long-press delete** (drag handle becomes a trash icon, row highlights) (E-019f5090-23, -26).
+  - Admin **quick templates** ("We miss you", "Proud of you", "Gentle check-in", …) and a
+    **"send as" mascot dropdown** (-38, -46).
+  - **v1.3 (versionCode 4)** built, released on GitHub, `app_config` updated (-99).
+- **Jul 11 09:56 — "Test notification button is showing to every user!"** Live code gated
+  correctly and only Akash is admin in the DB. Testing found that **logout reset only 6 fields
+  of `appState`**, leaving `isAdmin`, phone, DOB etc. stale in memory → full reset via
+  `getDefaultAppState()` (E-019f509b-73, -80). Claude again caught itself **editing a stale
+  base file** missing the 8 live fixes and redid it. The user who saw the button (a client)
+  was on **app version 1.0 (versionCode 1)** — three releases behind.
+- **12:09 — Akash:** the test notification stopped working, and the notification list isn't
+  there. The DB showed both sends **delivered by FCM (200)**; cause: **in the foreground the
+  app only showed a toast**. The missing list was put down to WebView cache.
+- **12:15 — Akash:** (1) notifications must also appear **while the app is open**; (2) Overview
+  tiles must **drill into full details, with definitions**; (3) **"I think it's time to publish
+  it on Google… Remember, we are a registered Non-Profit!"**
+  - Built: stat detail modal with definitions for all tiles (E-019f511a-14, -19, -26, -33);
+    **`@capacitor/local-notifications`** to show foreground pushes as real system notifications
+    (-42, -52, -58).
+  - **Incident:** while testing, Claude **overwrote Akash's real push token without a backup**;
+    restored it from a value recorded earlier in the session, then switched to a disposable
+    admin test account.
+  - **Advertising-ID permissions** pulled in by Firebase Analytics were removed (HOBS has no
+    ads), including the Privacy Sandbox ones (E-019f511a-122, -124, E-019f51b1-5).
+    **v1.4 (versionCode 5)** released (-111).
+  - **Play Store research:** register as an **Organization** (needs a **D-U-N-S number** — up
+    to 30 days — NGO registration proof, $25, website verified in Search Console); a **public
+    privacy policy is now blocking** (it had been deferred); **Health apps declaration**; Data
+    Safety form; closed-testing rules for organisations unclear.
+- **15:06 — Akash: "Let's prepare everything for Playstore first."**
