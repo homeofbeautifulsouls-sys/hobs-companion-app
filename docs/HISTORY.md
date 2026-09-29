@@ -3781,3 +3781,77 @@ pattern the app sessions followed.
       credential is always needed (E-01a03ca0-34). Pushed cleanly and sent as a file.
 - **06:00 — Akash: "Dude i fucking said EVERYTHING! You just have a fucking MD file! Last time you
   had literally given a zip file! With EVERYTHING IN IT."**
+- **06:01 — the offline handoff zip (Aug 26):**
+  - A full copy of the repo, minus `.git`.
+  - **`CREDENTIALS.md` with real values pulled from `system_credentials`** (E-01a03ca7-8), a
+    README (E-01a03ca7-17), and the v3.34 APK.
+  - 190 files, about 11.6 MB, sent as a file.
+- **06:02 — Akash: "Why the fuck is clicking on mood bubble taking to Journal!!! It was that a person
+  can write notes which will be stayed in journal but after that they will be shown their mood
+  tracking data!"** After saving a mood check-in, `backBtn` now shows the mood tracker, capturing
+  the selection before `resetJournalState()` (E-01a03ca9-32) → **v3.35** (versionCode 55).
+- **06:14 — "It says start a new chat"** (C28 hit its length limit).
+  - Claude gave a new-chat prompt **containing the live GitHub PAT**, and then (06:20) **pasted
+    the live Supabase secret key into chat** for the next session.
+  - **Chat C28 ends here.**
+
+### Chat C31 "App Part 4" begins (Aug 26 06:19 →)
+
+- **06:19 — Akash pasted the handoff prompt** (with the token). Claude cloned the repo and read
+  `docs/MASTER.md`. **11:01 — Akash pasted the Supabase secret key: "Go through the entire project
+  chats as well."**
+  - Claude read `system_credentials`, **flagged the Groq key as not rotated (deadline Aug 29)**,
+    and summarised 3 past sessions.
+  - **12:12 — "Read bug log"** — 821 lines, 52 entries.
+- **12:14 — Akash: "Subtasks adding not working and there should be add button! Alarm didn't ring
+  like an alarm… It should act EXACTLY LIKE AN ALARM SNOOZE STOP… Pipeline: Mascot Progress Bar in
+  tasks; Achievement should unlock mascot skins like games."**
+  - Answers: "there's no + button (inline add)… it is literally not adding"; alarms: **"Yes, do it
+    properly"** (native).
+  - Reproduced with a temporary prod test account (`claude-debug-test-akash@example.com`).
+    **Three bugs** on the Tasklist landing screen:
+    - no refresh after adding a task;
+    - no subtask "+" button;
+    - a stale temp id after the id swap.
+    - Fixes: E-01a03e02-92, -94, -97, -102, -120.
+- **The native alarm (12:26 → 12:53) — built without staging:**
+  - `AlarmScheduler` (`setAlarmClock`), `AlarmReceiver`, `BootReceiver`, a full-screen
+    `AlarmActivity` (looping sound, Stop/Snooze 9 min), a layout, and the **`TaskAlarmPlugin`**
+    Capacitor bridge.
+  - MainActivity registration (E-01a03e09-49) and manifest permissions (WAKE_LOCK, VIBRATE,
+    USE_FULL_SCREEN_INTENT, RECEIVE_BOOT_COMPLETED, POST_NOTIFICATIONS; E-01a03e09-55…-105).
+    It **repeated the `--` in an XML comment** bug.
+  - Built **versionCode 36 / 3.16** from the repo's gradle file (E-01a03e09-78); the signature
+    matched MASTER.
+  - JS: `nativeAlarmSchedule/Cancel` on create, edit, delete, id swap and boot reconciliation
+    (E-01a03e16-17…-57), tested with a mock.
+  - **The deploy script never included the APK**, so any web-only deploy would have wiped it →
+    fixed (E-01a03e16-118).
+  - The test account was deleted with `delete_user_data_atomic`. Files persisted to
+    `android-native-assets/alarm-feature/` (README E-01a03e1f-19), MASTER build recipe updated
+    (E-01a03e1f-22), BUG_LOG #53/#54 (E-01a03e1f-29). Commit `c40fb00`.
+- **12:55 — Akash (screenshot, install failed): "Seriously! And we already had 3.35 v!"** — **a
+  version downgrade**: the repo's gradle file said 35 / 3.15 while devices reported **55 / 3.35**.
+  - Fixed to **56 / 3.36** (E-01a03e23-5), with a MASTER rule to check real installed versions
+    (E-01a03e23-31) and BUG_LOG #55 (E-01a03e23-34).
+- **13:05 — Akash (screenshots): "I should be able to undo! I just clicked on green button by
+  mistake! And it fucked up my tasklists… give the user the option… put up a confirmation message
+  before any action is done! After I clicked + button, literally this!… The alarm still doesn't
+  work!"** (the app crashed)
+  - **Native alarm reverted** (E-01a03e2d-8…-12, classes removed) → **57 / 3.37**, verified clean.
+  - **Undo toast** (5 s) for task and subtask toggles (E-01a03e2d-61, -64, -72) instead of a
+    confirm on every tap (Claude explained why). Tested server-side → **58 / 3.38**.
+  - Which tasks had flipped **could not be known — no `updated_at` or audit on `tasks`**.
+    BUG_LOG #56 (E-01a03e2d-114), PROJECT_STATUS (E-01a03e2d-119).
+- **13:33 — Akash: "I asked you to fucking fix it and you just regressed without actually fixing it!
+  And we have fuckign staging app! To try! You have to test before building even in the production
+  app."**
+  - A **staging build config** was set up: `android-native-assets/staging-config/` with a distinct
+    package, versionCode 1, staging `index.html` and manifest with the alarm (E-01a03e46-29…-61),
+    and no Firebase config. README (E-01a03e46-95).
+  - Deployed to `staging-app…/HOBS-Companion-staging.apk`.
+  - MASTER rule: **"Staging first, always, no exceptions for anything touching native code"**
+    (E-01a03e46-104). BUG_LOG #58 (E-01a03e46-107).
+  - **16:07 — "Give me the production app link too but with everything absolutely fucking fixed!"**
+    Claude refused to put the alarm in production before a staging test.
+- **16:10 — Akash: "You removed the mood tracker flow as well in the stable app!"**
