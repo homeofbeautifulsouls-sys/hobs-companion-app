@@ -746,3 +746,64 @@ pattern the app sessions followed.
   Drive folder; a **first-time introduction** where the mascots present their features; **Bob
   greets on every open**; mascots should feel like **companions** — "I want to focus on
   Animations"; list what illustrations are needed; identify the gaps and bugs.
+- **10:38 — real mascot art.** Claude pulled `Bob.png`, `Kunnu.png`, `Cookie.png`, `Po.png`
+  from Akash's Drive folder (Bob the elephant, Kunnu the black cat, Cookie the golden
+  retriever, Po the panda) and replaced every placeholder SVG (Home lineup E-019f4148-56;
+  Grounding/Worksheet mini icons -67, -73).
+  - **Login-flash bug:** the sign-in form showed before the session check finished → a loading
+    state first; the form appears only when there is **no** session (-86, -93, -96), plus a
+    forced repaint (-104).
+  - **Bob's every-open splash** with rotating lines and a minimum display time (-130, -134);
+    **first-time 5-slide walkthrough** (welcome + one slide per mascot) with Skip
+    (-143, -147, -150, E-019f414f-5, -8). New column `has_seen_intro` (Akash to run).
+  - Claude's animation advice: 2–3 frame "idle" pose swaps per mascot rather than full
+    animation. Gaps listed: tests, WHO-5 and credits **still not in Supabase**; mascot images
+    2–2.4MB each; no Back in the walkthrough.
+- **10:42 — Akash:** compress images, add Back, "make sure everything is live and any action
+  doesn't disturb the app or create new bug". Images cut to ~140–175KB (400px); walkthrough
+  Back button (E-019f4152-21, -24, -26); full regression before deploy.
+- **11:15 — Akash: swipe instead of Back/Skip** ("swipe left to meet your next companion").
+  Built with pointer-event swipe, a hint on every slide but the last, and "Let's go" on the
+  last (E-019f4170-7, -16). Akash's message arrived twice; the second run re-tested it and
+  traced an apparent "stuck on second swipe" to a **Playwright mouse-simulation quirk**, not
+  the app.
+- **11:36–11:46 — Mascot direction.** Akash asked for animation prompts for ChatGPT, then:
+  "The entire app is going to have mascots… guiding and reminding users… prompts have to be in
+  depth along with **negative prompts**." Claude built a reusable **`renderMascotTip()`
+  companion card** with per-tip dismiss memory (E-019f4185-15, -22) and wired it: Bob in
+  Grounding detail (-31, -35), Cookie in worksheet categories (-47, -51), **Po on elevated test
+  results or a self-harm flag** (-59, -65, -73; -70 failed as not unique), Kunnu on Support
+  (-98). **Bug:** the Support screen showed **Bob's image instead of Kunnu's** (-87). Gave 4
+  pose prompts plus idle-loop motion prompts, each with negatives, and advised always
+  attaching the existing PNG as the reference.
+- **12:27 — "Meet Our Experts"** replaces "Meet Our Team", with profiles like Akash's reference
+  screenshots from another platform. **Claude declined to invent bios, approaches, ratings or
+  reviews for real clinicians**; built the detail view with real data only (qualification,
+  years from the About Us page, a prescribing note for the two psychiatrists)
+  (E-019f41b2-8, -11, -22, -27, -30).
+  - 12:32: Akash asked for a Google Form for experts to fill in — the Drive connector **can't
+    create a real Form** (it made a Doc), so Claude gave him 8 questions to build himself.
+  - 12:33: list rows instead of circles (E-019f41b8-7, -13). 12:38: Akash: remove the WhatsApp
+    button and add general content so it looks exactly like the screenshots → "Book Session"
+    (still routes to WhatsApp), a "✓ Verified" badge instead of stars, generic lines ("General
+    mental health support", "English", "Message us for session details")
+    (E-019f41bc-7, -17 — Book Session had opened the profile instead of booking).
+- **12:44 — Business rule (Akash):** booking one therapist **permanently removes the other
+  therapists' booking option**; a change needs a request to the admin (Akash). Same for
+  Psychiatrist and personal Caregiver. **Admin has full access; therapists see their own
+  clients; a therapist app comes later.** Built: `expert_bookings` table (migration for
+  Akash to run), `roleCategory` on each expert (GP treated as its own category), bookings
+  loaded at sign-in, per-category lock, "Request Change" (E-019f41c2-12, -19, -24, -28, -39).
+  Claude assumed a tap on Book Session is the commitment point.
+- **12:49 — Policy (Akash):** each therapist shares a **Google Meet booking link**; therapist
+  and client may cancel **only once in 24 hours**, otherwise **50% cancellation charge**;
+  after that, it goes through the admin; policies shown **after picking a slot and before
+  payment**. Built: `bookingLink` field (empty), a policy disclosure modal, cancellation
+  tracking (first cancellation self-service, second opens a pre-filled WhatsApp to the admin
+  naming the 50% charge) (E-019f41c6-12, -21, -30, -38, -45, -53, -58); columns migration for
+  Akash. **No payment gateway exists** — the charge is disclosed and tracked, not collected.
+  - **Deploy failed: Netlify's free credits were exhausted** (the "240 credits remaining" seen
+    on Jul 6). The file was handed over directly.
+- **12:57 / 15:36 — Akash:** "How do we resolve this! … update everything on drive and give me
+  the complete updated project file!" then **"We have hit the limit! we need to transfer it to
+  GitHub or somewhere we can host it unlimitedly."**
