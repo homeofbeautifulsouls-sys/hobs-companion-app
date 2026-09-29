@@ -3084,3 +3084,76 @@ pattern the app sessions followed.
   The instruction: replace all of them with `https://app.homeofbeautifulsouls.com/`, don't touch
   the native `hobscompanion://callback`, Supabase credentials or DB logic, then re-search for zero
   hits.
+- **Claude's GitHub URL cleanup (01:07 → 01:16):**
+  - Found 8 references in `index.html`.
+  - **Supabase auth config** (live): `site_url` and `uri_allow_list` updated to add
+    `https://app.homeofbeautifulsouls.com/`, keeping `hobscompanion://callback` — **before**
+    the code change, since otherwise web OAuth and password reset would have been rejected.
+  - Code: `WEB_APP_URL` → Hostinger; a new **`GOOGLE_CALENDAR_REDIRECT_URI`** deliberately
+    **stays on the GitHub Pages URL**, because that URI is registered in Google Cloud Console
+    (E-019fd9bb-29, -34).
+  - Terms, Privacy and Donate links updated, plus `donate.html` and `privacy-policy.html`.
+    `logo.png` uploaded to Hostinger.
+  - The `update-donate-page-meta` fallback image was fixed and redeployed (E-019fd9bb-93).
+- **01:16 — Akash relayed ChatGPT's scorecard** (GitHub not fully removed, dependencies not all
+  local, no staging, no rollback, no monitoring).
+  - **The Supabase JS SDK was still loaded from `cdn.jsdelivr.net`** → bundled as
+    `supabase.min.js` (E-019fdc14-9).
+  - **Google Fonts** bundled as `fonts.css` + `fonts/` (E-019fdc14-18, -25).
+  - Tested with all external requests blocked: the app still loads.
+  - **APK versionCode 23 / 3.2** (E-019fdc14-42), uploaded to Hostinger.
+- **12:06 — "People should also be able to login via e-mail and password."** It already existed and
+  worked. **Akash: "I never noticed the email option below Google."** No change.
+- **12:10 — Akash: "How do we make it more secure? More non breakable"**, with a pasted 16-item
+  ChatGPT list: "what other things you can think of as someone who's built the app! Especially the
+  staging part!" Claude ran a **read-only audit**:
+  - **Safe:** RLS policy definitions checked, only the anon key client-side, no service worker,
+    OAuth paths correct.
+  - **Needs attention:** silent failure when Supabase is unreachable (no `navigator.onLine`
+    handling); **schema drift** — changes made through the API, not migrations; the sync queue
+    retries only at sign-in.
+  - **Critical:** **no rollback**, **no app staging**, and **`pitr_enabled:false`,
+    `backups: []` — zero database backups** (free plan).
+- **12:17 — Akash: "Fix everything!"** (12:31: "You did half process and now that fucking chat just
+  vanished!!")
+  - **Backups:** a new Edge Function **`database-backup`** (E-019fdc27-21, fix E-019fdc27-45)
+    exports 12 user-content tables as JSON to a private Storage bucket `database-backups`, with a
+    **daily pg_cron at 02:00 UTC** (`database-backup-daily`). Verified 22 of 22 profiles matched.
+  - **Rollback:** a safe-deploy script for Hostinger (backup → upload → health check →
+    automatic rollback), tested by deliberately breaking the live site and watching it restore,
+    then committed to the repo.
+  - **12:55 — "I literally don't see you make any fucking progress!!!"** Claude pointed Akash to
+    the Supabase dashboard so he could check the backups himself.
+- **12:59 — Akash: "What about install Supabse CLI locally?"**
+  - Installed; 3 of 3 deploys were clean.
+  - Found **6 of 15 deployed functions missing from the repo** (incl. `notification-scheduler`,
+    `send-task-alarms`). The recovered copies were committed.
+  - `send-task-alarms` was missing its first line (E-019fdc4f-35).
+    `send-apk-update-notification` was rebuilt by hand from the bundle strings.
+- **13:07 — connection banner:** a persistent `#connectionBanner` + a health check on
+  `/auth/v1/health`, treating any HTTP response, even 401, as reachable
+  (E-019fdc56-10, -19, -27). Deployed through the safe-deploy script. **APK 24 / 3.3**
+  (E-019fdc59-7).
+- **13:15 — Akash: "15 and 10."**
+  - **#15, re-scoped:** the shared `syncToSupabase` wrapper already covers entries, tasks,
+    subtasks, test results and WHO-5. The remaining ~100 writes are operational and already
+    surface errors, so nothing was changed.
+  - **#10 — Akash: "just like how we are doing for the website and which is the safest!"** →
+    Option A, a separate project:
+    - A new free Supabase project, **`hobs-companion-staging` (ref `ivqlqrpcamoshmgibjph`)**.
+    - Schema regenerated from catalog queries: **39 tables, 82 RLS policies, 13 functions, 2
+      triggers** (incl. `on_auth_user_created`); counts matched. A signup test passed.
+    - Storage buckets created; all 15 Edge Functions deployed; a distinct staging scheduler
+      secret. Third-party secrets were deliberately **not** copied.
+    - **Two more truncated repo functions** (`create-razorpay-order`, `razorpay-webhook`) were
+      fixed (E-019fdc5f-116, -123) and **redeployed to production** without asking first.
+      Claude then flagged it and verified with three tests.
+    - **`staging-app.homeofbeautifulsouls.com`** set up with an isolated folder, a staging build
+      of the app, and staging auth config (`mailer_autoconfirm` matched to production).
+    - Claude asked Akash to add the Cloudflare CNAME. **Akash: "you do have the cloudfare
+      access!"** Claude found a July 6 token it had advised rotating and did not use it. Akash
+      added the record at 17:15. The site then returned 503 while Hostinger issued the SSL
+      certificate.
+  - **Handoff v22:** CREDENTIALS.md gained a staging section (E-019fdd38-25, -31; a section
+    dropped by mistake was restored), the architecture doc updated (E-019fdd38-52).
+- **17:23 — Akash: "Now what?"**
