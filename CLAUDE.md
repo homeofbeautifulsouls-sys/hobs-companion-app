@@ -32,6 +32,14 @@ zip over live state, has caused real, repeated problems in this project's histor
   went unrecorded until he had to ask. For each real change: what changed, in which file/system,
   and exactly what it did or fixed — the same format the existing numbered entries use. This
   covers code changes, config/database changes, and deploys — not read-only investigation.
+- **Also append a literal, word-for-word entry to `docs/CHANGE_LOG.md` for every real change,
+  same turn.** Akash asked for this as a stronger, separate requirement (Sept 29, 2026) after the
+  BUG_LOG rule above: not a paraphrase of what changed, the exact thing. A code change gets its
+  exact `git show <hash>` diff pasted in; an infrastructure/database/deploy action (anything not
+  in git — a Supabase config PATCH, a SQL query, a deploy) gets the exact command run and the
+  exact response received, with only raw secret values redacted (never committed, per this same
+  file's security rule above). See `docs/CHANGE_LOG.md`'s own header for the exact format to
+  follow.
 - Communication: short, direct messages. No long paragraphs unless explicitly asked for detail.
   Akash (the founder) is neurodivergent (ADHD) and has said this explicitly, more than once.
 

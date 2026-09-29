@@ -46,6 +46,12 @@ live/staging/planned status tags, and the real roadmap — see `docs/APP-BLUEPRI
 Sept 27, 2026, directly from the live repo). This file (`MASTER.md`) stays the fast entry point
 and the operational rules; `APP-BLUEPRINT.md` is the deep reference.
 
+**For a literal, word-for-word record of every change** — the exact diff for every code commit,
+and the exact command/response for every infrastructure, database, or deploy action — see
+`docs/CHANGE_LOG.md` (started Sept 29, 2026, per Akash's explicit request). `docs/BUG_LOG.md` is
+the narrative version (what happened, why, real fix); `CHANGE_LOG.md` is the mechanical one (the
+literal thing that changed). Both get updated the same turn a real change is made — see §12.
+
 **HOBS Companion** — a mental health companion app for **Home of Beautiful Souls Foundation**
 (HOBS), an Ahmedabad-based mental health NGO founded by **Akash Ramchandani** (psychologist,
 neurodivergent, ADHD — communicate in short, direct messages, ask before consequential actions,
@@ -519,6 +525,11 @@ lost**:
    log line) -- see §12 (formerly §12, "Standing communication preferences," renumbered below).
 4. Update `docs/MASTER.md`, `docs/PROJECT_STATUS.md`, and `docs/BUG_LOG.md` before a session
    describing real work on this app ends -- not "next session," not "later."
+4a. (Added Sept 29, 2026, per Akash's explicit request) Log every real change to
+   `docs/BUG_LOG.md` **and** `docs/CHANGE_LOG.md` the same turn it's made, not batched for the
+   end. `BUG_LOG.md` is the narrative (what/why); `CHANGE_LOG.md` is the literal, word-for-word
+   record (the exact `git show` diff for a code change, or the exact command/response for an
+   infrastructure/database/deploy action, secrets redacted only).
 5. Periodically re-audit: list every Edge Function actually deployed (`GET
    /v1/projects/{ref}/functions` via the Supabase Management API) and diff it against both this
    file's §4 table and the repo's `supabase/functions/` directory. The Sept 27, 2026 audit alone
