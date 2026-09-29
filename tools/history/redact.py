@@ -32,6 +32,7 @@ PATTERNS = [
     ("hubspot_token", re.compile(r"\bpat-[a-z]{2,4}\d*-[a-f0-9\-]{20,}")),
     ("netlify_token", re.compile(r"\bnf[a-z]_[A-Za-z0-9]{20,}")),
     ("hobs_wp_rest_token", re.compile(r"HOBS-Claude-\d{4}-[A-Za-z0-9\-]{4,}")),
+    ("gladia_key", re.compile(r"\bsk_gladia_[A-Za-z0-9]{16,}")),
 ]
 
 _known = [v.strip() for v in os.environ.get("HOBS_REDACT_VALUES", "").split("\n") if len(v.strip()) >= 12]
