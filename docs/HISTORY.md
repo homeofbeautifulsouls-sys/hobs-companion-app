@@ -2559,3 +2559,57 @@ pattern the app sessions followed.
   confirmed 3 notes (deleted afterwards). **01:14 — "Checked all of it, it's not where!"**
   **01:15 — Akash: "Why didn't I get mail for it? And it should be in the form section and not
   contact!"**
+- **01:19** — Moved the HubSpot sync **from CRM Notes to the Forms API**, using the same portal
+  and form as the website, so submissions show under Forms and trigger its email workflow. The
+  deployed source had been extracted with a **truncated first line**, fixed before deploy
+  (E-019fa124-27…-71). Tested: HTTP 200.
+- **Jul 31 08:46–08:48** — **Bug:** the form **rejects submissions with no phone number** (10 of
+  21 users had none) → sends "Not provided" instead (E-019fb75a-15, -23). Redeployed and retested.
+- **08:50 — Akash: "Notification Reminders are still not delivering! I think this happened after we
+  made support group notifications!… fix it NOW!… Installed the latest apk, gave all notification
+  permissions!"** Server side: 100% FCM success. Cause found in git: the **Jul 21 duplicate fix**
+  only posted a local notification when the app was in the foreground, so background delivery
+  depended entirely on Android's own display. Now it **always posts on receipt, de-duplicated by
+  notification ID** (E-019fb75e-33); web-only. Claude advised a clean reinstall so the new channel
+  is created. **Akash asked for a test notification at 2:30pm; "It's 2:30! I got the
+  notification."**
+- **09:01 — Razorpay keys.** Claude recommended generating Test Mode keys first; **Akash chose Live
+  directly** and **pasted the live key ID and secret in chat**. Claude stored both as Edge
+  Function secrets.
+  - Built **`create-razorpay-order`** and **`razorpay-webhook`** (HMAC-verified, sets
+    `payment_confirmed`); added `donations` Razorpay columns (live DB). Found **no active
+    campaign existed**.
+  - **Akash: replace the QR flow entirely.** `donate.html` now uses Razorpay Checkout
+    (E-019fb771-4…-18); pushed.
+  - **09:16 — "We will do it for therapy payments as well."** Answers: **the admin sets the
+    amount, then the client pays exactly that** (sliding scale is agreed outside the app); in-app
+    donations also move to Razorpay.
+  - Built: `expert_bookings` columns `amount_due`, `cancellation_amount_due` and order IDs (live
+    DB); the order function handles three purposes (donation, session, cancellation) with
+    ownership checks; the webhook routes all three; admin "set amount" UI; a shared
+    `openRazorpayPayment()`; a cancellation "Pay Now" in My Sessions (E-019fb777-16…-153;
+    E-019fb77f-2…-152). The **old QR modal, admin QR upload and `showPaymentModal` were
+    removed.** An invalid three-way ternary was caught before deploy. Pushed 09:37.
+  - The webhook was set up in Razorpay (mobile web dashboard); **Akash pasted the webhook secret in
+    chat**; Claude stored it and tested good and bad signatures plus a full simulated
+    order → webhook → confirmed loop. *(All three Razorpay values are redacted from history files.
+    The webhook secret later leaked into these very history docs — see BUG_LOG #115.)*
+- **10:02 — "The app is loading very slow!"** A throttled test took **12.45 s to the sign-in
+  screen**. Causes: oversized images (logo 1024 px shown at 80 px; mascot PNGs with no
+  transparency) and **no lazy loading on 37 images**. Fixes: resized, **mascots converted to
+  `.jpg`** (all references updated), `loading="lazy"` except the auth images. Result: **7.5 s**.
+  Noted: GitHub Pages gzips the HTML but **caps image caching at 10 minutes**, which can't be
+  configured.
+- **10:13 — "It literally takes 1-2 seconds… for razorpay to open!"** The script load and order
+  creation were sequential → made parallel, with the script prefetched when the donate, expert and
+  bookings screens open (E-019fb7a9-8…-24). Claude called the remaining order round trip
+  "unfixable"; **Akash: "You just fucking said this! Work on this asshole."** Timing showed a
+  **cold start** (2.09 s cold, 0.5 s warm) → a ping mode plus a **keep-warm pg_cron every 4
+  minutes** (live DB; E-019fb7b4-6). Razorpay's own API measured 0.4–2 s.
+- **10:43 — Akash: "Why the fuck is donation campaign turning off after I am restarting it again
+  and again! It already fucking happened thrice."** Cause: **Claude's test clean-up kept
+  switching Akash's real campaign back off.** Claude created a dedicated inactive test campaign
+  and saved a claude.ai memory rule to use only that.
+- **10:47 — Akash: "UPI payments are not showing on Razorpay and upon clicking donate or payment
+  button it just does nothing and all of a sudden opens the page! We need it instant and if not
+  atleast add a loader!"**
