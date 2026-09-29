@@ -1969,3 +1969,60 @@ pattern the app sessions followed.
   other events as busy blocks, and handles reconnect; watch registration fired from the OAuth
   exchange (E-019f7bfe-19, -37). Deployed; not tested against a real connected calendar.
 - **20:14 — Akash: "Keep going till you finish everything properly without bugs."**
+- **20:21 — Calendar sync, stage 2.** Claude found that **no API-based event creation existed
+  yet**. Built a `sync_session` action (create, update or delete the Google event for a
+  booking), called from **every place a session is confirmed, rescheduled or cancelled**,
+  including external clients with no account; a review screen for pending time changes; and
+  **conflict detection** against busy blocks, which asks the professional to accept or cancel
+  (E-019f7c03-10…-144; E-019f7c0b-63). The **`renew_watches` action and a pg_cron job every 6
+  hours** (live DB change) use the existing scheduler secret. Tested with real DB rows; not
+  tested against a real connected calendar.
+- **20:41 — Akash (screenshots): the booking page says "no times are available."** His 11 slots
+  were all **dated Jul 9–15 (past)**. The screenshots were Google's own **Appointment
+  Schedule** page, which the app never reads. **20:50 — Akash: "I said the connection has to be
+  vice versa!"** Claude found **Google has no API for Appointment Schedule availability** (open
+  issue on Google's tracker) and proposed the app's own availability as the single source.
+- **21:04 — Akash's list:**
+  1. the sync button belongs in Schedule, not Profile
+  2. past, upcoming and future appointments visible and editable under Schedule
+  3. clients' shared journal entries aren't fully visible
+  4. contract phone fields accept 11 digits or random numbers
+  5. **sign-out gets stuck on "Good to see you" loading**
+  6. **the app sometimes opens to a white screen**
+  7. a new-journal-entry button above the mascot chat button
+  8. the mascot button doesn't show in the browser
+
+  Fixes (21:12 → Jul 20 01:28, E-019f7c31-18…-66, E-019f7d03-36…-161, E-019f7d11-8…-116):
+  - **Phone:** all 6 phone inputs now digits-only, max 10, with a submit check.
+  - **Sync button:** moved to Schedule.
+  - **Mascot button:** `.phone` **had no `position: relative`**, so on wide screens the
+    button anchored to the viewport.
+  - **Sign-out:** after a restored session the splash/form switch never ran; logout now sets
+    both states.
+  - **White screen:** the Supabase **CDN script had no fallback**, and a failure there happened
+    before error logging existed. Added a boot timeout, a retry screen, and
+    `unhandledrejection` logging.
+  - **Shared entries:** the admin view **only queried `entries`** (missing worksheets and test
+    results), and both views **truncated shared text** at 60/80 characters. Claude dropped the
+    HTML escaping in one edit and restored it in the next.
+  - **New buttons and views:** a new-entry button above the mascot button, and a unified
+    Upcoming/Past appointments list in Schedule with edit and cancel.
+
+  During testing, a **stale local test server** served old code. Claude's later check found both
+  last features already live from the earlier turn.
+- **01:29 — "What now."** **01:32 — Akash:** the automatic professionals' group isn't working; go
+  for full Google OAuth verification; the D-U-N-S has had no response for 9 days. Claude could not
+  reproduce the room bug. **01:37 — "Our domain is verified."** Claude wrote a
+  **Google-Calendar privacy-policy section** and a **demo-video script** (E-019f7d2c-15, -21), and
+  a D-U-N-S follow-up email; D&B's standard processing can take up to about 30 business days.
+- **01:42 — Akash: "You have Anisha and my room for <client>."** Cause: **Claude's own test
+  data had leaked into real accounts.** The test-admin account had the **same
+  `therapist_expert_name` as Akash's real account**, so a leftover test coordination room and a
+  test direct chat showed up with real users. Claude deleted both, **renamed the test account's
+  professional identity** and gave it its own test expert entry, and changed the trigger to name
+  rooms **"Care coordination — <client name>"**; the existing room was renamed (all live DB
+  changes).
+- **01:50 — Akash:** support groups should get **automated fun polls from the mascots**, like
+  WhatsApp polls — goals for the day, how the day went (answers recorded in the chat), funny,
+  productivity, politics, science and mental-health themes; "Research on it properly"; always
+  end with an "add another option" choice.
