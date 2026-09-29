@@ -2756,6 +2756,37 @@ if (IS_NATIVE_APP && window.Capacitor?.Plugins?.App) {
     console.log("OAuth callback received"); // never log the actual URL -- it contains the auth code
 
     // -------------------------
+    // OAuth error passthrough (added Sept 29 2026 -- see docs/BUG_LOG.md)
+    // -------------------------
+    // Google/Supabase can hand the app back a failure instead of a code/token, as either a query
+    // param (?error=...&error_description=...) or a hash param (#error=...&error_description=...).
+    // Every branch below only ever checked for success params, so a real failure here fell through
+    // all of them silently -- console-only, nothing shown to the user, looking exactly like the
+    // callback never happened. Check for this first, before any success-path branch, and surface it.
+    try{
+      var errParsed = new URL(url);
+      var errFromQuery = errParsed.searchParams.get("error");
+      var errDescFromQuery = errParsed.searchParams.get("error_description");
+      var errFromHash = null, errDescFromHash = null;
+      var errHashIdx = url.indexOf('#');
+      if(errHashIdx !== -1){
+        var errHashParams = new URLSearchParams(url.substring(errHashIdx + 1));
+        errFromHash = errHashParams.get("error");
+        errDescFromHash = errHashParams.get("error_description");
+      }
+      var oauthError = errFromQuery || errFromHash;
+      var oauthErrorDesc = errDescFromQuery || errDescFromHash;
+      if(oauthError){
+        console.error("OAuth callback returned an error:", oauthError, oauthErrorDesc);
+        showAuthError((oauthErrorDesc || oauthError || 'Sign-in failed.').replace(/\+/g, ' '));
+        window.Capacitor?.Plugins?.Browser?.close().catch(function(){});
+        return;
+      }
+    }catch(errParseErr){
+      console.error("Failed parsing OAuth callback URL for error params:", errParseErr);
+    }
+
+    // -------------------------
     // Authorization Code Flow
     // -------------------------
 
@@ -2881,6 +2912,8 @@ if (IS_NATIVE_APP && window.Capacitor?.Plugins?.App) {
     }
 
     console.log("No supported callback format detected.");
+    showAuthError("Sign-in didn't complete — please try again.");
+    window.Capacitor?.Plugins?.Browser?.close().catch(function(){});
 
   });
 
