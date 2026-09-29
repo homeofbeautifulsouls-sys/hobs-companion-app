@@ -4838,3 +4838,60 @@ pattern the app sessions followed.
   QR code with the exact payment."** → Claude: Razorpay's UPI QR already locks the amount; the gap
   is the manual "Set Amount". **21:10 — "The QR code acts only as a gateway and the amount isn't
   set for the client."**
+
+### Sept 17–20 — Per-session payment, client grid, Play check, mic, transcription, autosave (C31)
+
+- **21:12 — "it varies per client… you would need to set once per client relationship"** (e.g. one
+  therapist charges one client ₹1000, another pays 700).
+  - Found: **`payment_confirmed` was never reset**, so only the first session was ever billed.
+  - **21:15 — "Yes… they would need to pay for every session! And I would enter the amount as admin
+    so make sure even that's connected."** → payment resets when the therapist accepts a new time
+    or admin sets one, amount kept, admin **Edit** button for the amount (E-01a0b139-8…-72). Tested.
+    Staging 37.
+- **21:27 — "It works. Now we need to properly develop UI for Therapists, it's messy!… client's
+  profile (like squares arranged properly)… all details including their address, emergency contact
+  (mentioned in their contract)… I should be able to see it too (for all clients) as admin."**
+  - **"My Clients" as a grid of squares**; the detail view shows the up-to-three emergency contacts
+    from the signed No-Suicide Agreement (`consent_agreements`); Message and Manage Schedule moved
+    into the detail (E-01a0b144-52, -55, E-01a0b23f-1…-138).
+  - Claude's duplicate of an existing admin section removed. **`tasks` SELECT policy for
+    admin/therapist added** (Task Activity had shown 0/0 for everyone). Staging 38 (E-01a0b249-9).
+- **Sept 18 02:22 — "Note down this bug. And we can finally publish our app on Playstore! Just
+  cross check it first then the bug."**
+  - Bug: `professional_busy_blocks` compared ISO strings with `!==`, so false "time changed"
+    reviews appeared → compared as instants; two false rows removed; BUG_LOG entry (E-01a0b252-24,
+    -55).
+  - Claude listed "unconfirmed" items from its notes. **02:26 — "you have the access for console!…
+    All the content policies have been approved and organization account is also verified! We did
+    it together. So why would you work on stale information? Cross check it right now!"** →
+    `play-console-status` showed alpha 74 completed and a **draft production release**. Listing
+    checks were added to the function (E-01a0b256-20, -33). Claude reported **zero phone
+    screenshots** (404).
+- **Sept 20 10:04 — "this screen [Mood over time] has again gone missing in staging app!… It's
+  working perfectly in V 3.53! And same for the mic issue!"**
+  - Mic: no `RECORD_AUDIO` and no WebView permission bridge. Added the permission plus
+    `BridgeWebChromeClient` `onPermissionRequest` / runtime request in `MainActivity` (staging and
+    tracked copies; E-01a0be46-41…-100). Staging 39.
+  - **10:16 — "that screen is absent in the staging app! It's only visible in V 3.53!"** → mood
+    tracker render functions threw when `appState.entries` wasn't loaded yet → guarded and made safe
+    (E-01a0be51-60, -62, -89). Staging 40.
+- **10:26 — Spacing: no gap between Continue and Add a Task** → `#continueBtn` margin-bottom. **Mic
+  still failing after permission** ("couldn't access") → added **`MODIFY_AUDIO_SETTINGS`**
+  (E-01a0be5a-9…-33). A "--" inside an XML comment broke the build, fixed. Staging 41.
+- **15:43 — "It's taking a lot of time to transcribe why"** → **transcription switched from
+  AssemblyAI (upload/submit/poll) to Groq Whisper** (single call, free tier) in the transcription
+  Edge Function; 1.4 s measured (E-01a0bf7c-17).
+  - **15:48 — "couldn't transcribe"**; **15:51 — "1-2 seconds plus it gave wrong transcription…
+    first couldn't, then wrong then correct"** → logs showed 200s; 5/5 on a synthetic short clip.
+  - Hypothesis: Android cold mic latency → "speak now" shown 300 ms after the recorder starts
+    (E-01a0bf83-27). Web-only deploy. Not verifiable from Claude's side.
+- **15:57 — "Entries taken through transcription are not being saved!! Or go away even after being
+  saved!… We can't afford basic bugs at this stage!"**
+  - Autosave only listened to `input` events (transcribed text is inserted directly) → autosave now
+    triggered after transcription.
+  - Save during transcription saved without the text → **save is queued until transcription
+    finishes** (E-01a0bf88-25, -28, -36). Race reproduced and fixed. Web-only deploy.
+- **16:11 — "Where do we go from here? And, what was pending? List everything!"** → Claude said
+  screenshots missing, device catalog unchecked, lawyer review unknown.
+  - **16:13 — "I have already uploaded the screenshots, you already gave them! Check it properly!
+    What's device catalog?"**
