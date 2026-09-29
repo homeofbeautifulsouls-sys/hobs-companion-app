@@ -1674,3 +1674,58 @@ pattern the app sessions followed.
   - **Signed contracts** shown in the therapist client-detail and admin user views
     (`consentRes` had been fetched but never displayed) (E-019f62b4-126, -130, -143, -149, -152).
 - **22:28 — Akash: "Continue."**
+- **22:34** — Contract visibility tested and pushed. Claude posted **four contract texts in chat**
+  (Therapy consent, Therapy no-suicide, Peer Caregiver consent, Peer Caregiver no-suicide),
+  noted they were not legally reviewed, and did not wire them into the app. Drive **Update Log
+  v39** and a new **Master Project State**; project zip regenerated.
+- **22:35 — Akash:** he wants **the contract he had uploaded** (therapist, psychiatrist, peer
+  caregiver), improved, with all the original fields. Past-chat search could not find it;
+  Akash re-uploaded **"Therapy & Peer Care Giver Consent Form.pdf"**. Claude produced a corrected
+  version in chat: same structure and fields (address/phone, chat/audio/video consent boxes,
+  signature, three emergency contacts on the No Suicide Agreement), fixed typos, **booking and
+  cancellation text aligned to the app** (24-hour rule, one 50% late cancellation per month),
+  "family member" → "emergency contact", crisis numbers added as a fallback.
+- **22:38–22:49 — PDF on the letterhead.** Rendered through HTML + Playwright with a repeating
+  header (E-019f62c7-19, -48). Akash twice rejected the logo size ("Look at the size of the
+  logo"; "Dude look at the original contract logo size!"); he supplied a high-res logo, and Claude
+  finally **measured the original's logo by pixel analysis (~50.5 × 22.35 mm)** and matched it.
+- **22:50–22:55 — Google Meet links.** Claude gave Google Cloud OAuth steps (Calendar API,
+  consent screen, credentials). **Akash: every therapist will connect their own account**; he asked
+  about Google verification. Calendar scopes are "sensitive", not "restricted" (no paid security
+  assessment). Akash: "there's a lot of time before we go to Google… We are not even on Google
+  playstore as of now!" → plan: Testing mode with therapists added as test users (7-day token
+  expiry, reconnect prompt). **22:57, Akash: "Keep it in pipeline."**
+- **22:57 — Akash: full report — "go through absolutely everything… scrutinize a 100%"; build the
+  report first.** Jul 15 12:06: Claude swept all 35 panels and the client, therapist, admin and
+  assistant flows with Playwright. **Report "HOBS-Full-Audit-Report.md"** (E-019f65a2-122):
+  1. **High:** the assistant's crisis follow-up set `awaiting_topic`, which was **never cleared
+     if the crisis modal was closed**, so a later unrelated message was hijacked (reproduced
+     live).
+  2. **Medium:** on the Team page only the small photo opened a profile, not the name/details.
+  3. Dead `toggleSubtaskForm`.
+  Claude said it had not covered every data state.
+- **12:08 — "Start fixing."** A 2-minute expiry plus clearing on modal close; the whole team card
+  clickable, with `stopPropagation` on inner buttons; dead code removed (E-019f65ad-14, -19, -23,
+  -56, -65, -73). Tested and pushed.
+- **12:16 — Next round.** The donation QR and flow were clean. **Bug:** re-saving a worksheet
+  created a **duplicate journal-history entry** every time (the answers upserted, the entry
+  row did not), in **two code paths** (`commitWorksheetIfDirty` and the Save button); now updated
+  in place, keeping the sharing status (E-019f65b5-86, -97). Pushed. Claude said Android
+  permission behaviour could not be tested without a real device.
+- **12:26 — Code review of notification permissions:** no status check or recovery after a
+  denial; generic test-button errors; two permission requests back to back. **Akash: "I have
+  purposely kept it to me the notification test button."** Claude confirmed open tracking
+  (`markNotificationOpened`) and 24-hour action attribution (`trackNotificationAction`) exist;
+  task **creation** was not attributed → added (E-019f65ca-6). Claude's first test used the wrong
+  ID column; it caught this before calling it an app bug.
+- **12:32–12:39 — Akash:** can the **whole journal entry**, however long, be shared as an image;
+  "it shouldn't blur anything." Tested at 8,000 and 27,300 characters: full height captured, PNG
+  (lossless), measured edge sharpness. No change needed.
+- **12:47 — Akash: journal writing areas should look like old vintage paper without hurting
+  readability.** Three intensities compared by measurement; contrast 13.55:1. `.vintage-paper`
+  added to `journalText` and `quickJournalText` (E-019f65d1-42, -47, -49). Pushed.
+- **13:17 — Akash (screenshots): "The option to maximize (full screen) has gone!"**; it must look
+  exactly like vintage paper; he wants a **journal cover "Treasures of (user name)"** that opens
+  with an animation to the page, and **past entries should flip the book open to that entry.**
+  "Before building tell me if I am making sense, if it's doable… And will it obstruct sensory
+  experience?"
