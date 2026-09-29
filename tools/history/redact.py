@@ -37,7 +37,7 @@ PATTERNS = [
 _known = [v.strip() for v in os.environ.get("HOBS_REDACT_VALUES", "").split("\n") if len(v.strip()) >= 12]
 # Real clients' names (not staff/team), passed at runtime only -- never listed in this repo.
 _names = [n.strip() for n in os.environ.get("HOBS_REDACT_NAMES", "").split(",") if n.strip()]
-_name_pats = [re.compile(r"\b" + re.escape(n) + r"\b") for n in _names]
+_name_pats = [re.compile(r"\b" + re.escape(n) + r"\b", re.I) for n in _names]
 
 
 # Personal email addresses (clients, testers) are replaced; project, staff-role and
