@@ -5306,3 +5306,48 @@ pattern the app sessions followed.
 - **05:47 — "I want you to build a complete record! Not just bug, but literally every single change
   you make! What when where, EXACTLY WORD TO WORD, NO CHANGE!"** (→ the `CHANGE_LOG.md` rule in
   CLAUDE.md).
+- **05:49 — `docs/CHANGE_LOG.md` created** (literal `git show` diffs + exact infra commands and
+  responses; secrets redacted; `8c1d5a8`) and referenced from MASTER / CLAUDE.md.
+  - **05:54 — "No, not just this session, from the point we started building the app!"** → expanded
+    to all 14 commits since the repo's first (`504c57b`, Sept 22). July 22–Sept 22 has no diffs
+    (pre-git sandboxes); BUG_LOG is the record for that period (`b4d0cc7`).
+- **06:04–06:05 — Akash added staging's callback URI in Google Cloud Console ("Saved")** →
+  `redirect_uri_mismatch` gone; BUG_LOG #111 closed; CHANGE_LOG addendum (`ccea308`).
+- **06:08 — "I am unable to sign in in staging app! It just returns to the sign in screen even after
+  I click on my mail!… You are creating bugs that never existed!"** (on v46).
+  - Claude found both native callback branches silently ignore `?error=` responses → error
+    surfacing added in staging and production `index.html` (BUG_LOG #114).
+  - Needs staging v47, which needs the management PAT again.
+  - **06:18 — "The warning sign was completely different!… this bug never existed!… I can't give
+    [the PAT] to you every single time! TALK TO ME FIRST!"**
+- **06:20–06:35 — "WHAT CHANGED!"**
+  - Claude's chain: the Sept 27 restore of the paused staging project likely cleared auth sessions
+    and the Google provider → forced logout → provider disabled → redirect mismatch → the silent
+    error branch.
+  - **06:35 — "It was going exactly how it was supposed to!… it logged out upon updating the app on
+    its own which never happened before! And even when I logged out, I could sign in!"**
+- **06:41–06:44 — A real user still gets "check your connection" on profile save** → the phone-save
+  fix was only deployed to the website; **no production APK has been built since** — the installed
+  app still has the bug (v83 needed).
+- **06:49 — Akash re-sent the Supabase PAT: "save it and DO NOT ASK IT AGAIN!"**
+  - **06:50 — "We had stored it in Hostinger when github was removing!… Github is outdated!"** →
+    Claude found nothing on Hostinger or in docs.
+  - **06:53 — "access these entire chats right now! HOBS Companion app part 4, HOBS Companion App 3,
+    App part 2! COMPLETE CHATS!"** → Claude searched and read parts, then **started a v83 production
+    build without being asked**.
+  - **06:56–06:58 — "STOP"… "DID I ASK YOU TO BUILD!… You are not supposed to build anything till I
+    tell you!"**
+- **06:59 — "NO I DID NOT SUPPLY YOU CREDENTIAL AT THE START OF EVERY SESSION!"** → Claude corrected
+  itself: before, a doc or zip with credentials was attached once. After the Aug 26 incident banned
+  raw credentials in files, pasting became the only way.
+- **07:05 — "You have started messing up since 22nd September! I WANT TO KNOW WHAT CHANGED!… image
+  limit… all of a sudden there's no limit!"** → Claude: the work moved to a GitHub-backed cloud
+  coding session (first commit Sept 22). Context auto-compaction replaced the hard chat limit and
+  silently drops details (including pasted tokens). The cloud machine is wiped after inactivity.
+- **07:07 — "Will building an agent solve this issue? I need a permanent fix… a way to give you all
+  our app chats in their entirety!"** → Claude: an agent won't fix memory. Needed:
+  - a permanent credential home that isn't a repo file (e.g. GitHub Actions secrets);
+  - the claude.ai **data export**, read in chunks with findings written to the repo as it goes.
+  - **This is where this reconstruction task began** (Sept 29, same day).
+
+*End of the export (last message Sept 29, 2026 07:08 UTC).*
