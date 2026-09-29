@@ -2163,6 +2163,20 @@ pending list with the other leaked values (history rewrite needs Akash's go).
   **It needs rotating** (a new value in the Supabase function secret, plus every cron job that
   sends it). This is a live production change, so it waits for Akash's OK.
 
+### 118. Gladia API key visible in plain text in the chat export (prevention only; nothing leaked to the repo)
+
+- **What:** on Sept 21, 2026 Akash pasted the new Gladia transcription API key into chat C31. The
+  export has it in plain text; the export's own redaction didn't catch it, and `redact.py` had no
+  pattern for Gladia keys.
+- **Found:** Sept 29, 2026, reading the Sept 21 slice of the export.
+- **Checked:** the key is in no file in the repo (working tree grep: 0 hits).
+- **Fix:** added a `gladia_key` pattern (`sk_gladia_…`) to `tools/history/redact.py`, so the commit
+  scanner refuses any file containing one (commit `2e99ee4`). Tested: the pattern flags a
+  synthetic key. The key's exact value was also added to the session-only regeneration list
+  (outside the repo).
+- **Still open:** none for the repo. The key only lives in the claude.ai chat and in
+  `system_credentials` / Edge Function secrets, as intended.
+
 ## Standing lessons (do not re-learn these)
 
 **Run `deployment/verify-before-deploy.sh` before every single deploy, web or Android, no

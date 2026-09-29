@@ -4381,3 +4381,30 @@ index 30d7c13..4123b9d 100644
  _names = [n.strip() for n in os.environ.get("HOBS_REDACT_NAMES", "").split(",") if n.strip()]
  _name_pats = [re.compile(r"\b" + re.escape(n) + r"\b", re.I) for n in _names]
 ```
+
+### 22. Scanner: Gladia API key pattern added to redact.py (commit 2e99ee4) -- Sept 29, 2026 -- BUG_LOG #118
+Code change (exact diff below).
+
+```
+commit 2e99ee40d81ce7d60c39a78daa85215496c6f030
+Author: Claude <claude@hobsfoundation.com>
+Date:   Tue Sep 29 12:54:52 2026 +0000
+
+    Scanner: add Gladia API key pattern to redact.py (key seen in the Sept 21 export)
+    
+    Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+    Claude-Session: https://claude.ai/code/session_016cFWEqp9ZJMTeXsySY4VmS
+
+diff --git a/tools/history/redact.py b/tools/history/redact.py
+index 4123b9d..e07c7a4 100644
+--- a/tools/history/redact.py
++++ b/tools/history/redact.py
+@@ -32,6 +32,7 @@ PATTERNS = [
+     ("hubspot_token", re.compile(r"\bpat-[a-z]{2,4}\d*-[a-f0-9\-]{20,}")),
+     ("netlify_token", re.compile(r"\bnf[a-z]_[A-Za-z0-9]{20,}")),
+     ("hobs_wp_rest_token", re.compile(r"HOBS-Claude-\d{4}-[A-Za-z0-9\-]{4,}")),
++    ("gladia_key", re.compile(r"\bsk_gladia_[A-Za-z0-9]{16,}")),
+ ]
+ 
+ _known = [v.strip() for v in os.environ.get("HOBS_REDACT_VALUES", "").split("\n") if len(v.strip()) >= 12]
+```
