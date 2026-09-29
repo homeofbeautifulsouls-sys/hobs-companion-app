@@ -2232,3 +2232,59 @@ pattern the app sessions followed.
   the newest master doc from Drive (22:56 UTC) and pointed out the prompt's task placeholder was
   still unfilled. **23:06 — Akash: "Are you aware about everything we have done till now? LIKE
   LITERALLY EVERYTHING!"**
+- **23:06** — Claude said it had the master doc but not the raw history; **"Yes!"** → it read
+  **Update Log v41** and said it still lacked the transcripts and logs v1–v40.
+- **23:09 — Akash (screenshot):** a **notification arrives twice** (one full, one cut short); the
+  header should show progress in the middle; raise the chat button and add the journal button;
+  "Shows no support group joined even when I have"; remove the mascot from See Progress.
+  - Duplicate: the log showed **one send**. Cause: `pushNotificationReceived` also fires when the
+    app is **backgrounded but alive**, while Android had already shown the tray notification.
+    Now it only posts a local notification when `App.getState().isActive` (E-019f86f0-133).
+    Not replayable without a device.
+  - Support group: Akash was a joined member, but the stale **`profiles.has_support_group`** was
+    false (the same shape as the old `has_therapist` bug) → now derived from
+    `chat_room_members` (-118, -121).
+  - Mascot image removed (-137).
+  - Tested with Playwright and a **throwaway test room** (deleted afterwards), and pushed with
+    the version bump (build `20260721232156`). C28 cloned the repo with the PAT from the doc.
+- **23:27 — Akash on the header:** the empty middle for a progress bar — "would it demotivate?
+  Let's weigh pros and cons"; raise both buttons in place. Claude argued a bar has an unfilled
+  part that reads as "behind", and suggested a binary "you showed up" marker. **"Think together
+  loud."** **23:32: "Fix the buttons for now. Keep this in pipeline."** Both floating buttons
+  raised 50 px (E-019f8705-21, -24).
+- **23:38 — Akash (screenshot):** the "What would you like to add?" sheet had moved down. Cause:
+  **`.share-sheet-card` was never given safe-area bottom padding** when the other sheets were
+  (E-019f870b-19).
+- **23:42 — Akash: track user behaviour like GA, within Play Store policy, with heatmaps and data
+  in the admin panel.** Claude found **Firebase Analytics already wired** (screen views plus 7
+  events, native only); heatmap tools record screens, which is risky for this app. Recommended a
+  first-party "Path B".
+- **23:45 — "Path B, but first check if we meet all compliances to publish on the Play Store."**
+  Claude's audit found two gaps:
+  - **HubSpot receives test scores but isn't named in the privacy policy.**
+  - **No in-app self-service account deletion**, which Play requires.
+
+  Play Console items (Data Safety form, Health apps declaration) could not be checked. **23:49 —
+  Akash: nothing filled yet; waiting on the D-U-N-S; "Will ask you before filling anything."**
+- **Jul 22 00:00 — "I want to see what features do users use and how many of them. How do they
+  navigate."** Built (live DB changes): an **`app_analytics_events` table** (insert by anyone,
+  read by admins, like `error_logs`), three aggregate SQL functions, logging through
+  `showOnly()` and `logAnalyticsEvent()` plus 4 new events, and an **admin "Behavior" tab**
+  (7/30/90 days) (E-019f871f-25…-85). Tested; build `20260722000832`.
+- **17:01 — Akash (screenshot):** donation campaigns need **pictures in link previews**; **previous
+  campaigns aren't visible** ("This is the priority"); the Behavior data shows only 2 active
+  users. After a gap in which the tool calls failed silently, **Akash: "Wtf is happening? I don't
+  see you make any progress."**
+  - Active users: 1 of the 2 missing people was active **after** the deploy with no events; Claude
+    suspected the update reload timing and did not claim a cause.
+  - Campaigns: `donate.html` had **no `og:image`**; the admin only ever queried the active
+    campaign. Added `donation_campaigns.image_url` (live DB).
+  - Stored the **GitHub PAT as an Edge Function secret `GITHUB_PAT`**, and built and deployed an
+    **`update-donate-page-meta` function that commits meta tags into `donate.html` through the
+    GitHub API** (deployed with the Supabase CLI via npx) (E-019f8ad4-88).
+  - **Bug:** `atob`/`btoa` are not UTF-8 safe, so its **first run committed a mojibake-corrupted
+    `donate.html`** to the live site. Claude reversed it from git, diffed against the pre-bug
+    version, committed the repair, and fixed the encoding (-105…-112). It also stopped the
+    200-character description cut mid-sentence (-145).
+  - Image upload field started (-151); the rest not done when the turn ended.
+- **17:28 — Akash: "Continue."**
