@@ -1591,3 +1591,86 @@ pattern the app sessions followed.
   answers in the therapist view (E-019f60e9-60, -88, -91, -100).
 - **14:11 — Akash:** "There's literally no section in Therapist profile to see notes or
   worksheets shared by the client!"
+- **14:16** — A dedicated **"📝 Shared With You"** feed added to the therapist dashboard (all
+  clients, newest first, opens the detail view) instead of a button inside a client card
+  (E-019f60f7-13, -22, -33). Tested and pushed.
+- **14:17 — Akash: "please work on the next tasks now."** (14:17–14:48)
+  - **Notifications (items 1–2).** Journal reminders were missing on Jul 11 and 13; the cron had
+    only run reliably **since the Jul 13 19:45 secret fix**. `task_complete_reminder` had never
+    fired. The deployed scheduler could not be read back (compiled bundle), so Claude
+    **rotated the scheduler secret, updated the cron job, and redeployed the local source**
+    (version 11) through the Management API. **Self-introduced risk caught:** the redeploy
+    defaulted to **`verify_jwt: true`**, which would have broken the cron trigger (no auth
+    header); redeployed with `verify_jwt: false`. A test "0 candidates" result turned out to be a
+    testing artefact (a browser login on the test account reset its timezone and token through
+    the app's device sync); on a clean re-run `task_complete_reminder` found its candidate. The
+    real 14:30 cron tick was confirmed. *(No verbatim code: done with shell/API calls.)*
+  - **Log Appointment for past dates (item 6):** saving already worked; the **calendar dots only
+    showed availability slots, not bookings**, so a logged past session was invisible. Added
+    booking dots (E-019f60fd-166).
+  - **Donation campaign (item 7):** Save always overwrote the one campaign. Added **"Archive &
+    Start New"**: the old campaign is kept with `is_active: false` (E-019f610c-36, -39).
+  - **Back button (item 8):** the hardware back handler checks a **hard-coded list of modals**;
+    `assistantModal`, `therapistClientDetailModal` and `therapistScheduleEditModal` were missing.
+    A mocked-Capacitor test then showed the check required `display === 'block'`, which never
+    matched the assistant modal (`flex`) (E-019f610c-77, -95). Regression-tested.
+  - Drive **Update Log v38**.
+- **14:48 — Akash:** update the project file; **past appointments should be visible under the
+  client's profile.** Project zip regenerated. Claude added **Appointment History** to the admin
+  user view (all professionals) and the therapist client-detail view (only that therapist's
+  sessions) (E-019f6119-21, -29, -41, -44).
+- **14:57 — Akash: "I said Session history for the client! You didn't read it correctly!"** Keep
+  it, but add it **for the client too**; rename his dashboard to **"Admin Panel"**; the therapist
+  and admin interfaces are too complex — plan a simplification. At **4% context**, Claude wrote
+  a **"NEXT SESSION TODO"** doc to Drive.
+- **20:22 — Akash: "Please continue."** Claude said to start a new chat; **Akash: "This is the
+  new session dude!"** (the same C26 chat continued). Built: `openMyBookings` now shows the
+  **session date/time** and sorts by it (it had sorted by booking-created time); **"Booking
+  Dashboard" renamed "Admin Panel"**, including assistant commands (E-019f624b-26, -36, -43, -45).
+- **20:48 — Akash on structure:** "It's all just rows and more rows! There's no structure to it!…
+  No general or advanced… a section is static vs the other is scrollable… I use everything!"
+  Claude proposed tabs (Today / Clients / Schedule / My Profile, plus Organization / System for
+  admin).
+- **20:54 — Akash (screenshots):** the home button **still said "Booking & Cancelled"**, not
+  Admin; **no calendar with dots on the therapist dashboard** — show a proper list and open the
+  calendar only to edit; **nothing about "Today"**. Fixed the button label; availability became
+  a list with a **calendar toggle** (E-019f6269-10, -17, -22). Pushed.
+- **21:07 — Akash approved the tabs, then asked: "Have you covered everything that's present
+  though?"** Mapping showed **two separate panels** and **9 admin sections the first plan had
+  missed or mis-sorted**. Final plan: **My Client Schedule** — Clients / Schedule / Profile;
+  **Admin Panel** — Overview / Experts / Requests & Bookings / Organization / System. **21:09:
+  "Makes sense! Now build but check that you have covered everything before once more!"**
+- **21:20 — Built** (E-019f6276-15, -19, -38, -42, -51, -54). An **ID audit** confirmed every
+  original element ID was kept exactly once; all tabs and modals were tested; pushed. The
+  **bash tool then failed on every call**, so the live check was not run; Claude said so and
+  asked Akash to look. **21:50, Akash: "Yes much better."**
+- **21:51 — "What's remaining?"** Claude's list: D-U-N-S pending (submitted Jul 11); **Groq key**
+  for AI crisis detection; lawyer for the ToS liability section; the unexplained "Continue" item;
+  **duplicate expert entries** for one expert; **Supabase Pro upgrade** recommended; invite
+  emails and HDFC SmartGateway; three `datetime-local` pickers without weekdays; dead
+  mascot-bubble code.
+- **21:53 — Akash:** fix the pickers and dead code, drop "Continue"; **clients see the therapist's
+  homework under the session**; **share a journal entry outside as a screenshot**; **automatic
+  Google Meet link on booking (is it possible?)**; **admin and therapist see signed contracts**;
+  give him the updated contract text (therapy, no-suicide, caregiver + no-suicide); then update
+  Drive and the project file.
+- **22:09 — The turn's work was lost.** Claude's edits in that turn (E-019f629f-20…-90, in a
+  scratch working copy) never landed. **Akash: "you already fucking worked almost on all the
+  prompt used tokens and the chat just vanished and now you are re working!! Wtf!"** Claude said
+  the tool had been failing and nothing had been pushed, then redid it from a fresh clone.
+  - Dead mascot-bubble HTML and JS removed (`MASCOTS`, `showMascotBubble`, the comic bubble),
+    after checking nothing else referenced them (E-019f62ad-31…-50).
+  - **All three `datetime-local` inputs split into date + time** (task deadline, admin session
+    date, therapist propose-time); zero left (E-019f62ad-63…-126). A **duplicate `display`**
+    in one inline style (the same kind of bug as the footer) was caught before shipping.
+  - Tested (the therapist propose-time path could not be exercised end to end because of the
+    self-booking test limit); pushed at ~22:28.
+  - **Homework under each session** in the client's bookings, matched by the assigning
+    therapist (E-019f62b4-44, -51).
+  - **"Share as image"** on journal entries, using the already-loaded `html2canvas`
+    (E-019f62b4-94).
+  - **Google Meet:** possible through the Google Calendar API with OAuth; scoped as separate work,
+    not built.
+  - **Signed contracts** shown in the therapist client-detail and admin user views
+    (`consentRes` had been fetched but never displayed) (E-019f62b4-126, -130, -143, -149, -152).
+- **22:28 — Akash: "Continue."**
