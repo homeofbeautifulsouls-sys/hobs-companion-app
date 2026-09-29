@@ -119,3 +119,45 @@ pattern the app sessions followed.
 - **17:01** — Akash: the live screening-tests page on the website is the design reference;
   these are all the assets for now; and **don't touch the website** — look at the reference
   somewhere else.
+- **17:03** — Claude tries to screenshot the live page via Claude in Chrome twice; it isn't
+  connected in the app. Akash: "Do not waste tokens unnecessarily." (First recorded instance
+  of a pattern Akash objects to repeatedly: retrying an approach that already failed.)
+- **17:04–17:06 — what "the testing page is almost perfect" means:** Akash clarifies it's the
+  **tests, scoring and results** that are right, not the look. Claude recovers the page's
+  mechanics from past sessions: test picker → one block of questions at a time with a live
+  counter → per-test scoring functions → colour-coded severity bands → results sent to
+  HubSpot with a retry/localStorage fallback. **Decision: carry that logic over exactly; only
+  the visual design changes.**
+- **17:09–17:12** — first visual prototype (chat widget). Akash rejects it: wrong colours, not
+  Bob's real image, and **"Everything we do has to be completely scientific and gold
+  standard!"**
+- **17:14–17:24 — the mood instrument decision (clinical):**
+  - Akash wants the check-in to help therapists with diagnosis too.
+  - Claude proposes I-PANAS-SF (10 items). Research: its licence is scoped to academic use and
+    it lacks direct Indian validation; full PANAS (20 items) has Hindi/Indian validation but
+    is too heavy for daily use.
+  - Akash: be practical ("I don't think Thompson would even respond!"), must be **valid in the
+    Indian context and not exhausting**; otherwise find another validated test.
+  - **Decision: WHO-5 Well-Being Index**, weekly — free under CC BY-NC-SA, validated in India
+    including a **Gujarati version**, 5 items, ~1 minute, positively worded, 0–100 score with
+    cutoffs (≤50 poor wellbeing / follow-up, ≤28 likely depression). **Daily = a casual,
+    non-clinical mood note; weekly = the real WHO-5.** Akash: "Yes, build it that way."
+  - Claude's rule stated here: a 2-week-lookback instrument must not be given daily.
+- **17:24–18:10 — the colour fight (many rounds):**
+  - Brand colours (cream/navy/teal/gold) → rejected: be sensory-first, like **Clarify ADHD**.
+  - Clarify-style muted pastels → rejected: "pastel isn't soothing… THINK EVERY POSSIBLE WAY
+    TO OPTIMISE THE VISUALS!"
+  - Research-based low-arousal palette (no red/orange, grey-green-blue, no patterns behind
+    task screens; background images only on non-task screens) → Akash asks for real HOBS
+    art as the background, and flags the 0–5 numbers weren't centred in their circles.
+  - **Bug: embedded images don't render in the chat widget tool** — two attempts failed and
+    took the buttons down with them before Claude tested it minimally (17:52) and confirmed
+    the limitation. Fix: build a real HTML file instead (`hobs-prototype/index.html`,
+    E-019f291c-4), verified by screenshot + pixel analysis before sending.
+  - 18:02: "awfully dead and dull"; and **"Where can I see the actual version?"** Claude:
+    nothing is deployed yet — all of this is design exploration, no database, no URL.
+  - Claude conceded it over-applied "low arousal" as grey-beige; pushed back on going to
+    red/orange/neon. Deeper pine/teal → "still not bright enough, and you gave shapes when
+    we're supposed to use the image" → brighter teal/green with the real image more visible
+    (E-019f2928-2) → 18:08 Akash: it should feel **warm and bright** so people want to use
+    it. Claude: warmth from luminous golden light, not hot saturated hues (E-019f292b-2).

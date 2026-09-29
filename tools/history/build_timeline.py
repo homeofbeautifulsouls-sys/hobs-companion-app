@@ -43,10 +43,12 @@ CHUNK_CHARS = 100_000
 # Every word Akash and Claude wrote is kept in full. Tool inputs/outputs are shortened here
 # because reading them in full would exceed the whole session budget (measured Sept 29:
 # ~50k tokens per chunk x 268 chunks). Errors are always kept.
-CAP_EDIT = 300        # str_replace old/new, per side, in the reading copy
-CAP_FILE = 300        # create_file body in the reading copy
-CAP_CMD = 300         # bash command
-CAP_OTHER = 200       # any other tool input
+CAP_EDIT = 150        # str_replace old/new, per side, in the reading copy
+CAP_FILE = 150        # create_file body in the reading copy
+CAP_CMD = 0           # bash command body (0 = only its one-line description is shown)
+CAP_OTHER = 120       # any other tool input
+QUIET_TOOLS = ("view", "present_files", "tool_search", "visualize:read_me", "Read", "Glob",
+               "Grep", "TaskUpdate", "TaskCreate", "ToolSearch")
 CAP_RESULT = 0        # successful tool result text (0 = omitted)
 CAP_RESULT_ERR = 300  # failed tool result text
 CAP_ATTACH = 300      # attachment extracted content preview
@@ -78,9 +80,13 @@ def render_tool_use(b, eid=None):
         body = inp.get("file_text", inp.get("content", "")) or ""
         out.append(f"path: {inp.get('path') or inp.get('file_path')}  ({len(body)} chars)")
         out.append("FILE_TEXT:\n" + cap(body, CAP_FILE))
-    elif name in ("bash_tool", "bash_it", "bash"):
-        if inp.get("description"):
-            out.append(f"description: {inp.get('description')}")
+    elif name in QUIET_TOOLS:
+        return f"<<{name}>>"
+    elif name in ("bash_tool", "bash_it", "bash", "Bash"):
+        d = inp.get("description") or ""
+        if CAP_CMD == 0:
+            return f"<<{name}: {d or cap(inp.get('command',''), 100)}>>"
+        out.append(f"description: {d}")
         out.append("COMMAND:\n" + cap(inp.get("command", ""), CAP_CMD))
     else:
         out.append(cap(inp, CAP_OTHER))

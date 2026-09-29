@@ -28,10 +28,10 @@ new session loses at most one chunk of work.
    ```
    Client names redacted so far: two (the ones seen in the code edits). Their names are not
    written here on purpose. If unsure, ask Akash.
-3. Reading copy: every word Akash and Claude wrote is kept in full; tool inputs are shortened
-   and successful tool outputs omitted (errors kept) -- reading them in full would have used
+3. Reading copy: every word Akash and Claude wrote is kept in full; tool calls are one-line
+   markers and successful tool outputs are omitted (errors kept) -- reading them in full would have used
    the whole session budget. Exact code is complete in docs/history/code/ regardless.
-4. Continue reading at the chunk after **Last chunk completed** below. Append findings to
+4. Continue reading after the **Resume point** timestamp below. Append findings to
    `docs/HISTORY.md` (and bugs to `docs/BUG_LOG.md`), then update this file and commit.
 5. Commit with `tools/history/commit_progress.sh "<msg>"` -- it credential-scans every changed
    doc and refuses to commit on any hit.
@@ -67,6 +67,8 @@ the chunks and recorded in `HISTORY.md` in words, with the command where it matt
 
 ## Status
 
-- Total chunks: **110** (each ~100k characters)
-- **Last chunk completed: 0001** (through Jul 3 17:01 UTC)
+- Total chunks: **65** (each ~100k characters)
+- **Resume point (timestamp of the last message fully recorded): 2026-07-03T18:10:05Z**
+  Chunk numbers can change if the reading copy is rebuilt, so always resume by timestamp:
+  `grep -l '<timestamp>' <scratch>/timeline/chunk_*.txt` and continue after that message.
 - Last updated: 2026-09-29
