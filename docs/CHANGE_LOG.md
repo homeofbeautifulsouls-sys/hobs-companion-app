@@ -4133,3 +4133,145 @@ sleep 15 && curl -sS "https://app.homeofbeautifulsouls.com/" | grep -c "describe
 curl -sS -L "https://ivqlqrpcamoshmgibjph.supabase.co/auth/v1/authorize?provider=google&redirect_to=https://staging-app.homeofbeautifulsouls.com/" -o /tmp/final2.html -w "FINAL_URL:%{url_effective}\nHTTP_CODE:%{http_code}\n"
 ```
 **Result**: `HTTP_CODE:200`, `FINAL_URL` now resolves to `https://accounts.google.com/v3/signin/identifier?...&redirect_uri=https%3A%2F%2Fivqlqrpcamoshmgibjph.supabase.co%2Fauth%2Fv1%2Fcallback&...` — Google's real sign-in page, no `redirect_uri_mismatch` error. #111 confirmed fully resolved, not just the Supabase-side half.
+
+### 17. Fixed silent OAuth callback failure (production `index.html` + staging `staging-config/index.html`) -- BUG_LOG #114
+Exact `git show 5b73e56` output:
+```
+commit 5b73e56b9025cefca637ebe90906c3549dbef97a
+Author: Claude <claude@hobsfoundation.com>
+Date:   Tue Sep 29 06:17:09 2026 +0000
+
+    Fix silent OAuth callback failure: surface real errors instead of nothing
+    
+    Both index.html (production) and android-native-assets/staging-config/index.html
+    (staging) had the same gap in the native appUrlOpen OAuth callback handler: every
+    branch (Authorization Code Flow ?code=, Token Flow #access_token=) only checked
+    for SUCCESS params. If Google/Supabase instead returned a failure -- ?error=...
+    or #error=... -- none of the branches matched, execution fell through to a
+    console-only "No supported callback format detected." log, and the user saw
+    nothing: the screen just returned to sign-in with no visible error.
+    
+    This is the real bug behind "It just returns to the sign in screen even after I
+    click on my mail" -- ruled out stale build (confirmed live APK is genuinely v46
+    via aapt manifest dump) and ruled out Supabase Auth config (re-verified
+    external_google_enabled, uri_allow_list, site_url all correct) before finding this.
+    
+    Fix: check for error/error_description (query string or hash) FIRST, before any
+    success-path branch, and call the existing showAuthError() with the real message
+    instead of swallowing it. Also made the final fallback ("no supported format")
+    visible instead of silent, as a safety net for any other unhandled case.
+    
+    This does not yet prove what the underlying failure is (e.g. a Google OAuth
+    consent screen "Testing" mode / test-user allowlist restriction is the leading
+    hypothesis, based on the warning icon on "Web client 1 HOBS Web Test" in Google
+    Cloud Console) -- it makes the real reason visible on the next sign-in attempt
+    instead of guessing further blind. Needs a new staging build (bump to v47) to
+    actually reach the device, since the native app bundles index.html at build time.
+    
+    Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+    Claude-Session: https://claude.ai/code/session_016cFWEqp9ZJMTeXsySY4VmS
+
+diff --git a/android-native-assets/staging-config/index.html b/android-native-assets/staging-config/index.html
+index 7c41ec5..1cbf2c5 100644
+--- a/android-native-assets/staging-config/index.html
++++ b/android-native-assets/staging-config/index.html
+@@ -2755,6 +2755,37 @@ if (IS_NATIVE_APP && window.Capacitor?.Plugins?.App) {
+ 
+     console.log("OAuth callback received"); // never log the actual URL -- it contains the auth code
+ 
++    // -------------------------
++    // OAuth error passthrough (added Sept 29 2026 -- see docs/BUG_LOG.md)
++    // -------------------------
++    // Google/Supabase can hand the app back a failure instead of a code/token, as either a query
++    // param (?error=...&error_description=...) or a hash param (#error=...&error_description=...).
++    // Every branch below only ever checked for success params, so a real failure here fell through
++    // all of them silently -- console-only, nothing shown to the user, looking exactly like the
++    // callback never happened. Check for this first, before any success-path branch, and surface it.
++    try{
++      var errParsed = new URL(url);
++      var errFromQuery = errParsed.searchParams.get("error");
++      var errDescFromQuery = errParsed.searchParams.get("error_description");
++      var errFromHash = null, errDescFromHash = null;
++      var errHashIdx = url.indexOf('#');
++      if(errHashIdx !== -1){
++        var errHashParams = new URLSearchParams(url.substring(errHashIdx + 1));
++        errFromHash = errHashParams.get("error");
++        errDescFromHash = errHashParams.get("error_description");
++      }
++      var oauthError = errFromQuery || errFromHash;
++      var oauthErrorDesc = errDescFromQuery || errDescFromHash;
++      if(oauthError){
++        console.error("OAuth callback returned an error:", oauthError, oauthErrorDesc);
++        showAuthError((oauthErrorDesc || oauthError || 'Sign-in failed.').replace(/\+/g, ' '));
++        window.Capacitor?.Plugins?.Browser?.close().catch(function(){});
++        return;
++      }
++    }catch(errParseErr){
++      console.error("Failed parsing OAuth callback URL for error params:", errParseErr);
++    }
++
+     // -------------------------
+     // Authorization Code Flow
+     // -------------------------
+@@ -2881,6 +2912,8 @@ if (IS_NATIVE_APP && window.Capacitor?.Plugins?.App) {
+     }
+ 
+     console.log("No supported callback format detected.");
++    showAuthError("Sign-in didn't complete — please try again.");
++    window.Capacitor?.Plugins?.Browser?.close().catch(function(){});
+ 
+   });
+ 
+diff --git a/index.html b/index.html
+index 0236cb2..ed0e7c9 100644
+--- a/index.html
++++ b/index.html
+@@ -2882,6 +2882,37 @@ if (IS_NATIVE_APP && window.Capacitor?.Plugins?.App) {
+ 
+     console.log("OAuth callback received"); // never log the actual URL -- it contains the auth code
+ 
++    // -------------------------
++    // OAuth error passthrough (added Sept 29 2026 -- see docs/BUG_LOG.md)
++    // -------------------------
++    // Google/Supabase can hand the app back a failure instead of a code/token, as either a query
++    // param (?error=...&error_description=...) or a hash param (#error=...&error_description=...).
++    // Every branch below only ever checked for success params, so a real failure here fell through
++    // all of them silently -- console-only, nothing shown to the user, looking exactly like the
++    // callback never happened. Check for this first, before any success-path branch, and surface it.
++    try{
++      var errParsed = new URL(url);
++      var errFromQuery = errParsed.searchParams.get("error");
++      var errDescFromQuery = errParsed.searchParams.get("error_description");
++      var errFromHash = null, errDescFromHash = null;
++      var errHashIdx = url.indexOf('#');
++      if(errHashIdx !== -1){
++        var errHashParams = new URLSearchParams(url.substring(errHashIdx + 1));
++        errFromHash = errHashParams.get("error");
++        errDescFromHash = errHashParams.get("error_description");
++      }
++      var oauthError = errFromQuery || errFromHash;
++      var oauthErrorDesc = errDescFromQuery || errDescFromHash;
++      if(oauthError){
++        console.error("OAuth callback returned an error:", oauthError, oauthErrorDesc);
++        showAuthError((oauthErrorDesc || oauthError || 'Sign-in failed.').replace(/\+/g, ' '));
++        window.Capacitor?.Plugins?.Browser?.close().catch(function(){});
++        return;
++      }
++    }catch(errParseErr){
++      console.error("Failed parsing OAuth callback URL for error params:", errParseErr);
++    }
++
+     // -------------------------
+     // Authorization Code Flow
+     // -------------------------
+@@ -3008,6 +3039,8 @@ if (IS_NATIVE_APP && window.Capacitor?.Plugins?.App) {
+     }
+ 
+     console.log("No supported callback format detected.");
++    showAuthError("Sign-in didn't complete — please try again.");
++    window.Capacitor?.Plugins?.Browser?.close().catch(function(){});
+ 
+   });
+ 
+```
+**Status**: code fixed and pushed. NOT yet on any real device -- the native app bundles `index.html` at build time, so this needs a new staging build (v47) before it does anything for Akash. Once built and deployed, the very next sign-in attempt will show the real underlying error instead of nothing, which is what actually resolves #114.

@@ -2074,6 +2074,42 @@ Wired into the two handlers involved here (profile edit, consent agreement) (`f6
 rest of the app's save handlers still show the old generic message and are candidates for the
 same fix later, not yet done as of this entry.
 
+### 114. Staging native Google Sign-In: OAuth callback failures were silently swallowed, showing nothing
+**What happened**: after #111's redirect-URI fix, Akash reported tapping his email in the Google
+account picker on the real staging app just returned to the sign-in screen with no error at all.
+Ruled out the two most likely causes with direct evidence before looking further: (a) stale build
+-- confirmed via `aapt dump xmltree` on the freshly re-downloaded live staging APK that it
+genuinely is v46 with the scheme fix present, and Akash independently confirmed v46 in-app; (b)
+Supabase Auth config -- re-verified `external_google_enabled`, `uri_allow_list`, `site_url` all
+still correct on staging. Read the actual native callback handler
+(`appUrlOpen` in both `index.html` and `staging-config/index.html`) and found the real gap: it has
+three branches (Authorization Code `?code=`, a Google Calendar handoff `gcal_code=`, and a Token
+Flow `#access_token=`), and every one of them only checks for a SUCCESS param. If Google/Supabase
+instead hands the app a failure -- `?error=...&error_description=...` or
+`#error=...&error_description=...` -- none of the three branches match, and the code falls
+through to a console-only `console.log("No supported callback format detected.")` with nothing
+shown to the user. This exactly matches the reported symptom (silent bounce back to sign-in) and
+is the leading, though not yet device-confirmed, explanation for the actual failure: a ⚠️ warning
+icon next to "Web client 1 HOBS Web Test" in Google Cloud Console (seen in an earlier screenshot)
+suggests the OAuth consent screen may still be in "Testing" publishing mode with a restricted
+test-user allowlist, which would produce exactly this kind of `access_denied`-style error on a
+real account that isn't on that list.
+**Real fix, deployed to code, not yet on-device**: added an error-passthrough check, run first
+before any success-path branch, that looks for `error`/`error_description` in either the query
+string or the hash fragment and calls the existing `showAuthError()` with the real message
+instead of silently dropping it; also made the final "no supported format" fallback show a
+visible message instead of only logging (`5b73e56`). Applied identically to both `index.html`
+(production) and `staging-config/index.html` (staging) since both had the exact same gap.
+**Not yet resolved**: this makes the real failure reason visible on the next attempt -- it does
+not by itself prove or fix the underlying cause. The native app bundles `index.html` at build
+time, so this fix has no effect until a new staging build (v47) is built and deployed and Akash
+tries signing in again; only then will the real error text be known. Needs the Supabase
+Management PAT again to proceed (bootstrapping requirement, §2 of `MASTER.md` -- not persisted
+across sessions by design).
+**Standing lesson, added below**: an OAuth callback handler that only recognizes success shapes
+and silently drops everything else is indistinguishable, from the user's side, from the callback
+never having fired at all -- always handle the failure shape explicitly, not just the happy path.
+
 ---
 
 ## Standing lessons (do not re-learn these)
@@ -2193,3 +2229,7 @@ Skipping this check is how the exact same class of bug happens again.
   end.** Akash asked for this directly (Sept 29, 2026) after several real fixes in one session
   went unrecorded until asked. A change that isn't written here the same session it happens is a
   change a future session (or Akash) has no way to find later.
+- **An OAuth callback handler that only recognizes success shapes and silently drops everything
+  else is indistinguishable, from the user's side, from the callback never firing at all (#114).**
+  Always handle the failure shape (`error`/`error_description`) explicitly, in every branch, not
+  just the happy path -- otherwise a real, specific failure looks identical to "nothing happened."
