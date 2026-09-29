@@ -4408,3 +4408,317 @@ index 4123b9d..e07c7a4 100644
  
  _known = [v.strip() for v in os.environ.get("HOBS_REDACT_VALUES", "").split("\n") if len(v.strip()) >= 12]
 ```
+
+### 23. History reconstruction marked complete (MASTER §1/§8, CLAUDE.md, PROJECT_STATUS, HISTORY_PROGRESS, BUG_LOG pointer) (commit 49e0a46) -- Sept 29, 2026 -- BUG_LOG #120
+Docs change (exact diff below).
+
+```
+commit 49e0a46c7f23ba33d6f9164978a4b4744ea162e4
+Author: Claude <claude@hobsfoundation.com>
+Date:   Tue Sep 29 12:59:51 2026 +0000
+
+    History reconstruction complete: MASTER §1/§8, CLAUDE.md, PROJECT_STATUS, BUG_LOG pointer
+    
+    Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+    Claude-Session: https://claude.ai/code/session_016cFWEqp9ZJMTeXsySY4VmS
+
+diff --git a/CLAUDE.md b/CLAUDE.md
+index d067ea7..1cce441 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -11,10 +11,10 @@ zip over live state, has caused real, repeated problems in this project's histor
+ 2. Read `docs/PROJECT_STATUS.md` for what's currently open.
+ 3. Read `docs/BUG_LOG.md` in full, including the standing lessons at the end — several real bugs
+    in this project's history happened because an earlier entry in this same file was skipped.
+-4. **Work in progress since Sept 29, 2026**: the full project history is being reconstructed
+-   from Akash's chat export. Read `docs/HISTORY_PROGRESS.md` before anything else — if that
+-   work isn't marked complete, it says exactly where to resume. Do not restart it from scratch
+-   and do not touch the app, database, live site or builds while doing it unless Akash says so.
++4. The full project history (July 2026 → Sept 29, 2026) was reconstructed from Akash's chat
++   export and is **complete**: `docs/HISTORY.md` (timeline, bugs, decisions) and
++   `docs/history/code/` (exact code edits). Check it before assuming something was never tried.
++   `docs/HISTORY_PROGRESS.md` says how to extend it with a newer export.
+ 
+ ## Standing rules (restated from `docs/MASTER.md` §11-12 — read those for full context)
+ 
+diff --git a/docs/BUG_LOG.md b/docs/BUG_LOG.md
+index be3aead..e976d96 100644
+--- a/docs/BUG_LOG.md
++++ b/docs/BUG_LOG.md
+@@ -11,6 +11,10 @@ in this log — July, August 5–6, and August 14) was found and fixed multiple
+ different months, in different files, because the fix wasn't generalized into a rule the first
+ time. See "Standing lessons" at the bottom.
+ 
++**Older and fuller record**: `docs/HISTORY.md` (complete as of Sept 29, 2026) holds every bug
++found in the chat export — created, fixed and recurring — including ones never entered here.
++Check it too when a bug looks familiar.
++
+ ---
+ 
+ ## July 22–23, 2026 — Early development session
+diff --git a/docs/HISTORY_PROGRESS.md b/docs/HISTORY_PROGRESS.md
+index 23b3e7a..a081467 100644
+--- a/docs/HISTORY_PROGRESS.md
++++ b/docs/HISTORY_PROGRESS.md
+@@ -67,6 +67,9 @@ the chunks and recorded in `HISTORY.md` in words, with the command where it matt
+ 
+ ## Status
+ 
++- **COMPLETE (Sept 29, 2026).** Every message of the export in scope was read and recorded in
++  `docs/HISTORY.md`. To extend with a newer export: rebuild chunks as above and continue after
++  the resume point below.
+ - Total chunks: **65** (each ~100k characters)
+ - Sept 29: found keystore / test-account passwords (no fixed prefix) in the pushed code docs; added them as exact values to the scratch regen grep and regenerated. Earlier commits in git history still contain them, and MASTER.md itself lists two of them -- flagged to Akash, not changed without his OK.
+ - Sept 29 (later): the production and staging scheduler secrets were also in the pushed code docs (no fixed prefix) -- added as exact values to the scratch regen grep and regenerated. Also added redact.py patterns for Netlify tokens (`nf?_`) and private keys cut off before their END line. Same caveat: older git commits still hold them.
+diff --git a/docs/MASTER.md b/docs/MASTER.md
+index d37041e..571e6e7 100644
+--- a/docs/MASTER.md
++++ b/docs/MASTER.md
+@@ -1,5 +1,6 @@
+ # HOBS Companion — Master Reference
+-Last rebuilt: September 16, 2026. Last real update: September 27, 2026 (§10 WhatsApp Business
++Last rebuilt: September 16, 2026. Last update: September 29, 2026 (§1 full history
++reconstruction complete; §8 open items found in the history). Previous: September 27, 2026 (§10 WhatsApp Business
+ API; §4 Edge Function audit -- 4 undocumented live functions added, 2 live unauthenticated
+ "temporary" functions flagged for deletion, `transcribe-audio`'s real provider corrected; §12
+ new standing safeguard against session-reset drift; CLAUDE.md added at repo root). **Read this
+@@ -55,8 +56,18 @@ literal thing that changed). Both get updated the same turn a real change is mad
+ **For the full history from the very first chat (July 2026) onward** — every change, the exact
+ code, when, where, why, every bug created/fixed/recurring, every decision — see
+ `docs/HISTORY.md` (timeline) and `docs/history/code/` (2,830 code edits recovered word for word
+-from the chats). Reconstruction started Sept 29, 2026 from Akash's full claude.ai export and is
+-**in progress** — `docs/HISTORY_PROGRESS.md` says exactly how far it has got and how to resume.
++from the chats). Reconstruction done Sept 29, 2026 from Akash's full claude.ai export —
++**complete** through the last message of the export (Sept 29, 07:08 UTC). How it was built and
++how to extend it: `docs/HISTORY_PROGRESS.md`.
++- `docs/HISTORY.md` sections, in order: June (memory problem) → July 3–4 scoping and Phase 1 →
++  July–Aug build-out (constellation tasklist, rich-text journal, task alarms, Google Calendar,
++  GitHub Pages outage, bundled APK + Hostinger, Character AI, offline/storage) → Aug 26 MASTER.md
++  and the credential leak → Aug 27–29 in-app Razorpay → Sept 8–15 Play Store → Sept 14–17 Bob
++  (prompt, memory, crisis, psychoeducation, architecture plan) → Sept 16–20 chat tabs, matching,
++  homework, session history, per-session payment, mic/transcription → Sept 21–27 WhatsApp Cloud
++  API → Sept 26–29 audits, CLAUDE.md, OAuth scheme fix, profile save bug.
++- `docs/history/code/2026-06.md` … `2026-09.md`: 2,797 edits, ids `E-<msg>-<n>`, 57 marked failed.
++  Shell-command changes (sed, curl SQL) are described in `HISTORY.md` instead.
+ 
+ **HOBS Companion** — a mental health companion app for **Home of Beautiful Souls Foundation**
+ (HOBS), an Ahmedabad-based mental health NGO founded by **Akash Ramchandani** (psychologist,
+@@ -412,6 +423,21 @@ open items are:
+   now received before returning to the app. See §9 below — this is a real reversal from an
+   earlier version of this document.
+ 
++Found in the Sept 29 history reconstruction (from the chats, **not yet re-checked against live
++state** — verify before acting):
++- **Profile-save fix is not in the installed app.** Sept 29 it was deployed to the website only,
++  on the claim the app loads `index.html` at runtime. That contradicts the Sept 20 finding that
++  the app is bundled. A new production APK (v83) is needed. Not built — awaiting Akash's OK.
++- **WhatsApp permanent token** was overwritten on Sept 22 (see `HISTORY.md`, Sept 21–22).
++  Check which token the live function uses.
++- Hindi crisis-detection patterns need review by a native speaker.
++- Secret hygiene, awaiting Akash's decision: rotate the Razorpay webhook secret and scheduler
++  secrets; make the repo private or rewrite git history (older commits hold a keystore password,
++  leaked secrets, client names); remove passwords listed in this file (§2) and the Hostinger
++  token (§5), revoke the old Hostinger token.
++- Session-reset credential loss keeps recurring; suggested fix (not done): GitHub Actions secrets.
++- No persistent test suite / CI yet (plan exists, not started).
++
+ ---
+ 
+ ## 9. Character AI — current, real status (this is a real reversal from an earlier version of this document)
+diff --git a/docs/PROJECT_STATUS.md b/docs/PROJECT_STATUS.md
+index a6ba553..3981fe4 100644
+--- a/docs/PROJECT_STATUS.md
++++ b/docs/PROJECT_STATUS.md
+@@ -21,6 +21,10 @@ per session, a real professional schedule view, a genuine, root-caused fix for t
+ Calendar-reconnect-vs-auto-reload interaction, and a full, honest catch-up of `docs/BUG_LOG.md`
+ covering two real sessions that had never been logged at all.*
+ 
++*Sept 29, 2026: full history reconstruction complete (`docs/HISTORY.md`). Open items it
++surfaced are listed in `MASTER.md` §8 — the key one: the profile-save fix is website-only, the
++installed app needs a new APK (v83, awaiting Akash's OK).*
++
+ ## Play Store submission blockers
+ 
+ - [x] **D-U-N-S Number** — resolved August 21, 2026. **854273779**, Home of Beautiful Souls
+```
+
+### 24. MASTER §13 future plan; §8 Hindi correction (commit 2767814) -- Sept 29, 2026 -- BUG_LOG #119, #120
+Docs change (exact diff below).
+
+```
+commit 276781486b4a118042a8c39ea16951f9e3782c95
+Author: Claude <claude@hobsfoundation.com>
+Date:   Tue Sep 29 13:44:59 2026 +0000
+
+    MASTER §13 future plan (safeguards, security, Play release/optimisation, development); §8 Hindi correction
+    
+    Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+    Claude-Session: https://claude.ai/code/session_016cFWEqp9ZJMTeXsySY4VmS
+
+diff --git a/docs/MASTER.md b/docs/MASTER.md
+index 571e6e7..bddb2a9 100644
+--- a/docs/MASTER.md
++++ b/docs/MASTER.md
+@@ -1,6 +1,6 @@
+ # HOBS Companion — Master Reference
+ Last rebuilt: September 16, 2026. Last update: September 29, 2026 (§1 full history
+-reconstruction complete; §8 open items found in the history). Previous: September 27, 2026 (§10 WhatsApp Business
++reconstruction complete; §8 open items found in the history; §13 future plan). Previous: September 27, 2026 (§10 WhatsApp Business
+ API; §4 Edge Function audit -- 4 undocumented live functions added, 2 live unauthenticated
+ "temporary" functions flagged for deletion, `transcribe-audio`'s real provider corrected; §12
+ new standing safeguard against session-reset drift; CLAUDE.md added at repo root). **Read this
+@@ -430,7 +430,8 @@ state** — verify before acting):
+   the app is bundled. A new production APK (v83) is needed. Not built — awaiting Akash's OK.
+ - **WhatsApp permanent token** was overwritten on Sept 22 (see `HISTORY.md`, Sept 21–22).
+   Check which token the live function uses.
+-- Hindi crisis-detection patterns need review by a native speaker.
++- (Correction: Hindi crisis detection is **not** open. Akash decided Sept 20, 15:25, "let's just
++  keep English" until there is money for other languages; Hindi patterns are disabled in code.)
+ - Secret hygiene, awaiting Akash's decision: rotate the Razorpay webhook secret and scheduler
+   secrets; make the repo private or rewrite git history (older commits hold a keystore password,
+   leaked secrets, client names); remove passwords listed in this file (§2) and the Hostinger
+@@ -582,3 +583,105 @@ lost**:
+   until tested against real, live data or a real device.
+ - When something is fixed, say plainly what was actually wrong and what changed — no vague
+   reassurance, no claiming something is resolved without having verified it.
++
++---
++
++## 13. Future plan — safeguards, security, Play Store, development (Sept 29, 2026)
++
++Agreed direction from Akash, Sept 29, 2026. **Nothing here is built yet. Every item needs
++Akash's explicit OK before it starts** (standing rule: talk first, no builds/deploys without OK).
++Suggested order: 13.1 → 13.3 → 13.2 → 13.4 → 13.6 / 13.8 → 13.5 → 13.7.
++
++Core idea: today almost every safeguard is a rule a Claude session has to remember. Move them
++into the system itself, so they hold even when a session forgets or resets.
++
++### 13.1 Never lose credentials again
++- Every key lives in **GitHub Actions encrypted secrets** (build/deploy) and **Supabase secrets**
++  (Edge Functions). Builds and deploys run in GitHub Actions, so no session needs a pasted PAT.
++- Akash keeps the master copy in a **password manager** (e.g. Bitwarden, free) — independent of
++  GitHub and Supabase.
++- **Rotate every key that has leaked** (Razorpay webhook secret, scheduler secrets, old Hostinger
++  token, anything in git history) and **make the repo private** (or rewrite history).
++- Remove the passwords in §2 and the Hostinger token in §5 of this file.
++- Upload keystore: **two backup copies** outside the repo. Play App Signing allows an upload-key
++  reset if it is ever lost.
++
++### 13.2 Never lose work
++- Everything live must also be in git. Automate the §4 Edge Function audit (live vs repo vs this
++  file) as a **weekly scheduled check that alerts on any difference**.
++- **Monthly restore test** of the backups (`database-backup`, `database-backup-offsite`) — an
++  untested backup is not a backup.
++- Decision for Akash: **Supabase Pro ($25/month)** — automatic daily backups (7 days) and no
++  inactivity pausing (the Sept 27 staging pause broke Google Sign-In). Free plan has no automatic
++  backups at all. PITR is a paid add-on on top of Pro.
++
++### 13.3 Nothing ships without Akash's OK — enforced, not remembered
++- Production deploy workflows use a **GitHub protected environment with required approval**: even
++  if a session starts one, it cannot go live until Akash clicks approve.
++- Every change: written spec → Akash OK → staging → automated tests → Akash approve → production.
++- BUG_LOG and CHANGE_LOG rules (CLAUDE.md) stay.
++
++### 13.4 Catch bugs before users do (the Sept 20 "five layers" request)
++- **Persistent automated test suite + CI gate** on every change. First: crisis detection,
++  sign-in, profile save, payments.
++- **Every incident becomes a regression test** so it cannot come back.
++- Build-time validation incl. a **staging-vs-production diff** (the Sept 26 APK diff found real
++  drift).
++- **Crashlytics** (native crashes) + `window.onerror` / JS error logging with stack, screen, version.
++- Extend the crisis-classifier health check/canary pattern to **WhatsApp, payments, backups**.
++- DB-constraint audit (the Sept 29 phone CHECK constraint broke every profile save).
++- Play: **staged rollouts** (10% → 50% → 100%, halt on problems) and the **pre-launch report**
++  (real-device tests of every build).
++
++### 13.5 Security and privacy (mental-health data)
++- Audit against **OWASP MASVS** (mobile security standard). Re-audit RLS on every table.
++- Supabase production checklist: RLS everywhere, SSL enforcement, network restrictions, account
++  MFA, custom SMTP, CAPTCHA on auth.
++- **India DPDP Rules 2025** — core obligations apply ~18 months after notification (Nov 2025),
++  i.e. **around May 2027**: consent notices; breach notice to users immediately and to the Data
++  Protection Board within **72 hours**; erase after **1 year of inactivity** with **48 hours'**
++  notice; keep access logs **1 year**; encryption, access control, verified backups.
++- **Lawyer review of the Terms of Service** — still open.
++
++### 13.6 Play Store release path
++- **Target API 36 (Android 16)** is required for all updates since Aug 31, 2026 (extension to
++  Nov 1 possible). History says targetSdk 36 was set in August — **verify** in the build config.
++- Verify in Play Console whether the 12-testers / 14-days rule still applies to the organization
++  account (§8 may be stale).
++- **v83** with the profile-save fix (installed app still has the bug — §8).
++- A written **release checklist** used for every release.
++
++### 13.7 Developing new features
++- One feature at a time, same pipeline as 13.3.
++- Next from the backlog: **Bob Phase 1 (Personal Grounding — anti-hallucination)**, then
++  **streaming replies**. Then Kunnu/Po/Cookie character work (§9).
++
++### 13.8 Play Store optimisation (Console keeps flagging "not optimised")
++**Need from Akash: a screenshot of the exact Console warnings** (the Play API does not expose
++them). Likely causes, from the history and the repo:
++1. **R8 off** (`minifyEnabled false` in both build configs). Play recommends R8 (smaller, faster
++   app). Sept 8: Claude advised waiting because Capacitor and the Razorpay SDK need keep rules.
++   Plan: enable in staging, test every screen, then ship.
++2. **No deobfuscation file / native debug symbols** uploaded with the bundle (readable crash
++   reports). Small build change.
++3. **Large screens**: the UI is capped at `.phone { max-width: 420px }`, so tablets show a small box.
++   Either make it adaptive on tablets, or restrict the device catalog to phones. (No
++   `screenOrientation` lock in the repo, so the Android 16 orientation warning shouldn't apply.)
++4. To check: **16 KB memory page-size** support (risk: Razorpay SDK native libraries) and
++   edge-to-edge deprecation warnings.
++
++Ranking factors:
++- **Android vitals** — the biggest one. Over **1.09%** daily users with a crash or **0.47%** with an
++  ANR (freeze) → Play reduces visibility and may put a warning on the listing. Crashlytics +
++  staged rollouts protect this.
++- **Listing (ASO)**: title (30 chars) and short description (80) with the words people actually
++  search (therapist, mood tracker, journal) — no clickbait (Akash, Sept 8); full description
++  keywords; screenshots and feature graphic A/B-tested with **store listing experiments**.
++- **Ratings**: ask via Google's **in-app review prompt** at a good moment (e.g. after a completed
++  session).
++- Optional, free: **Hindi / Gujarati listing text** for Indian search. Store page only — does not
++  change the English-only crisis decision.
++
++Sources: Supabase backups and production checklist docs; Play Console Help (target API level,
++Android vitals thresholds); Play Console release and pre-launch report guides; OWASP MASVS;
++Android Developers (16 KB page sizes); India Briefing (DPDP Rules 2025); AppTweak ASO checklist.
+```
+
+### 25. MASTER §13.9 code-structure decision (commit 3df63ae) -- Sept 29, 2026 -- BUG_LOG #120
+Docs change (exact diff below).
+
+```
+commit 3df63aefaba29da33f11317ce755693a0f5f4264
+Author: Claude <claude@hobsfoundation.com>
+Date:   Tue Sep 29 13:49:32 2026 +0000
+
+    MASTER §13.9: code-structure decision (handover to developer later)
+    
+    Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+    Claude-Session: https://claude.ai/code/session_016cFWEqp9ZJMTeXsySY4VmS
+
+diff --git a/docs/MASTER.md b/docs/MASTER.md
+index bddb2a9..2529c38 100644
+--- a/docs/MASTER.md
++++ b/docs/MASTER.md
+@@ -682,6 +682,17 @@ Ranking factors:
+ - Optional, free: **Hindi / Gujarati listing text** for Indian search. Store page only — does not
+   change the English-only crisis decision.
+ 
+-Sources: Supabase backups and production checklist docs; Play Console Help (target API level,
++### 13.9 Code structure — single 17,353-line `index.html`
++- Problem: the whole client app is one file (14,541 lines on Jul 26 → 17,353 on Sept 29). A
++  developer sees a mess.
++- Agreed Jul 26 (still valid): strangler-fig migration to Vite + React + TypeScript, Vitest +
++  Playwright, React Router, Context + TanStack Query; pixel-for-pixel first; real automated tests;
++  backend untouched; new features paused during it; start small (Journal).
++- **Decision Sept 29: hand this to the developer later, with a complete, clear handover package**
++  (instructions, `APP-BLUEPRINT.md`, this file, test suite, build/deploy pipeline). Not started by
++  Claude. Safe order when it starts: tests (13.4) → split into per-feature files with zero visible
++  change → React screen by screen through staging → approval → production.
++
++ Play Console Help (target API level,
+ Android vitals thresholds); Play Console release and pre-launch report guides; OWASP MASVS;
+ Android Developers (16 KB page sizes); India Briefing (DPDP Rules 2025); AppTweak ASO checklist.
+```

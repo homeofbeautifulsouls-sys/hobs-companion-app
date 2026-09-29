@@ -2181,6 +2181,32 @@ pending list with the other leaked values (history rewrite needs Akash's go).
 - **Still open:** none for the repo. The key only lives in the claude.ai chat and in
   `system_credentials` / Edge Function secrets, as intended.
 
+### 119. MASTER §8 listed Hindi crisis detection as open — it was cancelled on Sept 20 (Claude's mistake, docs only)
+
+- **What:** while marking the history reconstruction complete (commit `49e0a46`), Claude added
+  "Hindi crisis-detection patterns need review by a native speaker" to MASTER §8. That came from
+  the Sept 20 11:40 note and missed that Akash cancelled it the same day (15:25, "let's just keep
+  English") and repeated it Sept 26 23:13. `docs/HISTORY.md` itself had it right.
+- **Found:** Akash, Sept 29, 2026 18:33 IST.
+- **Fix:** the §8 line replaced with a correction note pointing to the Sept 20 decision (commit
+  `2767814`). No code, app or live system touched.
+- **Lesson:** when lifting an "open" item out of the history, search for later messages on the
+  same topic before calling it open.
+
+### 120. Docs: history reconstruction marked complete; MASTER §13 future plan added (docs only)
+
+- **What changed:**
+  - `docs/HISTORY_PROGRESS.md` Status → COMPLETE; `CLAUDE.md` item 4 → history complete, check
+    it before assuming something was never tried; MASTER §1 index of `HISTORY.md`, §8 open items
+    from the history; PROJECT_STATUS note; pointer at the top of this file (commit `49e0a46`).
+  - MASTER **§13** (commit `2767814`): the agreed future plan — credentials, never losing work,
+    approval gate, bug safety nets, security/DPDP, Play release path, feature development, Play
+    Store optimisation. **Nothing in it is built**; every item needs Akash's OK.
+  - MASTER **§13.9** (commit `3df63ae`): single-file `index.html` — hand to the developer later
+    with a full handover package.
+- **Why:** Akash asked, Sept 29, 2026 (19:14 and 19:19 IST).
+- Exact diffs: `docs/CHANGE_LOG.md` #23–#25.
+
 ## Standing lessons (do not re-learn these)
 
 **Run `deployment/verify-before-deploy.sh` before every single deploy, web or Android, no
