@@ -4352,3 +4352,56 @@ pattern the app sessions followed.
   real accounts (`profiles.is_therapist`).
   - Proposed `assigned_therapist_user_id` + a one-time name match before any escalation logic.
     **07:35 — "Yes."**
+- **07:36 — Scope check:** zero profiles had a therapist set and zero bookings existed, so no
+  migration was needed; the **admin fallback** is what runs today (two admins).
+  - Consent gap: the existing risk-disclosure consent only shows before a first paid session, not at
+    signup.
+  - **07:41 — Akash: "Bob is for everyone right? So when the user signs up, in those sign up
+    policies itself, it has to be clearly mentioned…"** → research (Wysa / Woebot disclaimers) →
+    draft: Bob is an AI, not a professional; crisis → iCall 9152987821 / 112; HOBS not responsible.
+    Claude noted it needs a lawyer's review.
+  - **07:46 — "Add this to real sign up flow."** → new column `profiles.ai_disclaimer_signed`
+    (applied in production); signup checkbox + validation + save (E-01a0a408-30, -33, -36).
+    Existing users re-gated through the basic-ToS catch-up gate (-48, -51, -56, -66, -68, -73).
+    Both paths tested with Playwright and the DB.
+- **10:36 — Step 2: crisis escalation built.**
+  - `send-push-notification`: a `bypassPause` option for trusted server calls only (E-01a0a4a3-23).
+    With zero device tokens a `notification_log` row is still written (-55); the query no longer
+    pre-filters on `push_token` (-65, -72).
+  - New column `profiles.assigned_therapist_user_id` (production).
+  - `character-chat-reply`: on `riskDetected`, sends the **exact raw message** to the assigned
+    therapist, else to admins (E-01a0a4a3-41, -44). First run failed with "no admins found" (RLS) →
+    service-role lookup (-105).
+  - Verified: a real push reached Akash's device (`fcm_ok: true`), and the assigned-therapist path
+    worked. Known gap: partial misses aren't logged when one admin succeeds. Test-account deletion
+    hit the audit FK, so the sender reference was detached and the log kept.
+- **10:43 — Bob said "call 911"** → India resources (iCall, 112) added to the shared safety rules
+  for all characters (E-01a0a4aa-10); 3/3 verified.
+- **Step 3: real-time significance flagging** — `character_messages.is_significant` column;
+  classifier prompt from the spec criteria (E-01a0a4aa-37); runs after each reply (-46). Tested:
+  mundane not flagged; a first-time disclosure about a parent flagged on the user's side only.
+- **10:47 — Step 4: guaranteed recall** of all flagged messages at any age (E-01a0a4ad-6).
+  - A test with a significant memory 91 messages back failed 0/3 although the data was in the
+    prompt ("lost in the middle"). Tried memory framing (-61, -69, -74), a separate significant
+    block (-92, -98, -105), then placing it just before the current message (-124).
+  - 5/5, then failures traced to **Groq 429s** (8,000 tokens/min) and a separate
+    **`json_validate_failed`** in the significance call (200-token budget eaten by reasoning) →
+    2,000 tokens + `reasoning_effort: medium` like the crisis classifier (E-01a0a4b5-10, -32).
+    Debug code removed (-52, -57). 9/10.
+  - **11:05 — "I want the same freedom but I want perfect recall I don't want to compromise on any
+    of it"** → a **separate low-temperature recall-matcher step before the reply**, whose confirmed
+    match is handed to Bob (E-01a0a4bf-7, -15, -21). 5/5; no false matches. Spec updated (-47).
+- **11:14 — Step 5: "I cannot build things again and again! So we are building everything properly
+  now!"** (Claude had proposed a simpler non-vector search.)
+  - Groq has no embeddings → **Supabase built-in `gte-small` (384 dimensions)** in Edge Functions.
+  - Applied in production: **pgvector** enabled, embedding column on `character_messages`, a
+    Postgres similarity-search function.
+  - The recall matcher also flags callbacks (`seemsLikeCallback`) and runs on every exchange
+    (E-01a0a4c6-31, -41). Search results go into the prompt; embeddings are written at save
+    (E-01a0a5b5-6, -14).
+  - First test failed: the classifier didn't see the callback → prompt fixed (E-01a0a5b5-80; debug
+    added -49/-56/-61 and removed -99/-101/-103). A 60-day-old ordinary detail was found (similarity
+    0.94 / 0.82); 3/3 used in replies; no false triggers. Spec updated (-116).
+  - **The "looking back at…" recall indicator is not built**: it needs streaming or two calls.
+- **16:09 — "Explain me the architecture in layman terms"** → drive-thru analogy: streaming vs two
+  calls.
