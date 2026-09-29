@@ -215,3 +215,56 @@ pattern the app sessions followed.
     sign-off. Deferred.
   - **20:35** — Akash: there must be a way back; **multiple bubbles must be selectable** (people
     feel several emotions at once); the heading should be more direct and empathetic.
+- **20:38–21:45 UTC — flows filled in (still a single prototype file, no backend):**
+  - Back button on journal; **multi-select moods** with a Continue button; heading became
+    "What's on your mind?".
+  - **Bug:** `b.el` referenced but never stored → selections broke. Fixed (E-019f29b1-30).
+  - **Bug:** Save toggled every bubble ON instead of clearing. Caught in testing, fixed
+    (E-019f29b1-52).
+  - Save → "Saved" confirmation with a **content-blind booking nudge** (Akash: never reference
+    what they wrote — it would feel like their data is being used). Claude flagged a nudge after
+    *every* save could get naggy — left for later.
+  - Share with therapist → "Do you already have one with us?" → no: an intake form (name,
+    contact, note) → thank-you.
+  - Akash (20:51): drafts must never be lost when navigating away (tested: already held);
+    logged-in users already connected to a therapist must not be asked again; an **expand
+    button** so the whole note is visible.
+  - Akash (21:03, 21:16): after Save, Bob's affirmation ("I'm glad you put it down") and then:
+    *not connected* → join support group + find a therapist (each with an encouraging line) +
+    "Don't show this again" (then Bob's affirmation only); *connected* → "Connect with
+    [therapist's name]" + support group (reach out if a member, join if not). "Yes, I have one"
+    must open a **list of therapist/professional profiles** to pick from, and connecting
+    switches the user into the connected flow everywhere.
+  - **Bug (recurring type): a doubled backslash in a JS string (`\\'`) silently broke the whole
+    script** — nothing was clickable. Caught by testing (E-019f29d7-41, -43). The same class
+    of bug came back the next morning (E-019f2bba-33, -35).
+  - **Bug:** "Don't show this again" was one global flag checked above both branches, so it
+    also silenced the connected-user encouragement. Akash (21:25): the button must not exist
+    once connected, and the connected encouragement must never be suppressible. Fixed at the
+    source (E-019f29df-7).
+  - 21:37: after the intake form, return to the unsaved journal entry with its text intact.
+- **21:45 UTC Jul 3 → 06:40 UTC Jul 4 — persistence, profile, "outside therapist", sizes:**
+  - Akash's rules: once connected to a therapist the intake form never appears; the person moves
+    from **users/potential clients to "clients"** in the backend. Add **"I see someone outside
+    HOBS"**: then never pitch therapy again, only support groups, with its own "don't ask
+    again".
+  - Built: `localStorage` persistence (verified across a reload), Journal tab listing past
+    entries, Profile ("You") tab with therapist **Change / Disconnect**, support-group status,
+    preferences to re-enable dismissed prompts; **real browser speech-to-text** wired (Claude:
+    wired, but not verifiable with real speech in the sandbox).
+  - **Security gap Claude raised:** a self-selected therapist is only a claim — before notes are
+    routed to a real therapist, the therapist should confirm the connection. (Not designed yet.)
+  - Asked whether it works on tablets and different phones — **no, it had only been tested at one
+    width.** Akash: fix sizes first. **Bug found:** `body` was `display:flex` without
+    `flex-direction:column`, squeezing the app sideways all along (E-019f2bc8-25). Bubble
+    physics changed from a hard-coded 340 px to the real container size, with reflow on resize.
+    Tested at 320/390/430/768/1024 px: no overflow, no overlaps. Disconnect now asks "are you
+    sure"; intake form validates.
+  - **06:27 Jul 4 — Akash: "Before task scheduler, we have to do the WHO one right!"** Claude
+    checked: **the WHO-5 screen did not exist in the real build at all** — it had only been in
+    early throwaway widgets. Built properly: 5 official items, 0–5 scale, score ×4, gauge with
+    the ≤28 / ≤50 cutoffs, **once per week enforced**, persisted. A native `alert()` was
+    replaced by in-design messaging.
+  - **Standing rule from Akash (06:38): everything must be designed for all screen sizes.**
+    Audit of every screen at 320 px and tablet: no overflow.
+- **07:07 Jul 4** — Akash: go ahead with the **task scheduler**.
