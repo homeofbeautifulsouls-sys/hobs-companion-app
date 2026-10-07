@@ -2383,6 +2383,15 @@
 // any event at all -- if even one of these fires, the update gets caught.
 (function(){
   var CURRENT_BUILD = '20260823180102';
+  // Oct 8 2026 (BUG_LOG #559, #566, #567): was this page opened by a sign-in result, a
+  // "reset your password" link or a "confirm your email" link? Those arrive as extra text in
+  // the address (after # or ?). The update check below used to reload the page a moment later
+  // as plain "/?v=...", which threw that text away before it had been used: the person had
+  // been signed in by the server and was looking at the sign-in screen again, and a reset link
+  // never reached the "new password" screen. Read once, here, before anything can change the
+  // address. A page opened this way is never reloaded by the update check; the next ordinary
+  // visit picks up a new build as before.
+  var OPENED_WITH_SIGN_IN_LINK = /(^|[#?&])(access_token|refresh_token|code|error|error_code|error_description)=|(^|[#?&])type=(recovery|signup|invite|magiclink|email_change)(&|$)/.test(window.location.hash + '&' + window.location.search);
   function checkForUpdate(){
     // Real, confirmed problem with the previous version: this only checked ONCE PER SESSION,
     // EVER -- not once per app open. Since Android can keep an app process alive in the
@@ -2448,7 +2457,12 @@
             // out from under someone who's already reading a real, one-time instruction like
             // this one.
             var gcalBannerShowing = !!document.getElementById('gcalConnectedBanner');
-            if(!journalHasUnsavedText && !bobChatOpen && !gcalBannerShowing && !window.gcalCallbackInProgress){
+            // Oct 8 2026 (#567): nor while someone arrived by a sign-in / reset / confirm link
+            // (see OPENED_WITH_SIGN_IN_LINK above), nor while the "choose a new password"
+            // screen is open.
+            var newPasswordEl = document.getElementById('setNewPasswordOverlay');
+            var choosingNewPassword = !!(newPasswordEl && newPasswordEl.style.display && newPasswordEl.style.display !== 'none');
+            if(!OPENED_WITH_SIGN_IN_LINK && !choosingNewPassword && !journalHasUnsavedText && !bobChatOpen && !gcalBannerShowing && !window.gcalCallbackInProgress){
               // Force a genuinely fresh fetch, not a cached reload -- appending a cache-busting
               // param so the WebView can't serve this specific request from its HTTP cache either.
               window.location.href = window.location.pathname + '?v=' + data.build;
