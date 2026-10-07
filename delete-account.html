@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Delete Your Account — HOBS Companion</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #FFF8F0; color: #2A2013; margin: 0; padding: 0; }
+  .wrap { max-width: 480px; margin: 0 auto; padding: 24px 20px 60px; }
+  .logo { display: block; height: 40px; margin-bottom: 24px; }
+  h1 { color: #2E5090; font-size: 22px; margin: 0 0 6px; }
+  .desc { color: #5C6B94; font-size: 14px; line-height: 1.6; margin: 0 0 20px; }
+  .card { background: #FFFFFF; border: 1px solid #EEE0C4; border-radius: 20px; padding: 24px; }
+  input { width: 100%; padding: 13px 14px; border-radius: 12px; border: 1px solid #EEE0C4; font-size: 14px; font-family: inherit; box-sizing: border-box; margin-bottom: 10px; }
+  .primary { display: block; width: 100%; padding: 15px; border-radius: 14px; border: none; background: #6690D6; color: #FFF8F0; font-size: 15px; font-weight: 700; cursor: pointer; }
+  .danger { display: block; width: 100%; padding: 15px; border-radius: 14px; border: none; background: #C77B7B; color: #FFFFFF; font-size: 15px; font-weight: 700; cursor: pointer; }
+  .secondary { display: block; width: 100%; padding: 13px; border-radius: 14px; border: 1px solid #EEE0C4; background: transparent; color: #5C6B94; font-size: 13px; font-weight: 700; cursor: pointer; margin-top: 10px; }
+  .status { text-align: center; font-size: 13px; margin-top: 14px; min-height: 18px; }
+  .footer-note { text-align: center; font-size: 11px; color: #B0AA98; margin-top: 24px; }
+  .footer-note a { color: #6690D6; }
+  .warning-box { background: #FBF2F2; border-radius: 14px; padding: 14px; margin-bottom: 18px; }
+  .warning-box p { color: #8A4A4A; font-size: 12.5px; line-height: 1.65; margin: 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <img class="logo" src="logo.png" alt="HOBS logo">
+  <h1>Delete Your Account</h1>
+  <p class="desc">You can request full deletion of your HOBS Companion account and all associated data from here, without needing the app installed.</p>
+
+  <div class="card" id="signInCard">
+    <p style="font-size:12px;color:#9AABCE;margin:0 0 14px;">Sign in with your HOBS Companion account to continue.</p>
+    <input type="email" id="deleteEmail" placeholder="Email">
+    <input type="password" id="deletePassword" placeholder="Password">
+    <p class="status" id="signInStatus"></p>
+    <button class="primary" id="signInBtn">Sign In</button>
+  </div>
+
+  <div class="card" id="confirmCard" style="display:none;">
+    <p style="font-size:13px;color:#2A2013;margin:0 0 14px;">Signed in as <strong id="confirmEmail"></strong></p>
+    <div class="warning-box">
+      <p>This permanently deletes your journal entries, tasks, mood and period history, screening results, bookings, and everything else tied to your account. This cannot be undone.</p>
+    </div>
+    <p style="font-size:12px;color:#9AABCE;margin:0 0 8px;">Type <strong>DELETE</strong> below to confirm.</p>
+    <input type="text" id="confirmInput" placeholder="Type DELETE" style="text-transform:uppercase;">
+    <p class="status" id="deleteStatus"></p>
+    <button class="danger" id="confirmDeleteBtn">Permanently Delete My Account</button>
+    <button class="secondary" id="cancelBtn">Cancel, sign out instead</button>
+  </div>
+
+  <div class="card" id="doneCard" style="display:none;text-align:center;">
+    <p style="font-size:14px;color:#3B8F63;font-weight:700;margin:0 0 8px;">Your account has been deleted.</p>
+    <p style="font-size:12.5px;color:#5C6B94;margin:0;">We're sorry to see you go. If this was a mistake or you have any questions, you can reach us on WhatsApp below.</p>
+  </div>
+
+  <p class="footer-note">Staff accounts (therapists, admins) can't be deleted this way since it affects real clients — <a href="https://wa.me/918320470976" target="_blank" rel="noopener">message us on WhatsApp</a> instead and we'll help directly.</p>
+  <p class="footer-note">Prefer to use the app? <a href="index.html">Open HOBS Companion</a></p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  var SUPABASE_URL = 'https://adjvptkzyckkvewbfmzf.supabase.co';
+  var SUPABASE_ANON_KEY = 'sb_publishable_OfcfAkUyxd9oXKeGvVxBIw_KxUV9TzE';
+  var sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  document.getElementById('signInBtn').onclick = function(){
+    var email = document.getElementById('deleteEmail').value.trim();
+    var password = document.getElementById('deletePassword').value;
+    var statusEl = document.getElementById('signInStatus');
+    if(!email || !password){
+      statusEl.textContent = 'Enter your email and password.';
+      statusEl.style.color = '#C77B7B';
+      return;
+    }
+    var btn = this;
+    btn.disabled = true; btn.textContent = 'Signing in...';
+    sb.auth.signInWithPassword({ email: email, password: password }).then(function(result){
+      btn.disabled = false; btn.textContent = 'Sign In';
+      if(result.error){
+        statusEl.textContent = 'Could not sign in — check your email and password.';
+        statusEl.style.color = '#C77B7B';
+        return;
+      }
+      document.getElementById('confirmEmail').textContent = email;
+      document.getElementById('signInCard').style.display = 'none';
+      document.getElementById('confirmCard').style.display = 'block';
+    });
+  };
+
+  document.getElementById('cancelBtn').onclick = function(){
+    sb.auth.signOut().then(function(){
+      document.getElementById('confirmCard').style.display = 'none';
+      document.getElementById('signInCard').style.display = 'block';
+      document.getElementById('deleteEmail').value = '';
+      document.getElementById('deletePassword').value = '';
+      document.getElementById('confirmInput').value = '';
+    });
+  };
+
+  document.getElementById('confirmDeleteBtn').onclick = function(){
+    var typed = document.getElementById('confirmInput').value.trim().toUpperCase();
+    var statusEl = document.getElementById('deleteStatus');
+    if(typed !== 'DELETE'){
+      statusEl.textContent = 'Type DELETE exactly to confirm.';
+      statusEl.style.color = '#C77B7B';
+      return;
+    }
+    var btn = this;
+    btn.disabled = true; btn.textContent = 'Deleting...';
+    sb.functions.invoke('delete-user-account', { body: { selfDelete: true } }).then(function(result){
+      var errored = result.error || (result.data && result.data.error);
+      if(errored){
+        btn.disabled = false; btn.textContent = 'Permanently Delete My Account';
+        statusEl.textContent = (result.data && result.data.error) || 'Something went wrong — please try again.';
+        statusEl.style.color = '#C77B7B';
+        return;
+      }
+      document.getElementById('confirmCard').style.display = 'none';
+      document.getElementById('doneCard').style.display = 'block';
+    }).catch(function(){
+      btn.disabled = false; btn.textContent = 'Permanently Delete My Account';
+      statusEl.textContent = 'Something went wrong — please try again.';
+      statusEl.style.color = '#C77B7B';
+    });
+  };
+</script>
+</body>
+</html>

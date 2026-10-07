@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Support HOBS — Home of Beautiful Souls Foundation</title>
+<meta property="og:title" content="Urgent: Emergency Medical &amp; Therapy Fund for a 17 and 19 year old sisters">
+<meta property="og:description" content="Home of Beautiful Souls Foundation is raising donations for a 17 and 19 year old sisters. The older sister reached out to HOBS a week ago after the younger sister attempted suicide. They have both lost their father at a very young age and come from an abusive home environment because of which…">
+<meta property="og:image" content="https://app.homeofbeautifulsouls.com/logo.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Urgent: Emergency Medical &amp; Therapy Fund for a 17 and 19 year old sisters">
+<meta name="twitter:description" content="Home of Beautiful Souls Foundation is raising donations for a 17 and 19 year old sisters. The older sister reached out to HOBS a week ago after the younger sister attempted suicide. They have both lost their father at a very young age and come from an abusive home environment because of which…">
+<meta name="twitter:image" content="https://app.homeofbeautifulsouls.com/logo.png">
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #FFF8F0; color: #2A2013; margin: 0; padding: 0; }
+  .wrap { max-width: 480px; margin: 0 auto; padding: 24px 20px 60px; }
+  .logo { display: block; height: 40px; margin-bottom: 24px; }
+  h1 { color: #2E5090; font-size: 22px; margin: 0 0 6px; }
+  .desc { color: #5C6B94; font-size: 14px; line-height: 1.6; margin: 0 0 20px; }
+  .progress-track { background: #EEE0C4; border-radius: 20px; height: 14px; overflow: hidden; margin-bottom: 10px; }
+  .progress-fill { background: #3B8F63; height: 100%; border-radius: 20px; transition: width 0.4s; }
+  .stats { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 28px; }
+  .raised { color: #3B8F63; font-weight: 700; }
+  .goal { color: #9AABCE; }
+  .card { background: #FFFFFF; border: 1px solid #EEE0C4; border-radius: 20px; padding: 24px; }
+  input { width: 100%; padding: 13px 14px; border-radius: 12px; border: 1px solid #EEE0C4; font-size: 14px; font-family: inherit; box-sizing: border-box; margin-bottom: 10px; }
+  .presets { display: flex; gap: 8px; margin-bottom: 16px; }
+  .preset-btn { flex: 1; padding: 10px; border-radius: 10px; border: 1px solid #EEE0C4; background: transparent; color: #6690D6; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .preset-btn.active { background: #6690D6; color: #fff; }
+  button.primary { display: block; width: 100%; padding: 15px; border-radius: 14px; border: none; background: #6690D6; color: #FFF8F0; font-size: 15px; font-weight: 700; cursor: pointer; margin-bottom: 10px; }
+  .qr-area { text-align: center; display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid #F0E9D8; }
+  .qr-area img { width: 100%; max-width: 220px; border-radius: 16px; border: 1px solid #EEE0C4; margin-bottom: 12px; }
+  .upi { font-size: 11px; color: #9AABCE; margin-bottom: 14px; }
+  .status { text-align: center; font-size: 13px; margin-top: 14px; min-height: 18px; }
+  .footer-note { text-align: center; font-size: 11px; color: #B0AA98; margin-top: 24px; }
+  .footer-note a { color: #6690D6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p style="font-weight:800;color:#2E5090;font-size:16px;margin:0 0 4px;">HOBS · Home of Beautiful Souls Foundation</p>
+  <p style="font-size:11.5px;color:#9AABCE;margin:0 0 24px;">CSR Certified Section 8 Company</p>
+
+  <div id="campaignInfo">
+    <img id="campaignImage" style="display:none;width:100%;max-height:220px;object-fit:cover;border-radius:16px;margin-bottom:18px;" alt="">
+    <h1 id="campaignTitle">Loading…</h1>
+    <p class="desc" id="campaignDesc"></p>
+    <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%;"></div></div>
+    <div class="stats">
+      <span class="raised" id="raisedLabel">₹0 raised</span>
+      <span class="goal" id="goalLabel">of ₹0 goal</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <input type="text" id="donorName" placeholder="Your name (optional)">
+    <input type="email" id="donorEmail" placeholder="Your email">
+    <p id="donorEmailError" style="display:none;color:#C77B7B;font-size:12px;margin:-6px 0 8px;">Please enter a valid email — Razorpay requires this to process payment.</p>
+    <input type="number" id="donateAmount" placeholder="Amount (₹)">
+    <div class="presets">
+      <button class="preset-btn" data-amt="500">₹500</button>
+      <button class="preset-btn" data-amt="1000">₹1000</button>
+      <button class="preset-btn" data-amt="2500">₹2500</button>
+    </div>
+    <button class="primary" id="continueBtn">Continue to Payment</button>
+    <p style="font-size:11.5px;color:#9AABCE;text-align:center;margin:0 0 10px;">A registered non-profit. Every contribution helps us keep mental health support accessible.</p>
+    <p style="font-size:11px;color:#9AABCE;text-align:center;margin:0;">For your 80G Income Tax Exemption receipt, WhatsApp us at <a href="https://wa.me/918320470976" style="color:#6690D6;font-weight:700;">+91 83204 70976</a> after donating.</p>
+    <p class="status" id="statusMsg"></p>
+  </div>
+
+  <p class="footer-note">Prefer to use the app? <a href="index.html">Open HOBS Companion</a></p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+  var SUPABASE_URL = 'https://adjvptkzyckkvewbfmzf.supabase.co';
+  var SUPABASE_ANON_KEY = 'sb_publishable_OfcfAkUyxd9oXKeGvVxBIw_KxUV9TzE';
+  var sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  var activeCampaign = null;
+
+  function escapeHtml(s){
+    return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  // Only bold is supported, deliberately -- description text is admin-entered via a plain
+  // textarea, not a rich editor, so **like this** is the simplest way to mark emphasis without
+  // needing any UI change there. Escaping first means nothing else in the text can ever render
+  // as HTML, even if someone pastes something that looks like a tag.
+  function renderCampaignDescription(raw){
+    var escaped = escapeHtml(raw);
+    var bolded = escaped.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    return bolded.split(/\n\s*\n/).map(function(para){ return '<p style="margin:0 0 12px;">' + para.replace(/\n/g, '<br>') + '</p>'; }).join('');
+  }
+
+  function loadCampaign(){
+    Promise.all([
+      sb.from('donation_campaigns').select('*').eq('is_active', true).order('created_at', {ascending:false}).limit(1),
+      sb.from('donations').select('amount, campaign_id').eq('payment_confirmed', true)
+    ]).then(function(results){
+      var campaignRes = results[0], donationsRes = results[1];
+      if(campaignRes.error || !campaignRes.data || campaignRes.data.length === 0){
+        document.getElementById('campaignTitle').textContent = 'No active campaign right now';
+        document.getElementById('campaignDesc').textContent = 'Check back soon, or reach out directly to support HOBS.';
+        return;
+      }
+      var c = campaignRes.data[0];
+      activeCampaign = c;
+      document.getElementById('campaignTitle').textContent = c.title;
+      document.getElementById('campaignDesc').innerHTML = renderCampaignDescription(c.description || '');
+      var imgEl = document.getElementById('campaignImage');
+      if(c.image_url){ imgEl.src = c.image_url; imgEl.alt = c.title; imgEl.style.display = 'block'; } else { imgEl.style.display = 'none'; }
+      var raised = (donationsRes.data || []).filter(function(d){ return d.campaign_id === c.id; }).reduce(function(sum, d){ return sum + parseFloat(d.amount); }, 0);
+      var pct = Math.min(100, Math.round((raised / parseFloat(c.goal_amount)) * 100));
+      document.getElementById('progressFill').style.width = pct + '%';
+      document.getElementById('raisedLabel').textContent = '₹' + raised.toLocaleString('en-IN') + ' raised';
+      document.getElementById('goalLabel').textContent = 'of ₹' + parseFloat(c.goal_amount).toLocaleString('en-IN') + ' goal';
+    });
+  }
+  loadCampaign();
+
+  // Handles the redirect-based checkout flow required for the in-app WebView (Razorpay's
+  // standard popup/handler pattern doesn't reliably work embedded -- see their own WebView
+  // integration docs). When the in-app payment flow finishes, Razorpay POSTs to a callback
+  // function which redirects back here with this marker. This is purely a "here's what to show
+  // while landing back" message -- it does NOT mean the payment succeeded, since a client-
+  // reachable redirect proves nothing about payment status. Real confirmation still only ever
+  // comes from razorpay-webhook, independently verified server-to-server, same as before.
+  if(new URLSearchParams(window.location.search).get('payment_attempted') === '1'){
+    document.getElementById('statusMsg').textContent = "We're confirming your payment now — this can take a few seconds.";
+    document.getElementById('statusMsg').style.color = '#6690D6';
+    setTimeout(loadCampaign, 3000); // refresh the total once the webhook's had a moment to land
+  }
+
+  document.querySelectorAll('.preset-btn').forEach(function(btn){
+    btn.onclick = function(){
+      document.getElementById('donateAmount').value = btn.dataset.amt;
+      document.querySelectorAll('.preset-btn').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+    };
+  });
+
+  var pendingAmount = null, pendingName = null;
+  document.getElementById('continueBtn').onclick = function(){
+    var amount = parseFloat(document.getElementById('donateAmount').value);
+    if(!amount || amount <= 0){
+      document.getElementById('statusMsg').textContent = 'Enter an amount first.';
+      document.getElementById('statusMsg').style.color = '#C77B7B';
+      return;
+    }
+    if(!activeCampaign){
+      document.getElementById('statusMsg').textContent = 'No active campaign to donate to right now.';
+      document.getElementById('statusMsg').style.color = '#C77B7B';
+      return;
+    }
+    pendingAmount = amount;
+    pendingName = document.getElementById('donorName').value.trim();
+    // Real fix, same reason as the in-app form: Razorpay's own dashboard has email set as a
+    // mandatory checkout field, but nothing here ever collected or validated one, so people
+    // could get all the way to tapping Continue and only then hit an opaque failure inside
+    // Razorpay's own checkout. Validating up front, with a real inline message, is what
+    // actually prevents that confusing round-trip.
+    var pendingEmail = document.getElementById('donorEmail').value.trim();
+    var emailErrorEl = document.getElementById('donorEmailError');
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pendingEmail)){
+      emailErrorEl.style.display = 'block';
+      document.getElementById('donorEmail').focus();
+      return;
+    }
+    emailErrorEl.style.display = 'none';
+    var btn = document.getElementById('continueBtn');
+    btn.disabled = true;
+    btn.textContent = 'Preparing payment…';
+    document.getElementById('statusMsg').textContent = '';
+
+    fetch('https://adjvptkzyckkvewbfmzf.supabase.co/functions/v1/create-razorpay-order', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ campaign_id: activeCampaign.id, amount: pendingAmount, donor_name: pendingName || null, donor_email: pendingEmail })
+    }).then(function(r){ return r.json(); }).then(function(order){
+      btn.disabled = false;
+      btn.textContent = 'Continue to Payment';
+      if(order.error){
+        document.getElementById('statusMsg').textContent = 'Could not start payment — please try again.';
+        document.getElementById('statusMsg').style.color = '#C77B7B';
+        return;
+      }
+      var rzp = new Razorpay({
+        key: order.key_id,
+        amount: order.amount,
+        currency: order.currency,
+        order_id: order.order_id,
+        name: 'Home of Beautiful Souls Foundation',
+        description: activeCampaign.title,
+        prefill: Object.assign({ email: pendingEmail }, pendingName ? { name: pendingName } : {}),
+        theme: { color: '#6690D6' },
+        handler: function(response){
+          // A real payment just succeeded from Razorpay's own perspective, but this is still
+          // just the client saying so -- the donation only actually gets marked confirmed once
+          // razorpay-webhook independently verifies it server-side, which is why this message
+          // says "confirming" rather than "confirmed."
+          document.getElementById('statusMsg').textContent = 'Thank you! Confirming your payment…';
+          document.getElementById('statusMsg').style.color = '#3B8F63';
+          document.getElementById('donateAmount').value = '';
+          document.getElementById('donorName').value = '';
+          setTimeout(loadCampaign, 3000); // give the webhook a moment to land, then refresh the total
+        },
+        modal: {
+          ondismiss: function(){
+            document.getElementById('statusMsg').textContent = 'Payment cancelled — no charge was made.';
+            document.getElementById('statusMsg').style.color = '#5C6B94';
+          }
+        }
+      });
+      rzp.on('payment.failed', function(){
+        document.getElementById('statusMsg').textContent = 'Payment failed — please try again.';
+        document.getElementById('statusMsg').style.color = '#C77B7B';
+      });
+      rzp.open();
+    }).catch(function(){
+      btn.disabled = false;
+      btn.textContent = 'Continue to Payment';
+      document.getElementById('statusMsg').textContent = 'Something went wrong — please try again.';
+      document.getElementById('statusMsg').style.color = '#C77B7B';
+    });
+  };
+</script>
+</body>
+</html>
