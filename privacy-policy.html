@@ -23,7 +23,7 @@
 <body>
 
 <h1>Privacy Policy</h1>
-<p class="subtitle">HOBS Companion — Home of Beautiful Souls Foundation<br>Last updated: July 11, 2026</p>
+<p class="subtitle">HOBS Companion — Home of Beautiful Souls Foundation<br>Last updated: October 16, 2026</p>
 
 <p>Home of Beautiful Souls Foundation ("HOBS," "we," "us," or "our") operates the HOBS Companion mobile application (the "App"), a mental health support tool. This policy explains what information we collect through the App, why we collect it, how it's stored and protected, and the choices you have.</p>
 
@@ -42,8 +42,12 @@ CIN: <span>U85300GJ2020NPL118743</span></p>
 <tr><td>Profile</td><td>Name, phone number, date of birth, pronouns</td><td>To personalize your experience and, where relevant, for booking and billing with therapists</td></tr>
 <tr><td>Mental health &amp; wellbeing data</td><td>Mood check-ins, journal entries, screening test responses (including sensitive indicators such as self-harm risk flags), WHO-5 wellbeing scores, therapy worksheet responses</td><td>This is the core purpose of the App — to help you track and reflect on your mental wellbeing, and, where you choose to share it, to inform your care with a therapist</td></tr>
 <tr><td>Tasks &amp; photos</td><td>Task titles, descriptions, and any photo you choose to attach to a task</td><td>To support the task/habit-tracking features of the App</td></tr>
-<tr><td>Bookings &amp; payments</td><td>Session bookings, session dates, payment confirmation status. We do not directly store your card or UPI credentials — payments are handled via a QR-code flow and manually confirmed by our admin team.</td><td>To manage therapy session bookings and billing</td></tr>
+<tr><td>Bookings &amp; payments</td><td>Session bookings, session dates, payment confirmation status. We do not store your card or UPI details. Payments are handled by Razorpay, or, for clients under 18, paid by a parent or guardian outside the app and recorded by the Clinical Team.</td><td>To manage therapy session bookings and billing</td></tr>
 <tr><td>Communications</td><td>Any messages, notes, or content you share with a therapist through the App</td><td>To support your care relationship with that therapist</td></tr>
+<tr><td>Safety details</td><td>Your residential address and your emergency contacts' names and phone numbers</td><td>So your team and emergency contacts can reach you in an emergency</td></tr>
+<tr><td>Location</td><td>Your live location, only while an SOS is open, until someone marks you safe</td><td>So people helping you can find you</td></tr>
+<tr><td>Voice notes</td><td>Voice notes you record, turned into text</td><td>So you can speak instead of type</td></tr>
+<tr><td>Session recordings</td><td>Recordings, transcripts and notes of your therapy sessions</td><td>So your Clinical Team can prepare session notes</td></tr>
 </table>
 
 <h3>2.2 Information collected automatically</h3>
@@ -75,9 +79,15 @@ CIN: <span>U85300GJ2020NPL118743</span></p>
 
 <h2>4. Who we share information with</h2>
 <ul>
-  <li><strong>Your therapist</strong>, if you book a session — limited to what's relevant to your care (e.g. shared journal entries you've explicitly marked as shared, session notes, booking history). Your therapist does not see mood or journal entries you haven't chosen to share.</li>
+  <li><strong>Your therapist</strong>, if you book a session — limited to what's relevant to your care (e.g. shared journal entries you've explicitly marked as shared, session notes, booking history). Your therapist does not see mood or journal entries you haven't chosen to share. The only exception is your safety: if the app finds signs that you may be at risk, your team is told so they can reach out and support you. What they see is limited, and is set out in "When you might be struggling".</li>
   <li><strong>Google/Firebase</strong>, for delivering push notifications and for aggregated usage analytics.</li>
-  <li><strong>Groq</strong>, an AI inference provider, for the second-layer crisis-detection check on journal entries described in Section 5. This is a classification-only use — Groq does not retain this data for training or to improve their models.</li>
+  <li><strong>Groq</strong>, an AI inference provider, for the second-layer crisis-detection check on journal entries described in Section 5, and as a voice-to-text backup. Groq does not retain this data for training or to improve their models.</li>
+  <li><strong>Google</strong>, also for HOBS's email, video sessions (Meet), session recordings, transcripts and notes (Gemini), and professionals' calendars.</li>
+  <li><strong>Meta (WhatsApp)</strong>, for messages, including SOS alerts and phone-number checks.</li>
+  <li><strong>Gladia</strong>, to turn voice notes into text. On HOBS's paid plan it deletes the audio and text after 3 weeks.</li>
+  <li><strong>Razorpay</strong>, for payments (India).</li>
+  <li><strong>HubSpot</strong>, for your name, email and screening test results (score, level, and any self-harm flag), so HOBS's team can follow up (USA).</li>
+  <li><strong>Your emergency contacts</strong>, only when you press SOS: your alert, live location, phone number and address.</li>
   <li><strong>We do not sell your data.</strong> We do not share your data with advertisers. We do not use your mental health data for any purpose other than providing and improving the App and your care.</li>
 </ul>
 
@@ -86,37 +96,55 @@ CIN: <span>U85300GJ2020NPL118743</span></p>
 <ul>
   <li>This data is never used for advertising, profiling, or any commercial purpose.</li>
   <li>It is not shared with employers, insurers, or any third party without your explicit action to share it (e.g. choosing to share an entry with your therapist).</li>
-  <li>If a screening response indicates possible self-harm risk, the App surfaces crisis resources directly (iCall's helpline and India's emergency number) — this is a safety feature, not a data-sharing action, and does not notify any third party automatically.</li>
-  <li>Journal entries are checked for possible crisis signals using two layers: an instant on-device keyword check, and a second check that sends the entry's text to Groq (an AI provider) for a more careful read of indirect or metaphorical language a keyword check alone can miss. If either layer detects a possible signal, the App shows you crisis resources directly — this does not notify your therapist, an admin, or anyone else automatically.</li>
+  <li>Journal entries are checked for possible crisis signals using two layers: an instant on-device keyword check, and a second check that sends the entry's text to Groq (an AI provider) for a more careful read of indirect or metaphorical language a keyword check alone can miss. If either layer detects a possible signal, Bob checks in with you and your team may be told, as described in "When you might be struggling" below.</li>
 </ul>
 
+<h3>When you might be struggling</h3>
+<p>Your words are private. Your journal, your chats with Bob and what you write in the app are not shared with anyone just because you wrote them. There is one exception, and it exists to keep you safe.</p>
+<p>Wherever you write in the app, it checks for signs that you may be struggling. If it finds them, Bob asks how you are and gives you choices. Your team (the professionals you are connected with and HOBS's admin) may also be told, so that someone who cares about you can check in. This is what they receive:</p>
+<ul>
+  <li><strong>Signs of distress:</strong> a private note that you may be struggling. Never your words.</li>
+  <li><strong>Signs of serious risk:</strong> what you answered, and your own words if you choose to type them.</li>
+  <li><strong>Bob chat:</strong> if a message to Bob shows serious worry, your therapist and HOBS's admin see that message, so they can reach you quickly.</li>
+  <li><strong>SOS:</strong> when you press SOS, your team and your emergency contacts get your alert and your live location until you are safe.</li>
+</ul>
+<p>Everyone on your team is bound by confidentiality. They use this only to care for you, never for anything else, and it is never shared outside your care.</p>
+<p>Help is always shown on screen: 112, Tele-MANAS 14416 (free, Government of India), and iCall 9152987821 (Mon–Sat, 8am–9pm).</p>
+
 <div class="crisis">
-<strong>HOBS Companion is not an emergency or crisis service.</strong> If you are in immediate danger or crisis, please call <strong>112</strong> (India's emergency number) or <strong>iCall at 9152987821</strong> (Mon–Sat, 10am–8pm). The App is a support tool, not a substitute for emergency care.
+<strong>HOBS Companion is not an emergency or crisis service.</strong> If you are in immediate danger or crisis, please call <strong>112</strong> (India's emergency number), <strong>Tele-MANAS at 14416</strong> (free, Government of India), or <strong>iCall at 9152987821</strong> (Mon–Sat, 8am–9pm). The App is a support tool, not a substitute for emergency care.
 </div>
 
 <h2>6. Your rights and choices</h2>
 <ul>
   <li><strong>Access &amp; correction:</strong> you can view and edit most of your profile information directly in the App (Profile → Edit Profile).</li>
-  <li><strong>Deletion:</strong> you can delete your account and all associated data yourself, immediately, either in the App (Profile → Edit Profile → Delete My Account) or from the web without needing the App installed at <a href="https://app.homeofbeautifulsouls.com/delete-account.html">delete-account.html</a>. This is permanent and cannot be undone. A small number of records (e.g. confirmed payment/donation records) are retained for legal and accounting purposes, with identifying details removed. Staff accounts (therapists, admins) can't be self-deleted this way since it affects real clients — contact us at <span>support@homeofbeautifulsouls.com</span> instead.</li>
+  <li><strong>Deletion:</strong> you can delete your account and all associated data yourself, immediately, either in the App (Profile → Edit Profile → Delete My Account) or from the web without needing the App installed at <a href="https://app.homeofbeautifulsouls.com/delete-account.html">delete-account.html</a>. This is permanent and cannot be undone. A small number of records (e.g. confirmed payment/donation records) are retained for legal and accounting purposes, with identifying details removed. Session recordings, transcripts and notes are kept as described in "Data retention" below. Staff accounts (therapists, admins) can't be self-deleted this way since it affects real clients — contact us at <span>info@homeofbeautifulsouls.com</span> instead.</li>
   <li><strong>Notifications:</strong> you can disable push notifications at any time from your device settings or in-app preferences.</li>
-  <li><strong>Sharing with your therapist:</strong> journal entries are only visible to your therapist if you explicitly mark them as shared.</li>
+  <li><strong>Sharing with your therapist:</strong> you decide which journal entries your therapist sees. The only exception is your safety: if the app finds signs that you may be at risk, your team is told so they can reach out and support you. "When you might be struggling" sets out exactly what they see.</li>
+  <li><strong>Withdraw consent:</strong> you can withdraw your consent at any time.</li>
+  <li><strong>Someone to act for you:</strong> you can name someone to act for you if you cannot.</li>
+  <li><strong>Complaints:</strong> you can complain to HOBS at info@homeofbeautifulsouls.com, and then to the Data Protection Board of India.</li>
 </ul>
 
 <h2>7. Data retention</h2>
-<p>We retain your data for as long as your account is active. If you delete your account, we delete your personal data within 30 days, except for records we're legally required to keep — such as payment and billing records, which we retain for as long as applicable Indian tax and accounting requirements call for.</p>
+<p>We keep your data while your account is active. If you delete your account, we delete your personal data within 30 days, except:</p>
+<ul>
+  <li>payment and billing records, kept as Indian tax and accounting law requires;</li>
+  <li>session recordings, transcripts and notes, kept for 3 years after you stop using HOBS's services, or, if you were under 18, until you turn 21 if that is later, and then deleted.</li>
+</ul>
 
 <h2>8. Children's privacy</h2>
-<p>HOBS Companion is intended for users aged 18 and older. We do not knowingly collect data from children under 18. If you believe a child has created an account, please contact us at <span>support@homeofbeautifulsouls.com</span> so we can remove it.</p>
+<p>HOBS Companion is for people aged 16 and over. Anyone under 18 needs a parent or legal guardian to sign the Client Agreement with them, and payments for them are made by the parent or guardian outside the app. We do not knowingly collect data from children under 16. If you believe a child under 16 has created an account, please contact us at <span>info@homeofbeautifulsouls.com</span> so we can remove it.</p>
 
 <h2>9. Security</h2>
 <p>We use industry-standard measures to protect your data, including encrypted connections (HTTPS/TLS) for all data in transit, database-level access controls, and restricted admin access. No system is perfectly secure, but we take this seriously given the sensitivity of what we hold.</p>
 
 <h2>10. Changes to this policy</h2>
-<p>We may update this policy from time to time. If we make material changes, we'll update the "last updated" date above and, where appropriate, notify you in the App.</p>
+<p>We may update this policy from time to time. If we make important changes, we'll update the "last updated" date above, and the app will show you what changed and ask you to agree again before you continue.</p>
 
 <h2>11. Contact us</h2>
 <p>Questions about this policy or your data? Reach us at:<br>
-Email: <span>support@homeofbeautifulsouls.com</span></p>
+Email: <span>info@homeofbeautifulsouls.com</span></p>
 
 <footer>Home of Beautiful Souls Foundation · HOBS Companion App</footer>
 
